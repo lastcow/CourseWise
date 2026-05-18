@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useMatch } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -7,8 +7,19 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
+  FileText,
+  GraduationCap,
+  Home,
   LayoutDashboard,
+  Library,
+  ListChecks,
+  MessageSquare,
+  Presentation,
+  Settings,
+  Sliders,
   Ticket,
+  UserCheck,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -40,14 +51,14 @@ const ADMIN_GROUPS: NavGroup[] = [
   },
 ];
 
-const TEACHER_GROUPS: NavGroup[] = [
+const TEACHER_TOP_GROUPS: NavGroup[] = [
   {
     id: 'teacher',
     items: [{ to: '/teacher/courses', labelKey: 'nav.courses', icon: BookOpen, end: false }],
   },
 ];
 
-const STUDENT_GROUPS: NavGroup[] = [
+const STUDENT_TOP_GROUPS: NavGroup[] = [
   {
     id: 'student',
     items: [
@@ -56,6 +67,37 @@ const STUDENT_GROUPS: NavGroup[] = [
     ],
   },
 ];
+
+function teacherCourseChildItems(courseId: string): NavItem[] {
+  const prefix = `/teacher/courses/${courseId}`;
+  return [
+    { to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings },
+    { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
+    { to: `${prefix}/materials`, labelKey: 'materials.title', icon: FileText },
+    { to: `${prefix}/presentations`, labelKey: 'presentations.title', icon: Presentation },
+    { to: `${prefix}/assignments`, labelKey: 'assignments.title', icon: ClipboardList },
+    { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
+    { to: `${prefix}/quizzes`, labelKey: 'quizzes.title', icon: ListChecks },
+    { to: `${prefix}/attendance`, labelKey: 'attendance.title', icon: UserCheck },
+    { to: `${prefix}/gradebook`, labelKey: 'grading.gradebookTitle', icon: GraduationCap },
+    { to: `${prefix}/grading-policy`, labelKey: 'grading.policyTitle', icon: Sliders },
+    { to: `${prefix}/alerts`, labelKey: 'nav.alerts', icon: AlertTriangle },
+  ];
+}
+
+function studentCourseChildItems(courseId: string): NavItem[] {
+  const prefix = `/student/courses/${courseId}`;
+  return [
+    { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
+    { to: `${prefix}/materials`, labelKey: 'materials.title', icon: FileText },
+    { to: `${prefix}/presentations`, labelKey: 'presentations.title', icon: Presentation },
+    { to: `${prefix}/assignments`, labelKey: 'assignments.title', icon: ClipboardList },
+    { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
+    { to: `${prefix}/quizzes`, labelKey: 'quizzes.title', icon: ListChecks },
+    { to: `${prefix}/attendance`, labelKey: 'attendance.myTitle', icon: UserCheck },
+    { to: `${prefix}/grade`, labelKey: 'nav.myGrade', icon: GraduationCap },
+  ];
+}
 
 type SideNavProps = {
   role: UserRole;
@@ -75,16 +117,46 @@ export function SideNav({
   onClose,
 }: SideNavProps): JSX.Element {
   const { t } = useTranslation();
+  // Contextual per-course items keep the global nav fully populated on course detail
+  // routes (the course-scoped sidebar from CourseLayout still renders alongside it).
+  const teacherCourseMatch = useMatch('/teacher/courses/:courseId/*');
+  const teacherCourseId = teacherCourseMatch?.params.courseId;
+  const studentCourseMatch = useMatch('/student/courses/:courseId/*');
+  const studentCourseId = studentCourseMatch?.params.courseId;
   const isMobile = variant === 'mobile';
   // In mobile drawer, force expanded for readability
   const showLabels = isMobile ? true : !collapsed;
 
   const groups = useMemo<NavGroup[]>(() => {
     if (role === 'admin') return ADMIN_GROUPS;
-    if (role === 'teacher') return TEACHER_GROUPS;
-    if (role === 'student') return STUDENT_GROUPS;
+    if (role === 'teacher') {
+      if (teacherCourseId && teacherCourseId !== 'new') {
+        return [
+          ...TEACHER_TOP_GROUPS,
+          {
+            id: 'currentCourse',
+            titleKey: 'nav.currentCourse',
+            items: teacherCourseChildItems(teacherCourseId),
+          },
+        ];
+      }
+      return TEACHER_TOP_GROUPS;
+    }
+    if (role === 'student') {
+      if (studentCourseId) {
+        return [
+          ...STUDENT_TOP_GROUPS,
+          {
+            id: 'currentCourse',
+            titleKey: 'nav.currentCourse',
+            items: studentCourseChildItems(studentCourseId),
+          },
+        ];
+      }
+      return STUDENT_TOP_GROUPS;
+    }
     return [];
-  }, [role]);
+  }, [role, teacherCourseId, studentCourseId]);
 
   return (
     <div
@@ -189,4 +261,3 @@ function SideNavLink({ item, showLabel, label, onNavigate }: SideNavLinkProps): 
     </NavLink>
   );
 }
-
