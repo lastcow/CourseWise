@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
+import { BackOfficeLayout } from '@/components/BackOfficeLayout';
 import { RequireRole } from '@/components/RequireRole';
 import { AuthProvider } from '@/lib/auth';
 import { ToastProvider } from '@/components/ui/toast';
@@ -55,99 +56,6 @@ export default function App(): JSX.Element {
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
-              <Route
-                path="/admin/dashboard"
-                element={
-                  <RequireRole roles={['admin']}>
-                    <AdminDashboardPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/admin/alerts"
-                element={
-                  <RequireRole roles={['admin']}>
-                    <AdminAlertsPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/admin/courses"
-                element={
-                  <RequireRole roles={['admin']}>
-                    <AdminCoursesPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/admin/invitation-codes"
-                element={
-                  <RequireRole roles={['admin']}>
-                    <AdminInvitationCodesPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/teacher/courses"
-                element={
-                  <RequireRole roles={['admin', 'teacher']}>
-                    <TeacherCoursesPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/teacher/courses/new"
-                element={
-                  <RequireRole roles={['admin', 'teacher']}>
-                    <TeacherNewCoursePage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/teacher/courses/:courseId"
-                element={
-                  <RequireRole roles={['admin', 'teacher']}>
-                    <TeacherCourseShell />
-                  </RequireRole>
-                }
-              >
-                <Route index element={<TeacherCourseSettings />} />
-                <Route path="settings" element={<TeacherCourseSettings />} />
-                <Route path="modules" element={<TeacherModulesPage />} />
-                <Route path="materials" element={<TeacherMaterialsPage />} />
-                <Route path="presentations" element={<TeacherPresentationsPage />} />
-                <Route path="assignments" element={<TeacherAssignmentsPage />} />
-                <Route path="assignments/new" element={<TeacherAssignmentFormPage />} />
-                <Route path="assignments/:assignmentId" element={<TeacherAssignmentFormPage />} />
-                <Route
-                  path="assignments/:assignmentId/submissions"
-                  element={<TeacherSubmissionsInboxPage />}
-                />
-                <Route path="discussion" element={<TeacherDiscussionPage />} />
-                <Route path="discussion/:topicId" element={<TeacherDiscussionTopicPage />} />
-                <Route path="quizzes" element={<TeacherQuizzesPage />} />
-                <Route path="quizzes/:quizId/attempts" element={<TeacherQuizAttemptsPage />} />
-                <Route path="attendance" element={<TeacherAttendancePage />} />
-                <Route path="gradebook" element={<TeacherGradebookPage />} />
-                <Route path="grading-policy" element={<TeacherGradingPolicyPage />} />
-                <Route path="alerts" element={<TeacherAlertsPage />} />
-              </Route>
-              <Route
-                path="/teacher/courses/:courseId/quizzes/:quizId"
-                element={
-                  <RequireRole roles={['admin', 'teacher']}>
-                    <TeacherQuizEditorPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/teacher/courses/:courseId/presentations/:presentationId"
-                element={
-                  <RequireRole roles={['admin', 'teacher']}>
-                    <TeacherPresentationEditorPage />
-                  </RequireRole>
-                }
-              />
               <Route
                 path="/student/dashboard"
                 element={
@@ -252,7 +160,103 @@ export default function App(): JSX.Element {
                   </RequireRole>
                 }
               />
-              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+            <Route element={<BackOfficeLayout role="admin" />}>
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <RequireRole roles={['admin']}>
+                    <AdminDashboardPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/alerts"
+                element={
+                  <RequireRole roles={['admin']}>
+                    <AdminAlertsPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/courses"
+                element={
+                  <RequireRole roles={['admin']}>
+                    <AdminCoursesPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/invitation-codes"
+                element={
+                  <RequireRole roles={['admin']}>
+                    <AdminInvitationCodesPage />
+                  </RequireRole>
+                }
+              />
+            </Route>
+            <Route element={<BackOfficeLayout role="teacher" />}>
+              <Route
+                path="/teacher/courses"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherCoursesPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/teacher/courses/new"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherNewCoursePage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/teacher/courses/:courseId"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherCourseShell />
+                  </RequireRole>
+                }
+              >
+                <Route index element={<TeacherCourseSettings />} />
+                <Route path="settings" element={<TeacherCourseSettings />} />
+                <Route path="modules" element={<TeacherModulesPage />} />
+                <Route path="materials" element={<TeacherMaterialsPage />} />
+                <Route path="presentations" element={<TeacherPresentationsPage />} />
+                <Route path="assignments" element={<TeacherAssignmentsPage />} />
+                <Route path="assignments/new" element={<TeacherAssignmentFormPage />} />
+                <Route path="assignments/:assignmentId" element={<TeacherAssignmentFormPage />} />
+                <Route
+                  path="assignments/:assignmentId/submissions"
+                  element={<TeacherSubmissionsInboxPage />}
+                />
+                <Route path="discussion" element={<TeacherDiscussionPage />} />
+                <Route path="discussion/:topicId" element={<TeacherDiscussionTopicPage />} />
+                <Route path="quizzes" element={<TeacherQuizzesPage />} />
+                <Route path="quizzes/:quizId/attempts" element={<TeacherQuizAttemptsPage />} />
+                <Route path="attendance" element={<TeacherAttendancePage />} />
+                <Route path="gradebook" element={<TeacherGradebookPage />} />
+                <Route path="grading-policy" element={<TeacherGradingPolicyPage />} />
+                <Route path="alerts" element={<TeacherAlertsPage />} />
+              </Route>
+              <Route
+                path="/teacher/courses/:courseId/quizzes/:quizId"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherQuizEditorPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/teacher/courses/:courseId/presentations/:presentationId"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherPresentationEditorPage />
+                  </RequireRole>
+                }
+              />
             </Route>
             <Route
               path="/student/courses/:courseId/presentations/:presentationId"
@@ -262,6 +266,7 @@ export default function App(): JSX.Element {
                 </RequireRole>
               }
             />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>
       </ToastProvider>

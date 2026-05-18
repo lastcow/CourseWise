@@ -11,6 +11,12 @@ export const zhCN = {
       logout: '退出登录',
       profile: '个人资料',
       apiTokens: 'API 令牌',
+      sideMenu: '侧边导航',
+      openMenu: '打开导航菜单',
+      closeMenu: '关闭导航菜单',
+      expandMenu: '展开导航菜单',
+      collapseMenu: '收起导航菜单',
+      currentCourse: '当前课程',
     },
     auth: {
       loginTitle: '登录',

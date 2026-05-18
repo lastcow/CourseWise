@@ -11,6 +11,12 @@ export const en = {
       logout: 'Sign out',
       profile: 'Profile',
       apiTokens: 'API tokens',
+      sideMenu: 'Side navigation',
+      openMenu: 'Open navigation menu',
+      closeMenu: 'Close navigation menu',
+      expandMenu: 'Expand navigation menu',
+      collapseMenu: 'Collapse navigation menu',
+      currentCourse: 'Current course',
     },
     auth: {
       loginTitle: 'Sign in',
