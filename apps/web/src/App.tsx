@@ -1,40 +1,107 @@
-import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/button';
-import { APP_NAME } from '@coursewise/shared';
-
-function HomePage(): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <main className="container flex min-h-screen flex-col items-center justify-center gap-6 py-12 text-center">
-      <h1 className="text-4xl font-bold tracking-tight">{APP_NAME}</h1>
-      <p className="text-muted-foreground">{t('app.tagline')}</p>
-      <Button asChild>
-        <Link to="/about">Learn more</Link>
-      </Button>
-    </main>
-  );
-}
-
-function AboutPage(): JSX.Element {
-  return (
-    <main className="container py-12">
-      <h2 className="text-2xl font-semibold">About</h2>
-      <p className="mt-2 text-muted-foreground">CourseWise is a course management platform.</p>
-      <Button asChild variant="outline" className="mt-4">
-        <Link to="/">Home</Link>
-      </Button>
-    </main>
-  );
-}
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Layout } from '@/components/Layout';
+import { RequireRole } from '@/components/RequireRole';
+import { AuthProvider } from '@/lib/auth';
+import { ToastProvider } from '@/components/ui/toast';
+import { HomePage } from '@/pages/HomePage';
+import { LoginPage } from '@/pages/LoginPage';
+import { RegisterPage } from '@/pages/RegisterPage';
+import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
+import { AdminInvitationCodesPage } from '@/pages/admin/AdminInvitationCodesPage';
+import { TeacherCoursesPage } from '@/pages/teacher/TeacherCoursesPage';
+import { TeacherNewCoursePage } from '@/pages/teacher/TeacherNewCoursePage';
+import { TeacherCourseShell } from '@/pages/teacher/TeacherCourseShell';
+import { TeacherCourseSettings } from '@/pages/teacher/TeacherCourseSettings';
+import { TeacherModulesPage } from '@/pages/teacher/TeacherModulesPage';
+import { TeacherMaterialsPage } from '@/pages/teacher/TeacherMaterialsPage';
+import { StudentCoursesPage } from '@/pages/student/StudentCoursesPage';
+import { StudentCourseOverviewPage } from '@/pages/student/StudentCourseOverviewPage';
+import { StudentMaterialsPage } from '@/pages/student/StudentMaterialsPage';
 
 export default function App(): JSX.Element {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/about" element={<AboutPage />} />
-      </Routes>
+      <ToastProvider>
+        <AuthProvider>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route
+                path="/admin/courses"
+                element={
+                  <RequireRole roles={['admin']}>
+                    <AdminCoursesPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/invitation-codes"
+                element={
+                  <RequireRole roles={['admin']}>
+                    <AdminInvitationCodesPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/teacher/courses"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherCoursesPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/teacher/courses/new"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherNewCoursePage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/teacher/courses/:courseId"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherCourseShell />
+                  </RequireRole>
+                }
+              >
+                <Route index element={<TeacherCourseSettings />} />
+                <Route path="settings" element={<TeacherCourseSettings />} />
+                <Route path="modules" element={<TeacherModulesPage />} />
+                <Route path="materials" element={<TeacherMaterialsPage />} />
+              </Route>
+              <Route
+                path="/student/courses"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentCoursesPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/courses/:courseId"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentCourseOverviewPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/courses/:courseId/materials"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentMaterialsPage />
+                  </RequireRole>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }
