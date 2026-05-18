@@ -32,6 +32,7 @@ function toSummary(row: typeof readingMaterials.$inferSelect): MaterialSummary {
     courseId: row.courseId,
     moduleId: row.moduleId ?? null,
     title: row.title,
+    description: row.description ?? null,
     type: row.type,
     sourceType: row.sourceType,
     content: row.content ?? null,
@@ -116,6 +117,7 @@ r.post(
         courseId,
         moduleId: input.moduleId ?? null,
         title: input.title,
+        description: input.description ?? null,
         type: input.type ?? 'document',
         sourceType: input.sourceType,
         content: input.content ?? null,
@@ -203,11 +205,67 @@ r.patch(
       }
     }
 
+    // When the caller changes sourceType, make sure the resulting record will
+    // satisfy the branch's required content field — either from this PATCH
+    // body or from the row's existing values.
+    const nextSourceType = input.sourceType ?? row.sourceType;
+    const nextFileAssetId =
+      input.fileAssetId !== undefined ? input.fileAssetId : row.fileAssetId;
+    const nextExternalUrl =
+      input.externalUrl !== undefined ? input.externalUrl : row.externalUrl;
+    const nextContent = input.content !== undefined ? input.content : row.content;
+    if (nextSourceType === 'upload' && !nextFileAssetId) {
+      throw new ApiException(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        'fileAssetId is required when sourceType is upload',
+      );
+    }
+    if (nextSourceType === 'external_link' && !nextExternalUrl) {
+      throw new ApiException(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        'externalUrl is required when sourceType is external_link',
+      );
+    }
+    if (nextSourceType === 'manual_text' && !nextContent) {
+      throw new ApiException(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        'content is required when sourceType is manual_text',
+      );
+    }
+
+    // If a file asset is supplied, validate it belongs to the same course and
+    // is READY — same rules as create.
+    if (input.fileAssetId) {
+      const fa = (
+        await db.select().from(fileAssets).where(eq(fileAssets.id, input.fileAssetId)).limit(1)
+      )[0];
+      if (!fa) throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'fileAssetId not found');
+      if (fa.courseId && fa.courseId !== row.courseId) {
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'fileAsset belongs to a different course',
+        );
+      }
+      if (fa.status !== 'ready') {
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'fileAsset must be in READY state — complete upload first',
+        );
+      }
+    }
+
     const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
     if (input.title !== undefined) patch.title = input.title;
+    if (input.description !== undefined) patch.description = input.description;
     if (input.type !== undefined) patch.type = input.type;
     if (input.moduleId !== undefined) patch.moduleId = input.moduleId;
     if (input.position !== undefined) patch.position = input.position;
+    if (input.sourceType !== undefined) patch.sourceType = input.sourceType;
     if (input.content !== undefined) patch.content = input.content;
     if (input.externalUrl !== undefined) patch.externalUrl = input.externalUrl;
     if (input.fileAssetId !== undefined) patch.fileAssetId = input.fileAssetId;
@@ -223,6 +281,19 @@ r.patch(
       .where(eq(readingMaterials.id, id))
       .returning();
     if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Material not found');
+
+    // If a new file asset was attached, re-point file_assets.relatedId to the
+    // material (same bookkeeping the create endpoint does on upload).
+    if (input.fileAssetId) {
+      await db
+        .update(fileAssets)
+        .set({
+          relatedType: 'material',
+          relatedId: updated.id,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(fileAssets.id, input.fileAssetId));
+    }
 
     await recordAudit(db, {
       actorType: auth.method === 'jwt' ? 'user' : 'api_token',
