@@ -7,6 +7,7 @@ describe('registerSchema', () => {
       email: 'user@example.com',
       password: 'hunter2hunter2',
       name: 'Alice',
+      invitationCode: 'MGMT101-2026',
     });
     expect(result.success).toBe(true);
   });
@@ -15,6 +16,16 @@ describe('registerSchema', () => {
     const result = registerSchema.safeParse({
       email: 'user@example.com',
       password: 'short',
+      name: 'Alice',
+      invitationCode: 'MGMT101-2026',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('requires an invitation code', () => {
+    const result = registerSchema.safeParse({
+      email: 'user@example.com',
+      password: 'hunter2hunter2',
       name: 'Alice',
     });
     expect(result.success).toBe(false);

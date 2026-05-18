@@ -20,9 +20,7 @@ function AboutPage(): JSX.Element {
   return (
     <main className="container py-12">
       <h2 className="text-2xl font-semibold">About</h2>
-      <p className="mt-2 text-muted-foreground">
-        CourseWise is a course management platform.
-      </p>
+      <p className="mt-2 text-muted-foreground">CourseWise is a course management platform.</p>
       <Button asChild variant="outline" className="mt-4">
         <Link to="/">Home</Link>
       </Button>

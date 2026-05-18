@@ -27,14 +27,14 @@ pnpm dev                   # runs web (5173) and api (8787) in parallel
 
 ## Scripts
 
-| Command          | What it does                                     |
-| ---------------- | ------------------------------------------------ |
-| `pnpm dev`       | Run web + api in parallel                        |
-| `pnpm build`     | Build all workspace packages and apps            |
-| `pnpm typecheck` | Run `tsc --noEmit` across the workspace          |
-| `pnpm lint`      | Run ESLint across the workspace                  |
-| `pnpm test`      | Run Vitest in every workspace package            |
-| `pnpm format`    | Format all files with Prettier                   |
+| Command          | What it does                            |
+| ---------------- | --------------------------------------- |
+| `pnpm dev`       | Run web + api in parallel               |
+| `pnpm build`     | Build all workspace packages and apps   |
+| `pnpm typecheck` | Run `tsc --noEmit` across the workspace |
+| `pnpm lint`      | Run ESLint across the workspace         |
+| `pnpm test`      | Run Vitest in every workspace package   |
+| `pnpm format`    | Format all files with Prettier          |
 
 ## Environment
 
