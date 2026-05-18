@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
 export const SIDENAV_STORAGE_KEY = 'coursewise:sidenav:collapsed';
-export const COURSE_SIDENAV_STORAGE_KEY = 'coursewise:course-sidenav:collapsed';
 
 function readInitialCollapsed(key: string): boolean {
   if (typeof window === 'undefined') return false;
@@ -11,7 +10,8 @@ function readInitialCollapsed(key: string): boolean {
   return window.innerWidth < 1024;
 }
 
-function usePersistedCollapsed(key: string): readonly [boolean, (next: boolean) => void] {
+export function useSideNavCollapsed(): readonly [boolean, (next: boolean) => void] {
+  const key = SIDENAV_STORAGE_KEY;
   const [collapsed, setCollapsedState] = useState<boolean>(() => readInitialCollapsed(key));
   const setCollapsed = useCallback(
     (next: boolean): void => {
@@ -23,14 +23,6 @@ function usePersistedCollapsed(key: string): readonly [boolean, (next: boolean) 
     [key],
   );
   return [collapsed, setCollapsed];
-}
-
-export function useSideNavCollapsed(): readonly [boolean, (next: boolean) => void] {
-  return usePersistedCollapsed(SIDENAV_STORAGE_KEY);
-}
-
-export function useCourseSideNavCollapsed(): readonly [boolean, (next: boolean) => void] {
-  return usePersistedCollapsed(COURSE_SIDENAV_STORAGE_KEY);
 }
 
 export function useEscapeToClose(active: boolean, onClose: () => void): void {

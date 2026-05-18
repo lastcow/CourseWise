@@ -1,7 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { BackOfficeLayout } from '@/components/BackOfficeLayout';
-import { CourseLayout } from '@/components/CourseLayout';
 import { RequireRole } from '@/components/RequireRole';
 import { AuthProvider } from '@/lib/auth';
 import { ToastProvider } from '@/components/ui/toast';
@@ -78,7 +77,7 @@ export default function App(): JSX.Element {
                 path="/student/courses/:courseId"
                 element={
                   <RequireRole roles={['student']}>
-                    <CourseLayout role="student" />
+                    <Outlet />
                   </RequireRole>
                 }
               >
@@ -150,7 +149,7 @@ export default function App(): JSX.Element {
                 path="/teacher/courses/:courseId"
                 element={
                   <RequireRole roles={['admin', 'teacher']}>
-                    <CourseLayout role="teacher" />
+                    <Outlet />
                   </RequireRole>
                 }
               >
