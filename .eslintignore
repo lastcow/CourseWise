@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+.wrangler
+.vite
+coverage
+*.config.js
+*.config.cjs
+*.config.mjs
+*.config.ts

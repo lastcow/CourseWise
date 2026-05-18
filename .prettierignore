@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+.wrangler
+.vite
+coverage
+pnpm-lock.yaml
