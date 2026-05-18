@@ -43,7 +43,7 @@ const ADMIN_GROUPS: NavGroup[] = [
   {
     id: 'admin',
     items: [
-      { to: '/admin/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+      { to: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
       { to: '/admin/courses', labelKey: 'nav.adminCourses', icon: BookOpen },
       { to: '/admin/alerts', labelKey: 'nav.alerts', icon: AlertTriangle },
       { to: '/admin/invitation-codes', labelKey: 'nav.invitationCodes', icon: Ticket },
@@ -55,7 +55,7 @@ const TEACHER_TOP_GROUPS: NavGroup[] = [
   {
     id: 'teacher',
     items: [
-      { to: '/teacher/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+      { to: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
       { to: '/teacher/courses', labelKey: 'nav.courses', icon: BookOpen, end: false },
     ],
   },
@@ -65,7 +65,7 @@ const STUDENT_TOP_GROUPS: NavGroup[] = [
   {
     id: 'student',
     items: [
-      { to: '/student/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+      { to: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
       { to: '/student/courses', labelKey: 'nav.courses', icon: BookOpen, end: false },
     ],
   },

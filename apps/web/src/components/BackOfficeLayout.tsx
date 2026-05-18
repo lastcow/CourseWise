@@ -46,13 +46,6 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
     navigate('/login');
   };
 
-  const homePath =
-    role === 'admin'
-      ? '/admin/dashboard'
-      : role === 'teacher'
-        ? '/teacher/dashboard'
-        : '/student/dashboard';
-
   return (
     <div className="flex min-h-screen bg-background">
       <aside
@@ -107,7 +100,7 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
                 {t('app.name')}
               </Link>
               <Link
-                to={homePath}
+                to="/dashboard"
                 className="hidden items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring md:inline-flex"
               >
                 <Home className="h-4 w-4" aria-hidden />

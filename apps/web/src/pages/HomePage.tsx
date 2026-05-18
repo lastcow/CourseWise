@@ -7,13 +7,7 @@ export function HomePage(): JSX.Element {
   const { t } = useTranslation();
   const { auth } = useAuth();
   if (auth) {
-    const home =
-      auth.user.role === 'admin'
-        ? '/admin/dashboard'
-        : auth.user.role === 'teacher'
-          ? '/teacher/dashboard'
-          : '/student/dashboard';
-    return <Navigate to={home} replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return (
     <section className="flex flex-col items-center justify-center gap-6 py-20 text-center">
