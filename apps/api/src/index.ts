@@ -21,6 +21,7 @@ import attendanceRoutes from './routes/attendance';
 import gradingRoutes from './routes/grading';
 import alertsRoutes from './routes/alerts';
 import dashboardsRoutes from './routes/dashboards';
+import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
 
 export type Env = AppBindings;
@@ -57,6 +58,13 @@ app.get(API_ROUTES.version, (c) => {
 
 // Back-compat for /health while the rest of M0 still references it.
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+app.get('/api/openapi.json', (c) => {
+  const protocol = c.req.header('x-forwarded-proto') ?? new URL(c.req.url).protocol.replace(':', '');
+  const host = c.req.header('host');
+  const serverUrl = host ? `${protocol}://${host}` : undefined;
+  return c.json(buildOpenApiSpec({ serverUrl }));
+});
 
 app.route('/api/auth', authRoutes);
 app.route('/api/me', meRoutes);
