@@ -49,9 +49,14 @@ Do these once per environment, in this order:
    gh secret set CLOUDFLARE_ACCOUNT_ID         --body "<account-id>"
    gh secret set CLOUDFLARE_PAGES_PROJECT_NAME --body "coursewise"
    gh secret set VITE_API_BASE_URL             --body "https://coursewise-api.<account>.workers.dev"
+   gh secret set DATABASE_URL                  --body "postgresql://<user>:<pw>@<neon-pooler-host>/<db>?sslmode=require"
    # optional
    gh secret set VITE_DEFAULT_LOCALE           --body "en"
    ```
+
+   `DATABASE_URL` is the **pooled** Neon connection string for prod
+   (`coursewise` project, branch `main`, db `neondb`). The CI `migrate` job
+   uses it to apply pending Drizzle migrations before each deploy.
 
 ## Database migrations
 
@@ -61,22 +66,28 @@ pnpm db:migrate    # apply pending migrations against DATABASE_URL
 pnpm db:seed       # seed admin / teacher / students / MGMT101 / invitation
 ```
 
-`db:migrate` and `db:seed` read `.env.local` via `node --env-file`. CI does
-**not** run migrations automatically — they are operator commands. Run
-`pnpm db:migrate` against the production `DATABASE_URL` before the first
-deploy, and again whenever a new migration is added.
+`db:migrate` and `db:seed` read `.env.local` via `node --env-file`. CI
+**does** run `pnpm db:migrate` automatically on every push to `main` — see
+the `migrate` job in `.github/workflows/deploy.yml`. It uses the
+`DATABASE_URL` GitHub Actions secret and runs before `deploy_api` /
+`deploy_web`, so a failing migration aborts the deploy. `db:seed` is still
+an operator-only command — CI never runs it.
 
 ## CI / deploy workflow
 
-`.github/workflows/deploy.yml` runs three jobs:
+`.github/workflows/deploy.yml` runs four jobs:
 
-| Job          | When                          | Does                                                  |
-| ------------ | ----------------------------- | ----------------------------------------------------- |
-| `ci`         | every PR and push             | install → typecheck → lint → test → build             |
-| `deploy_api` | push to `main`, after `ci`    | `wrangler deploy` from `apps/api`                     |
-| `deploy_web` | push to `main`, after `ci`    | `pnpm --filter @coursewise/web build` then `pages deploy apps/web/dist` |
+| Job          | When                            | Does                                                  |
+| ------------ | ------------------------------- | ----------------------------------------------------- |
+| `ci`         | every PR and push               | install → typecheck → lint → test → build             |
+| `migrate`    | push to `main`, after `ci`      | `pnpm --filter @coursewise/api db:migrate` against the `DATABASE_URL` secret |
+| `deploy_api` | push to `main`, after `migrate` | `wrangler deploy` from `apps/api`                     |
+| `deploy_web` | push to `main`, after `migrate` | `pnpm --filter @coursewise/web build` then `pages deploy apps/web/dist` |
 
-The two deploy jobs run in parallel; failure of one does not block the other.
+The two deploy jobs run in parallel after `migrate`; failure of either deploy
+does not block the other, but a failed migration blocks both. The `migrate`
+job is a no-op (drizzle reports no pending migrations) when nothing has
+changed since the last apply.
 
 ## First deploy (manual)
 
