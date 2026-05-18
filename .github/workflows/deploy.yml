@@ -44,9 +44,42 @@ jobs:
       - name: Build
         run: pnpm build
 
+  migrate:
+    name: Apply DB migrations (prod Neon)
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Write .env.local from secret
+        run: printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > .env.local
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Apply migrations
+        run: pnpm --filter @coursewise/api db:migrate
+
   deploy_api:
     name: Deploy API to Cloudflare Workers
-    needs: ci
+    needs: migrate
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -80,7 +113,7 @@ jobs:
 
   deploy_web:
     name: Deploy Web to Cloudflare Pages
-    needs: ci
+    needs: migrate
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
