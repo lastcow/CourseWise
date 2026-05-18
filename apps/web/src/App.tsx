@@ -1,15 +1,16 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { BackOfficeLayout } from '@/components/BackOfficeLayout';
+import { RoleAwareBackOfficeLayout } from '@/components/RoleAwareBackOfficeLayout';
 import { RequireRole } from '@/components/RequireRole';
 import { AuthProvider } from '@/lib/auth';
 import { ToastProvider } from '@/components/ui/toast';
+import { DashboardPage } from '@/pages/DashboardPage';
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
 import { AdminInvitationCodesPage } from '@/pages/admin/AdminInvitationCodesPage';
-import { TeacherDashboardPage } from '@/pages/teacher/TeacherDashboardPage';
 import { TeacherCoursesPage } from '@/pages/teacher/TeacherCoursesPage';
 import { TeacherNewCoursePage } from '@/pages/teacher/TeacherNewCoursePage';
 import { TeacherCourseSettings } from '@/pages/teacher/TeacherCourseSettings';
@@ -29,9 +30,7 @@ import { TeacherAttendancePage } from '@/pages/teacher/TeacherAttendancePage';
 import { TeacherGradebookPage } from '@/pages/teacher/TeacherGradebookPage';
 import { TeacherGradingPolicyPage } from '@/pages/teacher/TeacherGradingPolicyPage';
 import { TeacherAlertsPage } from '@/pages/teacher/TeacherAlertsPage';
-import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
 import { AdminAlertsPage } from '@/pages/admin/AdminAlertsPage';
-import { StudentDashboardPage } from '@/pages/student/StudentDashboardPage';
 import { StudentGradePage } from '@/pages/student/StudentGradePage';
 import { StudentCoursesPage } from '@/pages/student/StudentCoursesPage';
 import { StudentCourseOverviewPage } from '@/pages/student/StudentCourseOverviewPage';
@@ -57,15 +56,10 @@ export default function App(): JSX.Element {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
             </Route>
+            <Route element={<RoleAwareBackOfficeLayout />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+            </Route>
             <Route element={<BackOfficeLayout role="student" />}>
-              <Route
-                path="/student/dashboard"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentDashboardPage />
-                  </RequireRole>
-                }
-              />
               <Route
                 path="/student/courses"
                 element={
@@ -97,14 +91,6 @@ export default function App(): JSX.Element {
             </Route>
             <Route element={<BackOfficeLayout role="admin" />}>
               <Route
-                path="/admin/dashboard"
-                element={
-                  <RequireRole roles={['admin']}>
-                    <AdminDashboardPage />
-                  </RequireRole>
-                }
-              />
-              <Route
                 path="/admin/alerts"
                 element={
                   <RequireRole roles={['admin']}>
@@ -130,14 +116,6 @@ export default function App(): JSX.Element {
               />
             </Route>
             <Route element={<BackOfficeLayout role="teacher" />}>
-              <Route
-                path="/teacher/dashboard"
-                element={
-                  <RequireRole roles={['admin', 'teacher']}>
-                    <TeacherDashboardPage />
-                  </RequireRole>
-                }
-              />
               <Route
                 path="/teacher/courses"
                 element={
