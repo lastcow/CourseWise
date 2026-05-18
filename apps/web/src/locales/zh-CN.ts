@@ -19,10 +19,6 @@ export const zhCN = {
       currentCourse: '当前课程',
       overview: '课程概览',
       myGrade: '我的成绩',
-      courseMenu: '课程导航',
-      backToCourses: '返回课程列表',
-      expandCourseMenu: '展开课程菜单',
-      collapseCourseMenu: '收起课程菜单',
     },
     auth: {
       loginTitle: '登录',

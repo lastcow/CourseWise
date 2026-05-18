@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Menu } from 'lucide-react';
+import { Home, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SideNav, type UserRole } from '@/components/SideNav';
 import { useEscapeToClose, useSideNavCollapsed } from '@/components/sideNavHooks';
@@ -45,6 +45,13 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
     toast.push({ title: t('auth.logoutSuccess'), tone: 'success' });
     navigate('/login');
   };
+
+  const homePath =
+    role === 'admin'
+      ? '/admin/dashboard'
+      : role === 'teacher'
+        ? '/teacher/courses'
+        : '/student/dashboard';
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -98,6 +105,13 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
               </button>
               <Link to="/" className="text-base font-semibold md:hidden">
                 {t('app.name')}
+              </Link>
+              <Link
+                to={homePath}
+                className="hidden items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring md:inline-flex"
+              >
+                <Home className="h-4 w-4" aria-hidden />
+                <span>{t('nav.home')}</span>
               </Link>
             </div>
             <div className="flex items-center gap-3 text-sm">
