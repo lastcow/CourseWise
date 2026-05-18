@@ -16,6 +16,7 @@ import { AdminInvitationCodesPage } from '@/pages/admin/AdminInvitationCodesPage
 import { AdminTeachersPage } from '@/pages/admin/AdminTeachersPage';
 import { TeacherCoursesPage } from '@/pages/teacher/TeacherCoursesPage';
 import { TeacherNewCoursePage } from '@/pages/teacher/TeacherNewCoursePage';
+import { TeacherCourseOverviewPage } from '@/pages/teacher/TeacherCourseOverviewPage';
 import { TeacherCourseSettings } from '@/pages/teacher/TeacherCourseSettings';
 import { TeacherModulesPage } from '@/pages/teacher/TeacherModulesPage';
 import { TeacherMaterialsPage } from '@/pages/teacher/TeacherMaterialsPage';
@@ -153,7 +154,7 @@ export default function App(): JSX.Element {
                   </RequireRole>
                 }
               >
-                <Route index element={<TeacherCourseSettings />} />
+                <Route index element={<TeacherCourseOverviewPage />} />
                 <Route path="settings" element={<TeacherCourseSettings />} />
                 <Route path="modules" element={<TeacherModulesPage />} />
                 <Route path="materials" element={<TeacherMaterialsPage />} />
