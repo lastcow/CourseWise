@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -149,15 +151,14 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                 </div>
               </div>
               {selected.fileAssetId ? (
-                <div>
-                  <Label>{t('submissions.attachment')}</Label>
-                  <Button
-                    size="sm"
-                    variant="outline"
+                <div className="flex items-center gap-2">
+                  <Label className="m-0">{t('submissions.attachment')}</Label>
+                  <ActionIconButton
+                    icon={Download}
+                    label={t('materials.download')}
+                    color="sky"
                     onClick={() => onDownload(selected.fileAssetId!)}
-                  >
-                    {t('materials.download')}
-                  </Button>
+                  />
                 </div>
               ) : null}
               {selected.status !== 'draft' ? (

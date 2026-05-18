@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { CircleCheck } from 'lucide-react';
 import type { AlertStatus, AlertWithStudent } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
@@ -116,16 +118,16 @@ export function TeacherAlertsPage(): JSX.Element {
                 ) : null}
                 {a.status === 'open' ? (
                   <div className="mt-2 flex justify-end gap-2">
-                    <Button
-                      variant="outline"
+                    <ActionIconButton
                       size="sm"
+                      icon={CircleCheck}
+                      label={t('alerts.resolveCta')}
+                      color="emerald"
                       onClick={() => {
                         setResolving(a);
                         setNote('');
                       }}
-                    >
-                      {t('alerts.resolveCta')}
-                    </Button>
+                    />
                   </div>
                 ) : (
                   <div className="mt-2 text-xs text-muted-foreground">

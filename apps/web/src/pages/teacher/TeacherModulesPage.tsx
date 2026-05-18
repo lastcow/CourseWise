@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Archive, ChevronDown, ChevronUp, CircleCheck, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -102,24 +104,31 @@ export function TeacherModulesPage(): JSX.Element {
                         </p>
                       ) : null}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => onMove(idx, -1)} disabled={idx === 0}>
-                        ↑
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
+                    <div className="flex items-center gap-1.5">
+                      <ActionIconButton
+                        icon={ChevronUp}
+                        label={t('common.moveUp')}
+                        color="sky"
+                        onClick={() => onMove(idx, -1)}
+                        disabled={idx === 0}
+                      />
+                      <ActionIconButton
+                        icon={ChevronDown}
+                        label={t('common.moveDown')}
+                        color="sky"
                         onClick={() => onMove(idx, 1)}
                         disabled={idx === list.data!.length - 1}
-                      >
-                        ↓
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingId(m.id)}>
-                        {t('common.edit')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
+                      />
+                      <ActionIconButton
+                        icon={Pencil}
+                        label={t('common.edit')}
+                        color="yellow"
+                        onClick={() => setEditingId(m.id)}
+                      />
+                      <ActionIconButton
+                        icon={Trash2}
+                        label={t('common.delete')}
+                        color="red"
                         onClick={async () => {
                           if (!window.confirm(`${t('common.delete')}: ${m.title}?`)) return;
                           try {
@@ -130,9 +139,7 @@ export function TeacherModulesPage(): JSX.Element {
                             toast.push({ title: t(i18n), tone: 'error' });
                           }
                         }}
-                      >
-                        {t('common.delete')}
-                      </Button>
+                      />
                     </div>
                   </div>
 
@@ -173,10 +180,16 @@ export function TeacherModulesPage(): JSX.Element {
                                 )}
                               </Badge>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <Button
+                            <div className="flex items-center gap-1.5">
+                              <ActionIconButton
                                 size="sm"
-                                variant="outline"
+                                icon={mat.status === 'published' ? Archive : CircleCheck}
+                                label={
+                                  mat.status === 'published'
+                                    ? t('materials.unpublish')
+                                    : t('materials.publish')
+                                }
+                                color={mat.status === 'published' ? 'orange' : 'emerald'}
                                 onClick={async () => {
                                   const action = mat.status === 'published' ? 'archive' : 'publish';
                                   try {
@@ -195,17 +208,19 @@ export function TeacherModulesPage(): JSX.Element {
                                     toast.push({ title: t(i18n), tone: 'error' });
                                   }
                                 }}
-                              >
-                                {mat.status === 'published'
-                                  ? t('materials.unpublish')
-                                  : t('materials.publish')}
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => setEditingMaterial(mat)}>
-                                {t('common.edit')}
-                              </Button>
-                              <Button
+                              />
+                              <ActionIconButton
                                 size="sm"
-                                variant="destructive"
+                                icon={Pencil}
+                                label={t('common.edit')}
+                                color="yellow"
+                                onClick={() => setEditingMaterial(mat)}
+                              />
+                              <ActionIconButton
+                                size="sm"
+                                icon={Trash2}
+                                label={t('common.delete')}
+                                color="red"
                                 onClick={async () => {
                                   if (!window.confirm(`${t('common.delete')}: ${mat.title}?`)) return;
                                   try {
@@ -217,9 +232,7 @@ export function TeacherModulesPage(): JSX.Element {
                                     toast.push({ title: t(i18n), tone: 'error' });
                                   }
                                 }}
-                              >
-                                {t('common.delete')}
-                              </Button>
+                              />
                             </div>
                           </li>
                         ))}

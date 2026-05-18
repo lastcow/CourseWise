@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Download, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
 import { MarkdownView, stripMarkdown } from '@/components/ui/markdown';
@@ -111,18 +112,24 @@ function StudentRow({
             </div>
           ) : null}
         </div>
-        <div>
+        <div className="flex items-center gap-1.5">
           {m.sourceType === 'upload' && m.fileAssetId ? (
-            <Button size="sm" onClick={() => onDownload(m.fileAssetId!)}>
-              {t('materials.download')}
-            </Button>
+            <ActionIconButton
+              icon={Download}
+              label={t('materials.download')}
+              color="sky"
+              onClick={() => onDownload(m.fileAssetId!)}
+            />
           ) : null}
           {m.sourceType === 'external_link' && m.externalUrl ? (
-            <Button asChild size="sm">
-              <a href={m.externalUrl} target="_blank" rel="noreferrer">
-                {t('materials.open')}
-              </a>
-            </Button>
+            <ActionIconButton
+              asChild
+              icon={ExternalLink}
+              label={t('materials.open')}
+              color="sky"
+            >
+              <a href={m.externalUrl} target="_blank" rel="noreferrer" />
+            </ActionIconButton>
           ) : null}
         </div>
       </CardContent>

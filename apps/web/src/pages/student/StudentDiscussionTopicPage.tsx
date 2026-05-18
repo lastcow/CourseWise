@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Pencil, Reply, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty';
@@ -123,34 +125,38 @@ export function StudentDiscussionTopicPage(): JSX.Element {
           )}
         </div>
         {!node.post.isDeleted && !isEditing ? (
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex items-center gap-1.5">
             {topic.data?.status === 'published' ? (
-              <Button size="sm" variant="outline" onClick={() => setReplyTo(node.post.id)}>
-                {t('discussion.reply')}
-              </Button>
+              <ActionIconButton
+                size="sm"
+                icon={Reply}
+                label={t('discussion.reply')}
+                color="sky"
+                onClick={() => setReplyTo(node.post.id)}
+              />
             ) : null}
             {mine ? (
               <>
-                <Button
+                <ActionIconButton
                   size="sm"
-                  variant="outline"
+                  icon={Pencil}
+                  label={t('common.edit')}
+                  color="yellow"
                   onClick={() => {
                     setEditing(node.post.id);
                     setEditText(node.post.content ?? '');
                   }}
-                >
-                  {t('common.edit')}
-                </Button>
-                <Button
+                />
+                <ActionIconButton
                   size="sm"
-                  variant="destructive"
+                  icon={Trash2}
+                  label={t('common.delete')}
+                  color="red"
                   onClick={async () => {
                     if (!confirm(t('discussion.postDeleteConfirm'))) return;
                     await del.mutateAsync(node.post.id);
                   }}
-                >
-                  {t('common.delete')}
-                </Button>
+                />
               </>
             ) : null}
           </div>

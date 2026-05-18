@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label, Textarea } from '@/components/ui/input';
@@ -126,13 +128,12 @@ export function StudentAssignmentDetailPage(): JSX.Element {
             </p>
             <Markdown source={assignment.data.description ?? ''} />
             {assignment.data.attachmentFileId ? (
-              <Button
-                size="sm"
-                variant="outline"
+              <ActionIconButton
+                icon={Download}
+                label={t('assignments.downloadAttachment')}
+                color="sky"
                 onClick={() => onDownload(assignment.data!.attachmentFileId!)}
-              >
-                {t('assignments.downloadAttachment')}
-              </Button>
+              />
             ) : null}
           </CardContent>
         </Card>
@@ -195,9 +196,12 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                   </Button>
                 ) : null}
                 {fileAssetId ? (
-                  <Button size="sm" variant="outline" onClick={() => onDownload(fileAssetId)}>
-                    {t('materials.download')}
-                  </Button>
+                  <ActionIconButton
+                    icon={Download}
+                    label={t('materials.download')}
+                    color="sky"
+                    onClick={() => onDownload(fileAssetId)}
+                  />
                 ) : null}
                 {uploadProgress != null ? (
                   <span className="text-xs">{t('materials.uploading', { progress: uploadProgress })}</span>
