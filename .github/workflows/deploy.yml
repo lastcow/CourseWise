@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   ci:
-    name: Install / Typecheck / Lint / Build
+    name: Install / Typecheck / Lint / Test / Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -38,25 +38,82 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Test
+        run: pnpm test
+
       - name: Build
         run: pnpm build
 
-  # Deploy job wired up in M6.
-  # deploy:
-  #   needs: ci
-  #   if: github.ref == 'refs/heads/main'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: pnpm/action-setup@v4
-  #       with: { version: 9.12.0 }
-  #     - uses: actions/setup-node@v4
-  #       with: { node-version: 20, cache: pnpm }
-  #     - run: pnpm install --frozen-lockfile
-  #     - run: pnpm build
-  #     - name: Deploy API to Cloudflare Workers
-  #       uses: cloudflare/wrangler-action@v3
-  #       with:
-  #         apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-  #         accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  #         workingDirectory: apps/api
+  deploy_api:
+    name: Deploy API to Cloudflare Workers
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api
+          command: deploy
+          packageManager: pnpm
+
+  deploy_web:
+    name: Deploy Web to Cloudflare Pages
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_DEFAULT_LOCALE: ${{ secrets.VITE_DEFAULT_LOCALE || 'en' }}
+        run: pnpm --filter @coursewise/web build
+
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/web/dist --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME || 'coursewise' }} --branch=main
+          packageManager: pnpm
