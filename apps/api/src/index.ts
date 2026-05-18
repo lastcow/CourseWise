@@ -11,7 +11,7 @@ import teacherInvitationsAdminRoutes from './routes/teacherInvitations';
 import teacherRoutes from './routes/teacher';
 import coursesRoutes from './routes/courses';
 import modulesRoutes from './routes/modules';
-import invitationsRoutes, { invitationsPublic } from './routes/invitations';
+import invitationsRoutes from './routes/invitations';
 import materialsRoutes from './routes/materials';
 import filesRoutes from './routes/files';
 import presentationsRoutes from './routes/presentations';
@@ -57,9 +57,6 @@ app.get(API_ROUTES.version, (c) => {
   return c.json(body);
 });
 
-// Back-compat for /health while the rest of M0 still references it.
-app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
-
 app.get('/api/openapi.json', (c) => {
   const protocol =
     c.req.header('x-forwarded-proto') ?? new URL(c.req.url).protocol.replace(':', '');
@@ -73,7 +70,6 @@ app.route('/api/me', meRoutes);
 app.route('/api/admin', adminRoutes);
 app.route('/api/admin', teacherInvitationsAdminRoutes);
 app.route('/api/teacher', teacherRoutes);
-app.route('/api', invitationsPublic);
 app.route('/api', coursesRoutes);
 app.route('/api', modulesRoutes);
 app.route('/api', invitationsRoutes);

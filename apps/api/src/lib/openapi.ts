@@ -1,9 +1,39 @@
-import { API_TOKEN_SCOPES, SCOPE_GROUPS, USER_ROLES, type ScopeGroupName } from '@coursewise/shared';
+import {
+  API_TOKEN_SCOPES,
+  SCOPE_GROUPS,
+  USER_ROLES,
+  type ScopeGroupName,
+} from '@coursewise/shared';
 import { ERROR_CODES } from './errors';
 
-type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
+export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 type SecurityKind = 'public' | 'jwt' | 'either';
+
+/**
+ * The only routes that may serve unauthenticated traffic. Every other route
+ * MUST be mounted behind `requireAuth` / `requireJwtAuth`. The
+ * `auth-coverage` test in `index.test.ts` walks Hono's route table and
+ * enforces this invariant.
+ *
+ * Whitelisted endpoints are also rendered with `security: []` in the OpenAPI
+ * spec (no auth challenge).
+ */
+export const PUBLIC_ROUTE_WHITELIST: ReadonlyArray<{ method: Method; path: string }> = [
+  { method: 'get', path: '/api/health' },
+  { method: 'get', path: '/api/version' },
+  { method: 'get', path: '/api/openapi.json' },
+  { method: 'post', path: '/api/auth/login' },
+  { method: 'post', path: '/api/auth/refresh' },
+  { method: 'post', path: '/api/auth/register-student' },
+  { method: 'post', path: '/api/auth/register-teacher' },
+  { method: 'get', path: '/api/auth/teacher-invitations/:token' },
+];
+
+export function isPublicRoute(method: string, path: string): boolean {
+  const m = method.toLowerCase() as Method;
+  return PUBLIC_ROUTE_WHITELIST.some((entry) => entry.method === m && entry.path === path);
+}
 
 interface RouteSpec {
   method: Method;
@@ -24,7 +54,9 @@ const r = (
   path: string,
   summary: string,
   tag: string,
-  opts: Partial<Omit<RouteSpec, 'method' | 'path' | 'summary' | 'tag'>> & { security?: SecurityKind } = {},
+  opts: Partial<Omit<RouteSpec, 'method' | 'path' | 'summary' | 'tag'>> & {
+    security?: SecurityKind;
+  } = {},
 ): RouteSpec => ({
   method,
   path,
@@ -38,9 +70,17 @@ const idParams = (...names: string[]) => names;
 
 export const ROUTES: readonly RouteSpec[] = [
   // ---------- Discovery ----------
-  r('get', '/api/health', 'Service liveness probe', 'meta', { security: 'public', responseSchema: 'HealthResponse' }),
-  r('get', '/api/version', 'API version and build info', 'meta', { security: 'public', responseSchema: 'VersionResponse' }),
-  r('get', '/api/openapi.json', 'OpenAPI 3.1 specification for this API', 'meta', { security: 'public' }),
+  r('get', '/api/health', 'Service liveness probe', 'meta', {
+    security: 'public',
+    responseSchema: 'HealthResponse',
+  }),
+  r('get', '/api/version', 'API version and build info', 'meta', {
+    security: 'public',
+    responseSchema: 'VersionResponse',
+  }),
+  r('get', '/api/openapi.json', 'OpenAPI 3.1 specification for this API', 'meta', {
+    security: 'public',
+  }),
 
   // ---------- Auth ----------
   r('post', '/api/auth/register-student', 'Register a student with an invitation code', 'auth', {
@@ -59,196 +99,762 @@ export const ROUTES: readonly RouteSpec[] = [
     responseSchema: 'AuthLoginResponse',
   }),
   r('post', '/api/auth/logout', 'Revoke the supplied refresh token', 'auth', {
-    security: 'public',
+    security: 'either',
     requestSchema: 'RefreshInput',
   }),
-  r('get', '/api/auth/me', 'Current authenticated user (JWT only)', 'auth', { security: 'jwt', responseSchema: 'UserSelf' }),
+  r('get', '/api/auth/me', 'Current authenticated user (JWT only)', 'auth', {
+    security: 'jwt',
+    responseSchema: 'UserSelf',
+  }),
+  r(
+    'get',
+    '/api/auth/teacher-invitations/{token}',
+    'Look up a teacher invitation by token (public)',
+    'auth',
+    {
+      security: 'public',
+      pathParams: ['token'],
+    },
+  ),
+  r('post', '/api/auth/register-teacher', 'Register a teacher with an invitation token', 'auth', {
+    security: 'public',
+    requestSchema: 'RegisterTeacherInput',
+    responseSchema: 'AuthLoginResponse',
+  }),
 
   // ---------- Me / preferences / tokens ----------
   r('get', '/api/me/preferences', 'Get my preferences', 'me', { security: 'jwt' }),
-  r('patch', '/api/me/preferences', 'Update my preferences', 'me', { security: 'jwt', requestSchema: 'UpdatePreferencesInput' }),
-  r('get', '/api/me/api-tokens', 'List my API tokens (no plaintext)', 'me', { security: 'jwt' }),
-  r('post', '/api/me/api-tokens', 'Create a self-service API token (returns plaintext once)', 'me', {
+  r('patch', '/api/me/preferences', 'Update my preferences', 'me', {
     security: 'jwt',
-    requestSchema: 'CreateApiTokenInput',
-    responseSchema: 'ApiTokenCreated',
+    requestSchema: 'UpdatePreferencesInput',
   }),
-  r('post', '/api/me/api-tokens/{id}/revoke', 'Revoke one of my API tokens', 'me', { security: 'jwt', pathParams: idParams('id') }),
+  r('get', '/api/me/api-tokens', 'List my API tokens (no plaintext)', 'me', { security: 'jwt' }),
+  r(
+    'post',
+    '/api/me/api-tokens',
+    'Create a self-service API token (returns plaintext once; scope auto-bound to caller role)',
+    'me',
+    {
+      security: 'jwt',
+      requestSchema: 'CreateSelfApiTokenInput',
+      responseSchema: 'ApiTokenCreated',
+    },
+  ),
+  r('post', '/api/me/api-tokens/{id}/revoke', 'Revoke one of my API tokens', 'me', {
+    security: 'jwt',
+    pathParams: idParams('id'),
+  }),
 
   // ---------- Admin / API tokens ----------
-  r('get', '/api/admin/api-tokens', 'List all API tokens in the workspace', 'admin', { security: 'jwt', roles: ['admin'] }),
-  r('post', '/api/admin/api-tokens', 'Mint an admin API token (any scope, returns plaintext once)', 'admin', {
+  r('get', '/api/admin/api-tokens', 'List all API tokens in the workspace', 'admin', {
     security: 'jwt',
     roles: ['admin'],
-    requestSchema: 'CreateApiTokenInput',
-    responseSchema: 'ApiTokenCreated',
   }),
-  r('post', '/api/admin/api-tokens/{id}/revoke', 'Admin: revoke any API token', 'admin', { security: 'jwt', roles: ['admin'], pathParams: idParams('id') }),
-  r('get', '/api/admin/users/{userId}/api-tokens', 'Admin: list a user\'s tokens', 'admin', { security: 'jwt', roles: ['admin'], pathParams: idParams('userId') }),
+  r(
+    'post',
+    '/api/admin/api-tokens',
+    'Mint an admin API token (any scope, returns plaintext once)',
+    'admin',
+    {
+      security: 'jwt',
+      roles: ['admin'],
+      requestSchema: 'CreateApiTokenInput',
+      responseSchema: 'ApiTokenCreated',
+    },
+  ),
+  r('post', '/api/admin/api-tokens/{id}/revoke', 'Admin: revoke any API token', 'admin', {
+    security: 'jwt',
+    roles: ['admin'],
+    pathParams: idParams('id'),
+  }),
+  r('get', '/api/admin/users/{userId}/api-tokens', "Admin: list a user's tokens", 'admin', {
+    security: 'jwt',
+    roles: ['admin'],
+    pathParams: idParams('userId'),
+  }),
+
+  // ---------- Admin / Teachers + Invitations ----------
+  r('get', '/api/admin/teachers', 'List active teachers (with course counts)', 'admin', {
+    security: 'jwt',
+    roles: ['admin'],
+  }),
+  r('get', '/api/admin/teacher-invitations', 'List teacher invitations', 'admin', {
+    security: 'jwt',
+    roles: ['admin'],
+    queryParams: [
+      { name: 'status', description: 'pending | accepted | revoked | expired' },
+      { name: 'page' },
+      { name: 'pageSize' },
+    ],
+  }),
+  r('post', '/api/admin/teacher-invitations', 'Create a teacher invitation', 'admin', {
+    security: 'jwt',
+    roles: ['admin'],
+    requestSchema: 'CreateTeacherInvitationInput',
+  }),
+  r('post', '/api/admin/teacher-invitations/{id}/revoke', 'Revoke a teacher invitation', 'admin', {
+    security: 'jwt',
+    roles: ['admin'],
+    pathParams: idParams('id'),
+  }),
+  r(
+    'post',
+    '/api/admin/teacher-invitations/{id}/resend',
+    'Resend / rotate a teacher invitation',
+    'admin',
+    {
+      security: 'jwt',
+      roles: ['admin'],
+      pathParams: idParams('id'),
+    },
+  ),
 
   // ---------- Teacher / API tokens ----------
-  r('get', '/api/teacher/api-tokens', 'List my teacher API tokens', 'teacher', { security: 'jwt', roles: ['teacher'] }),
-  r('post', '/api/teacher/api-tokens', 'Mint a teacher API token (non-admin scopes only)', 'teacher', {
+  r('get', '/api/teacher/api-tokens', 'List my teacher API tokens', 'teacher', {
     security: 'jwt',
     roles: ['teacher'],
-    requestSchema: 'CreateApiTokenInput',
-    responseSchema: 'ApiTokenCreated',
   }),
-  r('post', '/api/teacher/api-tokens/{id}/revoke', 'Teacher: revoke my token', 'teacher', { security: 'jwt', roles: ['teacher'], pathParams: idParams('id') }),
+  r(
+    'post',
+    '/api/teacher/api-tokens',
+    'Mint a teacher API token (non-admin scopes only)',
+    'teacher',
+    {
+      security: 'jwt',
+      roles: ['teacher'],
+      requestSchema: 'CreateApiTokenInput',
+      responseSchema: 'ApiTokenCreated',
+    },
+  ),
+  r('post', '/api/teacher/api-tokens/{id}/revoke', 'Teacher: revoke my token', 'teacher', {
+    security: 'jwt',
+    roles: ['teacher'],
+    pathParams: idParams('id'),
+  }),
 
   // ---------- Invitations ----------
-  r('post', '/api/invitation-codes/validate', 'Validate an invitation code (public, rate-limited)', 'invitations', {
-    security: 'public',
-    requestSchema: 'ValidateInvitationInput',
+  r(
+    'post',
+    '/api/invitation-codes/validate',
+    'Validate an invitation code (authenticated, rate-limited)',
+    'invitations',
+    {
+      security: 'either',
+      requestSchema: 'ValidateInvitationInput',
+    },
+  ),
+  r('get', '/api/invitation-codes', 'List invitation codes', 'invitations', {
+    scopeGroup: 'invitationCodesRead',
+    roles: ['admin'],
   }),
-  r('get', '/api/invitation-codes', 'List invitation codes', 'invitations', { scopeGroup: 'invitationCodesRead', roles: ['admin'] }),
-  r('get', '/api/invitation-codes/{id}', 'Get an invitation code', 'invitations', { scopeGroup: 'invitationCodesRead', roles: ['admin'], pathParams: idParams('id') }),
-  r('post', '/api/invitation-codes', 'Create an invitation code', 'invitations', { scopeGroup: 'invitationCodesWrite', roles: ['admin'] }),
-  r('patch', '/api/invitation-codes/{id}', 'Update an invitation code', 'invitations', { scopeGroup: 'invitationCodesWrite', roles: ['admin'], pathParams: idParams('id') }),
-  r('post', '/api/invitation-codes/{id}/deactivate', 'Deactivate an invitation code', 'invitations', { scopeGroup: 'invitationCodesWrite', roles: ['admin'], pathParams: idParams('id') }),
+  r('get', '/api/invitation-codes/{id}', 'Get an invitation code', 'invitations', {
+    scopeGroup: 'invitationCodesRead',
+    roles: ['admin'],
+    pathParams: idParams('id'),
+  }),
+  r('post', '/api/invitation-codes', 'Create an invitation code', 'invitations', {
+    scopeGroup: 'invitationCodesWrite',
+    roles: ['admin'],
+  }),
+  r('patch', '/api/invitation-codes/{id}', 'Update an invitation code', 'invitations', {
+    scopeGroup: 'invitationCodesWrite',
+    roles: ['admin'],
+    pathParams: idParams('id'),
+  }),
+  r(
+    'post',
+    '/api/invitation-codes/{id}/deactivate',
+    'Deactivate an invitation code',
+    'invitations',
+    { scopeGroup: 'invitationCodesWrite', roles: ['admin'], pathParams: idParams('id') },
+  ),
 
   // ---------- Courses ----------
-  r('get', '/api/courses', 'List courses (scoped to caller)', 'courses', { scopeGroup: 'coursesRead' }),
+  r('get', '/api/courses', 'List courses (scoped to caller)', 'courses', {
+    scopeGroup: 'coursesRead',
+  }),
   r('post', '/api/courses', 'Create a course', 'courses', { scopeGroup: 'coursesWrite' }),
-  r('get', '/api/courses/{courseId}', 'Get a course', 'courses', { scopeGroup: 'coursesRead', pathParams: idParams('courseId') }),
-  r('patch', '/api/courses/{courseId}', 'Update a course', 'courses', { scopeGroup: 'coursesWrite', pathParams: idParams('courseId') }),
-  r('delete', '/api/courses/{courseId}', 'Delete a course', 'courses', { scopeGroup: 'coursesWrite', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/archive', 'Archive a course', 'courses', { scopeGroup: 'coursesWrite', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/activate', 'Activate (publish) a course', 'courses', { scopeGroup: 'coursesWrite', pathParams: idParams('courseId') }),
-  r('get', '/api/courses/{courseId}/students', 'List enrolled students', 'courses', { scopeGroup: 'coursesRead', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/enrollments', 'Enroll a student in a course (admin)', 'courses', { scopeGroup: 'coursesWrite', roles: ['admin'], pathParams: idParams('courseId') }),
-  r('delete', '/api/courses/{courseId}/enrollments/{studentId}', 'Unenroll a student', 'courses', { scopeGroup: 'coursesWrite', roles: ['admin'], pathParams: idParams('courseId', 'studentId') }),
+  r('get', '/api/courses/{courseId}', 'Get a course', 'courses', {
+    scopeGroup: 'coursesRead',
+    pathParams: idParams('courseId'),
+  }),
+  r('patch', '/api/courses/{courseId}', 'Update a course', 'courses', {
+    scopeGroup: 'coursesWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r('delete', '/api/courses/{courseId}', 'Delete a course', 'courses', {
+    scopeGroup: 'coursesWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r('post', '/api/courses/{courseId}/archive', 'Archive a course', 'courses', {
+    scopeGroup: 'coursesWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r('post', '/api/courses/{courseId}/activate', 'Activate (publish) a course', 'courses', {
+    scopeGroup: 'coursesWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r('get', '/api/courses/{courseId}/students', 'List enrolled students', 'courses', {
+    scopeGroup: 'coursesRead',
+    pathParams: idParams('courseId'),
+  }),
+  r(
+    'post',
+    '/api/courses/{courseId}/enrollments',
+    'Enroll a student in a course (admin)',
+    'courses',
+    { scopeGroup: 'coursesWrite', roles: ['admin'], pathParams: idParams('courseId') },
+  ),
+  r('delete', '/api/courses/{courseId}/enrollments/{studentId}', 'Unenroll a student', 'courses', {
+    scopeGroup: 'coursesWrite',
+    roles: ['admin'],
+    pathParams: idParams('courseId', 'studentId'),
+  }),
 
   // ---------- Modules ----------
-  r('get', '/api/courses/{courseId}/modules', 'List modules for a course', 'modules', { scopeGroup: 'coursesRead', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/modules', 'Create a module', 'modules', { scopeGroup: 'coursesWrite', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/modules/reorder', 'Reorder modules', 'modules', { scopeGroup: 'coursesWrite', pathParams: idParams('courseId') }),
-  r('get', '/api/modules/{moduleId}', 'Get a module', 'modules', { scopeGroup: 'coursesRead', pathParams: idParams('moduleId') }),
-  r('patch', '/api/modules/{moduleId}', 'Update a module', 'modules', { scopeGroup: 'coursesWrite', pathParams: idParams('moduleId') }),
-  r('delete', '/api/modules/{moduleId}', 'Delete a module', 'modules', { scopeGroup: 'coursesWrite', pathParams: idParams('moduleId') }),
+  r('get', '/api/courses/{courseId}/modules', 'List modules for a course', 'modules', {
+    scopeGroup: 'coursesRead',
+    pathParams: idParams('courseId'),
+  }),
+  r('post', '/api/courses/{courseId}/modules', 'Create a module', 'modules', {
+    scopeGroup: 'coursesWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r('post', '/api/courses/{courseId}/modules/reorder', 'Reorder modules', 'modules', {
+    scopeGroup: 'coursesWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r('get', '/api/modules/{moduleId}', 'Get a module', 'modules', {
+    scopeGroup: 'coursesRead',
+    pathParams: idParams('moduleId'),
+  }),
+  r('patch', '/api/modules/{moduleId}', 'Update a module', 'modules', {
+    scopeGroup: 'coursesWrite',
+    pathParams: idParams('moduleId'),
+  }),
+  r('delete', '/api/modules/{moduleId}', 'Delete a module', 'modules', {
+    scopeGroup: 'coursesWrite',
+    pathParams: idParams('moduleId'),
+  }),
 
   // ---------- Materials ----------
-  r('get', '/api/courses/{courseId}/materials', 'List reading materials for a course', 'materials', { scopeGroup: 'materialsRead', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/materials', 'Create a reading material', 'materials', { scopeGroup: 'materialsWrite', pathParams: idParams('courseId') }),
-  r('get', '/api/materials/{materialId}', 'Get a reading material', 'materials', { scopeGroup: 'materialsRead', pathParams: idParams('materialId') }),
-  r('patch', '/api/materials/{materialId}', 'Update a reading material', 'materials', { scopeGroup: 'materialsWrite', pathParams: idParams('materialId') }),
-  r('delete', '/api/materials/{materialId}', 'Delete a reading material', 'materials', { scopeGroup: 'materialsWrite', pathParams: idParams('materialId') }),
-  r('post', '/api/materials/{materialId}/publish', 'Publish a reading material', 'materials', { scopeGroup: 'materialsWrite', pathParams: idParams('materialId') }),
-  r('post', '/api/materials/{materialId}/archive', 'Archive a reading material', 'materials', { scopeGroup: 'materialsWrite', pathParams: idParams('materialId') }),
+  r(
+    'get',
+    '/api/courses/{courseId}/materials',
+    'List reading materials for a course',
+    'materials',
+    { scopeGroup: 'materialsRead', pathParams: idParams('courseId') },
+  ),
+  r('post', '/api/courses/{courseId}/materials', 'Create a reading material', 'materials', {
+    scopeGroup: 'materialsWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r('get', '/api/materials/{materialId}', 'Get a reading material', 'materials', {
+    scopeGroup: 'materialsRead',
+    pathParams: idParams('materialId'),
+  }),
+  r('patch', '/api/materials/{materialId}', 'Update a reading material', 'materials', {
+    scopeGroup: 'materialsWrite',
+    pathParams: idParams('materialId'),
+  }),
+  r('delete', '/api/materials/{materialId}', 'Delete a reading material', 'materials', {
+    scopeGroup: 'materialsWrite',
+    pathParams: idParams('materialId'),
+  }),
+  r('post', '/api/materials/{materialId}/publish', 'Publish a reading material', 'materials', {
+    scopeGroup: 'materialsWrite',
+    pathParams: idParams('materialId'),
+  }),
+  r('post', '/api/materials/{materialId}/archive', 'Archive a reading material', 'materials', {
+    scopeGroup: 'materialsWrite',
+    pathParams: idParams('materialId'),
+  }),
 
   // ---------- Files (R2) ----------
-  r('post', '/api/files/upload-url', 'Request a presigned PUT URL for R2', 'files', { scopeGroup: 'materialsWrite' }),
-  r('post', '/api/files/complete-upload', 'Finalize an R2 upload (marks file ready)', 'files', { scopeGroup: 'materialsWrite' }),
-  r('get', '/api/files/{fileId}/download-url', 'Get a 5-min presigned download URL', 'files', { scopeGroup: 'materialsRead', pathParams: idParams('fileId') }),
-  r('delete', '/api/files/{fileId}', 'Delete a file asset', 'files', { scopeGroup: 'materialsWrite', pathParams: idParams('fileId') }),
+  r('post', '/api/files/upload-url', 'Request a presigned PUT URL for R2', 'files', {
+    scopeGroup: 'materialsWrite',
+  }),
+  r('post', '/api/files/complete-upload', 'Finalize an R2 upload (marks file ready)', 'files', {
+    scopeGroup: 'materialsWrite',
+  }),
+  r('get', '/api/files/{fileId}/download-url', 'Get a 5-min presigned download URL', 'files', {
+    scopeGroup: 'materialsRead',
+    pathParams: idParams('fileId'),
+  }),
+  r('delete', '/api/files/{fileId}', 'Delete a file asset', 'files', {
+    scopeGroup: 'materialsWrite',
+    pathParams: idParams('fileId'),
+  }),
 
   // ---------- Presentations & slides ----------
-  r('get', '/api/courses/{courseId}/presentations', 'List presentations', 'presentations', { scopeGroup: 'presentationsRead', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/presentations', 'Create a presentation', 'presentations', { scopeGroup: 'presentationsWrite', pathParams: idParams('courseId') }),
-  r('get', '/api/presentations/{presentationId}', 'Get a presentation', 'presentations', { scopeGroup: 'presentationsRead', pathParams: idParams('presentationId') }),
-  r('patch', '/api/presentations/{presentationId}', 'Update a presentation', 'presentations', { scopeGroup: 'presentationsWrite', pathParams: idParams('presentationId') }),
-  r('delete', '/api/presentations/{presentationId}', 'Delete a presentation', 'presentations', { scopeGroup: 'presentationsWrite', pathParams: idParams('presentationId') }),
-  r('post', '/api/presentations/{presentationId}/publish', 'Publish a presentation', 'presentations', { scopeGroup: 'presentationsWrite', pathParams: idParams('presentationId') }),
-  r('post', '/api/presentations/{presentationId}/archive', 'Archive a presentation', 'presentations', { scopeGroup: 'presentationsWrite', pathParams: idParams('presentationId') }),
-  r('get', '/api/presentations/{presentationId}/slides', 'List slides for a presentation', 'presentations', { scopeGroup: 'presentationsRead', pathParams: idParams('presentationId') }),
-  r('post', '/api/presentations/{presentationId}/slides', 'Add a slide', 'presentations', { scopeGroup: 'presentationsWrite', pathParams: idParams('presentationId') }),
-  r('post', '/api/presentations/{presentationId}/slides/reorder', 'Reorder slides', 'presentations', { scopeGroup: 'presentationsWrite', pathParams: idParams('presentationId') }),
-  r('get', '/api/slides/{slideId}', 'Get a slide', 'presentations', { scopeGroup: 'presentationsRead', pathParams: idParams('slideId') }),
-  r('patch', '/api/slides/{slideId}', 'Update a slide', 'presentations', { scopeGroup: 'presentationsWrite', pathParams: idParams('slideId') }),
-  r('delete', '/api/slides/{slideId}', 'Delete a slide', 'presentations', { scopeGroup: 'presentationsWrite', pathParams: idParams('slideId') }),
+  r('get', '/api/courses/{courseId}/presentations', 'List presentations', 'presentations', {
+    scopeGroup: 'presentationsRead',
+    pathParams: idParams('courseId'),
+  }),
+  r('post', '/api/courses/{courseId}/presentations', 'Create a presentation', 'presentations', {
+    scopeGroup: 'presentationsWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r('get', '/api/presentations/{presentationId}', 'Get a presentation', 'presentations', {
+    scopeGroup: 'presentationsRead',
+    pathParams: idParams('presentationId'),
+  }),
+  r('patch', '/api/presentations/{presentationId}', 'Update a presentation', 'presentations', {
+    scopeGroup: 'presentationsWrite',
+    pathParams: idParams('presentationId'),
+  }),
+  r('delete', '/api/presentations/{presentationId}', 'Delete a presentation', 'presentations', {
+    scopeGroup: 'presentationsWrite',
+    pathParams: idParams('presentationId'),
+  }),
+  r(
+    'post',
+    '/api/presentations/{presentationId}/publish',
+    'Publish a presentation',
+    'presentations',
+    { scopeGroup: 'presentationsWrite', pathParams: idParams('presentationId') },
+  ),
+  r(
+    'post',
+    '/api/presentations/{presentationId}/archive',
+    'Archive a presentation',
+    'presentations',
+    { scopeGroup: 'presentationsWrite', pathParams: idParams('presentationId') },
+  ),
+  r(
+    'get',
+    '/api/presentations/{presentationId}/slides',
+    'List slides for a presentation',
+    'presentations',
+    { scopeGroup: 'presentationsRead', pathParams: idParams('presentationId') },
+  ),
+  r('post', '/api/presentations/{presentationId}/slides', 'Add a slide', 'presentations', {
+    scopeGroup: 'presentationsWrite',
+    pathParams: idParams('presentationId'),
+  }),
+  r(
+    'post',
+    '/api/presentations/{presentationId}/slides/reorder',
+    'Reorder slides',
+    'presentations',
+    { scopeGroup: 'presentationsWrite', pathParams: idParams('presentationId') },
+  ),
+  r('get', '/api/slides/{slideId}', 'Get a slide', 'presentations', {
+    scopeGroup: 'presentationsRead',
+    pathParams: idParams('slideId'),
+  }),
+  r('patch', '/api/slides/{slideId}', 'Update a slide', 'presentations', {
+    scopeGroup: 'presentationsWrite',
+    pathParams: idParams('slideId'),
+  }),
+  r('delete', '/api/slides/{slideId}', 'Delete a slide', 'presentations', {
+    scopeGroup: 'presentationsWrite',
+    pathParams: idParams('slideId'),
+  }),
 
   // ---------- Assignments & submissions ----------
-  r('get', '/api/courses/{courseId}/assignments', 'List assignments', 'assignments', { scopeGroup: 'assignmentsRead', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/assignments', 'Create an assignment', 'assignments', { scopeGroup: 'assignmentsWrite', pathParams: idParams('courseId') }),
-  r('get', '/api/assignments/{assignmentId}', 'Get an assignment', 'assignments', { scopeGroup: 'assignmentsRead', pathParams: idParams('assignmentId') }),
-  r('patch', '/api/assignments/{assignmentId}', 'Update an assignment', 'assignments', { scopeGroup: 'assignmentsWrite', pathParams: idParams('assignmentId') }),
-  r('delete', '/api/assignments/{assignmentId}', 'Delete an assignment', 'assignments', { scopeGroup: 'assignmentsWrite', pathParams: idParams('assignmentId') }),
-  r('post', '/api/assignments/{assignmentId}/publish', 'Publish an assignment', 'assignments', { scopeGroup: 'assignmentsWrite', pathParams: idParams('assignmentId') }),
-  r('post', '/api/assignments/{assignmentId}/close', 'Close an assignment', 'assignments', { scopeGroup: 'assignmentsWrite', pathParams: idParams('assignmentId') }),
-  r('post', '/api/assignments/{assignmentId}/archive', 'Archive an assignment', 'assignments', { scopeGroup: 'assignmentsWrite', pathParams: idParams('assignmentId') }),
-  r('get', '/api/assignments/{assignmentId}/submissions', 'List submissions for an assignment', 'assignments', { scopeGroup: 'submissionsRead', pathParams: idParams('assignmentId') }),
-  r('post', '/api/assignments/{assignmentId}/submissions', 'Student: submit work', 'assignments', { scopeGroup: 'submissionsWrite', pathParams: idParams('assignmentId') }),
-  r('get', '/api/submissions/{submissionId}', 'Get a submission', 'assignments', { scopeGroup: 'submissionsRead', pathParams: idParams('submissionId') }),
-  r('patch', '/api/submissions/{submissionId}', 'Update a draft submission', 'assignments', { scopeGroup: 'submissionsWrite', pathParams: idParams('submissionId') }),
-  r('post', '/api/submissions/{submissionId}/submit', 'Mark a submission as submitted', 'assignments', { scopeGroup: 'submissionsWrite', pathParams: idParams('submissionId') }),
-  r('post', '/api/submissions/{submissionId}/grade', 'Teacher: grade a submission', 'assignments', { scopeGroup: 'gradesWrite', pathParams: idParams('submissionId') }),
-  r('patch', '/api/submissions/{submissionId}/return', 'Teacher: return a graded submission', 'assignments', { scopeGroup: 'gradesWrite', pathParams: idParams('submissionId') }),
+  r('get', '/api/courses/{courseId}/assignments', 'List assignments', 'assignments', {
+    scopeGroup: 'assignmentsRead',
+    pathParams: idParams('courseId'),
+  }),
+  r('post', '/api/courses/{courseId}/assignments', 'Create an assignment', 'assignments', {
+    scopeGroup: 'assignmentsWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r('get', '/api/assignments/{assignmentId}', 'Get an assignment', 'assignments', {
+    scopeGroup: 'assignmentsRead',
+    pathParams: idParams('assignmentId'),
+  }),
+  r('patch', '/api/assignments/{assignmentId}', 'Update an assignment', 'assignments', {
+    scopeGroup: 'assignmentsWrite',
+    pathParams: idParams('assignmentId'),
+  }),
+  r('delete', '/api/assignments/{assignmentId}', 'Delete an assignment', 'assignments', {
+    scopeGroup: 'assignmentsWrite',
+    pathParams: idParams('assignmentId'),
+  }),
+  r('post', '/api/assignments/{assignmentId}/publish', 'Publish an assignment', 'assignments', {
+    scopeGroup: 'assignmentsWrite',
+    pathParams: idParams('assignmentId'),
+  }),
+  r('post', '/api/assignments/{assignmentId}/close', 'Close an assignment', 'assignments', {
+    scopeGroup: 'assignmentsWrite',
+    pathParams: idParams('assignmentId'),
+  }),
+  r('post', '/api/assignments/{assignmentId}/archive', 'Archive an assignment', 'assignments', {
+    scopeGroup: 'assignmentsWrite',
+    pathParams: idParams('assignmentId'),
+  }),
+  r(
+    'get',
+    '/api/assignments/{assignmentId}/submissions',
+    'List submissions for an assignment',
+    'assignments',
+    { scopeGroup: 'submissionsRead', pathParams: idParams('assignmentId') },
+  ),
+  r('post', '/api/assignments/{assignmentId}/submissions', 'Student: submit work', 'assignments', {
+    scopeGroup: 'submissionsWrite',
+    pathParams: idParams('assignmentId'),
+  }),
+  r('get', '/api/submissions/{submissionId}', 'Get a submission', 'assignments', {
+    scopeGroup: 'submissionsRead',
+    pathParams: idParams('submissionId'),
+  }),
+  r('patch', '/api/submissions/{submissionId}', 'Update a draft submission', 'assignments', {
+    scopeGroup: 'submissionsWrite',
+    pathParams: idParams('submissionId'),
+  }),
+  r(
+    'post',
+    '/api/submissions/{submissionId}/submit',
+    'Mark a submission as submitted',
+    'assignments',
+    { scopeGroup: 'submissionsWrite', pathParams: idParams('submissionId') },
+  ),
+  r('post', '/api/submissions/{submissionId}/grade', 'Teacher: grade a submission', 'assignments', {
+    scopeGroup: 'gradesWrite',
+    pathParams: idParams('submissionId'),
+  }),
+  r(
+    'patch',
+    '/api/submissions/{submissionId}/return',
+    'Teacher: return a graded submission',
+    'assignments',
+    { scopeGroup: 'gradesWrite', pathParams: idParams('submissionId') },
+  ),
 
   // ---------- Discussions ----------
-  r('get', '/api/courses/{courseId}/discussion-topics', 'List discussion topics', 'discussions', { scopeGroup: 'discussionsRead', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/discussion-topics', 'Create a discussion topic', 'discussions', { scopeGroup: 'discussionsWrite', pathParams: idParams('courseId') }),
-  r('get', '/api/discussion-topics/{topicId}', 'Get a discussion topic', 'discussions', { scopeGroup: 'discussionsRead', pathParams: idParams('topicId') }),
-  r('patch', '/api/discussion-topics/{topicId}', 'Update a discussion topic', 'discussions', { scopeGroup: 'discussionsWrite', pathParams: idParams('topicId') }),
-  r('delete', '/api/discussion-topics/{topicId}', 'Delete a discussion topic', 'discussions', { scopeGroup: 'discussionsWrite', pathParams: idParams('topicId') }),
-  r('post', '/api/discussion-topics/{topicId}/publish', 'Publish a discussion topic', 'discussions', { scopeGroup: 'discussionsWrite', pathParams: idParams('topicId') }),
-  r('post', '/api/discussion-topics/{topicId}/archive', 'Archive a discussion topic', 'discussions', { scopeGroup: 'discussionsWrite', pathParams: idParams('topicId') }),
-  r('post', '/api/discussion-topics/{topicId}/pin', 'Pin a discussion topic', 'discussions', { scopeGroup: 'discussionsWrite', pathParams: idParams('topicId') }),
-  r('post', '/api/discussion-topics/{topicId}/unpin', 'Unpin a discussion topic', 'discussions', { scopeGroup: 'discussionsWrite', pathParams: idParams('topicId') }),
-  r('get', '/api/discussion-topics/{topicId}/posts', 'List posts in a topic', 'discussions', { scopeGroup: 'discussionsRead', pathParams: idParams('topicId') }),
-  r('post', '/api/discussion-topics/{topicId}/posts', 'Create a post (with optional parentPostId)', 'discussions', { scopeGroup: 'discussionsWrite', pathParams: idParams('topicId') }),
-  r('get', '/api/discussion-posts/{postId}', 'Get a discussion post', 'discussions', { scopeGroup: 'discussionsRead', pathParams: idParams('postId') }),
-  r('patch', '/api/discussion-posts/{postId}', 'Update a discussion post', 'discussions', { scopeGroup: 'discussionsWrite', pathParams: idParams('postId') }),
-  r('delete', '/api/discussion-posts/{postId}', 'Delete a discussion post', 'discussions', { scopeGroup: 'discussionsWrite', pathParams: idParams('postId') }),
-  r('post', '/api/discussion-topics/{topicId}/grades', 'Teacher: assign per-student discussion grade', 'discussions', { scopeGroup: 'gradesWrite', pathParams: idParams('topicId') }),
-  r('get', '/api/discussion-topics/{topicId}/grades', 'List discussion grades for a topic', 'discussions', { scopeGroup: 'gradesRead', pathParams: idParams('topicId') }),
-  r('patch', '/api/discussion-topics/{topicId}/grades/{studentId}', 'Update a discussion grade', 'discussions', { scopeGroup: 'gradesWrite', pathParams: idParams('topicId', 'studentId') }),
+  r('get', '/api/courses/{courseId}/discussion-topics', 'List discussion topics', 'discussions', {
+    scopeGroup: 'discussionsRead',
+    pathParams: idParams('courseId'),
+  }),
+  r(
+    'post',
+    '/api/courses/{courseId}/discussion-topics',
+    'Create a discussion topic',
+    'discussions',
+    { scopeGroup: 'discussionsWrite', pathParams: idParams('courseId') },
+  ),
+  r('get', '/api/discussion-topics/{topicId}', 'Get a discussion topic', 'discussions', {
+    scopeGroup: 'discussionsRead',
+    pathParams: idParams('topicId'),
+  }),
+  r('patch', '/api/discussion-topics/{topicId}', 'Update a discussion topic', 'discussions', {
+    scopeGroup: 'discussionsWrite',
+    pathParams: idParams('topicId'),
+  }),
+  r('delete', '/api/discussion-topics/{topicId}', 'Delete a discussion topic', 'discussions', {
+    scopeGroup: 'discussionsWrite',
+    pathParams: idParams('topicId'),
+  }),
+  r(
+    'post',
+    '/api/discussion-topics/{topicId}/publish',
+    'Publish a discussion topic',
+    'discussions',
+    { scopeGroup: 'discussionsWrite', pathParams: idParams('topicId') },
+  ),
+  r(
+    'post',
+    '/api/discussion-topics/{topicId}/archive',
+    'Archive a discussion topic',
+    'discussions',
+    { scopeGroup: 'discussionsWrite', pathParams: idParams('topicId') },
+  ),
+  r('post', '/api/discussion-topics/{topicId}/pin', 'Pin a discussion topic', 'discussions', {
+    scopeGroup: 'discussionsWrite',
+    pathParams: idParams('topicId'),
+  }),
+  r('post', '/api/discussion-topics/{topicId}/unpin', 'Unpin a discussion topic', 'discussions', {
+    scopeGroup: 'discussionsWrite',
+    pathParams: idParams('topicId'),
+  }),
+  r('get', '/api/discussion-topics/{topicId}/posts', 'List posts in a topic', 'discussions', {
+    scopeGroup: 'discussionsRead',
+    pathParams: idParams('topicId'),
+  }),
+  r(
+    'post',
+    '/api/discussion-topics/{topicId}/posts',
+    'Create a post (with optional parentPostId)',
+    'discussions',
+    { scopeGroup: 'discussionsWrite', pathParams: idParams('topicId') },
+  ),
+  r('get', '/api/discussion-posts/{postId}', 'Get a discussion post', 'discussions', {
+    scopeGroup: 'discussionsRead',
+    pathParams: idParams('postId'),
+  }),
+  r('patch', '/api/discussion-posts/{postId}', 'Update a discussion post', 'discussions', {
+    scopeGroup: 'discussionsWrite',
+    pathParams: idParams('postId'),
+  }),
+  r('delete', '/api/discussion-posts/{postId}', 'Delete a discussion post', 'discussions', {
+    scopeGroup: 'discussionsWrite',
+    pathParams: idParams('postId'),
+  }),
+  r(
+    'post',
+    '/api/discussion-topics/{topicId}/grades',
+    'Teacher: assign per-student discussion grade',
+    'discussions',
+    { scopeGroup: 'gradesWrite', pathParams: idParams('topicId') },
+  ),
+  r(
+    'get',
+    '/api/discussion-topics/{topicId}/grades',
+    'List discussion grades for a topic',
+    'discussions',
+    { scopeGroup: 'gradesRead', pathParams: idParams('topicId') },
+  ),
+  r(
+    'patch',
+    '/api/discussion-topics/{topicId}/grades/{studentId}',
+    'Update a discussion grade',
+    'discussions',
+    { scopeGroup: 'gradesWrite', pathParams: idParams('topicId', 'studentId') },
+  ),
 
   // ---------- Quizzes ----------
-  r('get', '/api/courses/{courseId}/quizzes', 'List quizzes', 'quizzes', { scopeGroup: 'quizzesRead', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/quizzes', 'Create a quiz', 'quizzes', { scopeGroup: 'quizzesWrite', pathParams: idParams('courseId') }),
-  r('get', '/api/quizzes/{quizId}', 'Get a quiz', 'quizzes', { scopeGroup: 'quizzesRead', pathParams: idParams('quizId') }),
-  r('patch', '/api/quizzes/{quizId}', 'Update a quiz', 'quizzes', { scopeGroup: 'quizzesWrite', pathParams: idParams('quizId') }),
-  r('delete', '/api/quizzes/{quizId}', 'Delete a quiz', 'quizzes', { scopeGroup: 'quizzesWrite', pathParams: idParams('quizId') }),
-  r('post', '/api/quizzes/{quizId}/publish', 'Publish a quiz', 'quizzes', { scopeGroup: 'quizzesWrite', pathParams: idParams('quizId') }),
-  r('post', '/api/quizzes/{quizId}/close', 'Close a quiz', 'quizzes', { scopeGroup: 'quizzesWrite', pathParams: idParams('quizId') }),
-  r('post', '/api/quizzes/{quizId}/archive', 'Archive a quiz', 'quizzes', { scopeGroup: 'quizzesWrite', pathParams: idParams('quizId') }),
-  r('get', '/api/quizzes/{quizId}/questions', 'List questions', 'quizzes', { scopeGroup: 'quizzesRead', pathParams: idParams('quizId') }),
-  r('post', '/api/quizzes/{quizId}/questions', 'Add a quiz question', 'quizzes', { scopeGroup: 'quizzesWrite', pathParams: idParams('quizId') }),
-  r('get', '/api/quiz-questions/{questionId}', 'Get a quiz question', 'quizzes', { scopeGroup: 'quizzesRead', pathParams: idParams('questionId') }),
-  r('patch', '/api/quiz-questions/{questionId}', 'Update a quiz question', 'quizzes', { scopeGroup: 'quizzesWrite', pathParams: idParams('questionId') }),
-  r('delete', '/api/quiz-questions/{questionId}', 'Delete a quiz question', 'quizzes', { scopeGroup: 'quizzesWrite', pathParams: idParams('questionId') }),
-  r('post', '/api/quizzes/{quizId}/attempts', 'Student: start a quiz attempt', 'quizzes', { scopeGroup: 'quizAttemptsWrite', pathParams: idParams('quizId') }),
-  r('post', '/api/quiz-attempts/{attemptId}/submit', 'Submit a quiz attempt (auto-grades objective items)', 'quizzes', { scopeGroup: 'quizAttemptsWrite', pathParams: idParams('attemptId') }),
-  r('get', '/api/quiz-attempts/{attemptId}', 'Get a quiz attempt', 'quizzes', { scopeGroup: 'quizAttemptsRead', pathParams: idParams('attemptId') }),
-  r('patch', '/api/quiz-attempts/{attemptId}', 'Update a quiz attempt (in-progress answers)', 'quizzes', { scopeGroup: 'quizAttemptsWrite', pathParams: idParams('attemptId') }),
-  r('post', '/api/quiz-answers/{answerId}/grade', 'Teacher: grade a subjective answer', 'quizzes', { scopeGroup: 'quizGradeWrite', pathParams: idParams('answerId') }),
-  r('get', '/api/quizzes/{quizId}/attempts', 'Teacher: list all attempts for a quiz', 'quizzes', { scopeGroup: 'quizAttemptsRead', pathParams: idParams('quizId') }),
-  r('get', '/api/me/quizzes/{quizId}/attempts', 'My attempts for a quiz', 'quizzes', { scopeGroup: 'quizAttemptsRead', pathParams: idParams('quizId') }),
-  r('patch', '/api/quiz-attempts/{attemptId}/review', 'Teacher: finalize manual review', 'quizzes', { scopeGroup: 'quizGradeWrite', pathParams: idParams('attemptId') }),
+  r('get', '/api/courses/{courseId}/quizzes', 'List quizzes', 'quizzes', {
+    scopeGroup: 'quizzesRead',
+    pathParams: idParams('courseId'),
+  }),
+  r('post', '/api/courses/{courseId}/quizzes', 'Create a quiz', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r('get', '/api/quizzes/{quizId}', 'Get a quiz', 'quizzes', {
+    scopeGroup: 'quizzesRead',
+    pathParams: idParams('quizId'),
+  }),
+  r('patch', '/api/quizzes/{quizId}', 'Update a quiz', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('quizId'),
+  }),
+  r('delete', '/api/quizzes/{quizId}', 'Delete a quiz', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('quizId'),
+  }),
+  r('post', '/api/quizzes/{quizId}/publish', 'Publish a quiz', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('quizId'),
+  }),
+  r('post', '/api/quizzes/{quizId}/close', 'Close a quiz', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('quizId'),
+  }),
+  r('post', '/api/quizzes/{quizId}/archive', 'Archive a quiz', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('quizId'),
+  }),
+  r('get', '/api/quizzes/{quizId}/questions', 'List questions', 'quizzes', {
+    scopeGroup: 'quizzesRead',
+    pathParams: idParams('quizId'),
+  }),
+  r('post', '/api/quizzes/{quizId}/questions', 'Add a quiz question', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('quizId'),
+  }),
+  r('get', '/api/quiz-questions/{questionId}', 'Get a quiz question', 'quizzes', {
+    scopeGroup: 'quizzesRead',
+    pathParams: idParams('questionId'),
+  }),
+  r('patch', '/api/quiz-questions/{questionId}', 'Update a quiz question', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('questionId'),
+  }),
+  r('delete', '/api/quiz-questions/{questionId}', 'Delete a quiz question', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('questionId'),
+  }),
+  r('post', '/api/quizzes/{quizId}/attempts', 'Student: start a quiz attempt', 'quizzes', {
+    scopeGroup: 'quizAttemptsWrite',
+    pathParams: idParams('quizId'),
+  }),
+  r(
+    'post',
+    '/api/quiz-attempts/{attemptId}/submit',
+    'Submit a quiz attempt (auto-grades objective items)',
+    'quizzes',
+    { scopeGroup: 'quizAttemptsWrite', pathParams: idParams('attemptId') },
+  ),
+  r('get', '/api/quiz-attempts/{attemptId}', 'Get a quiz attempt', 'quizzes', {
+    scopeGroup: 'quizAttemptsRead',
+    pathParams: idParams('attemptId'),
+  }),
+  r(
+    'patch',
+    '/api/quiz-attempts/{attemptId}',
+    'Update a quiz attempt (in-progress answers)',
+    'quizzes',
+    { scopeGroup: 'quizAttemptsWrite', pathParams: idParams('attemptId') },
+  ),
+  r('post', '/api/quiz-answers/{answerId}/grade', 'Teacher: grade a subjective answer', 'quizzes', {
+    scopeGroup: 'quizGradeWrite',
+    pathParams: idParams('answerId'),
+  }),
+  r('get', '/api/quizzes/{quizId}/attempts', 'Teacher: list all attempts for a quiz', 'quizzes', {
+    scopeGroup: 'quizAttemptsRead',
+    pathParams: idParams('quizId'),
+  }),
+  r('get', '/api/me/quizzes/{quizId}/attempts', 'My attempts for a quiz', 'quizzes', {
+    scopeGroup: 'quizAttemptsRead',
+    pathParams: idParams('quizId'),
+  }),
+  r(
+    'patch',
+    '/api/quiz-attempts/{attemptId}/review',
+    'Teacher: finalize manual review',
+    'quizzes',
+    { scopeGroup: 'quizGradeWrite', pathParams: idParams('attemptId') },
+  ),
 
   // ---------- Attendance ----------
-  r('get', '/api/courses/{courseId}/attendance-sessions', 'List attendance sessions', 'attendance', { scopeGroup: 'attendanceRead', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/attendance-sessions', 'Create an attendance session', 'attendance', { scopeGroup: 'attendanceWrite', pathParams: idParams('courseId') }),
-  r('get', '/api/attendance-sessions/{sessionId}', 'Get an attendance session', 'attendance', { scopeGroup: 'attendanceRead', pathParams: idParams('sessionId') }),
-  r('patch', '/api/attendance-sessions/{sessionId}', 'Update an attendance session', 'attendance', { scopeGroup: 'attendanceWrite', pathParams: idParams('sessionId') }),
-  r('post', '/api/attendance-sessions/{sessionId}/close', 'Close an attendance session', 'attendance', { scopeGroup: 'attendanceWrite', pathParams: idParams('sessionId') }),
-  r('delete', '/api/attendance-sessions/{sessionId}', 'Delete an attendance session', 'attendance', { scopeGroup: 'attendanceWrite', pathParams: idParams('sessionId') }),
-  r('get', '/api/attendance-sessions/{sessionId}/records', 'List records for a session', 'attendance', { scopeGroup: 'attendanceRead', pathParams: idParams('sessionId') }),
-  r('post', '/api/attendance-sessions/{sessionId}/records', 'Bulk upsert attendance records for a session', 'attendance', { scopeGroup: 'attendanceWrite', pathParams: idParams('sessionId') }),
-  r('get', '/api/courses/{courseId}/attendance/export.csv', 'Export attendance CSV for a course', 'attendance', { scopeGroup: 'attendanceRead', pathParams: idParams('courseId') }),
-  r('get', '/api/me/courses/{courseId}/attendance', 'My attendance records for a course', 'attendance', { scopeGroup: 'attendanceRead', pathParams: idParams('courseId') }),
+  r(
+    'get',
+    '/api/courses/{courseId}/attendance-sessions',
+    'List attendance sessions',
+    'attendance',
+    { scopeGroup: 'attendanceRead', pathParams: idParams('courseId') },
+  ),
+  r(
+    'post',
+    '/api/courses/{courseId}/attendance-sessions',
+    'Create an attendance session',
+    'attendance',
+    { scopeGroup: 'attendanceWrite', pathParams: idParams('courseId') },
+  ),
+  r('get', '/api/attendance-sessions/{sessionId}', 'Get an attendance session', 'attendance', {
+    scopeGroup: 'attendanceRead',
+    pathParams: idParams('sessionId'),
+  }),
+  r('patch', '/api/attendance-sessions/{sessionId}', 'Update an attendance session', 'attendance', {
+    scopeGroup: 'attendanceWrite',
+    pathParams: idParams('sessionId'),
+  }),
+  r(
+    'post',
+    '/api/attendance-sessions/{sessionId}/close',
+    'Close an attendance session',
+    'attendance',
+    { scopeGroup: 'attendanceWrite', pathParams: idParams('sessionId') },
+  ),
+  r(
+    'delete',
+    '/api/attendance-sessions/{sessionId}',
+    'Delete an attendance session',
+    'attendance',
+    { scopeGroup: 'attendanceWrite', pathParams: idParams('sessionId') },
+  ),
+  r(
+    'get',
+    '/api/attendance-sessions/{sessionId}/records',
+    'List records for a session',
+    'attendance',
+    { scopeGroup: 'attendanceRead', pathParams: idParams('sessionId') },
+  ),
+  r(
+    'post',
+    '/api/attendance-sessions/{sessionId}/records',
+    'Bulk upsert attendance records for a session',
+    'attendance',
+    { scopeGroup: 'attendanceWrite', pathParams: idParams('sessionId') },
+  ),
+  r(
+    'get',
+    '/api/courses/{courseId}/attendance/export.csv',
+    'Export attendance CSV for a course',
+    'attendance',
+    { scopeGroup: 'attendanceRead', pathParams: idParams('courseId') },
+  ),
+  r(
+    'get',
+    '/api/me/courses/{courseId}/attendance',
+    'My attendance records for a course',
+    'attendance',
+    { scopeGroup: 'attendanceRead', pathParams: idParams('courseId') },
+  ),
 
   // ---------- Grading policy & final grades ----------
-  r('get', '/api/courses/{courseId}/grading-policy', 'Get the grading policy', 'grading', { scopeGroup: 'gradesRead', pathParams: idParams('courseId') }),
-  r('put', '/api/courses/{courseId}/grading-policy', 'Update the grading policy (sum must equal 100)', 'grading', { scopeGroup: 'gradesWrite', pathParams: idParams('courseId') }),
-  r('get', '/api/courses/{courseId}/final-grades', 'List final grades for a course', 'grading', { scopeGroup: 'gradesRead', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/final-grades/recalculate', 'Recalculate every final grade for a course', 'grading', { scopeGroup: 'gradesWrite', pathParams: idParams('courseId') }),
-  r('patch', '/api/final-grades/{finalGradeId}', 'Teacher override of a final grade (score + reason)', 'grading', { scopeGroup: 'gradesWrite', pathParams: idParams('finalGradeId') }),
-  r('get', '/api/me/courses/{courseId}/final-grade', 'My final grade for a course', 'grading', { scopeGroup: 'gradesRead', pathParams: idParams('courseId') }),
-  r('get', '/api/courses/{courseId}/grades/export.csv', 'Export final grades CSV for a course', 'grading', { scopeGroup: 'gradesRead', pathParams: idParams('courseId') }),
+  r('get', '/api/courses/{courseId}/grading-policy', 'Get the grading policy', 'grading', {
+    scopeGroup: 'gradesRead',
+    pathParams: idParams('courseId'),
+  }),
+  r(
+    'put',
+    '/api/courses/{courseId}/grading-policy',
+    'Update the grading policy (sum must equal 100)',
+    'grading',
+    { scopeGroup: 'gradesWrite', pathParams: idParams('courseId') },
+  ),
+  r('get', '/api/courses/{courseId}/final-grades', 'List final grades for a course', 'grading', {
+    scopeGroup: 'gradesRead',
+    pathParams: idParams('courseId'),
+  }),
+  r(
+    'post',
+    '/api/courses/{courseId}/final-grades/recalculate',
+    'Recalculate every final grade for a course',
+    'grading',
+    { scopeGroup: 'gradesWrite', pathParams: idParams('courseId') },
+  ),
+  r(
+    'patch',
+    '/api/final-grades/{finalGradeId}',
+    'Teacher override of a final grade (score + reason)',
+    'grading',
+    { scopeGroup: 'gradesWrite', pathParams: idParams('finalGradeId') },
+  ),
+  r('get', '/api/me/courses/{courseId}/final-grade', 'My final grade for a course', 'grading', {
+    scopeGroup: 'gradesRead',
+    pathParams: idParams('courseId'),
+  }),
+  r(
+    'get',
+    '/api/courses/{courseId}/grades/export.csv',
+    'Export final grades CSV for a course',
+    'grading',
+    { scopeGroup: 'gradesRead', pathParams: idParams('courseId') },
+  ),
 
   // ---------- Alerts ----------
-  r('get', '/api/courses/{courseId}/alerts', 'List alerts for a course', 'alerts', { scopeGroup: 'alertsRead', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/alerts', 'Create a manual alert', 'alerts', { scopeGroup: 'alertsWrite', pathParams: idParams('courseId') }),
-  r('post', '/api/courses/{courseId}/alerts/generate', 'Run risk-rule evaluation for a course', 'alerts', { scopeGroup: 'alertsWrite', pathParams: idParams('courseId') }),
-  r('post', '/api/alerts/{alertId}/resolve', 'Resolve / dismiss an alert', 'alerts', { scopeGroup: 'alertsWrite', pathParams: idParams('alertId') }),
+  r('get', '/api/courses/{courseId}/alerts', 'List alerts for a course', 'alerts', {
+    scopeGroup: 'alertsRead',
+    pathParams: idParams('courseId'),
+  }),
+  r('post', '/api/courses/{courseId}/alerts', 'Create a manual alert', 'alerts', {
+    scopeGroup: 'alertsWrite',
+    pathParams: idParams('courseId'),
+  }),
+  r(
+    'post',
+    '/api/courses/{courseId}/alerts/generate',
+    'Run risk-rule evaluation for a course',
+    'alerts',
+    { scopeGroup: 'alertsWrite', pathParams: idParams('courseId') },
+  ),
+  r('post', '/api/alerts/{alertId}/resolve', 'Resolve / dismiss an alert', 'alerts', {
+    scopeGroup: 'alertsWrite',
+    pathParams: idParams('alertId'),
+  }),
   r('get', '/api/me/alerts', 'My alerts (across courses)', 'alerts', { scopeGroup: 'alertsRead' }),
-  r('post', '/api/me/alerts/{alertId}/read', 'Mark one of my alerts as read', 'alerts', { scopeGroup: 'alertsRead', pathParams: idParams('alertId') }),
+  r('post', '/api/me/alerts/{alertId}/read', 'Mark one of my alerts as read', 'alerts', {
+    scopeGroup: 'alertsRead',
+    pathParams: idParams('alertId'),
+  }),
 
   // ---------- Dashboards ----------
-  r('get', '/api/dashboards/admin', 'Admin dashboard aggregates', 'dashboards', { scopeGroup: 'dashboardsRead', roles: ['admin'] }),
-  r('get', '/api/dashboards/teacher', 'Teacher dashboard aggregates', 'dashboards', { scopeGroup: 'dashboardsRead', roles: ['teacher', 'admin'] }),
-  r('get', '/api/dashboards/student', 'Student dashboard aggregates', 'dashboards', { scopeGroup: 'dashboardsRead' }),
+  r('get', '/api/dashboards/admin', 'Admin dashboard aggregates', 'dashboards', {
+    scopeGroup: 'dashboardsRead',
+    roles: ['admin'],
+  }),
+  r('get', '/api/dashboards/teacher', 'Teacher dashboard aggregates', 'dashboards', {
+    scopeGroup: 'dashboardsRead',
+    roles: ['teacher', 'admin'],
+  }),
+  r('get', '/api/dashboards/student', 'Student dashboard aggregates', 'dashboards', {
+    scopeGroup: 'dashboardsRead',
+  }),
 ];
 
 const TAG_DESCRIPTIONS: Record<string, string> = {
@@ -307,7 +913,10 @@ const SCHEMAS: Record<string, unknown> = {
             items: {
               type: 'object',
               properties: {
-                path: { type: 'array', items: { oneOf: [{ type: 'string' }, { type: 'integer' }] } },
+                path: {
+                  type: 'array',
+                  items: { oneOf: [{ type: 'string' }, { type: 'integer' }] },
+                },
                 code: { type: 'string' },
                 i18nKey: { type: 'string' },
               },
@@ -389,8 +998,27 @@ const SCHEMAS: Record<string, unknown> = {
     required: ['name', 'scopes'],
     properties: {
       name: { type: 'string', minLength: 1, maxLength: 120 },
-      scopes: { type: 'array', minItems: 1, items: { type: 'string', enum: [...API_TOKEN_SCOPES] } },
+      scopes: {
+        type: 'array',
+        minItems: 1,
+        items: { type: 'string', enum: [...API_TOKEN_SCOPES] },
+      },
       expiresAt: { type: 'string', format: 'date-time' },
+    },
+  },
+  CreateSelfApiTokenInput: {
+    type: 'object',
+    required: ['name'],
+    properties: {
+      name: { type: 'string', minLength: 1, maxLength: 120 },
+      expiresInDays: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 3650,
+        nullable: true,
+        description:
+          'Optional lifetime. Omit for a non-expiring token. Server rejects any client-supplied scope; scope is auto-bound to caller role.',
+      },
     },
   },
   ApiTokenCreated: {
@@ -401,7 +1029,10 @@ const SCHEMAS: Record<string, unknown> = {
       name: { type: 'string' },
       scopes: { type: 'array', items: { type: 'string' } },
       token: { type: 'string', description: 'Plaintext token. Shown ONCE — store it now.' },
+      createdAt: { type: 'string', format: 'date-time' },
+      lastUsedAt: { type: 'string', format: 'date-time', nullable: true },
       expiresAt: { type: 'string', format: 'date-time', nullable: true },
+      revokedAt: { type: 'string', format: 'date-time', nullable: true },
     },
   },
   ValidateInvitationInput: {
@@ -459,35 +1090,67 @@ function buildPathItem(route: RouteSpec) {
     },
     '400': {
       description: 'Validation error',
-      content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' }, example: {
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Invalid input', i18nKey: 'errors.validation' },
-      } } },
+      content: {
+        'application/json': {
+          schema: { $ref: '#/components/schemas/ApiError' },
+          example: {
+            success: false,
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid input',
+              i18nKey: 'errors.validation',
+            },
+          },
+        },
+      },
     },
   };
   if (route.security !== 'public') {
     responses['401'] = {
       description: 'Unauthenticated',
-      content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' }, example: {
-        success: false,
-        error: { code: 'UNAUTHORIZED', message: 'Authentication required', i18nKey: 'errors.unauthorized' },
-      } } },
+      content: {
+        'application/json': {
+          schema: { $ref: '#/components/schemas/ApiError' },
+          example: {
+            success: false,
+            error: {
+              code: 'UNAUTHORIZED',
+              message: 'Authentication required',
+              i18nKey: 'errors.unauthorized',
+            },
+          },
+        },
+      },
     };
     responses['403'] = {
       description: 'Forbidden / missing scope',
-      content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' }, example: {
-        success: false,
-        error: { code: 'MISSING_SCOPE', message: 'Token lacks required scope', i18nKey: 'errors.missingScope' },
-      } } },
+      content: {
+        'application/json': {
+          schema: { $ref: '#/components/schemas/ApiError' },
+          example: {
+            success: false,
+            error: {
+              code: 'MISSING_SCOPE',
+              message: 'Token lacks required scope',
+              i18nKey: 'errors.missingScope',
+            },
+          },
+        },
+      },
     };
   }
   if (route.pathParams && route.pathParams.length > 0) {
     responses['404'] = {
       description: 'Not found',
-      content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' }, example: {
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Resource not found', i18nKey: 'errors.notFound' },
-      } } },
+      content: {
+        'application/json': {
+          schema: { $ref: '#/components/schemas/ApiError' },
+          example: {
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Resource not found', i18nKey: 'errors.notFound' },
+          },
+        },
+      },
     };
   }
 
@@ -508,7 +1171,9 @@ function buildPathItem(route: RouteSpec) {
   if (route.scopeGroup) {
     const scopes = Array.from(SCOPE_GROUPS[route.scopeGroup]);
     const note = `API-token callers must hold at least one of: \`${scopes.join('`, `')}\`.`;
-    operation.description = operation.description ? `${operation.description as string}\n\n${note}` : note;
+    operation.description = operation.description
+      ? `${operation.description as string}\n\n${note}`
+      : note;
   }
   if (route.requestSchema) {
     operation.requestBody = {
@@ -532,7 +1197,10 @@ export function buildOpenApiSpec(opts: { serverUrl?: string } = {}): Record<stri
     const entry = paths[route.path] ?? (paths[route.path] = {});
     entry[route.method] = buildPathItem(route);
   }
-  const tags = Object.entries(TAG_DESCRIPTIONS).map(([name, description]) => ({ name, description }));
+  const tags = Object.entries(TAG_DESCRIPTIONS).map(([name, description]) => ({
+    name,
+    description,
+  }));
   return {
     openapi: '3.1.0',
     info: {
@@ -559,7 +1227,8 @@ export function buildOpenApiSpec(opts: { serverUrl?: string } = {}): Record<stri
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'cmpt',
-          description: 'Long-lived API token (prefix `cmpt_`). Carries scopes from `API_TOKEN_SCOPES`.',
+          description:
+            'Long-lived API token (prefix `cmpt_`). Carries scopes from `API_TOKEN_SCOPES`.',
         },
       },
       schemas: SCHEMAS,

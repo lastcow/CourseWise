@@ -77,6 +77,14 @@ export const registerTeacherSchema = z.object({
 });
 export type RegisterTeacherInput = z.infer<typeof registerTeacherSchema>;
 
+// Self-service token creation: the server auto-binds scopes to the caller's
+// role, so the client only needs a name and an optional lifetime.
+export const createSelfApiTokenSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  expiresInDays: z.number().int().positive().max(3650).optional().nullable(),
+});
+export type CreateSelfApiTokenInput = z.infer<typeof createSelfApiTokenSchema>;
+
 export const gradingPolicySchema = z
   .object({
     attendance: z.number().int().min(0).max(100),

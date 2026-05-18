@@ -4,6 +4,7 @@ import type {
   AlertStatus,
   AlertSummary,
   AlertWithStudent,
+  ApiTokenSummary,
   AssignmentSummary,
   AttendanceRecordRow,
   AttendanceSessionSummary,
@@ -13,6 +14,7 @@ import type {
   CreateAssignmentInput,
   CreateAttendanceSessionInput,
   CreateCourseInput,
+  CreatedApiToken,
   CreateDiscussionPostInput,
   CreateDiscussionTopicInput,
   CreateInvitationCodeInput,
@@ -24,6 +26,7 @@ import type {
   CreatePresentationInput,
   CreateQuizInput,
   CreateQuizQuestionInput,
+  CreateSelfApiTokenInput,
   CreateSlideInput,
   DiscussionGradeRow,
   DiscussionPostSummary,
@@ -261,10 +264,37 @@ export function useDeactivateInvitationCode() {
 }
 
 export function validateInvitationCode(code: string) {
+  // Validation endpoint requires Bearer auth as of COU-17; callers must
+  // already be signed in.
   return apiCall<ValidateInvitationCodeResponse>('/api/invitation-codes/validate', {
     method: 'POST',
     body: { code },
-    auth: false,
+  });
+}
+
+// ---------- Self-serve API tokens (Settings → API Tokens) ----------
+export function useMyApiTokens() {
+  return useQuery({
+    queryKey: ['my-api-tokens'],
+    queryFn: () => apiCall<{ tokens: ApiTokenSummary[] }>('/api/me/api-tokens'),
+  });
+}
+
+export function useCreateMyApiToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateSelfApiTokenInput) =>
+      apiCall<CreatedApiToken>('/api/me/api-tokens', { method: 'POST', body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-api-tokens'] }),
+  });
+}
+
+export function useRevokeMyApiToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<{ ok: boolean }>(`/api/me/api-tokens/${id}/revoke`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-api-tokens'] }),
   });
 }
 

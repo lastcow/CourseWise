@@ -34,6 +34,24 @@ above the scope check still apply.
 
 ---
 
+## Public route whitelist
+
+Every endpoint listed in the rest of this document requires a Bearer token.
+The complete list of routes that accept anonymous traffic is:
+
+| Method | Path                              | Description                          |
+| ------ | --------------------------------- | ------------------------------------ |
+| GET    | `/api/health`                     | Liveness probe                       |
+| GET    | `/api/version`                    | Version + commit + build timestamp   |
+| GET    | `/api/openapi.json`               | OpenAPI 3.1 document for this server |
+| POST   | `/api/auth/login`                 | Email + password → JWT pair          |
+| POST   | `/api/auth/refresh`               | Rotate the JWT pair                  |
+| POST   | `/api/auth/register-student`      | Register a student against an invitation code (rate-limited) |
+
+`apps/api/src/auth-coverage.test.ts` walks the live Hono route table on every
+CI run and asserts the invariant: any route not on this list rejects a
+no-auth request with `401 UNAUTHORIZED`.
+
 ## Meta
 
 | Method | Path                  | Auth   | Description                          |
@@ -49,7 +67,7 @@ above the scope check still apply.
 | POST   | `/api/auth/register-student`      | public   | Register a student against an invitation code (rate-limited) |
 | POST   | `/api/auth/login`                 | public   | Email + password → JWT pair              |
 | POST   | `/api/auth/refresh`               | public   | Rotate the JWT pair                      |
-| POST   | `/api/auth/logout`                | public   | Revoke a refresh token                   |
+| POST   | `/api/auth/logout`                | Bearer   | Revoke the supplied refresh token (caller must hold a valid JWT or API token) |
 | GET    | `/api/auth/me`                    | JWT      | Current user                             |
 
 ## Me (self-service)
@@ -61,8 +79,8 @@ preferences and tokens.
 | ------ | ----------------------------------- | ------------------------------------ |
 | GET    | `/api/me/preferences`               | Get preferences (`preferredLanguage`) |
 | PATCH  | `/api/me/preferences`               | Update preferences                   |
-| GET    | `/api/me/api-tokens`                | List my tokens (no plaintext)        |
-| POST   | `/api/me/api-tokens`                | Create a token; plaintext returned **once** |
+| GET    | `/api/me/api-tokens`                | List my tokens (no plaintext, includes revoked) |
+| POST   | `/api/me/api-tokens`                | Mint a token: body `{ name, expiresInDays? }`. Scopes auto-bind to caller's role (server rejects any client-supplied `scopes` field). Plaintext returned **once**. |
 | POST   | `/api/me/api-tokens/{id}/revoke`    | Revoke one of my tokens              |
 | GET    | `/api/me/alerts`                    | My alerts across courses             |
 | POST   | `/api/me/alerts/{alertId}/read`     | Mark alert as read                   |
@@ -95,7 +113,7 @@ JWT, role `teacher`.
 
 | Method | Path                                       | Auth                          | Description                          |
 | ------ | ------------------------------------------ | ----------------------------- | ------------------------------------ |
-| POST   | `/api/invitation-codes/validate`           | public (rate-limited)         | Validate an invitation code          |
+| POST   | `/api/invitation-codes/validate`           | Bearer (rate-limited)         | Validate an invitation code. As of COU-17 this requires a Bearer token; anonymous registration validates the code as part of `POST /api/auth/register-student`. |
 | GET    | `/api/invitation-codes`                    | admin · `invitationCodesRead` | List invitation codes                |
 | GET    | `/api/invitation-codes/{id}`               | admin · `invitationCodesRead` | Get an invitation code               |
 | POST   | `/api/invitation-codes`                    | admin · `invitationCodesWrite`| Create an invitation code            |

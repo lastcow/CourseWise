@@ -12,6 +12,7 @@ import {
   FileText,
   GraduationCap,
   Home,
+  KeyRound,
   LayoutDashboard,
   Library,
   ListChecks,
@@ -50,6 +51,12 @@ type NavGroup = {
   sections?: NavSection[];
 };
 
+const SETTINGS_GROUP: NavGroup = {
+  id: 'settings',
+  titleKey: 'nav.settingsSection',
+  items: [{ to: '/settings/api-tokens', labelKey: 'nav.apiTokens', icon: KeyRound }],
+};
+
 const ADMIN_GROUPS: NavGroup[] = [
   {
     id: 'admin',
@@ -65,6 +72,7 @@ const ADMIN_GROUPS: NavGroup[] = [
     titleKey: 'nav.users',
     items: [{ to: '/admin/teachers', labelKey: 'nav.inviteTeacher', icon: UserPlus }],
   },
+  SETTINGS_GROUP,
 ];
 
 const TEACHER_TOP_GROUPS: NavGroup[] = [
@@ -94,9 +102,7 @@ function teacherCourseSections(courseId: string): NavSection[] {
       // Teacher landing for /teacher/courses/:id is the settings page, so
       // it sits standalone at the top of the menu (no section header).
       id: 'top',
-      items: [
-        { to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings },
-      ],
+      items: [{ to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings }],
     },
     {
       id: 'learn',
@@ -140,9 +146,7 @@ function studentCourseSections(courseId: string): NavSection[] {
   return [
     {
       id: 'top',
-      items: [
-        { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
-      ],
+      items: [{ to: prefix, labelKey: 'nav.overview', icon: Home, end: true }],
     },
     {
       id: 'learn',
@@ -171,9 +175,7 @@ function studentCourseSections(courseId: string): NavSection[] {
     {
       id: 'performance',
       titleKey: 'course.nav.section.performance',
-      items: [
-        { to: `${prefix}/grade`, labelKey: 'nav.myGrade', icon: GraduationCap },
-      ],
+      items: [{ to: `${prefix}/grade`, labelKey: 'nav.myGrade', icon: GraduationCap }],
     },
   ];
 }
@@ -217,9 +219,10 @@ export function SideNav({
             titleKey: 'nav.currentCourse',
             sections: teacherCourseSections(teacherCourseId),
           },
+          SETTINGS_GROUP,
         ];
       }
-      return TEACHER_TOP_GROUPS;
+      return [...TEACHER_TOP_GROUPS, SETTINGS_GROUP];
     }
     if (role === 'student') {
       if (studentCourseId) {
@@ -230,9 +233,10 @@ export function SideNav({
             titleKey: 'nav.currentCourse',
             sections: studentCourseSections(studentCourseId),
           },
+          SETTINGS_GROUP,
         ];
       }
-      return STUDENT_TOP_GROUPS;
+      return [...STUDENT_TOP_GROUPS, SETTINGS_GROUP];
     }
     return [];
   }, [role, teacherCourseId, studentCourseId]);
@@ -307,7 +311,6 @@ export function SideNav({
           </div>
         ))}
       </nav>
-
     </div>
   );
 }
@@ -343,11 +346,7 @@ function SectionedGroupItems({
             className={showHeader ? 'mt-2 first:mt-0' : undefined}
           >
             {showDivider ? (
-              <div
-                role="separator"
-                aria-hidden
-                className="mx-3 my-2 border-t border-border"
-              />
+              <div role="separator" aria-hidden className="mx-3 my-2 border-t border-border" />
             ) : null}
             {showHeader ? (
               <div className="px-3 pb-1 pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
