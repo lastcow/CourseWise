@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  AdminDashboardResponse,
+  AlertStatus,
+  AlertSummary,
+  AlertWithStudent,
   AssignmentSummary,
   AttendanceRecordRow,
   AttendanceSessionSummary,
@@ -12,6 +16,7 @@ import type {
   CreateDiscussionPostInput,
   CreateDiscussionTopicInput,
   CreateInvitationCodeInput,
+  CreateManualAlertInput,
   CreateMaterialInput,
   CreateModuleInput,
   CreatePresentationInput,
@@ -21,12 +26,16 @@ import type {
   DiscussionGradeRow,
   DiscussionPostSummary,
   DiscussionTopicSummary,
+  FinalGradeSummary,
+  GenerateAlertsResult,
   GradeDiscussionInput,
   GradeQuizAnswerInput,
   GradeSubmissionInput,
+  GradingPolicySummary,
   InvitationCodeSummary,
   MaterialSummary,
   ModuleSummary,
+  OverrideFinalGradeInput,
   PresentationSummary,
   QuizAttemptDetail,
   QuizAttemptSummary,
@@ -34,22 +43,27 @@ import type {
   QuizQuestionStudentView,
   QuizQuestionTeacherView,
   QuizSummary,
+  RecalculateFinalGradesResult,
   ReorderModulesInput,
   ReorderQuizQuestionsInput,
   ReorderSlidesInput,
   ReplyDiscussionPostInput,
+  ResolveAlertInput,
   ReturnSubmissionInput,
   SaveQuizAttemptAnswersInput,
   SlideSummary,
   StudentAttendanceRow,
+  StudentDashboardResponse,
   SubmissionSummary,
   SubmissionWithStudent,
   SubmitQuizAttemptInput,
+  TeacherDashboardResponse,
   UpdateAssignmentInput,
   UpdateAttendanceSessionInput,
   UpdateCourseInput,
   UpdateDiscussionPostInput,
   UpdateDiscussionTopicInput,
+  UpdateGradingPolicyInput,
   UpdateMaterialInput,
   UpdateModuleInput,
   UpdatePresentationInput,
@@ -959,7 +973,7 @@ export function useMyAttendance(courseId: string | null) {
   });
 }
 
-export async function downloadAttendanceCsv(courseId: string): Promise<void> {
+async function downloadCsv(path: string, filename: string): Promise<void> {
   const stored = (() => {
     try {
       const raw = localStorage.getItem('coursewise.accessToken');
@@ -968,7 +982,7 @@ export async function downloadAttendanceCsv(courseId: string): Promise<void> {
       return '';
     }
   })();
-  const res = await fetch(`/api/courses/${courseId}/attendance/export.csv`, {
+  const res = await fetch(path, {
     headers: stored ? { authorization: `Bearer ${stored}` } : {},
   });
   if (!res.ok) throw new Error(`Export failed: ${res.status}`);
@@ -977,9 +991,174 @@ export async function downloadAttendanceCsv(courseId: string): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `attendance-${courseId}.csv`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function downloadAttendanceCsv(courseId: string): Promise<void> {
+  await downloadCsv(`/api/courses/${courseId}/attendance/export.csv`, `attendance-${courseId}.csv`);
+}
+
+export async function downloadGradesCsv(courseId: string): Promise<void> {
+  await downloadCsv(`/api/courses/${courseId}/grades/export.csv`, `grades-${courseId}.csv`);
+}
+
+// ---------- M5: Grading policy ----------
+export function useGradingPolicy(courseId: string | null) {
+  return useQuery({
+    queryKey: ['grading-policy', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<GradingPolicySummary>(`/api/courses/${courseId}/grading-policy`),
+  });
+}
+
+export function useUpdateGradingPolicy(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateGradingPolicyInput) =>
+      apiCall<GradingPolicySummary>(`/api/courses/${courseId}/grading-policy`, {
+        method: 'PUT',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['grading-policy', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+    },
+  });
+}
+
+// ---------- M5: Final grades ----------
+export function useFinalGrades(courseId: string | null) {
+  return useQuery({
+    queryKey: ['final-grades', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<FinalGradeSummary[]>(`/api/courses/${courseId}/final-grades`),
+  });
+}
+
+export function useRecalculateFinalGrades(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall<RecalculateFinalGradesResult>(
+        `/api/courses/${courseId}/final-grades/recalculate`,
+        { method: 'POST', body: {} },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+    },
+  });
+}
+
+export function useOverrideFinalGrade(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: OverrideFinalGradeInput }) =>
+      apiCall<FinalGradeSummary>(`/api/final-grades/${id}`, {
+        method: 'PATCH',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+    },
+  });
+}
+
+export function useMyFinalGrade(courseId: string | null) {
+  return useQuery({
+    queryKey: ['my-final-grade', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<FinalGradeSummary | null>(`/api/me/courses/${courseId}/final-grade`),
+  });
+}
+
+// ---------- M5: Alerts ----------
+export function useCourseAlerts(courseId: string | null, status?: AlertStatus) {
+  return useQuery({
+    queryKey: ['course-alerts', courseId, status ?? 'all'],
+    enabled: !!courseId,
+    queryFn: () => {
+      const qs = status ? `?status=${status}` : '';
+      return apiCall<AlertWithStudent[]>(`/api/courses/${courseId}/alerts${qs}`);
+    },
+  });
+}
+
+export function useGenerateAlerts(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall<GenerateAlertsResult>(`/api/courses/${courseId}/alerts/generate`, {
+        method: 'POST',
+        body: {},
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['course-alerts', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-alerts'] });
+    },
+  });
+}
+
+export function useCreateAlert(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateManualAlertInput) =>
+      apiCall<AlertSummary>(`/api/courses/${courseId}/alerts`, { body: input }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['course-alerts', courseId] });
+    },
+  });
+}
+
+export function useResolveAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ResolveAlertInput }) =>
+      apiCall<AlertSummary>(`/api/alerts/${id}/resolve`, {
+        method: 'POST',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['course-alerts'] });
+      void qc.invalidateQueries({ queryKey: ['my-alerts'] });
+    },
+  });
+}
+
+export function useMyAlerts(status?: AlertStatus) {
+  return useQuery({
+    queryKey: ['my-alerts', status ?? 'all'],
+    queryFn: () => {
+      const qs = status ? `?status=${status}` : '';
+      return apiCall<AlertSummary[]>(`/api/me/alerts${qs}`);
+    },
+  });
+}
+
+// ---------- M5: Dashboards ----------
+export function useAdminDashboard() {
+  return useQuery({
+    queryKey: ['dashboard', 'admin'],
+    queryFn: () => apiCall<AdminDashboardResponse>('/api/dashboards/admin'),
+  });
+}
+
+export function useTeacherDashboard() {
+  return useQuery({
+    queryKey: ['dashboard', 'teacher'],
+    queryFn: () => apiCall<TeacherDashboardResponse>('/api/dashboards/teacher'),
+  });
+}
+
+export function useStudentDashboard() {
+  return useQuery({
+    queryKey: ['dashboard', 'student'],
+    queryFn: () => apiCall<StudentDashboardResponse>('/api/dashboards/student'),
+  });
 }

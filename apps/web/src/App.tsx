@@ -25,6 +25,13 @@ import { TeacherQuizzesPage } from '@/pages/teacher/TeacherQuizzesPage';
 import { TeacherQuizEditorPage } from '@/pages/teacher/TeacherQuizEditorPage';
 import { TeacherQuizAttemptsPage } from '@/pages/teacher/TeacherQuizAttemptsPage';
 import { TeacherAttendancePage } from '@/pages/teacher/TeacherAttendancePage';
+import { TeacherGradebookPage } from '@/pages/teacher/TeacherGradebookPage';
+import { TeacherGradingPolicyPage } from '@/pages/teacher/TeacherGradingPolicyPage';
+import { TeacherAlertsPage } from '@/pages/teacher/TeacherAlertsPage';
+import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
+import { AdminAlertsPage } from '@/pages/admin/AdminAlertsPage';
+import { StudentDashboardPage } from '@/pages/student/StudentDashboardPage';
+import { StudentGradePage } from '@/pages/student/StudentGradePage';
 import { StudentCoursesPage } from '@/pages/student/StudentCoursesPage';
 import { StudentCourseOverviewPage } from '@/pages/student/StudentCourseOverviewPage';
 import { StudentMaterialsPage } from '@/pages/student/StudentMaterialsPage';
@@ -48,6 +55,22 @@ export default function App(): JSX.Element {
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <RequireRole roles={['admin']}>
+                    <AdminDashboardPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/alerts"
+                element={
+                  <RequireRole roles={['admin']}>
+                    <AdminAlertsPage />
+                  </RequireRole>
+                }
+              />
               <Route
                 path="/admin/courses"
                 element={
@@ -105,6 +128,9 @@ export default function App(): JSX.Element {
                 <Route path="quizzes" element={<TeacherQuizzesPage />} />
                 <Route path="quizzes/:quizId/attempts" element={<TeacherQuizAttemptsPage />} />
                 <Route path="attendance" element={<TeacherAttendancePage />} />
+                <Route path="gradebook" element={<TeacherGradebookPage />} />
+                <Route path="grading-policy" element={<TeacherGradingPolicyPage />} />
+                <Route path="alerts" element={<TeacherAlertsPage />} />
               </Route>
               <Route
                 path="/teacher/courses/:courseId/quizzes/:quizId"
@@ -119,6 +145,14 @@ export default function App(): JSX.Element {
                 element={
                   <RequireRole roles={['admin', 'teacher']}>
                     <TeacherPresentationEditorPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/dashboard"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentDashboardPage />
                   </RequireRole>
                 }
               />
@@ -207,6 +241,14 @@ export default function App(): JSX.Element {
                 element={
                   <RequireRole roles={['student']}>
                     <StudentAttendancePage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/courses/:courseId/grade"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentGradePage />
                   </RequireRole>
                 }
               />

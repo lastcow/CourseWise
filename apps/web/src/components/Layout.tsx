@@ -26,8 +26,14 @@ export function Layout(): JSX.Element {
           <nav className="flex items-center gap-2 text-sm">
             {auth?.user.role === 'admin' ? (
               <>
+                <Link className="px-3 py-1 hover:underline" to="/admin/dashboard">
+                  {t('nav.dashboard')}
+                </Link>
                 <Link className="px-3 py-1 hover:underline" to="/admin/courses">
                   {t('nav.adminCourses')}
+                </Link>
+                <Link className="px-3 py-1 hover:underline" to="/admin/alerts">
+                  {t('nav.alerts')}
                 </Link>
                 <Link className="px-3 py-1 hover:underline" to="/admin/invitation-codes">
                   {t('nav.invitationCodes')}
@@ -40,9 +46,14 @@ export function Layout(): JSX.Element {
               </Link>
             ) : null}
             {auth?.user.role === 'student' ? (
-              <Link className="px-3 py-1 hover:underline" to="/student/courses">
-                {t('nav.courses')}
-              </Link>
+              <>
+                <Link className="px-3 py-1 hover:underline" to="/student/dashboard">
+                  {t('nav.dashboard')}
+                </Link>
+                <Link className="px-3 py-1 hover:underline" to="/student/courses">
+                  {t('nav.courses')}
+                </Link>
+              </>
             ) : null}
             {auth ? (
               <Button size="sm" variant="outline" onClick={onLogout}>
