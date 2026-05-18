@@ -45,6 +45,9 @@ interface KVLike {
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
 }
 
+// Workers KV enforces a minimum expirationTtl of 60 seconds.
+const KV_MIN_TTL = 60;
+
 export class KvRateLimiter implements RateLimiter {
   constructor(private readonly kv: KVLike) {}
 
@@ -54,14 +57,14 @@ export class KvRateLimiter implements RateLimiter {
     if (!existing || existing.resetAt <= now) {
       const resetAt = now + windowSeconds * 1000;
       await this.kv.put(key, JSON.stringify({ count: 1, resetAt }), {
-        expirationTtl: windowSeconds,
+        expirationTtl: Math.max(KV_MIN_TTL, windowSeconds),
       });
       return { allowed: true, remaining: limit - 1, resetSeconds: windowSeconds };
     }
     const count = existing.count + 1;
     const resetSeconds = Math.max(1, Math.ceil((existing.resetAt - now) / 1000));
     await this.kv.put(key, JSON.stringify({ count, resetAt: existing.resetAt }), {
-      expirationTtl: resetSeconds,
+      expirationTtl: Math.max(KV_MIN_TTL, resetSeconds),
     });
     if (count > limit) {
       return { allowed: false, remaining: 0, resetSeconds };

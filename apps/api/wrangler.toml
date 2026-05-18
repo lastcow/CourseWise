@@ -8,18 +8,18 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 JWT_ISSUER = "coursewise"
 JWT_AUDIENCE = "coursewise-web"
-CORS_ORIGIN = "http://localhost:5173"
+CORS_ORIGIN = "https://coursewise.pages.dev"
+R2_BUCKET = "coursewise-files"
 
 # Required production secrets (uploaded with `wrangler secret put`):
 #   DATABASE_URL         — Neon pooled connection string
 #   JWT_SECRET           — 32+ byte access-token signing secret
 #   JWT_REFRESH_SECRET   — 32+ byte refresh-token signing secret
+#   R2_ACCOUNT_ID        — Cloudflare account id used as the R2 S3 endpoint host
+#   R2_ACCESS_KEY_ID     — R2 S3 token access key (for presigned uploads)
+#   R2_SECRET_ACCESS_KEY — R2 S3 token secret (for presigned uploads)
 # Optional:
-#   R2_PUBLIC_BASE_URL   — public CDN host for the R2 bucket (presign falls back to bucket URL when unset)
-
-# Override [vars] for production after the Workers + Pages projects are created.
-# [env.production.vars]
-# CORS_ORIGIN = "https://coursewise.pages.dev"
+#   R2_PUBLIC_ENDPOINT   — public CDN host for the R2 bucket (presign falls back to bucket URL when unset)
 
 [observability]
 enabled = true
@@ -32,7 +32,7 @@ preview_bucket_name = "coursewise-files"
 # Workers KV namespace used by the rate-limit middleware. Create the namespace
 # with `wrangler kv namespace create RATE_LIMIT_KV` and paste the returned id
 # below. In local dev the middleware falls back to an in-memory Map per isolate.
-# [[kv_namespaces]]
-# binding = "RATE_LIMIT_KV"
-# id = "REPLACE_WITH_RATE_LIMIT_KV_ID"
-# preview_id = "REPLACE_WITH_RATE_LIMIT_KV_PREVIEW_ID"
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "9192503f091047d7ab16adcbe280f3f2"
+preview_id = "f1dab99148d44a3eb565753873d3d36c"
