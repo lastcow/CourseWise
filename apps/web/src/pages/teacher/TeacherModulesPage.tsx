@@ -4,7 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { Archive, ChevronDown, ChevronUp, CircleCheck, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -89,22 +94,14 @@ export function TeacherModulesPage(): JSX.Element {
           action={<Button onClick={() => setOpenCreate(true)}>{t('modules.newCta')}</Button>}
         />
       ) : (
-        <div className="space-y-4">
+        <Accordion className="space-y-3">
           {list.data.map((m, idx) => {
             const mats = moduleMaterials.get(m.id) ?? [];
             return (
-              <Card key={m.id}>
-                <CardContent className="space-y-3 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <div className="font-medium">{m.title}</div>
-                      {m.description ? (
-                        <p className="text-sm text-muted-foreground line-clamp-3">
-                          {stripMarkdown(m.description)}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="flex items-center gap-1.5">
+              <AccordionItem key={m.id} value={m.id}>
+                <AccordionTrigger
+                  trailing={
+                    <>
                       <ActionIconButton
                         icon={ChevronUp}
                         label={t('common.moveUp')}
@@ -140,15 +137,24 @@ export function TeacherModulesPage(): JSX.Element {
                           }
                         }}
                       />
-                    </div>
+                    </>
+                  }
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{m.title}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t('materials.countInModule', { count: mats.length })}
+                    </span>
                   </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3">
+                  {m.description ? (
+                    <p className="text-sm text-muted-foreground">{stripMarkdown(m.description)}</p>
+                  ) : null}
 
-                  <div className="space-y-2 border-t pt-2">
+                  <div className="space-y-2">
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                      {t('materials.title')}{' '}
-                      <span className="text-muted-foreground/70">
-                        {t('materials.countInModule', { count: mats.length })}
-                      </span>
+                      {t('materials.title')}
                     </div>
                     {mats.length === 0 ? (
                       <p className="text-sm text-muted-foreground">{t('materials.emptyInModule')}</p>
@@ -239,11 +245,11 @@ export function TeacherModulesPage(): JSX.Element {
                       </ul>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </AccordionContent>
+              </AccordionItem>
             );
           })}
-        </div>
+        </Accordion>
       )}
 
       <ModuleDialog
