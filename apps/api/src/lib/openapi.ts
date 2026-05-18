@@ -1,9 +1,32 @@
 import { API_TOKEN_SCOPES, SCOPE_GROUPS, USER_ROLES, type ScopeGroupName } from '@coursewise/shared';
 import { ERROR_CODES } from './errors';
 
-type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
+export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 type SecurityKind = 'public' | 'jwt' | 'either';
+
+/**
+ * The only routes that may serve unauthenticated traffic. Every other route
+ * MUST be mounted behind `requireAuth` / `requireJwtAuth`. The
+ * `auth-coverage` test in `index.test.ts` walks Hono's route table and
+ * enforces this invariant.
+ *
+ * Whitelisted endpoints are also rendered with `security: []` in the OpenAPI
+ * spec (no auth challenge).
+ */
+export const PUBLIC_ROUTE_WHITELIST: ReadonlyArray<{ method: Method; path: string }> = [
+  { method: 'get', path: '/api/health' },
+  { method: 'get', path: '/api/version' },
+  { method: 'get', path: '/api/openapi.json' },
+  { method: 'post', path: '/api/auth/login' },
+  { method: 'post', path: '/api/auth/refresh' },
+  { method: 'post', path: '/api/auth/register-student' },
+];
+
+export function isPublicRoute(method: string, path: string): boolean {
+  const m = method.toLowerCase() as Method;
+  return PUBLIC_ROUTE_WHITELIST.some((entry) => entry.method === m && entry.path === path);
+}
 
 interface RouteSpec {
   method: Method;
@@ -59,7 +82,7 @@ export const ROUTES: readonly RouteSpec[] = [
     responseSchema: 'AuthLoginResponse',
   }),
   r('post', '/api/auth/logout', 'Revoke the supplied refresh token', 'auth', {
-    security: 'public',
+    security: 'either',
     requestSchema: 'RefreshInput',
   }),
   r('get', '/api/auth/me', 'Current authenticated user (JWT only)', 'auth', { security: 'jwt', responseSchema: 'UserSelf' }),
@@ -68,9 +91,9 @@ export const ROUTES: readonly RouteSpec[] = [
   r('get', '/api/me/preferences', 'Get my preferences', 'me', { security: 'jwt' }),
   r('patch', '/api/me/preferences', 'Update my preferences', 'me', { security: 'jwt', requestSchema: 'UpdatePreferencesInput' }),
   r('get', '/api/me/api-tokens', 'List my API tokens (no plaintext)', 'me', { security: 'jwt' }),
-  r('post', '/api/me/api-tokens', 'Create a self-service API token (returns plaintext once)', 'me', {
+  r('post', '/api/me/api-tokens', 'Create a self-service API token (returns plaintext once; scope auto-bound to caller role)', 'me', {
     security: 'jwt',
-    requestSchema: 'CreateApiTokenInput',
+    requestSchema: 'CreateSelfApiTokenInput',
     responseSchema: 'ApiTokenCreated',
   }),
   r('post', '/api/me/api-tokens/{id}/revoke', 'Revoke one of my API tokens', 'me', { security: 'jwt', pathParams: idParams('id') }),
@@ -97,8 +120,8 @@ export const ROUTES: readonly RouteSpec[] = [
   r('post', '/api/teacher/api-tokens/{id}/revoke', 'Teacher: revoke my token', 'teacher', { security: 'jwt', roles: ['teacher'], pathParams: idParams('id') }),
 
   // ---------- Invitations ----------
-  r('post', '/api/invitation-codes/validate', 'Validate an invitation code (public, rate-limited)', 'invitations', {
-    security: 'public',
+  r('post', '/api/invitation-codes/validate', 'Validate an invitation code (authenticated, rate-limited)', 'invitations', {
+    security: 'either',
     requestSchema: 'ValidateInvitationInput',
   }),
   r('get', '/api/invitation-codes', 'List invitation codes', 'invitations', { scopeGroup: 'invitationCodesRead', roles: ['admin'] }),
@@ -393,6 +416,20 @@ const SCHEMAS: Record<string, unknown> = {
       expiresAt: { type: 'string', format: 'date-time' },
     },
   },
+  CreateSelfApiTokenInput: {
+    type: 'object',
+    required: ['name'],
+    properties: {
+      name: { type: 'string', minLength: 1, maxLength: 120 },
+      expiresInDays: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 3650,
+        nullable: true,
+        description: 'Optional lifetime. Omit for a non-expiring token. Server rejects any client-supplied scope; scope is auto-bound to caller role.',
+      },
+    },
+  },
   ApiTokenCreated: {
     type: 'object',
     required: ['id', 'name', 'scopes', 'token'],
@@ -401,7 +438,10 @@ const SCHEMAS: Record<string, unknown> = {
       name: { type: 'string' },
       scopes: { type: 'array', items: { type: 'string' } },
       token: { type: 'string', description: 'Plaintext token. Shown ONCE — store it now.' },
+      createdAt: { type: 'string', format: 'date-time' },
+      lastUsedAt: { type: 'string', format: 'date-time', nullable: true },
       expiresAt: { type: 'string', format: 'date-time', nullable: true },
+      revokedAt: { type: 'string', format: 'date-time', nullable: true },
     },
   },
   ValidateInvitationInput: {

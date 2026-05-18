@@ -1,6 +1,7 @@
 import {
   ADMIN_TOKEN_SCOPES,
   API_TOKEN_PREFIX,
+  STUDENT_ALLOWED_SCOPES,
   TEACHER_ALLOWED_SCOPES,
   type ApiTokenScope,
   type UserRole,
@@ -42,6 +43,21 @@ export function rejectScopesForRole(
     const bad = scopes.filter((s) => !TEACHER_ALLOWED_SCOPES.includes(s as ApiTokenScope));
     return bad.length === 0 ? { ok: true } : { ok: false, bad };
   }
-  // students cannot create tokens in this milestone
+  if (role === 'student') {
+    const bad = scopes.filter((s) => !STUDENT_ALLOWED_SCOPES.includes(s as ApiTokenScope));
+    return bad.length === 0 ? { ok: true } : { ok: false, bad };
+  }
   return { ok: false, bad: [...scopes] };
+}
+
+/**
+ * Default scope set granted to a self-service token for the given role.
+ * The server binds these automatically — clients never supply scopes, so they
+ * cannot escalate beyond what their role already allows.
+ */
+export function defaultScopesForRole(role: UserRole): ApiTokenScope[] {
+  if (role === 'admin') return [...ADMIN_TOKEN_SCOPES];
+  if (role === 'teacher') return [...TEACHER_ALLOWED_SCOPES];
+  if (role === 'student') return [...STUDENT_ALLOWED_SCOPES];
+  return [];
 }
