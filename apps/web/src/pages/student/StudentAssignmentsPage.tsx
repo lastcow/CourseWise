@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
+import { stripMarkdown } from '@/components/ui/markdown';
 import { useAssignmentsList } from '@/lib/queries';
 
 function due(iso: string | null): string {
@@ -52,7 +53,7 @@ export function StudentAssignmentsPage(): JSX.Element {
                 </Badge>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                <p className="line-clamp-2">{a.description ?? '—'}</p>
+                <p className="line-clamp-2">{a.description ? stripMarkdown(a.description) : '—'}</p>
                 <p className="mt-2">
                   {t('assignments.dueLabel')}: {due(a.dueDate)}
                   {isOverdue(a.dueDate) && a.status !== 'closed' ? (

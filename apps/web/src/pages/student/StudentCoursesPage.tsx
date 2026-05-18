@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
 import { Badge } from '@/components/ui/badge';
+import { stripMarkdown } from '@/components/ui/markdown';
 import { useCoursesList } from '@/lib/queries';
 
 export function StudentCoursesPage(): JSX.Element {
@@ -31,7 +32,9 @@ export function StudentCoursesPage(): JSX.Element {
                 </div>
                 <CardDescription className="font-mono text-xs">{c.code}</CardDescription>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">{c.description ?? '—'}</CardContent>
+              <CardContent className="text-sm text-muted-foreground line-clamp-3">
+                {c.description ? stripMarkdown(c.description) : '—'}
+              </CardContent>
               <CardFooter>
                 <Button asChild variant="outline" className="w-full">
                   <Link to={`/student/courses/${c.id}/materials`}>{t('materials.title')}</Link>

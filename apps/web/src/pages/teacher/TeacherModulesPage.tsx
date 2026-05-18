@@ -6,6 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
+import { stripMarkdown } from '@/components/ui/markdown';
 import { EmptyState } from '@/components/ui/empty';
 import {
   useCreateModule,
@@ -95,7 +97,9 @@ export function TeacherModulesPage(): JSX.Element {
                     <div className="flex-1">
                       <div className="font-medium">{m.title}</div>
                       {m.description ? (
-                        <p className="text-sm text-muted-foreground">{m.description}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-3">
+                          {stripMarkdown(m.description)}
+                        </p>
                       ) : null}
                     </div>
                     <div className="flex items-center gap-1">
@@ -313,7 +317,7 @@ function ModuleDialog({
         </div>
         <div className="space-y-1">
           <Label htmlFor="description">{t('modules.descriptionLabel')}</Label>
-          <Textarea id="description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <MarkdownEditor id="description" value={description} onChange={setDescription} />
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
@@ -410,13 +414,7 @@ function ModuleMaterialEditDialog({
         {material.sourceType === 'manual_text' ? (
           <div className="space-y-1">
             <Label htmlFor="mm-content">{t('materials.content')}</Label>
-            <Textarea
-              id="mm-content"
-              required
-              rows={6}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
+            <MarkdownEditor id="mm-content" required value={content} onChange={setContent} />
           </div>
         ) : null}
         {material.sourceType === 'upload' ? (

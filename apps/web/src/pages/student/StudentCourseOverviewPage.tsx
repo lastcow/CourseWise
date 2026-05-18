@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { MarkdownView, stripMarkdown } from '@/components/ui/markdown';
 import { useCourse, useMaterialsList, useModulesList } from '@/lib/queries';
 import type { MaterialSummary } from '@coursewise/shared';
 
@@ -37,7 +38,11 @@ export function StudentCourseOverviewPage(): JSX.Element {
           <CardDescription className="font-mono text-xs">{course.data.code}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">{course.data.description ?? '—'}</p>
+          {course.data.description ? (
+            <MarkdownView source={course.data.description} className="text-muted-foreground" />
+          ) : (
+            <p className="text-sm text-muted-foreground">—</p>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <Button asChild>
               <Link to={`/student/courses/${id}/materials`}>{t('materials.title')}</Link>
@@ -72,7 +77,9 @@ export function StudentCourseOverviewPage(): JSX.Element {
                     <div>
                       <div className="font-medium">{m.title}</div>
                       {m.description ? (
-                        <p className="text-sm text-muted-foreground">{m.description}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-3">
+                          {stripMarkdown(m.description)}
+                        </p>
                       ) : null}
                     </div>
                     {mats.length === 0 ? null : (
