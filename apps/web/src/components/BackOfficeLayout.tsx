@@ -50,7 +50,7 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
     role === 'admin'
       ? '/admin/dashboard'
       : role === 'teacher'
-        ? '/teacher/courses'
+        ? '/teacher/dashboard'
         : '/student/dashboard';
 
   return (

@@ -9,6 +9,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
 import { AdminInvitationCodesPage } from '@/pages/admin/AdminInvitationCodesPage';
+import { TeacherDashboardPage } from '@/pages/teacher/TeacherDashboardPage';
 import { TeacherCoursesPage } from '@/pages/teacher/TeacherCoursesPage';
 import { TeacherNewCoursePage } from '@/pages/teacher/TeacherNewCoursePage';
 import { TeacherCourseSettings } from '@/pages/teacher/TeacherCourseSettings';
@@ -129,6 +130,14 @@ export default function App(): JSX.Element {
               />
             </Route>
             <Route element={<BackOfficeLayout role="teacher" />}>
+              <Route
+                path="/teacher/dashboard"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherDashboardPage />
+                  </RequireRole>
+                }
+              />
               <Route
                 path="/teacher/courses"
                 element={

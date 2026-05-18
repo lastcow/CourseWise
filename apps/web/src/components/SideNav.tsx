@@ -54,7 +54,10 @@ const ADMIN_GROUPS: NavGroup[] = [
 const TEACHER_TOP_GROUPS: NavGroup[] = [
   {
     id: 'teacher',
-    items: [{ to: '/teacher/courses', labelKey: 'nav.courses', icon: BookOpen, end: false }],
+    items: [
+      { to: '/teacher/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+      { to: '/teacher/courses', labelKey: 'nav.courses', icon: BookOpen, end: false },
+    ],
   },
 ];
 
