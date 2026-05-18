@@ -9,10 +9,10 @@ export function HomePage(): JSX.Element {
   if (auth) {
     const home =
       auth.user.role === 'admin'
-        ? '/admin/courses'
+        ? '/admin/dashboard'
         : auth.user.role === 'teacher'
-          ? '/teacher/courses'
-          : '/student/courses';
+          ? '/teacher/dashboard'
+          : '/student/dashboard';
     return <Navigate to={home} replace />;
   }
   return (

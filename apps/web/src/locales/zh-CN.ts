@@ -481,6 +481,7 @@ export const zhCN = {
     },
     dashboard: {
       adminTitle: '管理员仪表板',
+      teacherTitle: '教师仪表板',
       studentTitle: '我的仪表板',
       totalUsers: '用户',
       totalTeachers: '教师',
@@ -499,6 +500,9 @@ export const zhCN = {
       upcoming: '待办',
       finalScore: '总评',
       alerts: '预警',
+      enrolled: '已选课人数',
+      ungradedSubmissions: '待批改作业',
+      ungradedQuizAnswers: '待批改测验',
     },
     errors: {
       validation: '请检查表单中标红的字段。',

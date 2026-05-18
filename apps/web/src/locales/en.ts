@@ -481,6 +481,7 @@ export const en = {
     },
     dashboard: {
       adminTitle: 'Admin dashboard',
+      teacherTitle: 'Teacher dashboard',
       studentTitle: 'My dashboard',
       totalUsers: 'Users',
       totalTeachers: 'Teachers',
@@ -499,6 +500,9 @@ export const en = {
       upcoming: 'Upcoming',
       finalScore: 'Final',
       alerts: 'Alerts',
+      enrolled: 'Enrolled',
+      ungradedSubmissions: 'To grade (assignments)',
+      ungradedQuizAnswers: 'To grade (quizzes)',
     },
     errors: {
       validation: 'Please fix the highlighted fields.',
