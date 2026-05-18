@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Archive, CircleCheck, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -294,16 +296,25 @@ function MaterialRow({
             </a>
           ) : null}
         </div>
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="outline" onClick={onPublishToggle}>
-            {m.status === 'published' ? t('materials.unpublish') : t('materials.publish')}
-          </Button>
-          <Button size="sm" variant="outline" onClick={onEdit}>
-            {t('common.edit')}
-          </Button>
-          <Button size="sm" variant="destructive" onClick={onDelete}>
-            {t('common.delete')}
-          </Button>
+        <div className="flex items-center gap-1.5">
+          <ActionIconButton
+            icon={m.status === 'published' ? Archive : CircleCheck}
+            label={m.status === 'published' ? t('materials.unpublish') : t('materials.publish')}
+            color={m.status === 'published' ? 'orange' : 'emerald'}
+            onClick={onPublishToggle}
+          />
+          <ActionIconButton
+            icon={Pencil}
+            label={t('common.edit')}
+            color="yellow"
+            onClick={onEdit}
+          />
+          <ActionIconButton
+            icon={Trash2}
+            label={t('common.delete')}
+            color="red"
+            onClick={onDelete}
+          />
         </div>
       </CardContent>
     </Card>

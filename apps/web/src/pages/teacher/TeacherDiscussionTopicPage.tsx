@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Reply, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea, Input, Label } from '@/components/ui/input';
@@ -71,13 +73,21 @@ function ThreadView({
             )}
           </div>
           {!n.post.isDeleted ? (
-            <div className="mt-2 flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => onReply(n.post.id)}>
-                {t('discussion.reply')}
-              </Button>
-              <Button size="sm" variant="destructive" onClick={() => onDelete(n.post.id)}>
-                {t('common.delete')}
-              </Button>
+            <div className="mt-2 flex items-center gap-1.5">
+              <ActionIconButton
+                size="sm"
+                icon={Reply}
+                label={t('discussion.reply')}
+                color="sky"
+                onClick={() => onReply(n.post.id)}
+              />
+              <ActionIconButton
+                size="sm"
+                icon={Trash2}
+                label={t('common.delete')}
+                color="red"
+                onClick={() => onDelete(n.post.id)}
+              />
             </div>
           ) : null}
           {n.children.length > 0 ? (

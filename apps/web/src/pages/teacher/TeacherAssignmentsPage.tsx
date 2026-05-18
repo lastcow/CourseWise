@@ -1,6 +1,8 @@
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Archive, CircleCheck, Pencil, Trash2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
@@ -76,20 +78,28 @@ export function TeacherAssignmentsPage(): JSX.Element {
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
                 <p className="line-clamp-2">{a.description ?? '—'}</p>
-                <div className="flex flex-wrap gap-2 pt-3">
-                  <Button asChild size="sm" variant="outline">
-                    <Link to={`/teacher/courses/${id}/assignments/${a.id}`}>
-                      {t('common.edit')}
-                    </Link>
-                  </Button>
-                  <Button asChild size="sm" variant="outline">
-                    <Link to={`/teacher/courses/${id}/assignments/${a.id}/submissions`}>
-                      {t('assignments.viewSubmissions')}
-                    </Link>
-                  </Button>
+                <div className="flex flex-wrap items-center gap-1.5 pt-3">
+                  <ActionIconButton
+                    asChild
+                    icon={Pencil}
+                    label={t('common.edit')}
+                    color="yellow"
+                  >
+                    <Link to={`/teacher/courses/${id}/assignments/${a.id}`} />
+                  </ActionIconButton>
+                  <ActionIconButton
+                    asChild
+                    icon={Users}
+                    label={t('assignments.viewSubmissions')}
+                    color="teal"
+                  >
+                    <Link to={`/teacher/courses/${id}/assignments/${a.id}/submissions`} />
+                  </ActionIconButton>
                   {a.status === 'draft' ? (
-                    <Button
-                      size="sm"
+                    <ActionIconButton
+                      icon={CircleCheck}
+                      label={t('assignments.publish')}
+                      color="emerald"
                       onClick={async () => {
                         try {
                           await transition.mutateAsync({ id: a.id, action: 'publish' });
@@ -101,42 +111,37 @@ export function TeacherAssignmentsPage(): JSX.Element {
                           });
                         }
                       }}
-                    >
-                      {t('assignments.publish')}
-                    </Button>
+                    />
                   ) : null}
                   {a.status === 'published' ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <ActionIconButton
+                      icon={CircleCheck}
+                      label={t('assignments.close')}
+                      color="emerald"
                       onClick={async () => {
                         await transition.mutateAsync({ id: a.id, action: 'close' });
                       }}
-                    >
-                      {t('assignments.close')}
-                    </Button>
+                    />
                   ) : null}
                   {a.status !== 'archived' ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <ActionIconButton
+                      icon={Archive}
+                      label={t('assignments.archive')}
+                      color="orange"
                       onClick={async () => {
                         await transition.mutateAsync({ id: a.id, action: 'archive' });
                       }}
-                    >
-                      {t('assignments.archive')}
-                    </Button>
+                    />
                   ) : null}
-                  <Button
-                    size="sm"
-                    variant="destructive"
+                  <ActionIconButton
+                    icon={Trash2}
+                    label={t('common.delete')}
+                    color="red"
                     onClick={async () => {
                       if (!confirm(t('assignments.deleteConfirm'))) return;
                       await del.mutateAsync(a.id);
                     }}
-                  >
-                    {t('common.delete')}
-                  </Button>
+                  />
                 </div>
               </CardContent>
             </Card>

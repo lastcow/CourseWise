@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { CircleCheck, Trash2, Users } from 'lucide-react';
 import type { AttendanceStatus } from '@coursewise/shared';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -150,13 +152,17 @@ export function TeacherAttendancePage(): JSX.Element {
               <p className="text-sm text-muted-foreground">{t('attendance.pickSession')}</p>
             ) : (
               <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={ensureMarks}>
-                    {t('attendance.loadRoster')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <ActionIconButton
+                    icon={Users}
+                    label={t('attendance.loadRoster')}
+                    color="teal"
+                    onClick={ensureMarks}
+                  />
+                  <ActionIconButton
+                    icon={CircleCheck}
+                    label={t('attendance.markAllPresent')}
+                    color="emerald"
                     onClick={() => {
                       const next: typeof marks = {};
                       for (const s of enrollments) {
@@ -167,32 +173,28 @@ export function TeacherAttendancePage(): JSX.Element {
                       }
                       setMarks(next);
                     }}
-                  >
-                    {t('attendance.markAllPresent')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
+                  />
+                  <ActionIconButton
+                    icon={CircleCheck}
+                    label={t('attendance.closeSession')}
+                    color="emerald"
+                    onClick={async () => {
+                      if (!selectedSession) return;
+                      await closeSession.mutateAsync(selectedSession);
+                      toast.push({ title: t('attendance.sessionClosed'), tone: 'success' });
+                    }}
+                  />
+                  <ActionIconButton
+                    icon={Trash2}
+                    label={t('attendance.deleteSession')}
+                    color="red"
                     onClick={async () => {
                       if (!selectedSession) return;
                       if (!confirm(t('attendance.deleteSessionConfirm'))) return;
                       await delSession.mutateAsync(selectedSession);
                       setSelectedSession(null);
                     }}
-                  >
-                    {t('attendance.deleteSession')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      if (!selectedSession) return;
-                      await closeSession.mutateAsync(selectedSession);
-                      toast.push({ title: t('attendance.sessionClosed'), tone: 'success' });
-                    }}
-                  >
-                    {t('attendance.closeSession')}
-                  </Button>
+                  />
                 </div>
 
                 {enrollments.length === 0 ? (

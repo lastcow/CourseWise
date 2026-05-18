@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -172,13 +174,21 @@ export function TeacherPresentationEditorPage(): JSX.Element {
               ))
             )}
             {slides.data && slides.data.length > 1 && selectedId ? (
-              <div className="flex justify-end gap-1 pt-2">
-                <Button size="sm" variant="outline" onClick={() => move(-1)}>
-                  {t('modules.moveUp')}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => move(1)}>
-                  {t('modules.moveDown')}
-                </Button>
+              <div className="flex justify-end gap-1.5 pt-2">
+                <ActionIconButton
+                  size="sm"
+                  icon={ChevronUp}
+                  label={t('modules.moveUp')}
+                  color="sky"
+                  onClick={() => move(-1)}
+                />
+                <ActionIconButton
+                  size="sm"
+                  icon={ChevronDown}
+                  label={t('modules.moveDown')}
+                  color="sky"
+                  onClick={() => move(1)}
+                />
               </div>
             ) : null}
           </CardContent>

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Archive, CircleCheck, Pin, PinOff, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
@@ -90,45 +92,42 @@ export function TeacherDiscussionPage(): JSX.Element {
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
                 <p className="line-clamp-2">{topic.description ?? '—'}</p>
-                <div className="flex flex-wrap gap-2 pt-3">
+                <div className="flex flex-wrap items-center gap-1.5 pt-3">
                   {topic.status === 'draft' ? (
-                    <Button
-                      size="sm"
+                    <ActionIconButton
+                      icon={CircleCheck}
+                      label={t('discussion.publish')}
+                      color="emerald"
                       onClick={async () => {
                         await transition.mutateAsync({ id: topic.id, action: 'publish' });
                       }}
-                    >
-                      {t('discussion.publish')}
-                    </Button>
+                    />
                   ) : null}
-                  <Button
-                    size="sm"
-                    variant="outline"
+                  <ActionIconButton
+                    icon={topic.isPinned ? PinOff : Pin}
+                    label={topic.isPinned ? t('discussion.unpin') : t('discussion.pin')}
+                    color="amber"
                     onClick={() =>
                       transition.mutate({ id: topic.id, action: topic.isPinned ? 'unpin' : 'pin' })
                     }
-                  >
-                    {topic.isPinned ? t('discussion.unpin') : t('discussion.pin')}
-                  </Button>
+                  />
                   {topic.status !== 'archived' ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <ActionIconButton
+                      icon={Archive}
+                      label={t('discussion.archive')}
+                      color="orange"
                       onClick={() => transition.mutate({ id: topic.id, action: 'archive' })}
-                    >
-                      {t('discussion.archive')}
-                    </Button>
+                    />
                   ) : null}
-                  <Button
-                    size="sm"
-                    variant="destructive"
+                  <ActionIconButton
+                    icon={Trash2}
+                    label={t('common.delete')}
+                    color="red"
                     onClick={async () => {
                       if (!confirm(t('discussion.deleteConfirm'))) return;
                       await del.mutateAsync(topic.id);
                     }}
-                  >
-                    {t('common.delete')}
-                  </Button>
+                  />
                 </div>
               </CardContent>
             </Card>

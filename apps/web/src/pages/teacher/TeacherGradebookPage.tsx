@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Pencil } from 'lucide-react';
 import type { FinalGradeSummary } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
@@ -121,9 +123,11 @@ export function TeacherGradebookPage(): JSX.Element {
                       )}
                     </td>
                     <td className="py-2 text-right">
-                      <Button
-                        variant="outline"
+                      <ActionIconButton
                         size="sm"
+                        icon={Pencil}
+                        label={t('grading.editOverride')}
+                        color="yellow"
                         onClick={() => {
                           setEditing(g);
                           setDraftScore(
@@ -133,9 +137,7 @@ export function TeacherGradebookPage(): JSX.Element {
                           );
                           setDraftReason(g.teacherOverrideReason ?? '');
                         }}
-                      >
-                        {t('grading.editOverride')}
-                      </Button>
+                      />
                     </td>
                   </tr>
                 ))}

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Archive, CircleCheck, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -77,46 +79,47 @@ export function TeacherPresentationsPage(): JSX.Element {
               <CardContent className="space-y-2 text-sm text-muted-foreground">
                 <p className="line-clamp-2">{p.description ?? '—'}</p>
                 <p>{t('presentations.slidesCount', { count: p.slideCount })}</p>
-                <div className="flex flex-wrap gap-2 pt-2">
-                  <Button asChild size="sm" variant="outline">
-                    <Link to={`/teacher/courses/${id}/presentations/${p.id}`}>
-                      {t('common.edit')}
-                    </Link>
-                  </Button>
+                <div className="flex flex-wrap items-center gap-1.5 pt-2">
+                  <ActionIconButton
+                    asChild
+                    icon={Pencil}
+                    label={t('common.edit')}
+                    color="yellow"
+                  >
+                    <Link to={`/teacher/courses/${id}/presentations/${p.id}`} />
+                  </ActionIconButton>
                   {p.status !== 'published' ? (
-                    <Button
-                      size="sm"
+                    <ActionIconButton
+                      icon={CircleCheck}
+                      label={t('presentations.publish')}
+                      color="emerald"
                       onClick={async () => {
                         await transition.mutateAsync({ id: p.id, action: 'publish' });
                         toast.push({ title: t('presentations.published'), tone: 'success' });
                       }}
-                    >
-                      {t('presentations.publish')}
-                    </Button>
+                    />
                   ) : null}
                   {p.status !== 'archived' ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <ActionIconButton
+                      icon={Archive}
+                      label={t('presentations.archive')}
+                      color="orange"
                       onClick={async () => {
                         await transition.mutateAsync({ id: p.id, action: 'archive' });
                         toast.push({ title: t('presentations.archived'), tone: 'success' });
                       }}
-                    >
-                      {t('presentations.archive')}
-                    </Button>
+                    />
                   ) : null}
-                  <Button
-                    size="sm"
-                    variant="destructive"
+                  <ActionIconButton
+                    icon={Trash2}
+                    label={t('common.delete')}
+                    color="red"
                     onClick={async () => {
                       if (!confirm(t('presentations.deleteConfirm'))) return;
                       await del.mutateAsync(p.id);
                       toast.push({ title: t('presentations.deleted'), tone: 'success' });
                     }}
-                  >
-                    {t('common.delete')}
-                  </Button>
+                  />
                 </div>
               </CardContent>
             </Card>

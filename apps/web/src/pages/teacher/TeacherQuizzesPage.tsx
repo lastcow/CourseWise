@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Archive, CircleCheck, Pencil, Trash2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
@@ -78,18 +80,28 @@ export function TeacherQuizzesPage(): JSX.Element {
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
                 <p className="line-clamp-2">{q.description ?? '—'}</p>
-                <div className="flex flex-wrap gap-2 pt-3">
-                  <Button asChild size="sm" variant="outline">
-                    <Link to={`/teacher/courses/${id}/quizzes/${q.id}`}>{t('common.edit')}</Link>
-                  </Button>
-                  <Button asChild size="sm" variant="outline">
-                    <Link to={`/teacher/courses/${id}/quizzes/${q.id}/attempts`}>
-                      {t('quizzes.viewAttempts')}
-                    </Link>
-                  </Button>
+                <div className="flex flex-wrap items-center gap-1.5 pt-3">
+                  <ActionIconButton
+                    asChild
+                    icon={Pencil}
+                    label={t('common.edit')}
+                    color="yellow"
+                  >
+                    <Link to={`/teacher/courses/${id}/quizzes/${q.id}`} />
+                  </ActionIconButton>
+                  <ActionIconButton
+                    asChild
+                    icon={Users}
+                    label={t('quizzes.viewAttempts')}
+                    color="teal"
+                  >
+                    <Link to={`/teacher/courses/${id}/quizzes/${q.id}/attempts`} />
+                  </ActionIconButton>
                   {q.status === 'draft' ? (
-                    <Button
-                      size="sm"
+                    <ActionIconButton
+                      icon={CircleCheck}
+                      label={t('quizzes.publish')}
+                      color="emerald"
                       onClick={async () => {
                         try {
                           await transition.mutateAsync({ id: q.id, action: 'publish' });
@@ -101,45 +113,40 @@ export function TeacherQuizzesPage(): JSX.Element {
                           });
                         }
                       }}
-                    >
-                      {t('quizzes.publish')}
-                    </Button>
+                    />
                   ) : null}
                   {q.status === 'published' ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <ActionIconButton
+                      icon={CircleCheck}
+                      label={t('quizzes.close')}
+                      color="emerald"
                       onClick={async () => {
                         await transition.mutateAsync({ id: q.id, action: 'close' });
                         toast.push({ title: t('quizzes.closed'), tone: 'success' });
                       }}
-                    >
-                      {t('quizzes.close')}
-                    </Button>
+                    />
                   ) : null}
                   {q.status !== 'archived' ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <ActionIconButton
+                      icon={Archive}
+                      label={t('quizzes.archive')}
+                      color="orange"
                       onClick={async () => {
                         await transition.mutateAsync({ id: q.id, action: 'archive' });
                         toast.push({ title: t('quizzes.archived'), tone: 'success' });
                       }}
-                    >
-                      {t('quizzes.archive')}
-                    </Button>
+                    />
                   ) : null}
-                  <Button
-                    size="sm"
-                    variant="destructive"
+                  <ActionIconButton
+                    icon={Trash2}
+                    label={t('common.delete')}
+                    color="red"
                     onClick={async () => {
                       if (!confirm(t('quizzes.deleteConfirm'))) return;
                       await del.mutateAsync(q.id);
                       toast.push({ title: t('quizzes.deleted'), tone: 'success' });
                     }}
-                  >
-                    {t('common.delete')}
-                  </Button>
+                  />
                 </div>
               </CardContent>
             </Card>

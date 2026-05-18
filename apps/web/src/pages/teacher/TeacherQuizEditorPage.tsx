@@ -7,7 +7,9 @@ import type {
   QuizQuestionType,
   UpdateQuizQuestionInput,
 } from '@coursewise/shared';
+import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
@@ -226,13 +228,19 @@ export function TeacherQuizEditorPage(): JSX.Element {
                         {t(`quizzes.type.${q.type}`)} · {t('quizzes.pointsValue', { points: q.points })}
                       </p>
                     </div>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => loadIntoDraft(q)}>
-                        {t('common.edit')}
-                      </Button>
-                      <Button
+                    <div className="flex items-center gap-1.5">
+                      <ActionIconButton
                         size="sm"
-                        variant="destructive"
+                        icon={Pencil}
+                        label={t('common.edit')}
+                        color="yellow"
+                        onClick={() => loadIntoDraft(q)}
+                      />
+                      <ActionIconButton
+                        size="sm"
+                        icon={Trash2}
+                        label={t('common.delete')}
+                        color="red"
                         onClick={async () => {
                           if (!confirm(t('quizzes.deleteQuestionConfirm'))) return;
                           await delQ.mutateAsync(q.id);
@@ -241,9 +249,7 @@ export function TeacherQuizEditorPage(): JSX.Element {
                             setDraft(emptyDraft());
                           }
                         }}
-                      >
-                        {t('common.delete')}
-                      </Button>
+                      />
                     </div>
                   </div>
                 </li>
