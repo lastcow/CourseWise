@@ -45,6 +45,9 @@ export const API_TOKEN_SCOPES = [
   'alerts:read',
   'alerts:write',
   'dashboards:read',
+  'ai:read',
+  'ai:write',
+  'ai:generate',
 ] as const;
 export type ApiTokenScope = (typeof API_TOKEN_SCOPES)[number];
 
@@ -82,6 +85,8 @@ export const TEACHER_ALLOWED_SCOPES: readonly ApiTokenScope[] = [
   'alerts:read',
   'alerts:write',
   'dashboards:read',
+  'ai:read',
+  'ai:generate',
 ];
 
 export const STUDENT_ALLOWED_SCOPES: readonly ApiTokenScope[] = [
@@ -248,6 +253,17 @@ export const SCOPE_GROUPS = {
     'student:read',
     'dashboards:read',
   ],
+  aiAdminRead: ['admin:read', 'admin:write', 'ai:read', 'ai:write'],
+  aiAdminWrite: ['admin:write', 'ai:write'],
+  aiJobsRead: [
+    'admin:read',
+    'admin:write',
+    'teacher:read',
+    'teacher:write',
+    'ai:read',
+    'ai:generate',
+  ],
+  aiJobsWrite: ['admin:write', 'teacher:write', 'ai:generate'],
 } as const satisfies Record<string, readonly ApiTokenScope[]>;
 export type ScopeGroupName = keyof typeof SCOPE_GROUPS;
 
@@ -408,6 +424,8 @@ export const API_ROUTES = {
     apiTokens: '/api/admin/api-tokens',
     teacherInvitations: '/api/admin/teacher-invitations',
     teachers: '/api/admin/teachers',
+    aiProviders: '/api/admin/ai/providers',
+    aiModels: '/api/admin/ai/models',
   },
   teacher: {
     apiTokens: '/api/teacher/api-tokens',

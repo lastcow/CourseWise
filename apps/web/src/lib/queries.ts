@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminDashboardResponse,
+  AiModelSummary,
+  AiProviderSummary,
   AlertStatus,
   AlertSummary,
   AlertWithStudent,
@@ -11,6 +13,8 @@ import type {
   BulkMarkAttendanceInput,
   CourseDetail,
   CourseSummary,
+  CreateAiModelInput,
+  CreateAiProviderInput,
   CreateAssignmentInput,
   CreateAttendanceSessionInput,
   CreateCourseInput,
@@ -75,6 +79,8 @@ import type {
   UpdateDiscussionPostInput,
   UpdateDiscussionTopicInput,
   UpdateGradingPolicyInput,
+  UpdateAiModelInput,
+  UpdateAiProviderInput,
   UpdateMaterialInput,
   UpdateModuleInput,
   UpdatePresentationInput,
@@ -1277,5 +1283,89 @@ export function useStudentDashboard() {
   return useQuery({
     queryKey: ['dashboard', 'student'],
     queryFn: () => apiCall<StudentDashboardResponse>('/api/dashboards/student'),
+  });
+}
+
+// ---------- AI: admin providers & models ----------
+export function useAiProviders() {
+  return useQuery({
+    queryKey: ['ai', 'providers'],
+    queryFn: async () => {
+      const res = await apiCall<{ providers: AiProviderSummary[] }>('/api/admin/ai/providers');
+      return res.providers;
+    },
+  });
+}
+
+export function useCreateAiProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateAiProviderInput) =>
+      apiCall<AiProviderSummary>('/api/admin/ai/providers', { body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai', 'providers'] }),
+  });
+}
+
+export function useUpdateAiProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateAiProviderInput }) =>
+      apiCall<AiProviderSummary>(`/api/admin/ai/providers/${id}`, {
+        method: 'PATCH',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['ai', 'providers'] });
+      void qc.invalidateQueries({ queryKey: ['ai', 'models'] });
+    },
+  });
+}
+
+export function useDeleteAiProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<{ id: string }>(`/api/admin/ai/providers/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['ai', 'providers'] });
+      void qc.invalidateQueries({ queryKey: ['ai', 'models'] });
+    },
+  });
+}
+
+export function useAiModels() {
+  return useQuery({
+    queryKey: ['ai', 'models'],
+    queryFn: async () => {
+      const res = await apiCall<{ models: AiModelSummary[] }>('/api/admin/ai/models');
+      return res.models;
+    },
+  });
+}
+
+export function useCreateAiModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateAiModelInput) =>
+      apiCall<AiModelSummary>('/api/admin/ai/models', { body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai', 'models'] }),
+  });
+}
+
+export function useUpdateAiModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateAiModelInput }) =>
+      apiCall<AiModelSummary>(`/api/admin/ai/models/${id}`, { method: 'PATCH', body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai', 'models'] }),
+  });
+}
+
+export function useDeleteAiModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<{ id: string }>(`/api/admin/ai/models/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai', 'models'] }),
   });
 }

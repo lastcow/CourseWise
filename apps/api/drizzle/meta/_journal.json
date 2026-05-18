@@ -50,6 +50,13 @@
       "when": 1779475200000,
       "tag": "0006_teacher_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779561600000,
+      "tag": "0007_ai_foundation",
+      "breakpoints": true
     }
   ]
 }

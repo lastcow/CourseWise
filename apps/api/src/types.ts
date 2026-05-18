@@ -22,6 +22,16 @@ export interface AppBindings {
   R2_ACCESS_KEY_ID?: string;
   R2_SECRET_ACCESS_KEY?: string;
   R2_PUBLIC_ENDPOINT?: string;
+  // Cloudflare AI Gateway. Required once Phase 2 generators ship; Phase 1 only
+  // surfaces a "configured?" status in the admin UI.
+  AI_GATEWAY_ACCOUNT_ID?: string;
+  AI_GATEWAY_ID?: string;
+  // Provider API keys. These are bound by name; the DB stores the binding name
+  // in ai_providers.api_key_secret_ref so admins can rotate without redeploying.
+  // Additional provider keys can be added the same way without touching this type
+  // — the gateway helper looks them up dynamically.
+  ANTHROPIC_API_KEY?: string;
+  OPENAI_API_KEY?: string;
 }
 
 export interface AppVariables {

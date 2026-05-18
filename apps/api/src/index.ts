@@ -7,6 +7,7 @@ import { failure, unhandledFailure } from './lib/response';
 import authRoutes from './routes/auth';
 import meRoutes from './routes/me';
 import adminRoutes from './routes/admin';
+import adminAiRoutes from './routes/admin/ai';
 import teacherInvitationsAdminRoutes from './routes/teacherInvitations';
 import teacherRoutes from './routes/teacher';
 import coursesRoutes from './routes/courses';
@@ -68,6 +69,7 @@ app.get('/api/openapi.json', (c) => {
 app.route('/api/auth', authRoutes);
 app.route('/api/me', meRoutes);
 app.route('/api/admin', adminRoutes);
+app.route('/api/admin/ai', adminAiRoutes);
 app.route('/api/admin', teacherInvitationsAdminRoutes);
 app.route('/api/teacher', teacherRoutes);
 app.route('/api', coursesRoutes);
