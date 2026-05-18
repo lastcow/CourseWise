@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
-import { Input, Label, Textarea } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
+import { stripMarkdown } from '@/components/ui/markdown';
 import { EmptyState } from '@/components/ui/empty';
 import { useToast } from '@/components/ui/toast';
 import {
@@ -89,7 +91,7 @@ export function TeacherDiscussionPage(): JSX.Element {
                 </Badge>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                <p className="line-clamp-2">{topic.description ?? '—'}</p>
+                <p className="line-clamp-2">{topic.description ? stripMarkdown(topic.description) : '—'}</p>
                 <div className="flex flex-wrap gap-2 pt-3">
                   {topic.status === 'draft' ? (
                     <Button
@@ -144,12 +146,7 @@ export function TeacherDiscussionPage(): JSX.Element {
           </div>
           <div>
             <Label htmlFor="topic-desc">{t('discussion.descriptionLabel')}</Label>
-            <Textarea
-              id="topic-desc"
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+            <MarkdownEditor id="topic-desc" value={description} onChange={setDescription} />
           </div>
           <div className="flex items-center gap-2">
             <input

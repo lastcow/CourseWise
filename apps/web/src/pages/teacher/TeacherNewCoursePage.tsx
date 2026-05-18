@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input, Label, Textarea } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { useCreateCourse } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
@@ -60,7 +61,7 @@ export function TeacherNewCoursePage(): JSX.Element {
             </div>
             <div className="space-y-1">
               <Label htmlFor="description">{t('courses.descriptionLabel')}</Label>
-              <Textarea id="description" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+              <MarkdownEditor id="description" value={description} onChange={setDescription} />
             </div>
           </CardContent>
           <CardFooter className="justify-between">
