@@ -9,11 +9,7 @@ module.exports = {
     ecmaFeatures: { jsx: true },
   },
   plugins: ['@typescript-eslint'],
-  extends: [
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'prettier',
-  ],
+  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'prettier'],
   ignorePatterns: [
     'node_modules',
     'dist',
@@ -36,19 +32,13 @@ module.exports = {
   overrides: [
     {
       files: ['apps/web/**/*.{ts,tsx}'],
-      extends: [
-        'plugin:react/recommended',
-        'plugin:react-hooks/recommended',
-      ],
+      extends: ['plugin:react/recommended', 'plugin:react-hooks/recommended'],
       plugins: ['react', 'react-hooks', 'react-refresh'],
       settings: { react: { version: 'detect' } },
       rules: {
         'react/react-in-jsx-scope': 'off',
         'react/prop-types': 'off',
-        'react-refresh/only-export-components': [
-          'warn',
-          { allowConstantExport: true },
-        ],
+        'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       },
     },
     {

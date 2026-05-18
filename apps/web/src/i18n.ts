@@ -16,7 +16,7 @@ void i18n
           app: { name: 'CourseWise', tagline: 'Course management, reimagined.' },
         },
       },
-      zh: {
+      'zh-CN': {
         translation: {
           app: { name: 'CourseWise', tagline: '全新的课程管理体验。' },
         },
