@@ -23,9 +23,18 @@ export function StudentCourseOverviewPage(): JSX.Element {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">{course.data.description ?? '—'}</p>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap gap-2">
             <Button asChild>
               <Link to={`/student/courses/${id}/materials`}>{t('materials.title')}</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to={`/student/courses/${id}/presentations`}>{t('presentations.title')}</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to={`/student/courses/${id}/assignments`}>{t('assignments.title')}</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to={`/student/courses/${id}/discussion`}>{t('discussion.title')}</Link>
             </Button>
           </div>
         </CardContent>

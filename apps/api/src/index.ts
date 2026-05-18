@@ -13,6 +13,9 @@ import modulesRoutes from './routes/modules';
 import invitationsRoutes, { invitationsPublic } from './routes/invitations';
 import materialsRoutes from './routes/materials';
 import filesRoutes from './routes/files';
+import presentationsRoutes from './routes/presentations';
+import assignmentsRoutes from './routes/assignments';
+import discussionsRoutes from './routes/discussions';
 import type { AppBindings, AppEnv } from './types';
 
 export type Env = AppBindings;
@@ -60,6 +63,9 @@ app.route('/api', modulesRoutes);
 app.route('/api', invitationsRoutes);
 app.route('/api', materialsRoutes);
 app.route('/api', filesRoutes);
+app.route('/api', presentationsRoutes);
+app.route('/api', assignmentsRoutes);
+app.route('/api', discussionsRoutes);
 
 app.notFound((c) =>
   c.json(

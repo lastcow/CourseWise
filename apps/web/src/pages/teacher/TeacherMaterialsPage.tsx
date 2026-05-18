@@ -46,7 +46,7 @@ export function TeacherMaterialsPage(): JSX.Element {
     }
     try {
       setUploadProgress(0);
-      const { fileAssetId } = await uploadFile(file, id, setUploadProgress);
+      const { fileAssetId } = await uploadFile(file, id, 'material', setUploadProgress);
       await create.mutateAsync({
         title: file.name,
         sourceType: 'upload',

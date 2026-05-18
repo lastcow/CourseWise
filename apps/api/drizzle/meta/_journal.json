@@ -15,6 +15,13 @@
       "when": 1779097200000,
       "tag": "0001_m2_course_core",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779120000000,
+      "tag": "0002_m3_content",
+      "breakpoints": true
     }
   ]
 }

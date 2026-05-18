@@ -1,0 +1,208 @@
+import { useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, Label, Textarea } from '@/components/ui/input';
+import { EmptyState } from '@/components/ui/empty';
+import { useToast } from '@/components/ui/toast';
+import {
+  getDownloadUrl,
+  useAssignment,
+  useAssignmentSubmissions,
+  useGradeSubmission,
+  useReturnSubmission,
+} from '@/lib/queries';
+import { cn } from '@/lib/utils';
+import { ApiClientError } from '@/lib/api';
+import type { SubmissionStatus } from '@coursewise/shared';
+
+function statusVariant(s: SubmissionStatus): 'success' | 'destructive' | 'secondary' {
+  if (s === 'graded') return 'success';
+  if (s === 'late') return 'destructive';
+  return 'secondary';
+}
+
+export function TeacherSubmissionsInboxPage(): JSX.Element {
+  const { t } = useTranslation();
+  const { courseId, assignmentId } = useParams();
+  const cId = courseId ?? '';
+  const aId = assignmentId ?? '';
+  const assignment = useAssignment(aId);
+  const submissions = useAssignmentSubmissions(aId);
+  const grade = useGradeSubmission(aId);
+  const returnSub = useReturnSubmission(aId);
+  const toast = useToast();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [score, setScore] = useState<number | ''>('');
+  const [feedback, setFeedback] = useState('');
+
+  const selected = submissions.data?.find((s) => s.id === selectedId) ?? null;
+
+  const openSelected = (id: string) => {
+    const s = submissions.data?.find((x) => x.id === id);
+    setSelectedId(id);
+    if (s) {
+      setScore(s.score ?? '');
+      setFeedback(s.feedback ?? '');
+    }
+  };
+
+  const onDownload = async (fileId: string) => {
+    try {
+      const r = await getDownloadUrl(fileId);
+      window.open(r.downloadUrl, '_blank', 'noopener,noreferrer');
+    } catch {
+      toast.push({ title: t('errors.internal'), tone: 'error' });
+    }
+  };
+
+  const onGrade = async () => {
+    if (!selectedId || score === '') return;
+    try {
+      await grade.mutateAsync({
+        id: selectedId,
+        input: { score: Number(score), feedback: feedback || null },
+      });
+      toast.push({ title: t('submissions.graded'), tone: 'success' });
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  const onReturn = async () => {
+    if (!selectedId) return;
+    await returnSub.mutateAsync({
+      id: selectedId,
+      input: { feedback: feedback || null },
+    });
+    toast.push({ title: t('submissions.returned'), tone: 'success' });
+  };
+
+  return (
+    <div className="space-y-4">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-semibold">
+          <Link to={`/teacher/courses/${cId}/assignments`} className="text-muted-foreground hover:underline">
+            {t('assignments.title')}
+          </Link>
+          {' › '}
+          {assignment.data?.title ?? t('common.loading')}
+          {' › '}
+          {t('submissions.title')}
+        </h2>
+      </header>
+
+      <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{t('submissions.inbox')}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-2">
+            {submissions.isLoading ? (
+              <p className="px-2">{t('common.loading')}</p>
+            ) : !submissions.data || submissions.data.length === 0 ? (
+              <EmptyState title={t('submissions.empty')} />
+            ) : (
+              <div className="space-y-1">
+                {submissions.data.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => openSelected(s.id)}
+                    className={cn(
+                      'flex w-full flex-col gap-1 rounded px-3 py-2 text-left text-sm hover:bg-muted',
+                      selectedId === s.id ? 'bg-muted' : '',
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{s.student.name}</span>
+                      <Badge variant={statusVariant(s.status)}>
+                        {t(`submissions.status${s.status[0]!.toUpperCase()}${s.status.slice(1)}`)}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{s.student.email}</p>
+                    {s.score != null ? (
+                      <p className="text-xs">
+                        {t('submissions.scoreLabel')}: {s.score} / {assignment.data?.maxScore ?? '—'}
+                      </p>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {selected ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{selected.student.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Label>{t('submissions.textAnswer')}</Label>
+                <div className="min-h-[80px] whitespace-pre-wrap rounded border bg-muted/20 p-3 text-sm">
+                  {selected.textAnswer ?? <em>{t('submissions.noAnswer')}</em>}
+                </div>
+              </div>
+              {selected.fileAssetId ? (
+                <div>
+                  <Label>{t('submissions.attachment')}</Label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onDownload(selected.fileAssetId!)}
+                  >
+                    {t('materials.download')}
+                  </Button>
+                </div>
+              ) : null}
+              {selected.status !== 'draft' ? (
+                <>
+                  <div>
+                    <Label htmlFor="grade-score">
+                      {t('submissions.scoreLabel')} (0–{assignment.data?.maxScore ?? '—'})
+                    </Label>
+                    <Input
+                      id="grade-score"
+                      type="number"
+                      min={0}
+                      max={assignment.data?.maxScore ?? undefined}
+                      step={0.5}
+                      value={score}
+                      onChange={(e) => setScore(e.target.value === '' ? '' : Number(e.target.value))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="grade-feedback">{t('submissions.feedbackLabel')}</Label>
+                    <Textarea
+                      id="grade-feedback"
+                      rows={4}
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={onReturn}>
+                      {t('submissions.returnCta')}
+                    </Button>
+                    <Button onClick={onGrade} disabled={score === ''}>
+                      {t('submissions.gradeCta')}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('submissions.notYetSubmitted')}</p>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <EmptyState title={t('submissions.selectPrompt')} />
+        )}
+      </div>
+    </div>
+  );
+}

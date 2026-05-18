@@ -14,9 +14,22 @@ import { TeacherCourseShell } from '@/pages/teacher/TeacherCourseShell';
 import { TeacherCourseSettings } from '@/pages/teacher/TeacherCourseSettings';
 import { TeacherModulesPage } from '@/pages/teacher/TeacherModulesPage';
 import { TeacherMaterialsPage } from '@/pages/teacher/TeacherMaterialsPage';
+import { TeacherPresentationsPage } from '@/pages/teacher/TeacherPresentationsPage';
+import { TeacherPresentationEditorPage } from '@/pages/teacher/TeacherPresentationEditorPage';
+import { TeacherAssignmentsPage } from '@/pages/teacher/TeacherAssignmentsPage';
+import { TeacherAssignmentFormPage } from '@/pages/teacher/TeacherAssignmentFormPage';
+import { TeacherSubmissionsInboxPage } from '@/pages/teacher/TeacherSubmissionsInboxPage';
+import { TeacherDiscussionPage } from '@/pages/teacher/TeacherDiscussionPage';
+import { TeacherDiscussionTopicPage } from '@/pages/teacher/TeacherDiscussionTopicPage';
 import { StudentCoursesPage } from '@/pages/student/StudentCoursesPage';
 import { StudentCourseOverviewPage } from '@/pages/student/StudentCourseOverviewPage';
 import { StudentMaterialsPage } from '@/pages/student/StudentMaterialsPage';
+import { StudentPresentationsPage } from '@/pages/student/StudentPresentationsPage';
+import { StudentPresentationViewerPage } from '@/pages/student/StudentPresentationViewerPage';
+import { StudentAssignmentsPage } from '@/pages/student/StudentAssignmentsPage';
+import { StudentAssignmentDetailPage } from '@/pages/student/StudentAssignmentDetailPage';
+import { StudentDiscussionPage } from '@/pages/student/StudentDiscussionPage';
+import { StudentDiscussionTopicPage } from '@/pages/student/StudentDiscussionTopicPage';
 
 export default function App(): JSX.Element {
   return (
@@ -72,7 +85,25 @@ export default function App(): JSX.Element {
                 <Route path="settings" element={<TeacherCourseSettings />} />
                 <Route path="modules" element={<TeacherModulesPage />} />
                 <Route path="materials" element={<TeacherMaterialsPage />} />
+                <Route path="presentations" element={<TeacherPresentationsPage />} />
+                <Route path="assignments" element={<TeacherAssignmentsPage />} />
+                <Route path="assignments/new" element={<TeacherAssignmentFormPage />} />
+                <Route path="assignments/:assignmentId" element={<TeacherAssignmentFormPage />} />
+                <Route
+                  path="assignments/:assignmentId/submissions"
+                  element={<TeacherSubmissionsInboxPage />}
+                />
+                <Route path="discussion" element={<TeacherDiscussionPage />} />
+                <Route path="discussion/:topicId" element={<TeacherDiscussionTopicPage />} />
               </Route>
+              <Route
+                path="/teacher/courses/:courseId/presentations/:presentationId"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherPresentationEditorPage />
+                  </RequireRole>
+                }
+              />
               <Route
                 path="/student/courses"
                 element={
@@ -97,8 +128,56 @@ export default function App(): JSX.Element {
                   </RequireRole>
                 }
               />
+              <Route
+                path="/student/courses/:courseId/presentations"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentPresentationsPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/courses/:courseId/assignments"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentAssignmentsPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/courses/:courseId/assignments/:assignmentId"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentAssignmentDetailPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/courses/:courseId/discussion"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentDiscussionPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/courses/:courseId/discussion/:topicId"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentDiscussionTopicPage />
+                  </RequireRole>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
+            <Route
+              path="/student/courses/:courseId/presentations/:presentationId"
+              element={
+                <RequireRole roles={['student']}>
+                  <StudentPresentationViewerPage />
+                </RequireRole>
+              }
+            />
           </Routes>
         </AuthProvider>
       </ToastProvider>
