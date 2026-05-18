@@ -42,6 +42,9 @@ export const API_TOKEN_SCOPES = [
   'quiz_attempts:write',
   'attendance:read',
   'attendance:write',
+  'alerts:read',
+  'alerts:write',
+  'dashboards:read',
 ] as const;
 export type ApiTokenScope = (typeof API_TOKEN_SCOPES)[number];
 
@@ -76,6 +79,9 @@ export const TEACHER_ALLOWED_SCOPES: readonly ApiTokenScope[] = [
   'quiz_attempts:write',
   'attendance:read',
   'attendance:write',
+  'alerts:read',
+  'alerts:write',
+  'dashboards:read',
 ];
 
 export const STUDENT_ALLOWED_SCOPES: readonly ApiTokenScope[] = [
@@ -92,6 +98,8 @@ export const STUDENT_ALLOWED_SCOPES: readonly ApiTokenScope[] = [
   'quiz_attempts:read',
   'quiz_attempts:write',
   'attendance:read',
+  'alerts:read',
+  'dashboards:read',
 ];
 
 /**
@@ -122,6 +130,9 @@ export const SCOPE_GROUPS = {
   quizGradeWrite: ['admin:write', 'teacher:write', 'teacher:grades', 'quizzes:write', 'grades:write'],
   attendanceRead: ['admin:read', 'admin:write', 'teacher:read', 'teacher:write', 'student:read', 'attendance:read', 'attendance:write'],
   attendanceWrite: ['admin:write', 'teacher:write', 'attendance:write'],
+  alertsRead: ['admin:read', 'admin:write', 'teacher:read', 'teacher:write', 'student:read', 'alerts:read', 'alerts:write'],
+  alertsWrite: ['admin:write', 'teacher:write', 'alerts:write'],
+  dashboardsRead: ['admin:read', 'admin:write', 'teacher:read', 'teacher:write', 'student:read', 'dashboards:read'],
 } as const satisfies Record<string, readonly ApiTokenScope[]>;
 export type ScopeGroupName = keyof typeof SCOPE_GROUPS;
 
@@ -146,6 +157,60 @@ export const DEFAULT_GRADING_POLICY = {
   quizzes: 30,
   discussion: 10,
   finalProject: 15,
+} as const;
+
+export const GRADING_POLICY_CATEGORIES = [
+  'attendance',
+  'assignments',
+  'quizzes',
+  'discussion',
+  'finalProject',
+] as const;
+export type GradingPolicyCategory = (typeof GRADING_POLICY_CATEGORIES)[number];
+
+export interface LetterGradeThreshold {
+  letter: string;
+  minScore: number;
+}
+
+export const DEFAULT_LETTER_GRADES: readonly LetterGradeThreshold[] = [
+  { letter: 'A', minScore: 90 },
+  { letter: 'B', minScore: 80 },
+  { letter: 'C', minScore: 70 },
+  { letter: 'D', minScore: 60 },
+  { letter: 'F', minScore: 0 },
+];
+
+export const ALERT_TYPES = [
+  'attendance_low',
+  'consecutive_absences',
+  'late_submissions',
+  'quiz_average_low',
+  'inactivity',
+  'manual',
+] as const;
+export type AlertType = (typeof ALERT_TYPES)[number];
+
+export const ALERT_RISK_TYPES: readonly AlertType[] = [
+  'attendance_low',
+  'consecutive_absences',
+  'late_submissions',
+  'quiz_average_low',
+  'inactivity',
+];
+
+export const ALERT_SEVERITIES = ['info', 'warning', 'critical'] as const;
+export type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
+
+export const ALERT_STATUSES = ['open', 'resolved', 'dismissed'] as const;
+export type AlertStatus = (typeof ALERT_STATUSES)[number];
+
+export const ALERT_RULES = {
+  attendance_low: { threshold: 0.7, severity: 'warning' as AlertSeverity },
+  consecutive_absences: { threshold: 2, severity: 'warning' as AlertSeverity },
+  late_submissions: { threshold: 2, severity: 'warning' as AlertSeverity },
+  quiz_average_low: { threshold: 60, severity: 'warning' as AlertSeverity },
+  inactivity: { days: 7, severity: 'info' as AlertSeverity },
 } as const;
 
 export const MATERIAL_RELATED_TYPE = 'material';
@@ -244,4 +309,8 @@ export const API_ROUTES = {
   quizAttempts: '/api/quiz-attempts',
   quizAnswers: '/api/quiz-answers',
   attendanceSessions: '/api/attendance-sessions',
+  gradingPolicies: '/api/grading-policies',
+  finalGrades: '/api/final-grades',
+  alerts: '/api/alerts',
+  dashboards: '/api/dashboards',
 } as const;

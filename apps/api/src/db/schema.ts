@@ -84,6 +84,16 @@ export const discussionTopicStatusEnum = pgEnum('discussion_topic_status', [
   'published',
   'archived',
 ]);
+export const alertTypeEnum = pgEnum('alert_type', [
+  'attendance_low',
+  'consecutive_absences',
+  'late_submissions',
+  'quiz_average_low',
+  'inactivity',
+  'manual',
+]);
+export const alertSeverityEnum = pgEnum('alert_severity', ['info', 'warning', 'critical']);
+export const alertStatusEnum = pgEnum('alert_status', ['open', 'resolved', 'dismissed']);
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -675,6 +685,28 @@ export const attendanceRecords = pgTable(
   }),
 );
 
+export const gradingPolicies = pgTable(
+  'grading_policies',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    weightAttendance: integer('weight_attendance').notNull().default(10),
+    weightAssignments: integer('weight_assignments').notNull().default(35),
+    weightQuizzes: integer('weight_quizzes').notNull().default(30),
+    weightDiscussion: integer('weight_discussion').notNull().default(10),
+    weightFinalProject: integer('weight_final_project').notNull().default(15),
+    lettersJson: jsonb('letters_json'),
+    version: integer('version').notNull().default(1),
+    updatedById: uuid('updated_by_id').references(() => users.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (t) => ({
+    courseUnique: uniqueIndex('grading_policies_course_idx').on(t.courseId),
+  }),
+);
+
 export const finalGrades = pgTable(
   'final_grades',
   {
@@ -687,7 +719,11 @@ export const finalGrades = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     letterGrade: text('letter_grade'),
     score: numeric('score', { precision: 6, scale: 2 }),
+    categoryScores: jsonb('category_scores'),
     gradingPolicySnapshot: jsonb('grading_policy_snapshot'),
+    isOutdated: boolean('is_outdated').notNull().default(false),
+    teacherOverrideScore: numeric('teacher_override_score', { precision: 6, scale: 2 }),
+    teacherOverrideReason: text('teacher_override_reason'),
     finalizedAt: timestamp('finalized_at', { withTimezone: true, mode: 'string' }),
     finalizedById: uuid('finalized_by_id').references(() => users.id, {
       onDelete: 'set null',
@@ -706,15 +742,27 @@ export const alerts = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    type: text('type').notNull(),
+    courseId: uuid('course_id').references(() => courses.id, { onDelete: 'cascade' }),
+    type: alertTypeEnum('type').notNull(),
+    severity: alertSeverityEnum('severity').notNull().default('warning'),
+    status: alertStatusEnum('status').notNull().default('open'),
     title: text('title').notNull(),
     body: text('body'),
     linkUrl: text('link_url'),
+    metadataJson: jsonb('metadata_json'),
     readAt: timestamp('read_at', { withTimezone: true, mode: 'string' }),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true, mode: 'string' }),
+    resolvedById: uuid('resolved_by_id').references(() => users.id, { onDelete: 'set null' }),
+    resolutionNote: text('resolution_note'),
     ...timestamps,
   },
   (t) => ({
     userIdx: index('alerts_user_idx').on(t.userId),
+    courseIdx: index('alerts_course_idx').on(t.courseId),
+    statusIdx: index('alerts_status_idx').on(t.status),
+    openTypeUnique: uniqueIndex('alerts_open_type_idx')
+      .on(t.userId, t.courseId, t.type)
+      .where(sql`${t.status} = 'open'`),
   }),
 );
 

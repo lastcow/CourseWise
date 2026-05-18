@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import {
+  ALERT_SEVERITIES,
+  ALERT_STATUSES,
+  ALERT_TYPES,
   ALLOWED_UPLOAD_MIME_TYPES,
   API_TOKEN_SCOPES,
   ATTENDANCE_STATUSES,
@@ -475,3 +478,63 @@ export const bulkMarkAttendanceSchema = z.object({
   records: z.array(attendanceRecordInputSchema).min(1).max(500),
 });
 export type BulkMarkAttendanceInput = z.infer<typeof bulkMarkAttendanceSchema>;
+
+// ---------- M5: Grading Policy ----------
+export const letterGradeThresholdSchema = z.object({
+  letter: z.string().trim().min(1).max(4),
+  minScore: z.number().min(0).max(100),
+});
+export type LetterGradeThresholdInput = z.infer<typeof letterGradeThresholdSchema>;
+
+export const updateGradingPolicySchema = z
+  .object({
+    weightAttendance: z.number().int().min(0).max(100),
+    weightAssignments: z.number().int().min(0).max(100),
+    weightQuizzes: z.number().int().min(0).max(100),
+    weightDiscussion: z.number().int().min(0).max(100),
+    weightFinalProject: z.number().int().min(0).max(100),
+    letters: z.array(letterGradeThresholdSchema).min(1).max(10).optional().nullable(),
+  })
+  .refine(
+    (v) =>
+      v.weightAttendance +
+        v.weightAssignments +
+        v.weightQuizzes +
+        v.weightDiscussion +
+        v.weightFinalProject ===
+      100,
+    { message: 'Grading policy weights must sum to 100', path: ['weights'] },
+  );
+export type UpdateGradingPolicyInput = z.infer<typeof updateGradingPolicySchema>;
+
+// ---------- M5: Final Grades ----------
+export const overrideFinalGradeSchema = z.object({
+  teacherOverrideScore: z.number().min(0).max(100).nullable().optional(),
+  teacherOverrideReason: z.string().trim().max(2000).nullable().optional(),
+});
+export type OverrideFinalGradeInput = z.infer<typeof overrideFinalGradeSchema>;
+
+// ---------- M5: Alerts ----------
+export const createManualAlertSchema = z.object({
+  userId: z.string().uuid(),
+  courseId: z.string().uuid().optional().nullable(),
+  type: z.enum(ALERT_TYPES).default('manual'),
+  severity: z.enum(ALERT_SEVERITIES).optional(),
+  title: z.string().trim().min(1).max(200),
+  body: z.string().trim().max(20_000).optional().nullable(),
+  linkUrl: z.string().trim().url().max(2048).optional().nullable(),
+});
+export type CreateManualAlertInput = z.infer<typeof createManualAlertSchema>;
+
+export const resolveAlertSchema = z.object({
+  resolutionNote: z.string().trim().max(2000).optional().nullable(),
+  status: z.enum(['resolved', 'dismissed']).optional(),
+});
+export type ResolveAlertInput = z.infer<typeof resolveAlertSchema>;
+
+export const listAlertsQuerySchema = z.object({
+  status: z.enum(ALERT_STATUSES).optional(),
+  type: z.enum(ALERT_TYPES).optional(),
+  severity: z.enum(ALERT_SEVERITIES).optional(),
+});
+export type ListAlertsQuery = z.infer<typeof listAlertsQuerySchema>;

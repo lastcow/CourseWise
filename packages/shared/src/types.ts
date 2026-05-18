@@ -1,4 +1,7 @@
 import type {
+  AlertSeverity,
+  AlertStatus,
+  AlertType,
   ApiTokenScope,
   AssignmentStatus,
   AttendanceSessionStatus,
@@ -6,7 +9,9 @@ import type {
   CourseStatus,
   DiscussionTopicStatus,
   FileAssetStatus,
+  GradingPolicyCategory,
   InvitationStatus,
+  LetterGradeThreshold,
   Locale,
   MaterialSourceType,
   MaterialStatus,
@@ -429,4 +434,131 @@ export interface StudentAttendanceRow {
   sessionDate: string;
   status: AttendanceStatus | null;
   notes: string | null;
+}
+
+// ---------- M5: Grading Policy ----------
+export interface GradingPolicySummary {
+  id: string;
+  courseId: string;
+  weightAttendance: number;
+  weightAssignments: number;
+  weightQuizzes: number;
+  weightDiscussion: number;
+  weightFinalProject: number;
+  letters: LetterGradeThreshold[];
+  version: number;
+  updatedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------- M5: Final Grades ----------
+export type CategoryScoreBreakdown = Record<GradingPolicyCategory, {
+  raw: number | null;
+  weight: number;
+  weighted: number;
+  detail?: Record<string, number | string | null>;
+}>;
+
+export interface FinalGradeSummary {
+  id: string;
+  courseId: string;
+  studentId: string;
+  studentName?: string;
+  studentEmail?: string;
+  score: number | null;
+  letterGrade: string | null;
+  categoryScores: CategoryScoreBreakdown | null;
+  gradingPolicySnapshot: GradingPolicy | null;
+  isOutdated: boolean;
+  teacherOverrideScore: number | null;
+  teacherOverrideReason: string | null;
+  finalizedAt: string | null;
+  finalizedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecalculateFinalGradesResult {
+  courseId: string;
+  total: number;
+  updated: number;
+  policyVersion: number;
+}
+
+// ---------- M5: Alerts ----------
+export interface AlertSummary {
+  id: string;
+  userId: string;
+  courseId: string | null;
+  type: AlertType;
+  severity: AlertSeverity;
+  status: AlertStatus;
+  title: string;
+  body: string | null;
+  linkUrl: string | null;
+  metadata: Record<string, unknown> | null;
+  readAt: string | null;
+  resolvedAt: string | null;
+  resolvedById: string | null;
+  resolutionNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AlertWithStudent extends AlertSummary {
+  student?: { id: string; name: string; email: string };
+}
+
+export interface GenerateAlertsResult {
+  courseId: string;
+  generated: number;
+  byType: Partial<Record<AlertType, number>>;
+}
+
+// ---------- M5: Dashboards ----------
+export interface AdminDashboardResponse {
+  totals: {
+    users: number;
+    teachers: number;
+    students: number;
+    courses: number;
+    activeCourses: number;
+    openAlerts: number;
+  };
+  latestAlerts: AlertSummary[];
+  lateSubmissionsLast7d: number;
+}
+
+export interface TeacherCourseSnapshot {
+  courseId: string;
+  courseCode: string;
+  courseTitle: string;
+  enrollmentCount: number;
+  ungradedSubmissions: number;
+  ungradedQuizAnswers: number;
+  openAlerts: number;
+}
+
+export interface TeacherDashboardResponse {
+  courses: TeacherCourseSnapshot[];
+  recentAlerts: AlertSummary[];
+}
+
+export interface StudentCourseSnapshot {
+  courseId: string;
+  courseCode: string;
+  courseTitle: string;
+  attendanceRate: number | null;
+  assignmentAverage: number | null;
+  quizAverage: number | null;
+  upcomingAssignments: number;
+  openAlerts: number;
+  finalScore: number | null;
+  letterGrade: string | null;
+}
+
+export interface StudentDashboardResponse {
+  courses: StudentCourseSnapshot[];
+  recentAlerts: AlertSummary[];
 }

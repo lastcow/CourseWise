@@ -40,6 +40,9 @@ export function TeacherCourseShell(): JSX.Element {
           { to: 'discussion', label: t('discussion.title') },
           { to: 'quizzes', label: t('quizzes.title') },
           { to: 'attendance', label: t('attendance.title') },
+          { to: 'gradebook', label: t('grading.gradebookTitle') },
+          { to: 'grading-policy', label: t('grading.policyTabTitle') },
+          { to: 'alerts', label: t('alerts.title') },
         ].map((tab) => (
           <NavLink
             key={tab.to}

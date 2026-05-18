@@ -18,6 +18,9 @@ import assignmentsRoutes from './routes/assignments';
 import discussionsRoutes from './routes/discussions';
 import quizzesRoutes from './routes/quizzes';
 import attendanceRoutes from './routes/attendance';
+import gradingRoutes from './routes/grading';
+import alertsRoutes from './routes/alerts';
+import dashboardsRoutes from './routes/dashboards';
 import type { AppBindings, AppEnv } from './types';
 
 export type Env = AppBindings;
@@ -70,6 +73,9 @@ app.route('/api', assignmentsRoutes);
 app.route('/api', discussionsRoutes);
 app.route('/api', quizzesRoutes);
 app.route('/api', attendanceRoutes);
+app.route('/api', gradingRoutes);
+app.route('/api', alertsRoutes);
+app.route('/api', dashboardsRoutes);
 
 app.notFound((c) =>
   c.json(
