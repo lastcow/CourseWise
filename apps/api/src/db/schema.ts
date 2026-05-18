@@ -362,6 +362,7 @@ export const readingMaterials = pgTable(
       .references(() => courses.id, { onDelete: 'cascade' }),
     moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
+    description: text('description'),
     type: text('type').notNull().default('document'),
     sourceType: materialSourceTypeEnum('source_type').notNull().default('manual_text'),
     content: text('content'),
