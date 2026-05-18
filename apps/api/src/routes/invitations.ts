@@ -22,7 +22,6 @@ import { recordAudit } from '../services/audit';
 import { getRateLimiter } from '../services/rateLimit';
 import type { AppEnv } from '../types';
 
-const publicR = new Hono<AppEnv>();
 const r = new Hono<AppEnv>();
 
 function toSummary(row: typeof invitationCodes.$inferSelect, courseTitle?: string | null): InvitationCodeSummary {
@@ -40,8 +39,13 @@ function toSummary(row: typeof invitationCodes.$inferSelect, courseTitle?: strin
   };
 }
 
-// PUBLIC: validate an invitation code for the register page. Rate-limited per IP.
-publicR.post('/invitation-codes/validate', validateJson(validateInvitationCodeSchema), async (c) => {
+// Authenticated routes start here.
+r.use('*', requireAuth);
+
+// Validate an invitation code (for the public registration page).
+// Rate-limited per IP. Requires Bearer auth (JWT or API token) per COU-17 lockdown;
+// the registration form now relies on submit-time validation in /api/auth/register-student.
+r.post('/invitation-codes/validate', validateJson(validateInvitationCodeSchema), async (c) => {
   const input = c.get('validated') as ValidateInvitationCodeInput;
   const limiter = getRateLimiter(c.env.RATE_LIMIT_KV);
   const callerIp =
@@ -66,9 +70,6 @@ publicR.post('/invitation-codes/validate', validateJson(validateInvitationCodeSc
   if (code.maxUses !== null && code.usedCount >= code.maxUses) return respond({ valid: false });
   return respond({ valid: true, courseTitle: row.course?.title ?? null });
 });
-
-// Authenticated routes start here.
-r.use('*', requireAuth);
 
 // List invitation codes — admin only (creators may also see via scope).
 r.get('/invitation-codes', requireScopeGroup('invitationCodesRead'), requireRole('admin'), async (c) => {
@@ -225,4 +226,3 @@ r.post('/invitation-codes/:id/deactivate', requireScopeGroup('invitationCodesWri
 });
 
 export default r;
-export { publicR as invitationsPublic };

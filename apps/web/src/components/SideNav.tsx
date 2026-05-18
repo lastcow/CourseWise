@@ -12,6 +12,7 @@ import {
   FileText,
   GraduationCap,
   Home,
+  KeyRound,
   LayoutDashboard,
   Library,
   ListChecks,
@@ -49,6 +50,14 @@ type NavGroup = {
   sections?: NavSection[];
 };
 
+const SETTINGS_GROUP: NavGroup = {
+  id: 'settings',
+  titleKey: 'nav.settingsSection',
+  items: [
+    { to: '/settings/api-tokens', labelKey: 'nav.apiTokens', icon: KeyRound },
+  ],
+};
+
 const ADMIN_GROUPS: NavGroup[] = [
   {
     id: 'admin',
@@ -59,6 +68,7 @@ const ADMIN_GROUPS: NavGroup[] = [
       { to: '/admin/invitation-codes', labelKey: 'nav.invitationCodes', icon: Ticket },
     ],
   },
+  SETTINGS_GROUP,
 ];
 
 const TEACHER_TOP_GROUPS: NavGroup[] = [
@@ -211,9 +221,10 @@ export function SideNav({
             titleKey: 'nav.currentCourse',
             sections: teacherCourseSections(teacherCourseId),
           },
+          SETTINGS_GROUP,
         ];
       }
-      return TEACHER_TOP_GROUPS;
+      return [...TEACHER_TOP_GROUPS, SETTINGS_GROUP];
     }
     if (role === 'student') {
       if (studentCourseId) {
@@ -224,9 +235,10 @@ export function SideNav({
             titleKey: 'nav.currentCourse',
             sections: studentCourseSections(studentCourseId),
           },
+          SETTINGS_GROUP,
         ];
       }
-      return STUDENT_TOP_GROUPS;
+      return [...STUDENT_TOP_GROUPS, SETTINGS_GROUP];
     }
     return [];
   }, [role, teacherCourseId, studentCourseId]);
