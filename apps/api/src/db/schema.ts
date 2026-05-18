@@ -38,21 +38,13 @@ export const quizQuestionTypeEnum = pgEnum('quiz_question_type', [
   'short_answer',
   'case_analysis',
 ]);
-export const quizStatusEnum = pgEnum('quiz_status', [
-  'draft',
-  'published',
-  'closed',
-  'archived',
-]);
+export const quizStatusEnum = pgEnum('quiz_status', ['draft', 'published', 'closed', 'archived']);
 export const quizAttemptStatusEnum = pgEnum('quiz_attempt_status', [
   'in_progress',
   'submitted',
   'expired',
 ]);
-export const attendanceSessionStatusEnum = pgEnum('attendance_session_status', [
-  'open',
-  'closed',
-]);
+export const attendanceSessionStatusEnum = pgEnum('attendance_session_status', ['open', 'closed']);
 export const auditActorTypeEnum = pgEnum('audit_actor_type', ['user', 'api_token', 'system']);
 export const materialStatusEnum = pgEnum('material_status', ['draft', 'published', 'archived']);
 export const materialSourceTypeEnum = pgEnum('material_source_type', [
@@ -793,8 +785,36 @@ export const auditLogs = pgTable(
   }),
 );
 
+export const teacherInvitations = pgTable(
+  'teacher_invitations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    email: text('email').notNull(),
+    invitedByUserId: uuid('invited_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true, mode: 'string' }),
+    acceptedUserId: uuid('accepted_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    tokenHashIdx: uniqueIndex('teacher_invitations_token_hash_idx').on(t.tokenHash),
+    emailIdx: index('teacher_invitations_email_idx').on(sql`lower(${t.email})`),
+    expiresAtIdx: index('teacher_invitations_expires_at_idx').on(t.expiresAt),
+    pendingEmailUnique: uniqueIndex('teacher_invitations_pending_email_idx')
+      .on(sql`lower(${t.email})`)
+      .where(sql`${t.acceptedAt} is null and ${t.revokedAt} is null`),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type ApiTokenRow = typeof apiTokens.$inferSelect;
 export type RefreshTokenRow = typeof refreshTokens.$inferSelect;
+export type TeacherInvitationRow = typeof teacherInvitations.$inferSelect;
 export type Course = typeof courses.$inferSelect;

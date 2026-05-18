@@ -36,6 +36,13 @@
       "when": 1779302400000,
       "tag": "0004_m5_grading_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779388800000,
+      "tag": "0005_teacher_invitations",
+      "breakpoints": true
     }
   ]
 }

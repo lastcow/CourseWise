@@ -9,8 +9,10 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
+import { TeacherAcceptInvitePage } from '@/pages/TeacherAcceptInvitePage';
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
 import { AdminInvitationCodesPage } from '@/pages/admin/AdminInvitationCodesPage';
+import { AdminTeachersPage } from '@/pages/admin/AdminTeachersPage';
 import { TeacherCoursesPage } from '@/pages/teacher/TeacherCoursesPage';
 import { TeacherNewCoursePage } from '@/pages/teacher/TeacherNewCoursePage';
 import { TeacherCourseSettings } from '@/pages/teacher/TeacherCourseSettings';
@@ -55,6 +57,7 @@ export default function App(): JSX.Element {
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/teacher/accept-invite" element={<TeacherAcceptInvitePage />} />
             </Route>
             <Route element={<RoleAwareBackOfficeLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
@@ -111,6 +114,14 @@ export default function App(): JSX.Element {
                 element={
                   <RequireRole roles={['admin']}>
                     <AdminInvitationCodesPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/teachers"
+                element={
+                  <RequireRole roles={['admin']}>
+                    <AdminTeachersPage />
                   </RequireRole>
                 }
               />

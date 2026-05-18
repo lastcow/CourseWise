@@ -20,10 +20,11 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   const login = useCallback<AuthContextValue['login']>(async (email, password) => {
     setIsLoading(true);
     try {
-      const data = await apiCall<StoredAuth & { expiresIn: number }>(
-        '/api/auth/login',
-        { method: 'POST', body: { email, password }, auth: false },
-      );
+      const data = await apiCall<StoredAuth & { expiresIn: number }>('/api/auth/login', {
+        method: 'POST',
+        body: { email, password },
+        auth: false,
+      });
       const stored: StoredAuth = {
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
@@ -40,10 +41,32 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   const register = useCallback<AuthContextValue['register']>(async (input) => {
     setIsLoading(true);
     try {
-      const data = await apiCall<StoredAuth & { expiresIn: number }>(
-        '/api/auth/register-student',
-        { method: 'POST', body: input, auth: false },
-      );
+      const data = await apiCall<StoredAuth & { expiresIn: number }>('/api/auth/register-student', {
+        method: 'POST',
+        body: input,
+        auth: false,
+      });
+      const stored: StoredAuth = {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        user: data.user,
+      };
+      storeAuth(stored);
+      setAuth(stored);
+      return stored;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const registerTeacher = useCallback<AuthContextValue['registerTeacher']>(async (input) => {
+    setIsLoading(true);
+    try {
+      const data = await apiCall<StoredAuth & { expiresIn: number }>('/api/auth/register-teacher', {
+        method: 'POST',
+        body: input,
+        auth: false,
+      });
       const stored: StoredAuth = {
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
@@ -74,6 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     }
   }, []);
 
-  const value = useMemo(() => ({ auth, login, register, logout, isLoading }), [auth, login, register, logout, isLoading]);
+  const value = useMemo(
+    () => ({ auth, login, register, registerTeacher, logout, isLoading }),
+    [auth, login, register, registerTeacher, logout, isLoading],
+  );
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }

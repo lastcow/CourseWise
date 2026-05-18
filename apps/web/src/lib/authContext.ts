@@ -10,6 +10,11 @@ export interface AuthContextValue {
     name: string;
     invitationCode: string;
   }) => Promise<StoredAuth>;
+  registerTeacher: (input: {
+    token: string;
+    name: string;
+    password: string;
+  }) => Promise<StoredAuth>;
   logout: () => Promise<void>;
   isLoading: boolean;
 }

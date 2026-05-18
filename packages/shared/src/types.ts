@@ -140,6 +140,43 @@ export interface ValidateInvitationCodeResponse {
   courseTitle?: string | null;
 }
 
+export type TeacherInvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+export interface TeacherInvitationSummary {
+  id: string;
+  email: string;
+  inviterName: string;
+  inviterId: string;
+  status: TeacherInvitationStatus;
+  expiresAt: string;
+  acceptedAt: string | null;
+  acceptedUserId: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatedTeacherInvitation extends TeacherInvitationSummary {
+  /** Plaintext token — only returned at create / resend time. */
+  token: string;
+  /** Pre-built sign-up URL. Falls back to a path when an origin is unknown. */
+  inviteUrl: string;
+}
+
+export interface TeacherInvitationLookup {
+  email: string;
+  expiresAt: string;
+  inviterName: string;
+}
+
+export interface TeacherSummary {
+  id: string;
+  name: string;
+  email: string;
+  courseCount: number;
+  createdAt: string;
+}
+
 export interface MaterialSummary {
   id: string;
   courseId: string;
@@ -453,12 +490,15 @@ export interface GradingPolicySummary {
 }
 
 // ---------- M5: Final Grades ----------
-export type CategoryScoreBreakdown = Record<GradingPolicyCategory, {
-  raw: number | null;
-  weight: number;
-  weighted: number;
-  detail?: Record<string, number | string | null>;
-}>;
+export type CategoryScoreBreakdown = Record<
+  GradingPolicyCategory,
+  {
+    raw: number | null;
+    weight: number;
+    weighted: number;
+    detail?: Record<string, number | string | null>;
+  }
+>;
 
 export interface FinalGradeSummary {
   id: string;

@@ -20,6 +20,7 @@ import {
   Sliders,
   Ticket,
   UserCheck,
+  UserPlus,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,11 @@ const ADMIN_GROUPS: NavGroup[] = [
       { to: '/admin/alerts', labelKey: 'nav.alerts', icon: AlertTriangle },
       { to: '/admin/invitation-codes', labelKey: 'nav.invitationCodes', icon: Ticket },
     ],
+  },
+  {
+    id: 'users',
+    titleKey: 'nav.users',
+    items: [{ to: '/admin/teachers', labelKey: 'nav.inviteTeacher', icon: UserPlus }],
   },
 ];
 
@@ -163,10 +169,7 @@ export function SideNav({
 
   return (
     <div
-      className={cn(
-        'flex h-full w-full flex-col bg-card text-card-foreground',
-        isMobile && 'w-72',
-      )}
+      className={cn('flex h-full w-full flex-col bg-card text-card-foreground', isMobile && 'w-72')}
       aria-label={t('nav.sideMenu')}
     >
       <div
@@ -175,9 +178,7 @@ export function SideNav({
           showLabels ? 'justify-between' : 'justify-center',
         )}
       >
-        {showLabels ? (
-          <span className="text-sm font-semibold">{t('app.name')}</span>
-        ) : null}
+        {showLabels ? <span className="text-sm font-semibold">{t('app.name')}</span> : null}
         {isMobile ? (
           <button
             type="button"
@@ -227,7 +228,6 @@ export function SideNav({
           </div>
         ))}
       </nav>
-
     </div>
   );
 }
