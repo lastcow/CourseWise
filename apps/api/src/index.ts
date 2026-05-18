@@ -8,6 +8,11 @@ import authRoutes from './routes/auth';
 import meRoutes from './routes/me';
 import adminRoutes from './routes/admin';
 import teacherRoutes from './routes/teacher';
+import coursesRoutes from './routes/courses';
+import modulesRoutes from './routes/modules';
+import invitationsRoutes, { invitationsPublic } from './routes/invitations';
+import materialsRoutes from './routes/materials';
+import filesRoutes from './routes/files';
 import type { AppBindings, AppEnv } from './types';
 
 export type Env = AppBindings;
@@ -49,6 +54,12 @@ app.route('/api/auth', authRoutes);
 app.route('/api/me', meRoutes);
 app.route('/api/admin', adminRoutes);
 app.route('/api/teacher', teacherRoutes);
+app.route('/api', invitationsPublic);
+app.route('/api', coursesRoutes);
+app.route('/api', modulesRoutes);
+app.route('/api', invitationsRoutes);
+app.route('/api', materialsRoutes);
+app.route('/api', filesRoutes);
 
 app.notFound((c) =>
   c.json(

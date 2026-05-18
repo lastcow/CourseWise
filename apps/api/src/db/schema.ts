@@ -36,6 +36,13 @@ export const quizQuestionTypeEnum = pgEnum('quiz_question_type', [
   'short_answer',
 ]);
 export const auditActorTypeEnum = pgEnum('audit_actor_type', ['user', 'api_token', 'system']);
+export const materialStatusEnum = pgEnum('material_status', ['draft', 'published', 'archived']);
+export const materialSourceTypeEnum = pgEnum('material_source_type', [
+  'upload',
+  'external_link',
+  'manual_text',
+]);
+export const fileAssetStatusEnum = pgEnum('file_asset_status', ['pending', 'ready', 'deleted']);
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -145,6 +152,7 @@ export const courses = pgTable(
     description: text('description'),
     termLabel: text('term_label'),
     status: courseStatusEnum('status').notNull().default('active'),
+    gradingPolicyJson: jsonb('grading_policy_json'),
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
     ...timestamps,
   },
@@ -200,9 +208,7 @@ export const invitationCodes = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     code: text('code').notNull(),
-    courseId: uuid('course_id')
-      .notNull()
-      .references(() => courses.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id').references(() => courses.id, { onDelete: 'cascade' }),
     maxUses: integer('max_uses'),
     usedCount: integer('used_count').notNull().default(0),
     expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }),
@@ -235,16 +241,28 @@ export const modules = pgTable(
   }),
 );
 
-export const fileAssets = pgTable('file_assets', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
-  bucket: text('bucket').notNull().default('coursewise-files'),
-  objectKey: text('object_key').notNull(),
-  contentType: text('content_type'),
-  sizeBytes: integer('size_bytes'),
-  originalFilename: text('original_filename'),
-  ...timestamps,
-});
+export const fileAssets = pgTable(
+  'file_assets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
+    courseId: uuid('course_id').references(() => courses.id, { onDelete: 'cascade' }),
+    bucket: text('bucket').notNull().default('coursewise-files'),
+    objectKey: text('object_key').notNull(),
+    contentType: text('content_type'),
+    sizeBytes: integer('size_bytes'),
+    originalFilename: text('original_filename'),
+    status: fileAssetStatusEnum('status').notNull().default('pending'),
+    relatedType: text('related_type'),
+    relatedId: uuid('related_id'),
+    etag: text('etag'),
+    ...timestamps,
+  },
+  (t) => ({
+    courseIdx: index('file_assets_course_idx').on(t.courseId),
+    statusIdx: index('file_assets_status_idx').on(t.status),
+  }),
+);
 
 export const presentations = pgTable(
   'presentations',
@@ -286,19 +304,29 @@ export const readingMaterials = pgTable(
   'reading_materials',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    moduleId: uuid('module_id')
+    courseId: uuid('course_id')
       .notNull()
-      .references(() => modules.id, { onDelete: 'cascade' }),
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
+    type: text('type').notNull().default('document'),
+    sourceType: materialSourceTypeEnum('source_type').notNull().default('manual_text'),
     content: text('content'),
+    externalUrl: text('external_url'),
     fileAssetId: uuid('file_asset_id').references(() => fileAssets.id, {
       onDelete: 'set null',
     }),
+    status: materialStatusEnum('status').notNull().default('draft'),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'string' }),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
     position: integer('position').notNull().default(0),
+    createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => ({
+    courseIdx: index('reading_materials_course_idx').on(t.courseId),
     moduleIdx: index('reading_materials_module_idx').on(t.moduleId),
+    statusIdx: index('reading_materials_status_idx').on(t.status),
   }),
 );
 

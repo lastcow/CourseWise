@@ -9,7 +9,7 @@ import {
   type RefreshInput,
   type RegisterInput,
 } from '@coursewise/shared';
-import { invitationCodes, refreshTokens, studentProfiles, users } from '../db/schema';
+import { enrollments, invitationCodes, refreshTokens, studentProfiles, users } from '../db/schema';
 import { hashPassword, verifyPassword } from '../services/password';
 import {
   ACCESS_TOKEN_TTL_SECONDS,
@@ -134,6 +134,22 @@ auth.post('/register-student', validateJson(registerSchema), async (c) => {
   }
 
   await db.insert(studentProfiles).values({ userId: user.id });
+
+  // Auto-enroll when the invitation code is tied to a course.
+  if (code.courseId) {
+    const existingEnrollment = await db
+      .select({ id: enrollments.id })
+      .from(enrollments)
+      .where(and(eq(enrollments.courseId, code.courseId), eq(enrollments.studentId, user.id)))
+      .limit(1);
+    if (existingEnrollment.length === 0) {
+      await db.insert(enrollments).values({
+        courseId: code.courseId,
+        studentId: user.id,
+        status: 'enrolled',
+      });
+    }
+  }
 
   await db
     .update(invitationCodes)
