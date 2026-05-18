@@ -99,10 +99,8 @@ function teacherCourseSections(courseId: string): NavSection[] {
   const prefix = `/teacher/courses/${courseId}`;
   return [
     {
-      // Teacher landing for /teacher/courses/:id is the settings page, so
-      // it sits standalone at the top of the menu (no section header).
       id: 'top',
-      items: [{ to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings }],
+      items: [{ to: prefix, labelKey: 'nav.overview', icon: Home, end: true }],
     },
     {
       id: 'learn',
@@ -137,6 +135,11 @@ function teacherCourseSections(courseId: string): NavSection[] {
         { to: `${prefix}/grading-policy`, labelKey: 'grading.policyTitle', icon: Sliders },
         { to: `${prefix}/alerts`, labelKey: 'nav.alerts', icon: AlertTriangle },
       ],
+    },
+    {
+      id: 'manage',
+      titleKey: 'course.nav.section.manage',
+      items: [{ to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings }],
     },
   ];
 }

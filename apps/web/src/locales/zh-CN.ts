@@ -143,7 +143,11 @@ export const zhCN = {
           assessment: '评估',
           engagement: '互动',
           performance: '成绩',
+          manage: '管理',
         },
+      },
+      overview: {
+        quickLinks: '快捷入口',
       },
     },
     courses: {

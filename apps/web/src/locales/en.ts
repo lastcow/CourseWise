@@ -145,7 +145,11 @@ export const en = {
           assessment: 'Assessment',
           engagement: 'Engagement',
           performance: 'Performance',
+          manage: 'Manage',
         },
+      },
+      overview: {
+        quickLinks: 'Quick links',
       },
     },
     courses: {
