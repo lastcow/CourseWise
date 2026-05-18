@@ -59,19 +59,22 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
 
   const logout = useCallback(async () => {
     const current = getStoredAuth();
-    clearStoredAuth();
-    setAuth(null);
-    if (current?.refreshToken) {
+    if (current?.accessToken && current.refreshToken) {
       try {
+        // Call the server first so it can revoke the refresh-token family.
+        // The endpoint requires Bearer auth (COU-17); we use the current
+        // access token, which is still in localStorage at this point.
         await apiCall<{ ok: boolean }>('/api/auth/logout', {
           method: 'POST',
-          auth: false,
           body: { refreshToken: current.refreshToken },
         });
       } catch {
-        // ignore — local state is already cleared.
+        // ignore — proceed to clear local state even if the server rejects
+        // (e.g. token already expired).
       }
     }
+    clearStoredAuth();
+    setAuth(null);
   }, []);
 
   const value = useMemo(() => ({ auth, login, register, logout, isLoading }), [auth, login, register, logout, isLoading]);

@@ -138,10 +138,34 @@ describe.skipIf(!hasDb)('auth integration (requires DATABASE_URL)', () => {
     });
     const login = (await loginRes.json()) as LoginBody;
     const refreshToken = login.data?.refreshToken;
+    const accessToken = login.data?.accessToken;
     expect(refreshToken).toBeTruthy();
-    const logoutRes = await postJson('/api/auth/logout', { refreshToken });
+    expect(accessToken).toBeTruthy();
+    const logoutRes = await app.request(
+      '/api/auth/logout',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ refreshToken }),
+      },
+      env,
+    );
     expect(logoutRes.status).toBe(200);
     const next = await postJson('/api/auth/refresh', { refreshToken });
     expect(next.status).toBe(401);
+  });
+
+  it('logout without a bearer token is rejected', async () => {
+    const loginRes = await postJson('/api/auth/login', {
+      email: 'student2@example.com',
+      password: 'Student123!',
+    });
+    const login = (await loginRes.json()) as LoginBody;
+    const refreshToken = login.data?.refreshToken;
+    const logoutRes = await postJson('/api/auth/logout', { refreshToken });
+    expect(logoutRes.status).toBe(401);
   });
 });

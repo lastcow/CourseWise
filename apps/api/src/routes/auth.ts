@@ -25,6 +25,7 @@ import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { validateJson } from '../middleware/validate';
 import { requireJwtAuth } from '../middleware/jwt';
+import { requireAuth } from '../middleware/auth';
 import type { AppEnv } from '../types';
 
 const LOCKOUT_THRESHOLD = 5;
@@ -366,7 +367,7 @@ auth.post('/refresh', validateJson(refreshSchema), async (c) => {
   });
 });
 
-auth.post('/logout', validateJson(refreshSchema), async (c) => {
+auth.post('/logout', requireAuth, validateJson(refreshSchema), async (c) => {
   const input = c.get('validated') as RefreshInput;
   const db = c.get('db');
   const meta = requestMeta(c);

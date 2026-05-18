@@ -49,16 +49,14 @@ describe('M2 routes — unauthenticated rejections', () => {
   });
 });
 
-describe('M2 — invitation-codes validate (public)', () => {
-  it('rejects malformed bodies with 400', async () => {
+describe('M2 — invitation-codes validate (authenticated as of COU-17)', () => {
+  it('rejects unauthenticated callers with 401 (the route is no longer public)', async () => {
     const res = await app.request(
       '/api/invitation-codes/validate',
       { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       env,
     );
-    expect(res.status).toBe(400);
-    const body = (await res.json()) as { error?: { code: string } };
-    expect(body.error?.code).toBe('VALIDATION_ERROR');
+    expect(res.status).toBe(401);
   });
 });
 

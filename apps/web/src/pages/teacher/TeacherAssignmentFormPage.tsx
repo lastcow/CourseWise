@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input, Label, Textarea } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { useToast } from '@/components/ui/toast';
 import {
   uploadFile,
@@ -120,12 +121,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
             </div>
             <div>
               <Label htmlFor="a-desc">{t('assignments.descriptionLabel')}</Label>
-              <Textarea
-                id="a-desc"
-                rows={5}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
+              <MarkdownEditor id="a-desc" value={description} onChange={setDescription} />
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div>

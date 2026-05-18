@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
+import { stripMarkdown } from '@/components/ui/markdown';
 import { useDiscussionTopicsList } from '@/lib/queries';
 
 export function StudentDiscussionPage(): JSX.Element {
@@ -41,7 +42,7 @@ export function StudentDiscussionPage(): JSX.Element {
                 ) : null}
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                <p className="line-clamp-2">{topic.description ?? '—'}</p>
+                <p className="line-clamp-2">{topic.description ? stripMarkdown(topic.description) : '—'}</p>
                 <p className="mt-2">{t('discussion.postCount', { count: topic.postCount ?? 0 })}</p>
               </CardContent>
             </Card>

@@ -9,6 +9,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
+import { SettingsApiTokensPage } from '@/pages/SettingsApiTokensPage';
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
 import { AdminInvitationCodesPage } from '@/pages/admin/AdminInvitationCodesPage';
 import { TeacherCoursesPage } from '@/pages/teacher/TeacherCoursesPage';
@@ -58,6 +59,7 @@ export default function App(): JSX.Element {
             </Route>
             <Route element={<RoleAwareBackOfficeLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/settings/api-tokens" element={<SettingsApiTokensPage />} />
             </Route>
             <Route element={<BackOfficeLayout role="student" />}>
               <Route

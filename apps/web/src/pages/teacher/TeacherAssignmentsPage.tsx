@@ -6,6 +6,7 @@ import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
+import { stripMarkdown } from '@/components/ui/markdown';
 import { useToast } from '@/components/ui/toast';
 import {
   useAssignmentsList,
@@ -77,7 +78,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
                 </Badge>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                <p className="line-clamp-2">{a.description ?? '—'}</p>
+                <p className="line-clamp-2">{a.description ? stripMarkdown(a.description) : '—'}</p>
                 <div className="flex flex-wrap items-center gap-1.5 pt-3">
                   <ActionIconButton
                     asChild

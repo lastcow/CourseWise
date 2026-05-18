@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
+import { MarkdownView, stripMarkdown } from '@/components/ui/markdown';
 import { getDownloadUrl, useMaterialsList, useModulesList } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
@@ -51,7 +52,9 @@ export function StudentMaterialsPage(): JSX.Element {
                 <header className="flex items-baseline gap-2">
                   <h2 className="text-base font-semibold">{g.module.title}</h2>
                   {g.module.description ? (
-                    <span className="text-xs text-muted-foreground">— {g.module.description}</span>
+                    <span className="text-xs text-muted-foreground">
+                      — {stripMarkdown(g.module.description)}
+                    </span>
                   ) : null}
                 </header>
                 <div className="space-y-2">
@@ -99,10 +102,14 @@ function StudentRow({
             </Badge>
           </div>
           {m.description ? (
-            <p className="mt-0.5 text-sm text-muted-foreground">{m.description}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">
+              {stripMarkdown(m.description)}
+            </p>
           ) : null}
           {m.sourceType === 'manual_text' && m.content ? (
-            <div className="mt-2 whitespace-pre-wrap rounded bg-muted/30 p-3 text-sm">{m.content}</div>
+            <div className="mt-2 rounded bg-muted/30 p-3">
+              <MarkdownView source={m.content} />
+            </div>
           ) : null}
         </div>
         <div className="flex items-center gap-1.5">

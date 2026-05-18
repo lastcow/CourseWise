@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { EmptyState } from '@/components/ui/empty';
 import {
   uploadFile,
@@ -406,7 +407,7 @@ function CreateMaterialDialog({
         ) : (
           <div className="space-y-1">
             <Label htmlFor="content">{t('materials.content')}</Label>
-            <Textarea id="content" required rows={6} value={content} onChange={(e) => setContent(e.target.value)} />
+            <MarkdownEditor id="content" required value={content} onChange={setContent} />
           </div>
         )}
         <div className="flex justify-end gap-2">
@@ -558,13 +559,7 @@ function EditMaterialDialog({
         {sourceType === 'manual_text' ? (
           <div className="space-y-1">
             <Label htmlFor="edit-content">{t('materials.content')}</Label>
-            <Textarea
-              id="edit-content"
-              required
-              rows={6}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
+            <MarkdownEditor id="edit-content" required value={content} onChange={setContent} />
           </div>
         ) : null}
         {sourceType === 'upload' ? (

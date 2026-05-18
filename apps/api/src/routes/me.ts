@@ -1,16 +1,16 @@
 import { Hono } from 'hono';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import {
-  createApiTokenSchema,
+  createSelfApiTokenSchema,
   type ApiTokenScope,
   type ApiTokenSummary,
   type CreatedApiToken,
-  type CreateApiTokenInput,
+  type CreateSelfApiTokenInput,
   type UpdatePreferencesInput,
   updatePreferencesSchema,
 } from '@coursewise/shared';
 import { apiTokens, users } from '../db/schema';
-import { generateApiToken, rejectScopesForRole } from '../services/apiTokens';
+import { defaultScopesForRole, generateApiToken } from '../services/apiTokens';
 import { recordAudit } from '../services/audit';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
@@ -64,32 +64,34 @@ function summarizeToken(row: typeof apiTokens.$inferSelect): ApiTokenSummary {
   };
 }
 
+// List the caller's own API tokens, including revoked ones (so the UI can show status).
 me.get('/api-tokens', async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
   const rows = await db
     .select()
     .from(apiTokens)
-    .where(and(eq(apiTokens.userId, auth.user.id), isNull(apiTokens.revokedAt)));
+    .where(eq(apiTokens.userId, auth.user.id))
+    .orderBy(asc(apiTokens.createdAt));
   return success(c, { tokens: rows.map(summarizeToken) });
 });
 
-me.post('/api-tokens', validateJson(createApiTokenSchema), async (c) => {
-  const input = c.get('validated') as CreateApiTokenInput;
+// Mint a new token for the caller. Scopes are auto-bound to the caller's role
+// — clients never supply a `scopes` field, so they cannot escalate privileges.
+me.post('/api-tokens', validateJson(createSelfApiTokenSchema), async (c) => {
+  const input = c.get('validated') as CreateSelfApiTokenInput;
   const auth = c.get('auth');
   const db = c.get('db');
 
-  if (auth.user.role === 'student') {
-    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot create API tokens');
+  const scopes = defaultScopesForRole(auth.user.role);
+  if (scopes.length === 0) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Role cannot mint API tokens');
   }
-  const scopeCheck = rejectScopesForRole(auth.user.role, input.scopes);
-  if (!scopeCheck.ok) {
-    throw new ApiException(
-      403,
-      ERROR_CODES.FORBIDDEN,
-      `Role ${auth.user.role} cannot mint scopes: ${scopeCheck.bad.join(', ')}`,
-    );
-  }
+
+  const expiresAt =
+    input.expiresInDays != null
+      ? new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
 
   const { plaintext, hash } = await generateApiToken();
   const inserted = await db
@@ -98,8 +100,8 @@ me.post('/api-tokens', validateJson(createApiTokenSchema), async (c) => {
       userId: auth.user.id,
       name: input.name,
       tokenHash: hash,
-      scopes: input.scopes,
-      expiresAt: input.expiresAt ?? null,
+      scopes,
+      expiresAt,
     })
     .returning();
   const row = inserted[0];
@@ -112,7 +114,7 @@ me.post('/api-tokens', validateJson(createApiTokenSchema), async (c) => {
     actorUserId: auth.user.id,
     action: 'me.api-token.create',
     target: row.id,
-    metadata: { scopes: input.scopes },
+    metadata: { role: auth.user.role, scopeCount: scopes.length },
   });
 
   const body: CreatedApiToken = {

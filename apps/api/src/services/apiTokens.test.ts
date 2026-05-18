@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { generateApiToken, hashApiToken, isAdminScope, rejectScopesForRole } from './apiTokens';
-import { API_TOKEN_PREFIX } from '@coursewise/shared';
+import {
+  defaultScopesForRole,
+  generateApiToken,
+  hashApiToken,
+  isAdminScope,
+  rejectScopesForRole,
+} from './apiTokens';
+import {
+  ADMIN_TOKEN_SCOPES,
+  API_TOKEN_PREFIX,
+  STUDENT_ALLOWED_SCOPES,
+  TEACHER_ALLOWED_SCOPES,
+} from '@coursewise/shared';
 
 describe('generateApiToken', () => {
   it('produces a properly prefixed token whose hash matches a re-hash', async () => {
@@ -32,9 +43,33 @@ describe('rejectScopesForRole', () => {
     }
   });
 
-  it('students cannot mint any token', () => {
-    const r = rejectScopesForRole('student', ['student:read']);
+  it('students can mint tokens with student-allowed scopes', () => {
+    expect(rejectScopesForRole('student', ['student:read'])).toEqual({ ok: true });
+  });
+
+  it('students cannot mint tokens that escalate beyond student scopes', () => {
+    const r = rejectScopesForRole('student', ['student:read', 'admin:write']);
     expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.bad).toContain('admin:write');
+    }
+  });
+});
+
+describe('defaultScopesForRole', () => {
+  it('admin gets the full admin scope set', () => {
+    expect(defaultScopesForRole('admin')).toEqual([...ADMIN_TOKEN_SCOPES]);
+  });
+  it('teacher gets the teacher-allowed scopes (no admin scopes)', () => {
+    const scopes = defaultScopesForRole('teacher');
+    expect(scopes).toEqual([...TEACHER_ALLOWED_SCOPES]);
+    expect(scopes.some((s) => s.startsWith('admin:'))).toBe(false);
+  });
+  it('student gets only student-allowed scopes', () => {
+    const scopes = defaultScopesForRole('student');
+    expect(scopes).toEqual([...STUDENT_ALLOWED_SCOPES]);
+    expect(scopes.some((s) => s.startsWith('admin:'))).toBe(false);
+    expect(scopes.some((s) => s.startsWith('teacher:'))).toBe(false);
   });
 });
 

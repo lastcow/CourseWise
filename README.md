@@ -162,14 +162,39 @@ On `push: main`, `.github/workflows/deploy.yml` runs `ci`, then in parallel:
 CourseWise ships first-class **API tokens** so external systems can call the
 same surface that the web app uses.
 
-1. Sign in as an admin or teacher.
-2. **Admin → API Tokens** (or teacher self-service at `/teacher/api-tokens`)
-   → **Create token**. Pick a name + scopes; the plaintext token is shown
-   **once**.
-3. Use it as `Authorization: Bearer cmpt_…` on any documented endpoint.
+1. Sign in as any user (admin, teacher, or student).
+2. Open **Settings → API Tokens** from the global side menu (or the link next
+   to your name in the header).
+3. Click **Create token**, pick a name and an expiry, and copy the plaintext
+   token that is shown **once**.
+4. Use it as `Authorization: Bearer cmpt_…` on any documented endpoint.
+
+The minted token automatically inherits your role's permissions — admins get
+admin scopes, teachers get teacher scopes, students get student scopes. The
+server rejects any client-supplied scope so a teacher cannot mint an
+admin-level token by tampering with the request.
+
+Admins can still manage everyone's tokens from **`/api/admin/api-tokens`**
+(the existing admin-wide endpoints).
 
 OpenAPI 3.1 spec: `GET https://<api-host>/api/openapi.json` (no auth required).
 Endpoint-by-endpoint reference: [`docs/api.md`](docs/api.md).
+
+### Authentication contract
+
+Every CourseWise route requires `Authorization: Bearer <token>` (either a JWT
+or an API token) **except** the public service surface:
+
+- `GET /api/health`
+- `GET /api/version`
+- `GET /api/openapi.json`
+- `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `POST /api/auth/register-student`
+
+A unit test (`apps/api/src/auth-coverage.test.ts`) walks the live Hono route
+table on every CI run and asserts the invariant: every non-whitelisted route
+returns `401 UNAUTHORIZED` without a Bearer token.
 
 ### Curl walkthrough — teacher creating a course and uploading a file
 
@@ -199,26 +224,46 @@ curl -sS "$API/api/files/complete-upload" \
   -d '{"fileId":"<id-from-step-2>"}'
 ```
 
-### Curl walkthrough — admin creating an API token
+### Curl walkthrough — self-serve token (any role)
 
 ```sh
 API=https://coursewise-api.example.workers.dev
 
-# Get a JWT first (admin login)
+# Get a JWT first
 curl -sS "$API/api/auth/login" -H "Content-Type: application/json" \
-  -d '{"email":"ebiz@chen.me","password":"Paradise@0"}' | jq -r '.data.accessToken' > /tmp/jwt
+  -d '{"email":"teacher@example.com","password":"Teacher123!"}' | jq -r '.data.accessToken' > /tmp/jwt
 
 JWT=$(cat /tmp/jwt)
 
-# Mint a teacher token with read scopes for grading + alerts
+# Mint a token bound to the caller's role (here: teacher scopes, expires in 90 days).
+# Note: no `scopes` field — the server picks the set from the caller's role.
+curl -sS "$API/api/me/api-tokens" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Grading export bot","expiresInDays":90}'
+
+# List your own tokens
+curl -sS "$API/api/me/api-tokens" -H "Authorization: Bearer $JWT"
+
+# Revoke a token by ID
+curl -sS -X POST "$API/api/me/api-tokens/<id>/revoke" -H "Authorization: Bearer $JWT"
+```
+
+The create response includes `data.token` — that is the plaintext value. It
+is **only returned on create**; afterwards only the SHA-256 hash is stored.
+
+### Curl walkthrough — admin minting a token for another user
+
+Admins can also use the admin-wide `/api/admin/api-tokens` endpoint, which
+accepts an explicit `scopes` array (so an admin can issue, for example, a
+narrow read-only token for an external grading dashboard):
+
+```sh
 curl -sS "$API/api/admin/api-tokens" \
   -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
   -d '{"name":"Grading export bot","scopes":["grades:read","alerts:read","dashboards:read"]}'
 ```
-
-The response includes `data.token` — that is the plaintext value. It is **only
-returned on create**; afterwards only the SHA-256 hash is stored.
 
 ### Response envelope
 
@@ -317,29 +362,57 @@ CI / 部署工作流位于 `.github/workflows/deploy.yml`。每次推送到 `mai
 
 ## 外部 API
 
-外部系统通过 **API Token** 调用本平台。流程：
+外部系统通过 **API Token** 调用本平台。任何用户都可以自助生成 Token：
 
-1. 管理员或教师登录。
-2. 进入 **管理后台 → API Tokens**（教师为 `/teacher/api-tokens`）→ 创建 Token。
-   明文 Token 仅在创建响应中返回一次，请立即保存。
-3. 用 `Authorization: Bearer cmpt_…` 调用任意已记录的接口。
+1. 任意角色（管理员 / 教师 / 学生）登录。
+2. 在左侧菜单的 **设置 → API 令牌** 中（或顶部用户名旁的入口）点击「创建令牌」。
+3. 填写名称、选择有效期后提交，明文 Token 仅显示一次,请立即复制。
+4. 用 `Authorization: Bearer cmpt_…` 调用任意已记录的接口。
+
+生成的 Token 自动继承当前用户的角色权限，服务端会拒绝任何客户端尝试自带 `scopes` 字段
+（防止教师铸造管理员 Token 等越权操作）。管理员仍然可以通过
+`/api/admin/api-tokens` 端点为其他用户创建带显式 scopes 的 Token。
+
+### 认证范围
+
+除以下公开服务接口外，所有 API 路由都必须携带 `Authorization: Bearer <token>`
+（JWT 或 API Token 二者皆可）：
+
+- `GET /api/health`
+- `GET /api/version`
+- `GET /api/openapi.json`
+- `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `POST /api/auth/register-student`
+
+`apps/api/src/auth-coverage.test.ts` 在 CI 中遍历 Hono 路由表,确保任何不在白名单
+里的路由都会对未携带 Bearer Token 的请求返回 `401`。
 
 OpenAPI 3.1 规范：`GET https://<api-host>/api/openapi.json`（无需鉴权）。
 完整接口清单见 [`docs/api.md`](docs/api.md)。
 
-### 示例：教师创建课程并上传文件
+### 示例：自助创建 Token（任意角色）
 
 ```sh
 API=https://coursewise-api.example.workers.dev
-TOKEN=cmpt_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-curl -sS "$API/api/courses" \
-  -H "Authorization: Bearer $TOKEN" \
+JWT=$(curl -sS "$API/api/auth/login" -H "Content-Type: application/json" \
+  -d '{"email":"teacher@example.com","password":"Teacher123!"}' | jq -r '.data.accessToken')
+
+# 创建令牌（无需指定 scopes，服务端按角色自动绑定）
+curl -sS "$API/api/me/api-tokens" \
+  -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
-  -d '{"code":"ECON202","title":"微观经济学","status":"draft"}'
+  -d '{"name":"评分导出脚本","expiresInDays":90}'
+
+# 查看自己的令牌列表
+curl -sS "$API/api/me/api-tokens" -H "Authorization: Bearer $JWT"
+
+# 撤销令牌
+curl -sS -X POST "$API/api/me/api-tokens/<id>/revoke" -H "Authorization: Bearer $JWT"
 ```
 
-### 示例：管理员发放 Token
+### 示例：管理员发放 Token（高级，可自定义 scopes）
 
 ```sh
 JWT=$(curl -sS "$API/api/auth/login" -H "Content-Type: application/json" \
