@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { AttendanceStatus } from '@coursewise/shared';
@@ -15,7 +15,6 @@ import {
   useAttendanceSessions,
   useBulkMarkAttendance,
   useCloseAttendanceSession,
-  useCourse,
   useCreateAttendanceSession,
   useDeleteAttendanceSession,
 } from '@/lib/queries';
@@ -37,7 +36,6 @@ export function TeacherAttendancePage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId } = useParams();
   const cid = courseId ?? '';
-  const course = useCourse(cid);
   const sessions = useAttendanceSessions(cid);
   const createSession = useCreateAttendanceSession(cid);
   const delSession = useDeleteAttendanceSession(cid);
@@ -53,11 +51,18 @@ export function TeacherAttendancePage(): JSX.Element {
   const [draft, setDraft] = useState({ title: '', description: '', sessionDate: '' });
 
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
-  if (cid && enrollments.length === 0 && course.data) {
-    apiCall<EnrollmentRow[]>(`/api/courses/${cid}/enrollments`)
-      .then((rows) => setEnrollments(rows))
+  useEffect(() => {
+    if (!cid) return;
+    let cancelled = false;
+    apiCall<EnrollmentRow[]>(`/api/courses/${cid}/students`)
+      .then((rows) => {
+        if (!cancelled) setEnrollments(rows);
+      })
       .catch(() => undefined);
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [cid]);
 
   function ensureMarks() {
     const next = { ...marks };
