@@ -1,8 +1,11 @@
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useCourse, useModulesList } from '@/lib/queries';
+import { Badge } from '@/components/ui/badge';
+import { useCourse, useMaterialsList, useModulesList } from '@/lib/queries';
+import type { MaterialSummary } from '@coursewise/shared';
 
 export function StudentCourseOverviewPage(): JSX.Element {
   const { t } = useTranslation();
@@ -10,6 +13,18 @@ export function StudentCourseOverviewPage(): JSX.Element {
   const id = courseId ?? '';
   const course = useCourse(id);
   const modules = useModulesList(id);
+  const materials = useMaterialsList(id);
+
+  const byModule = useMemo(() => {
+    const map = new Map<string, MaterialSummary[]>();
+    for (const m of materials.data ?? []) {
+      if (!m.moduleId) continue;
+      const arr = map.get(m.moduleId) ?? [];
+      arr.push(m);
+      map.set(m.moduleId, arr);
+    }
+    return map;
+  }, [materials.data]);
 
   if (course.isLoading) return <p>{t('common.loading')}</p>;
   if (!course.data) return <p>{t('common.error')}</p>;
@@ -49,14 +64,35 @@ export function StudentCourseOverviewPage(): JSX.Element {
           ) : !modules.data || modules.data.length === 0 ? (
             <p className="text-muted-foreground">{t('modules.empty')}</p>
           ) : (
-            <ol className="list-decimal space-y-1 pl-5 text-sm">
-              {modules.data.map((m) => (
-                <li key={m.id}>
-                  <span className="font-medium">{m.title}</span>
-                  {m.description ? <span className="text-muted-foreground"> — {m.description}</span> : null}
-                </li>
-              ))}
-            </ol>
+            <div className="space-y-4">
+              {modules.data.map((m) => {
+                const mats = byModule.get(m.id) ?? [];
+                return (
+                  <div key={m.id} className="space-y-1.5 border-l-2 border-muted pl-3">
+                    <div>
+                      <div className="font-medium">{m.title}</div>
+                      {m.description ? (
+                        <p className="text-sm text-muted-foreground">{m.description}</p>
+                      ) : null}
+                    </div>
+                    {mats.length === 0 ? null : (
+                      <ul className="space-y-1">
+                        {mats.map((mat) => (
+                          <li key={mat.id} className="flex items-center gap-2 text-sm">
+                            <span>{mat.title}</span>
+                            <Badge variant="info">
+                              {t(
+                                `materials.kind${mat.sourceType.replace(/(^|_)(\w)/g, (_, _b, c: string) => c.toUpperCase())}`,
+                              )}
+                            </Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>

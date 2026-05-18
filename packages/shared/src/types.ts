@@ -145,6 +145,7 @@ export interface MaterialSummary {
   courseId: string;
   moduleId: string | null;
   title: string;
+  description: string | null;
   type: string;
   sourceType: MaterialSourceType;
   content: string | null;

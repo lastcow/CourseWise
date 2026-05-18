@@ -1,34 +1,60 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty';
 import {
   useCreateModule,
   useDeleteModule,
+  useDeleteMaterial,
+  useMaterialsList,
   useModulesList,
   useReorderModules,
+  useTransitionMaterial,
   useUpdateModule,
+  useUpdateMaterial,
 } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
+import type {
+  MaterialSummary,
+  ModuleSummary,
+  UpdateMaterialInput,
+} from '@coursewise/shared';
 
 export function TeacherModulesPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId } = useParams();
   const id = courseId ?? '';
   const list = useModulesList(id);
+  const materialsQ = useMaterialsList(id);
   const create = useCreateModule(id);
   const update = useUpdateModule(id);
   const del = useDeleteModule(id);
   const reorder = useReorderModules(id);
+  const transitionMaterial = useTransitionMaterial(id);
+  const updateMaterial = useUpdateMaterial(id);
+  const delMaterial = useDeleteMaterial(id);
   const toast = useToast();
 
   const [openCreate, setOpenCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingMaterial, setEditingMaterial] = useState<MaterialSummary | null>(null);
+
+  const moduleMaterials = useMemo(() => {
+    const map = new Map<string, MaterialSummary[]>();
+    for (const m of materialsQ.data ?? []) {
+      if (!m.moduleId) continue;
+      const arr = map.get(m.moduleId) ?? [];
+      arr.push(m);
+      map.set(m.moduleId, arr);
+    }
+    return map;
+  }, [materialsQ.data]);
 
   const onMove = async (index: number, dir: -1 | 1) => {
     if (!list.data) return;
@@ -59,45 +85,148 @@ export function TeacherModulesPage(): JSX.Element {
           action={<Button onClick={() => setOpenCreate(true)}>{t('modules.newCta')}</Button>}
         />
       ) : (
-        <Card>
-          <CardContent className="divide-y p-0">
-            {list.data.map((m, idx) => (
-              <div key={m.id} className="flex items-center justify-between gap-2 p-3">
-                <div className="flex-1">
-                  <div className="font-medium">{m.title}</div>
-                  {m.description ? <p className="text-sm text-muted-foreground">{m.description}</p> : null}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => onMove(idx, -1)} disabled={idx === 0}>
-                    ↑
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => onMove(idx, 1)} disabled={idx === list.data!.length - 1}>
-                    ↓
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditingId(m.id)}>
-                    {t('common.edit')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={async () => {
-                      if (!window.confirm(`${t('common.delete')}: ${m.title}?`)) return;
-                      try {
-                        await del.mutateAsync(m.id);
-                        toast.push({ title: t('modules.deleted'), tone: 'success' });
-                      } catch (err) {
-                        const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-                        toast.push({ title: t(i18n), tone: 'error' });
-                      }
-                    }}
-                  >
-                    {t('common.delete')}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          {list.data.map((m, idx) => {
+            const mats = moduleMaterials.get(m.id) ?? [];
+            return (
+              <Card key={m.id}>
+                <CardContent className="space-y-3 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <div className="font-medium">{m.title}</div>
+                      {m.description ? (
+                        <p className="text-sm text-muted-foreground">{m.description}</p>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => onMove(idx, -1)} disabled={idx === 0}>
+                        ↑
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onMove(idx, 1)}
+                        disabled={idx === list.data!.length - 1}
+                      >
+                        ↓
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingId(m.id)}>
+                        {t('common.edit')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={async () => {
+                          if (!window.confirm(`${t('common.delete')}: ${m.title}?`)) return;
+                          try {
+                            await del.mutateAsync(m.id);
+                            toast.push({ title: t('modules.deleted'), tone: 'success' });
+                          } catch (err) {
+                            const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                            toast.push({ title: t(i18n), tone: 'error' });
+                          }
+                        }}
+                      >
+                        {t('common.delete')}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 border-t pt-2">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t('materials.title')}{' '}
+                      <span className="text-muted-foreground/70">
+                        {t('materials.countInModule', { count: mats.length })}
+                      </span>
+                    </div>
+                    {mats.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">{t('materials.emptyInModule')}</p>
+                    ) : (
+                      <ul className="space-y-1.5">
+                        {mats.map((mat) => (
+                          <li
+                            key={mat.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded border bg-background px-2.5 py-1.5"
+                          >
+                            <div className="flex flex-1 items-center gap-2">
+                              <span className="text-sm font-medium">{mat.title}</span>
+                              <Badge
+                                variant={
+                                  mat.status === 'published'
+                                    ? 'success'
+                                    : mat.status === 'draft'
+                                      ? 'outline'
+                                      : 'secondary'
+                                }
+                              >
+                                {t(
+                                  `materials.status${mat.status[0]!.toUpperCase()}${mat.status.slice(1)}`,
+                                )}
+                              </Badge>
+                              <Badge variant="info">
+                                {t(
+                                  `materials.kind${mat.sourceType.replace(/(^|_)(\w)/g, (_, _b, c: string) => c.toUpperCase())}`,
+                                )}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  const action = mat.status === 'published' ? 'archive' : 'publish';
+                                  try {
+                                    await transitionMaterial.mutateAsync({ id: mat.id, action });
+                                    toast.push({
+                                      title: t(
+                                        action === 'publish'
+                                          ? 'materials.published'
+                                          : 'materials.archived',
+                                      ),
+                                      tone: 'success',
+                                    });
+                                  } catch (err) {
+                                    const i18n =
+                                      err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                                    toast.push({ title: t(i18n), tone: 'error' });
+                                  }
+                                }}
+                              >
+                                {mat.status === 'published'
+                                  ? t('materials.unpublish')
+                                  : t('materials.publish')}
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingMaterial(mat)}>
+                                {t('common.edit')}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={async () => {
+                                  if (!window.confirm(`${t('common.delete')}: ${mat.title}?`)) return;
+                                  try {
+                                    await delMaterial.mutateAsync(mat.id);
+                                    toast.push({ title: t('materials.deleted'), tone: 'success' });
+                                  } catch (err) {
+                                    const i18n =
+                                      err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                                    toast.push({ title: t(i18n), tone: 'error' });
+                                  }
+                                }}
+                              >
+                                {t('common.delete')}
+                              </Button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
 
       <ModuleDialog
@@ -125,6 +254,25 @@ export function TeacherModulesPage(): JSX.Element {
               await update.mutateAsync({ id: editingId, input });
               toast.push({ title: t('modules.updated'), tone: 'success' });
               setEditingId(null);
+            } catch (err) {
+              const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+              toast.push({ title: t(i18n), tone: 'error' });
+            }
+          }}
+        />
+      ) : null}
+
+      {editingMaterial ? (
+        <ModuleMaterialEditDialog
+          material={editingMaterial}
+          modules={list.data ?? []}
+          courseId={id}
+          onClose={() => setEditingMaterial(null)}
+          onSubmit={async (input) => {
+            try {
+              await updateMaterial.mutateAsync({ id: editingMaterial.id, input });
+              toast.push({ title: t('materials.updated'), tone: 'success' });
+              setEditingMaterial(null);
             } catch (err) {
               const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
               toast.push({ title: t(i18n), tone: 'error' });
@@ -167,6 +315,115 @@ function ModuleDialog({
           <Label htmlFor="description">{t('modules.descriptionLabel')}</Label>
           <Textarea id="description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit">{t('common.save')}</Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+function ModuleMaterialEditDialog({
+  material,
+  modules,
+  onClose,
+  onSubmit,
+}: {
+  material: MaterialSummary;
+  modules: ModuleSummary[];
+  courseId: string;
+  onClose: () => void;
+  onSubmit: (input: UpdateMaterialInput) => Promise<void>;
+}): JSX.Element {
+  // Lightweight reuse of the same fields as the standalone edit dialog — only
+  // text-based source types are supported inline here. For replacing an
+  // uploaded file, the teacher uses the Materials page edit dialog which has
+  // the upload widget. (Keeping these decoupled avoids two copies of the same
+  // upload XHR state.)
+  const { t } = useTranslation();
+  const [title, setTitle] = useState(material.title);
+  const [description, setDescription] = useState(material.description ?? '');
+  const [moduleId, setModuleId] = useState(material.moduleId ?? '');
+  const [content, setContent] = useState(material.content ?? '');
+  const [externalUrl, setExternalUrl] = useState(material.externalUrl ?? '');
+
+  return (
+    <Dialog open onClose={onClose} title={t('materials.editTitle')}>
+      <form
+        className="space-y-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const input: UpdateMaterialInput = {
+            title,
+            description: description.trim() ? description : null,
+            moduleId: moduleId || null,
+          };
+          if (material.sourceType === 'manual_text') input.content = content;
+          if (material.sourceType === 'external_link') input.externalUrl = externalUrl;
+          await onSubmit(input);
+        }}
+      >
+        <div className="space-y-1">
+          <Label htmlFor="mm-title">{t('materials.titleLabel')}</Label>
+          <Input id="mm-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="mm-desc">{t('materials.descriptionLabel')}</Label>
+          <Textarea
+            id="mm-desc"
+            rows={2}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="mm-module">{t('materials.module')}</Label>
+          <select
+            id="mm-module"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={moduleId}
+            onChange={(e) => setModuleId(e.target.value)}
+          >
+            <option value="">{t('common.none')}</option>
+            {modules.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        {material.sourceType === 'external_link' ? (
+          <div className="space-y-1">
+            <Label htmlFor="mm-url">{t('materials.externalUrl')}</Label>
+            <Input
+              id="mm-url"
+              type="url"
+              required
+              value={externalUrl}
+              onChange={(e) => setExternalUrl(e.target.value)}
+            />
+          </div>
+        ) : null}
+        {material.sourceType === 'manual_text' ? (
+          <div className="space-y-1">
+            <Label htmlFor="mm-content">{t('materials.content')}</Label>
+            <Textarea
+              id="mm-content"
+              required
+              rows={6}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          </div>
+        ) : null}
+        {material.sourceType === 'upload' ? (
+          <p className="rounded border bg-muted/30 p-2 text-xs text-muted-foreground">
+            {t('materials.uploadEditHint')}
+          </p>
+        ) : null}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             {t('common.cancel')}

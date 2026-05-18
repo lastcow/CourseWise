@@ -149,6 +149,7 @@ export type ValidateInvitationCodeInput = z.infer<typeof validateInvitationCodeS
 
 const baseMaterialFields = {
   title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(5_000).optional().nullable(),
   type: z.string().trim().min(1).max(64).optional(),
   moduleId: z.string().uuid().optional().nullable(),
   position: z.number().int().min(0).optional(),
@@ -187,16 +188,42 @@ export const createMaterialSchema = z
   });
 export type CreateMaterialInput = z.infer<typeof createMaterialSchema>;
 
-export const updateMaterialSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
-  type: z.string().trim().min(1).max(64).optional(),
-  moduleId: z.string().uuid().optional().nullable(),
-  position: z.number().int().min(0).optional(),
-  content: z.string().trim().max(100_000).optional().nullable(),
-  externalUrl: z.string().trim().url().max(2048).optional().nullable(),
-  fileAssetId: z.string().uuid().optional().nullable(),
-  status: z.enum(MATERIAL_STATUSES).optional(),
-});
+export const updateMaterialSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(5_000).optional().nullable(),
+    type: z.string().trim().min(1).max(64).optional(),
+    moduleId: z.string().uuid().optional().nullable(),
+    position: z.number().int().min(0).optional(),
+    sourceType: z.enum(MATERIAL_SOURCE_TYPES).optional(),
+    content: z.string().trim().max(100_000).optional().nullable(),
+    externalUrl: z.string().trim().url().max(2048).optional().nullable(),
+    fileAssetId: z.string().uuid().optional().nullable(),
+    status: z.enum(MATERIAL_STATUSES).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.sourceType === 'upload' && val.fileAssetId === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'fileAssetId is required when sourceType is upload',
+        path: ['fileAssetId'],
+      });
+    }
+    if (val.sourceType === 'external_link' && val.externalUrl === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'externalUrl is required when sourceType is external_link',
+        path: ['externalUrl'],
+      });
+    }
+    if (val.sourceType === 'manual_text' && val.content === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'content is required when sourceType is manual_text',
+        path: ['content'],
+      });
+    }
+  });
 export type UpdateMaterialInput = z.infer<typeof updateMaterialSchema>;
 
 export const uploadUrlRequestSchema = z.object({
