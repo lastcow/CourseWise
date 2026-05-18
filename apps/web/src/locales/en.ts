@@ -53,6 +53,16 @@ export const en = {
       copy: 'Copy',
       copied: 'Copied!',
     },
+    course: {
+      nav: {
+        section: {
+          learn: 'Learn',
+          assessment: 'Assessment',
+          engagement: 'Engagement',
+          performance: 'Performance',
+        },
+      },
+    },
     courses: {
       title: 'Courses',
       newCta: '+ New course',

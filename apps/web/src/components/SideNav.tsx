@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { NavLink, useMatch } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
@@ -33,10 +34,19 @@ type NavItem = {
   end?: boolean;
 };
 
+type NavSection = {
+  id: string;
+  // Omit titleKey for the standalone block at the top of a sectioned group
+  // (e.g. Overview / course Settings).
+  titleKey?: string;
+  items: NavItem[];
+};
+
 type NavGroup = {
   id: string;
   titleKey?: string;
-  items: NavItem[];
+  items?: NavItem[];
+  sections?: NavSection[];
 };
 
 const ADMIN_GROUPS: NavGroup[] = [
@@ -71,34 +81,94 @@ const STUDENT_TOP_GROUPS: NavGroup[] = [
   },
 ];
 
-function teacherCourseChildItems(courseId: string): NavItem[] {
+function teacherCourseSections(courseId: string): NavSection[] {
   const prefix = `/teacher/courses/${courseId}`;
   return [
-    { to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings },
-    { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
-    { to: `${prefix}/materials`, labelKey: 'materials.title', icon: FileText },
-    { to: `${prefix}/presentations`, labelKey: 'presentations.title', icon: Presentation },
-    { to: `${prefix}/assignments`, labelKey: 'assignments.title', icon: ClipboardList },
-    { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
-    { to: `${prefix}/quizzes`, labelKey: 'quizzes.title', icon: ListChecks },
-    { to: `${prefix}/attendance`, labelKey: 'attendance.title', icon: UserCheck },
-    { to: `${prefix}/gradebook`, labelKey: 'grading.gradebookTitle', icon: GraduationCap },
-    { to: `${prefix}/grading-policy`, labelKey: 'grading.policyTitle', icon: Sliders },
-    { to: `${prefix}/alerts`, labelKey: 'nav.alerts', icon: AlertTriangle },
+    {
+      // Teacher landing for /teacher/courses/:id is the settings page, so
+      // it sits standalone at the top of the menu (no section header).
+      id: 'top',
+      items: [
+        { to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings },
+      ],
+    },
+    {
+      id: 'learn',
+      titleKey: 'course.nav.section.learn',
+      items: [
+        { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
+        { to: `${prefix}/materials`, labelKey: 'materials.title', icon: FileText },
+        { to: `${prefix}/presentations`, labelKey: 'presentations.title', icon: Presentation },
+      ],
+    },
+    {
+      id: 'assessment',
+      titleKey: 'course.nav.section.assessment',
+      items: [
+        { to: `${prefix}/assignments`, labelKey: 'assignments.title', icon: ClipboardList },
+        { to: `${prefix}/quizzes`, labelKey: 'quizzes.title', icon: ListChecks },
+      ],
+    },
+    {
+      id: 'engagement',
+      titleKey: 'course.nav.section.engagement',
+      items: [
+        { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
+        { to: `${prefix}/attendance`, labelKey: 'attendance.title', icon: UserCheck },
+      ],
+    },
+    {
+      id: 'performance',
+      titleKey: 'course.nav.section.performance',
+      items: [
+        { to: `${prefix}/gradebook`, labelKey: 'grading.gradebookTitle', icon: GraduationCap },
+        { to: `${prefix}/grading-policy`, labelKey: 'grading.policyTitle', icon: Sliders },
+        { to: `${prefix}/alerts`, labelKey: 'nav.alerts', icon: AlertTriangle },
+      ],
+    },
   ];
 }
 
-function studentCourseChildItems(courseId: string): NavItem[] {
+function studentCourseSections(courseId: string): NavSection[] {
   const prefix = `/student/courses/${courseId}`;
   return [
-    { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
-    { to: `${prefix}/materials`, labelKey: 'materials.title', icon: FileText },
-    { to: `${prefix}/presentations`, labelKey: 'presentations.title', icon: Presentation },
-    { to: `${prefix}/assignments`, labelKey: 'assignments.title', icon: ClipboardList },
-    { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
-    { to: `${prefix}/quizzes`, labelKey: 'quizzes.title', icon: ListChecks },
-    { to: `${prefix}/attendance`, labelKey: 'attendance.myTitle', icon: UserCheck },
-    { to: `${prefix}/grade`, labelKey: 'nav.myGrade', icon: GraduationCap },
+    {
+      id: 'top',
+      items: [
+        { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
+      ],
+    },
+    {
+      id: 'learn',
+      titleKey: 'course.nav.section.learn',
+      items: [
+        { to: `${prefix}/materials`, labelKey: 'materials.title', icon: FileText },
+        { to: `${prefix}/presentations`, labelKey: 'presentations.title', icon: Presentation },
+      ],
+    },
+    {
+      id: 'assessment',
+      titleKey: 'course.nav.section.assessment',
+      items: [
+        { to: `${prefix}/assignments`, labelKey: 'assignments.title', icon: ClipboardList },
+        { to: `${prefix}/quizzes`, labelKey: 'quizzes.title', icon: ListChecks },
+      ],
+    },
+    {
+      id: 'engagement',
+      titleKey: 'course.nav.section.engagement',
+      items: [
+        { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
+        { to: `${prefix}/attendance`, labelKey: 'attendance.myTitle', icon: UserCheck },
+      ],
+    },
+    {
+      id: 'performance',
+      titleKey: 'course.nav.section.performance',
+      items: [
+        { to: `${prefix}/grade`, labelKey: 'nav.myGrade', icon: GraduationCap },
+      ],
+    },
   ];
 }
 
@@ -139,7 +209,7 @@ export function SideNav({
           {
             id: 'currentCourse',
             titleKey: 'nav.currentCourse',
-            items: teacherCourseChildItems(teacherCourseId),
+            sections: teacherCourseSections(teacherCourseId),
           },
         ];
       }
@@ -152,7 +222,7 @@ export function SideNav({
           {
             id: 'currentCourse',
             titleKey: 'nav.currentCourse',
-            items: studentCourseChildItems(studentCourseId),
+            sections: studentCourseSections(studentCourseId),
           },
         ];
       }
@@ -212,8 +282,79 @@ export function SideNav({
                 {t(group.titleKey)}
               </div>
             ) : null}
+            {group.sections ? (
+              <SectionedGroupItems
+                sections={group.sections}
+                showLabels={showLabels}
+                onNavigate={onNavigate}
+                t={t}
+              />
+            ) : group.items ? (
+              <ul className="space-y-0.5 px-2">
+                {group.items.map((item) => (
+                  <li key={item.to}>
+                    <SideNavLink
+                      item={item}
+                      showLabel={showLabels}
+                      label={t(item.labelKey)}
+                      onNavigate={onNavigate}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ))}
+      </nav>
+
+    </div>
+  );
+}
+
+type SectionedGroupItemsProps = {
+  sections: NavSection[];
+  showLabels: boolean;
+  onNavigate?: () => void;
+  t: TFunction;
+};
+
+function SectionedGroupItems({
+  sections,
+  showLabels,
+  onNavigate,
+  t,
+}: SectionedGroupItemsProps): JSX.Element {
+  // Drop sections that have no visible items so we never render an empty header
+  // (defensive — current role filters always leave at least one item per section).
+  const visibleSections = sections.filter((s) => s.items.length > 0);
+  return (
+    <>
+      {visibleSections.map((section, index) => {
+        const label = section.titleKey ? t(section.titleKey) : undefined;
+        const showHeader = Boolean(label) && showLabels;
+        // Collapsed mode replaces section headers with a thin divider between groups.
+        const showDivider = !showLabels && index > 0;
+        return (
+          <div
+            key={section.id}
+            role={label ? 'group' : undefined}
+            aria-label={label}
+            className={showHeader ? 'mt-2 first:mt-0' : undefined}
+          >
+            {showDivider ? (
+              <div
+                role="separator"
+                aria-hidden
+                className="mx-3 my-2 border-t border-border"
+              />
+            ) : null}
+            {showHeader ? (
+              <div className="px-3 pb-1 pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {label}
+              </div>
+            ) : null}
             <ul className="space-y-0.5 px-2">
-              {group.items.map((item) => (
+              {section.items.map((item) => (
                 <li key={item.to}>
                   <SideNavLink
                     item={item}
@@ -225,10 +366,9 @@ export function SideNav({
               ))}
             </ul>
           </div>
-        ))}
-      </nav>
-
-    </div>
+        );
+      })}
+    </>
   );
 }
 

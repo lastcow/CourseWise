@@ -53,6 +53,16 @@ export const zhCN = {
       copy: '复制',
       copied: '已复制!',
     },
+    course: {
+      nav: {
+        section: {
+          learn: '学习',
+          assessment: '评估',
+          engagement: '互动',
+          performance: '成绩',
+        },
+      },
+    },
     courses: {
       title: '课程',
       newCta: '+ 新建课程',
