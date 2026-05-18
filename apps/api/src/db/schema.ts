@@ -43,6 +43,29 @@ export const materialSourceTypeEnum = pgEnum('material_source_type', [
   'manual_text',
 ]);
 export const fileAssetStatusEnum = pgEnum('file_asset_status', ['pending', 'ready', 'deleted']);
+export const presentationStatusEnum = pgEnum('presentation_status', [
+  'draft',
+  'published',
+  'archived',
+]);
+export const assignmentStatusEnum = pgEnum('assignment_status', [
+  'draft',
+  'published',
+  'closed',
+  'archived',
+]);
+export const submissionStatusEnum = pgEnum('submission_status', [
+  'draft',
+  'submitted',
+  'late',
+  'graded',
+  'returned',
+]);
+export const discussionTopicStatusEnum = pgEnum('discussion_topic_status', [
+  'draft',
+  'published',
+  'archived',
+]);
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -268,15 +291,23 @@ export const presentations = pgTable(
   'presentations',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    moduleId: uuid('module_id')
+    courseId: uuid('course_id')
       .notNull()
-      .references(() => modules.id, { onDelete: 'cascade' }),
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
+    description: text('description'),
+    status: presentationStatusEnum('status').notNull().default('draft'),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'string' }),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
     position: integer('position').notNull().default(0),
+    createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => ({
+    courseIdx: index('presentations_course_idx').on(t.courseId),
     moduleIdx: index('presentations_module_idx').on(t.moduleId),
+    statusIdx: index('presentations_status_idx').on(t.status),
   }),
 );
 
@@ -289,7 +320,9 @@ export const slides = pgTable(
       .references(() => presentations.id, { onDelete: 'cascade' }),
     position: integer('position').notNull().default(0),
     title: text('title'),
-    content: jsonb('content'),
+    content: text('content'),
+    speakerNotes: text('speaker_notes'),
+    layout: text('layout'),
     imageAssetId: uuid('image_asset_id').references(() => fileAssets.id, {
       onDelete: 'set null',
     }),
@@ -334,18 +367,31 @@ export const assignments = pgTable(
   'assignments',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    moduleId: uuid('module_id')
+    courseId: uuid('course_id')
       .notNull()
-      .references(() => modules.id, { onDelete: 'cascade' }),
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     description: text('description'),
     dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
     maxScore: numeric('max_score', { precision: 6, scale: 2 }),
+    rubric: jsonb('rubric'),
+    allowLateSubmission: boolean('allow_late_submission').notNull().default(false),
+    attachmentFileId: uuid('attachment_file_id').references(() => fileAssets.id, {
+      onDelete: 'set null',
+    }),
+    status: assignmentStatusEnum('status').notNull().default('draft'),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'string' }),
+    closedAt: timestamp('closed_at', { withTimezone: true, mode: 'string' }),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
     position: integer('position').notNull().default(0),
+    createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => ({
+    courseIdx: index('assignments_course_idx').on(t.courseId),
     moduleIdx: index('assignments_module_idx').on(t.moduleId),
+    statusIdx: index('assignments_status_idx').on(t.status),
   }),
 );
 
@@ -359,6 +405,7 @@ export const assignmentSubmissions = pgTable(
     studentId: uuid('student_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    status: submissionStatusEnum('status').notNull().default('draft'),
     submittedAt: timestamp('submitted_at', { withTimezone: true, mode: 'string' }),
     content: text('content'),
     fileAssetId: uuid('file_asset_id').references(() => fileAssets.id, {
@@ -373,7 +420,7 @@ export const assignmentSubmissions = pgTable(
     ...timestamps,
   },
   (t) => ({
-    assignmentStudentIdx: index('assignment_submissions_assignment_student_idx').on(
+    assignmentStudentUnique: uniqueIndex('assignment_submissions_assignment_student_idx').on(
       t.assignmentId,
       t.studentId,
     ),
@@ -384,16 +431,26 @@ export const discussionTopics = pgTable(
   'discussion_topics',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    moduleId: uuid('module_id')
+    courseId: uuid('course_id')
       .notNull()
-      .references(() => modules.id, { onDelete: 'cascade' }),
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
+    description: text('description'),
     prompt: text('prompt'),
+    status: discussionTopicStatusEnum('status').notNull().default('draft'),
+    isGraded: boolean('is_graded').notNull().default(false),
+    isPinned: boolean('is_pinned').notNull().default(false),
     maxScore: numeric('max_score', { precision: 6, scale: 2 }),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'string' }),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
+    createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => ({
+    courseIdx: index('discussion_topics_course_idx').on(t.courseId),
     moduleIdx: index('discussion_topics_module_idx').on(t.moduleId),
+    statusIdx: index('discussion_topics_status_idx').on(t.status),
   }),
 );
 
@@ -408,11 +465,14 @@ export const discussionPosts = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     parentId: uuid('parent_id'),
-    content: text('content').notNull(),
+    content: text('content'),
+    isDeleted: boolean('is_deleted').notNull().default(false),
+    deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'string' }),
     ...timestamps,
   },
   (t) => ({
     topicIdx: index('discussion_posts_topic_idx').on(t.topicId),
+    parentIdx: index('discussion_posts_parent_idx').on(t.parentId),
   }),
 );
 

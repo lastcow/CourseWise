@@ -1,11 +1,15 @@
 import type {
   ApiTokenScope,
+  AssignmentStatus,
   CourseStatus,
+  DiscussionTopicStatus,
   FileAssetStatus,
   InvitationStatus,
   Locale,
   MaterialSourceType,
   MaterialStatus,
+  PresentationStatus,
+  SubmissionStatus,
   UserRole,
   UserStatus,
 } from './constants';
@@ -183,4 +187,120 @@ export interface EnrollmentRow {
   studentEmail: string;
   enrolledAt: string;
   status: 'enrolled' | 'dropped' | 'completed';
+}
+
+export interface PresentationSummary {
+  id: string;
+  courseId: string;
+  moduleId: string | null;
+  title: string;
+  description: string | null;
+  status: PresentationStatus;
+  publishedAt: string | null;
+  archivedAt: string | null;
+  position: number;
+  slideCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SlideSummary {
+  id: string;
+  presentationId: string;
+  position: number;
+  title: string | null;
+  content: string | null;
+  speakerNotes: string | null;
+  layout: string | null;
+  imageAssetId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssignmentSummary {
+  id: string;
+  courseId: string;
+  moduleId: string | null;
+  title: string;
+  description: string | null;
+  dueDate: string | null;
+  maxScore: number | null;
+  rubric: unknown;
+  allowLateSubmission: boolean;
+  attachmentFileId: string | null;
+  status: AssignmentStatus;
+  publishedAt: string | null;
+  closedAt: string | null;
+  archivedAt: string | null;
+  position: number;
+  submissionCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubmissionSummary {
+  id: string;
+  assignmentId: string;
+  studentId: string;
+  status: SubmissionStatus;
+  textAnswer: string | null;
+  fileAssetId: string | null;
+  submittedAt: string | null;
+  score: number | null;
+  feedback: string | null;
+  gradedAt: string | null;
+  gradedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubmissionWithStudent extends SubmissionSummary {
+  student: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+export interface DiscussionTopicSummary {
+  id: string;
+  courseId: string;
+  moduleId: string | null;
+  title: string;
+  description: string | null;
+  status: DiscussionTopicStatus;
+  isGraded: boolean;
+  isPinned: boolean;
+  maxScore: number | null;
+  publishedAt: string | null;
+  archivedAt: string | null;
+  postCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiscussionPostSummary {
+  id: string;
+  topicId: string;
+  parentId: string | null;
+  content: string | null;
+  isDeleted: boolean;
+  deletedAt: string | null;
+  author: {
+    id: string;
+    name: string;
+    role: UserRole;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiscussionGradeRow {
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  postCount: number;
+  score: number | null;
+  feedback: string | null;
+  gradedAt: string | null;
 }

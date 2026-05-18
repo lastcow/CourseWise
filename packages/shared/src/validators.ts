@@ -3,6 +3,7 @@ import {
   ALLOWED_UPLOAD_MIME_TYPES,
   API_TOKEN_SCOPES,
   COURSE_STATUSES,
+  FILE_RELATED_TYPES,
   MATERIAL_SOURCE_TYPES,
   MATERIAL_STATUSES,
   MAX_UPLOAD_BYTES,
@@ -203,7 +204,7 @@ export const uploadUrlRequestSchema = z.object({
     .regex(/^[^/\\?<>:"|*]+$/, 'Invalid file name'),
   mimeType: z.enum(ALLOWED_UPLOAD_MIME_TYPES),
   fileSize: z.number().int().positive().max(MAX_UPLOAD_BYTES),
-  relatedType: z.string().trim().min(1).max(64).default('material'),
+  relatedType: z.enum(FILE_RELATED_TYPES).default('material'),
 });
 export type UploadUrlRequest = z.infer<typeof uploadUrlRequestSchema>;
 
@@ -211,3 +212,131 @@ export const completeUploadSchema = z.object({
   fileAssetId: z.string().uuid(),
 });
 export type CompleteUploadInput = z.infer<typeof completeUploadSchema>;
+
+// ---------- M3: Presentations ----------
+export const createPresentationSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(2000).optional().nullable(),
+  moduleId: z.string().uuid().optional().nullable(),
+  position: z.number().int().min(0).optional(),
+});
+export type CreatePresentationInput = z.infer<typeof createPresentationSchema>;
+
+export const updatePresentationSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(2000).optional().nullable(),
+  moduleId: z.string().uuid().optional().nullable(),
+  position: z.number().int().min(0).optional(),
+});
+export type UpdatePresentationInput = z.infer<typeof updatePresentationSchema>;
+
+export const createSlideSchema = z.object({
+  title: z.string().trim().max(200).optional().nullable(),
+  content: z.string().trim().max(100_000).optional().nullable(),
+  speakerNotes: z.string().trim().max(50_000).optional().nullable(),
+  layout: z.string().trim().max(64).optional().nullable(),
+  imageAssetId: z.string().uuid().optional().nullable(),
+});
+export type CreateSlideInput = z.infer<typeof createSlideSchema>;
+
+export const updateSlideSchema = z.object({
+  title: z.string().trim().max(200).optional().nullable(),
+  content: z.string().trim().max(100_000).optional().nullable(),
+  speakerNotes: z.string().trim().max(50_000).optional().nullable(),
+  layout: z.string().trim().max(64).optional().nullable(),
+  imageAssetId: z.string().uuid().optional().nullable(),
+});
+export type UpdateSlideInput = z.infer<typeof updateSlideSchema>;
+
+export const reorderSlidesSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+});
+export type ReorderSlidesInput = z.infer<typeof reorderSlidesSchema>;
+
+// ---------- M3: Assignments ----------
+export const createAssignmentSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(20_000).optional().nullable(),
+  moduleId: z.string().uuid().optional().nullable(),
+  dueDate: isoDateString.optional().nullable(),
+  maxScore: z.number().min(0).max(1000).optional().nullable(),
+  rubric: z.unknown().optional(),
+  allowLateSubmission: z.boolean().optional(),
+  attachmentFileId: z.string().uuid().optional().nullable(),
+  position: z.number().int().min(0).optional(),
+});
+export type CreateAssignmentInput = z.infer<typeof createAssignmentSchema>;
+
+export const updateAssignmentSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(20_000).optional().nullable(),
+  moduleId: z.string().uuid().optional().nullable(),
+  dueDate: isoDateString.optional().nullable(),
+  maxScore: z.number().min(0).max(1000).optional().nullable(),
+  rubric: z.unknown().optional(),
+  allowLateSubmission: z.boolean().optional(),
+  attachmentFileId: z.string().uuid().optional().nullable(),
+  position: z.number().int().min(0).optional(),
+});
+export type UpdateAssignmentInput = z.infer<typeof updateAssignmentSchema>;
+
+// ---------- M3: Submissions ----------
+export const updateSubmissionSchema = z.object({
+  textAnswer: z.string().trim().max(100_000).optional().nullable(),
+  fileAssetId: z.string().uuid().optional().nullable(),
+});
+export type UpdateSubmissionInput = z.infer<typeof updateSubmissionSchema>;
+
+export const gradeSubmissionSchema = z.object({
+  score: z.number().min(0).max(1000),
+  feedback: z.string().trim().max(20_000).optional().nullable(),
+});
+export type GradeSubmissionInput = z.infer<typeof gradeSubmissionSchema>;
+
+export const returnSubmissionSchema = z.object({
+  feedback: z.string().trim().max(20_000).optional().nullable(),
+});
+export type ReturnSubmissionInput = z.infer<typeof returnSubmissionSchema>;
+
+// ---------- M3: Discussions ----------
+export const createDiscussionTopicSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(20_000).optional().nullable(),
+  moduleId: z.string().uuid().optional().nullable(),
+  isGraded: z.boolean().optional(),
+  maxScore: z.number().min(0).max(1000).optional().nullable(),
+  isPinned: z.boolean().optional(),
+});
+export type CreateDiscussionTopicInput = z.infer<typeof createDiscussionTopicSchema>;
+
+export const updateDiscussionTopicSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(20_000).optional().nullable(),
+  moduleId: z.string().uuid().optional().nullable(),
+  isGraded: z.boolean().optional(),
+  maxScore: z.number().min(0).max(1000).optional().nullable(),
+  isPinned: z.boolean().optional(),
+});
+export type UpdateDiscussionTopicInput = z.infer<typeof updateDiscussionTopicSchema>;
+
+export const createDiscussionPostSchema = z.object({
+  content: z.string().trim().min(1).max(20_000),
+  parentPostId: z.string().uuid().optional().nullable(),
+});
+export type CreateDiscussionPostInput = z.infer<typeof createDiscussionPostSchema>;
+
+export const updateDiscussionPostSchema = z.object({
+  content: z.string().trim().min(1).max(20_000),
+});
+export type UpdateDiscussionPostInput = z.infer<typeof updateDiscussionPostSchema>;
+
+export const replyDiscussionPostSchema = z.object({
+  content: z.string().trim().min(1).max(20_000),
+});
+export type ReplyDiscussionPostInput = z.infer<typeof replyDiscussionPostSchema>;
+
+export const gradeDiscussionSchema = z.object({
+  score: z.number().min(0).max(1000),
+  feedback: z.string().trim().max(20_000).optional().nullable(),
+});
+export type GradeDiscussionInput = z.infer<typeof gradeDiscussionSchema>;

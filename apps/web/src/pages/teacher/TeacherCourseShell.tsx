@@ -30,11 +30,14 @@ export function TeacherCourseShell(): JSX.Element {
           {course.data?.description ?? '—'}
         </CardContent>
       </Card>
-      <nav className="flex gap-2 border-b">
+      <nav className="flex flex-wrap gap-2 border-b">
         {[
           { to: '', label: t('common.edit') },
           { to: 'modules', label: t('modules.title') },
           { to: 'materials', label: t('materials.title') },
+          { to: 'presentations', label: t('presentations.title') },
+          { to: 'assignments', label: t('assignments.title') },
+          { to: 'discussion', label: t('discussion.title') },
         ].map((tab) => (
           <NavLink
             key={tab.to}

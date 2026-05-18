@@ -1,0 +1,199 @@
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input, Label, Textarea } from '@/components/ui/input';
+import { useToast } from '@/components/ui/toast';
+import {
+  uploadFile,
+  useAssignment,
+  useCreateAssignment,
+  useUpdateAssignment,
+} from '@/lib/queries';
+import { ApiClientError } from '@/lib/api';
+import { ALLOWED_UPLOAD_MIME_TYPES, MAX_UPLOAD_BYTES } from '@coursewise/shared';
+
+export function TeacherAssignmentFormPage(): JSX.Element {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { courseId, assignmentId } = useParams();
+  const cId = courseId ?? '';
+  const isNew = !assignmentId;
+  const existing = useAssignment(isNew ? null : (assignmentId ?? null));
+  const create = useCreateAssignment(cId);
+  const update = useUpdateAssignment(cId);
+  const toast = useToast();
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [maxScore, setMaxScore] = useState<number | ''>('');
+  const [allowLate, setAllowLate] = useState(false);
+  const [attachmentFileId, setAttachmentFileId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isNew && existing.data) {
+      setTitle(existing.data.title);
+      setDescription(existing.data.description ?? '');
+      setDueDate(existing.data.dueDate ? new Date(existing.data.dueDate).toISOString().slice(0, 16) : '');
+      setMaxScore(existing.data.maxScore ?? '');
+      setAllowLate(existing.data.allowLateSubmission);
+      setAttachmentFileId(existing.data.attachmentFileId);
+    }
+  }, [isNew, existing.data]);
+
+  const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ALLOWED_UPLOAD_MIME_TYPES.includes(file.type as (typeof ALLOWED_UPLOAD_MIME_TYPES)[number])) {
+      toast.push({ title: t('files.invalidType'), tone: 'error' });
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.push({ title: t('files.tooLarge'), tone: 'error' });
+      return;
+    }
+    try {
+      setUploadProgress(0);
+      const { fileAssetId } = await uploadFile(file, cId, 'assignment', setUploadProgress);
+      setAttachmentFileId(fileAssetId);
+      toast.push({ title: t('materials.uploadComplete'), tone: 'success' });
+    } catch (err) {
+      toast.push({ title: t('materials.uploadFailed'), tone: 'error' });
+    } finally {
+      setUploadProgress(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const onSubmit: React.FormEventHandler = async (e) => {
+    e.preventDefault();
+    const payload = {
+      title: title.trim(),
+      description: description.trim() || null,
+      dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+      maxScore: maxScore === '' ? null : Number(maxScore),
+      allowLateSubmission: allowLate,
+      attachmentFileId: attachmentFileId ?? null,
+    };
+    try {
+      if (isNew) {
+        const created = await create.mutateAsync(payload);
+        toast.push({ title: t('assignments.created'), tone: 'success' });
+        navigate(`/teacher/courses/${cId}/assignments/${created.id}`);
+      } else {
+        await update.mutateAsync({ id: assignmentId!, input: payload });
+        toast.push({ title: t('assignments.updated'), tone: 'success' });
+      }
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-semibold">
+          <Link to={`/teacher/courses/${cId}/assignments`} className="text-muted-foreground hover:underline">
+            {t('assignments.title')}
+          </Link>
+          {' › '}
+          {isNew ? t('assignments.newCta') : existing.data?.title ?? ''}
+        </h2>
+      </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {isNew ? t('assignments.createTitle') : t('assignments.editTitle')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-3" onSubmit={onSubmit}>
+            <div>
+              <Label htmlFor="a-title">{t('assignments.titleLabel')}</Label>
+              <Input id="a-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="a-desc">{t('assignments.descriptionLabel')}</Label>
+              <Textarea
+                id="a-desc"
+                rows={5}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <Label htmlFor="a-due">{t('assignments.dueLabel')}</Label>
+                <Input
+                  id="a-due"
+                  type="datetime-local"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="a-max">{t('assignments.maxScoreLabel')}</Label>
+                <Input
+                  id="a-max"
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={maxScore}
+                  onChange={(e) => setMaxScore(e.target.value === '' ? '' : Number(e.target.value))}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="a-late"
+                type="checkbox"
+                checked={allowLate}
+                onChange={(e) => setAllowLate(e.target.checked)}
+              />
+              <Label htmlFor="a-late">{t('assignments.allowLate')}</Label>
+            </div>
+            <div>
+              <Label>{t('assignments.attachment')}</Label>
+              <div className="flex items-center gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <label>
+                    {t('files.uploadFile')}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
+                      onChange={onUpload}
+                    />
+                  </label>
+                </Button>
+                {attachmentFileId ? (
+                  <span className="text-xs text-muted-foreground">
+                    {t('assignments.attached')}: {attachmentFileId.slice(0, 8)}…
+                  </span>
+                ) : null}
+                {uploadProgress != null ? (
+                  <span className="text-xs">{t('materials.uploading', { progress: uploadProgress })}</span>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button asChild variant="outline" type="button">
+                <Link to={`/teacher/courses/${cId}/assignments`}>{t('common.cancel')}</Link>
+              </Button>
+              <Button type="submit" disabled={create.isPending || update.isPending}>
+                {isNew ? t('common.create') : t('common.save')}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

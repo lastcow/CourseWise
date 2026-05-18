@@ -8,7 +8,12 @@ import {
   type UploadUrlRequest,
   type UploadUrlResponse,
 } from '@coursewise/shared';
-import { fileAssets, readingMaterials } from '../db/schema';
+import {
+  assignmentSubmissions,
+  assignments,
+  fileAssets,
+  readingMaterials,
+} from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -46,13 +51,25 @@ function signerConfig(env: AppBindings): R2SignerConfig {
   };
 }
 
-r.post('/files/upload-url', requireScopeGroup('materialsWrite'), validateJson(uploadUrlRequestSchema), async (c) => {
+r.post('/files/upload-url', validateJson(uploadUrlRequestSchema), async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
   const input = c.get('validated') as UploadUrlRequest;
 
-  if (!(await canWriteCourse(db, auth.user, input.courseId))) {
-    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+  // Permission: teachers/admins can upload material + assignment attachments;
+  // enrolled students can upload SUBMISSION attachments.
+  if (input.relatedType === 'submission') {
+    if (auth.user.role === 'student') {
+      if (!(await isCourseEnrolled(db, input.courseId, auth.user.id))) {
+        throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
+      }
+    } else if (!(await canWriteCourse(db, auth.user, input.courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No access to this course');
+    }
+  } else {
+    if (!(await canWriteCourse(db, auth.user, input.courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+    }
   }
 
   const r2Key = buildR2Key(input.courseId, input.fileName);
@@ -101,13 +118,16 @@ r.post('/files/upload-url', requireScopeGroup('materialsWrite'), validateJson(up
   return success(c, body, 201);
 });
 
-r.post('/files/complete-upload', requireScopeGroup('materialsWrite'), validateJson(completeUploadSchema), async (c) => {
+r.post('/files/complete-upload', validateJson(completeUploadSchema), async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
   const input = c.get('validated') as CompleteUploadInput;
   const [row] = await db.select().from(fileAssets).where(eq(fileAssets.id, input.fileAssetId)).limit(1);
   if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'File asset not found');
-  if (!row.courseId || !(await canWriteCourse(db, auth.user, row.courseId))) {
+  // Only the original uploader (or course staff) can complete the upload.
+  const isOwner = row.ownerId === auth.user.id;
+  const isCourseStaff = !!row.courseId && (await canWriteCourse(db, auth.user, row.courseId));
+  if (!isOwner && !isCourseStaff) {
     throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this file');
   }
 
@@ -161,7 +181,7 @@ r.post('/files/complete-upload', requireScopeGroup('materialsWrite'), validateJs
   });
 });
 
-r.get('/files/:fileId/download-url', requireScopeGroup('materialsRead'), async (c) => {
+r.get('/files/:fileId/download-url', async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
   const fileId = requireParam(c, 'fileId');
@@ -174,7 +194,7 @@ r.get('/files/:fileId/download-url', requireScopeGroup('materialsRead'), async (
   // Visibility:
   //   admin → ok
   //   teacher → must teach the course
-  //   student → must be enrolled AND material containing this file must be PUBLISHED
+  //   student → must be enrolled AND attached resource must be visible to them
   if (auth.user.role !== 'admin') {
     if (!row.courseId) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'File is not tied to a course');
@@ -188,7 +208,6 @@ r.get('/files/:fileId/download-url', requireScopeGroup('materialsRead'), async (
       if (!(await isCourseEnrolled(db, row.courseId, auth.user.id))) {
         throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
       }
-      // If this asset is tied to a reading material, check its status.
       if (row.relatedType === 'material' && row.relatedId) {
         const mat = (
           await db.select().from(readingMaterials).where(eq(readingMaterials.id, row.relatedId)).limit(1)
@@ -196,9 +215,26 @@ r.get('/files/:fileId/download-url', requireScopeGroup('materialsRead'), async (
         if (!mat || mat.status !== 'published') {
           throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Material is not published');
         }
+      } else if (row.relatedType === 'assignment' && row.relatedId) {
+        const a = (
+          await db.select().from(assignments).where(eq(assignments.id, row.relatedId)).limit(1)
+        )[0];
+        if (!a || a.status === 'draft') {
+          throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Assignment is not published');
+        }
+      } else if (row.relatedType === 'submission' && row.relatedId) {
+        const sub = (
+          await db
+            .select()
+            .from(assignmentSubmissions)
+            .where(eq(assignmentSubmissions.id, row.relatedId))
+            .limit(1)
+        )[0];
+        if (!sub || sub.studentId !== auth.user.id) {
+          throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Cannot download another student submission');
+        }
       } else {
-        // No published material backs this asset → deny.
-        throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No published material references this file');
+        throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No published resource references this file');
       }
     }
   }
