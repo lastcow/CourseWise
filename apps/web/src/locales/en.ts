@@ -19,6 +19,10 @@ export const en = {
       currentCourse: 'Current course',
       overview: 'Overview',
       myGrade: 'My grade',
+      courseMenu: 'Course navigation',
+      backToCourses: 'Back to courses',
+      expandCourseMenu: 'Expand course menu',
+      collapseCourseMenu: 'Collapse course menu',
     },
     auth: {
       loginTitle: 'Sign in',

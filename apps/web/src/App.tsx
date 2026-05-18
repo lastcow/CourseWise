@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { BackOfficeLayout } from '@/components/BackOfficeLayout';
+import { CourseLayout } from '@/components/CourseLayout';
 import { RequireRole } from '@/components/RequireRole';
 import { AuthProvider } from '@/lib/auth';
 import { ToastProvider } from '@/components/ui/toast';
@@ -11,7 +12,6 @@ import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
 import { AdminInvitationCodesPage } from '@/pages/admin/AdminInvitationCodesPage';
 import { TeacherCoursesPage } from '@/pages/teacher/TeacherCoursesPage';
 import { TeacherNewCoursePage } from '@/pages/teacher/TeacherNewCoursePage';
-import { TeacherCourseShell } from '@/pages/teacher/TeacherCourseShell';
 import { TeacherCourseSettings } from '@/pages/teacher/TeacherCourseSettings';
 import { TeacherModulesPage } from '@/pages/teacher/TeacherModulesPage';
 import { TeacherMaterialsPage } from '@/pages/teacher/TeacherMaterialsPage';
@@ -78,90 +78,22 @@ export default function App(): JSX.Element {
                 path="/student/courses/:courseId"
                 element={
                   <RequireRole roles={['student']}>
-                    <StudentCourseOverviewPage />
+                    <CourseLayout role="student" />
                   </RequireRole>
                 }
-              />
-              <Route
-                path="/student/courses/:courseId/materials"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentMaterialsPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/student/courses/:courseId/presentations"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentPresentationsPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/student/courses/:courseId/assignments"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentAssignmentsPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/student/courses/:courseId/assignments/:assignmentId"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentAssignmentDetailPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/student/courses/:courseId/discussion"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentDiscussionPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/student/courses/:courseId/discussion/:topicId"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentDiscussionTopicPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/student/courses/:courseId/quizzes"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentQuizzesPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/student/courses/:courseId/quizzes/:quizId"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentQuizRunnerPage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/student/courses/:courseId/attendance"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentAttendancePage />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/student/courses/:courseId/grade"
-                element={
-                  <RequireRole roles={['student']}>
-                    <StudentGradePage />
-                  </RequireRole>
-                }
-              />
+              >
+                <Route index element={<StudentCourseOverviewPage />} />
+                <Route path="materials" element={<StudentMaterialsPage />} />
+                <Route path="presentations" element={<StudentPresentationsPage />} />
+                <Route path="assignments" element={<StudentAssignmentsPage />} />
+                <Route path="assignments/:assignmentId" element={<StudentAssignmentDetailPage />} />
+                <Route path="discussion" element={<StudentDiscussionPage />} />
+                <Route path="discussion/:topicId" element={<StudentDiscussionTopicPage />} />
+                <Route path="quizzes" element={<StudentQuizzesPage />} />
+                <Route path="quizzes/:quizId" element={<StudentQuizRunnerPage />} />
+                <Route path="attendance" element={<StudentAttendancePage />} />
+                <Route path="grade" element={<StudentGradePage />} />
+              </Route>
             </Route>
             <Route element={<BackOfficeLayout role="admin" />}>
               <Route
@@ -218,7 +150,7 @@ export default function App(): JSX.Element {
                 path="/teacher/courses/:courseId"
                 element={
                   <RequireRole roles={['admin', 'teacher']}>
-                    <TeacherCourseShell />
+                    <CourseLayout role="teacher" />
                   </RequireRole>
                 }
               >
