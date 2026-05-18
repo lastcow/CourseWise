@@ -10,6 +10,7 @@ import {
   ClipboardList,
   FileText,
   GraduationCap,
+  Home,
   LayoutDashboard,
   Library,
   ListChecks,
@@ -57,7 +58,17 @@ const TEACHER_TOP_GROUPS: NavGroup[] = [
   },
 ];
 
-function courseChildItems(courseId: string): NavItem[] {
+const STUDENT_TOP_GROUPS: NavGroup[] = [
+  {
+    id: 'student',
+    items: [
+      { to: '/student/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+      { to: '/student/courses', labelKey: 'nav.courses', icon: BookOpen, end: false },
+    ],
+  },
+];
+
+function teacherCourseChildItems(courseId: string): NavItem[] {
   const prefix = `/teacher/courses/${courseId}`;
   return [
     { to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings },
@@ -71,6 +82,20 @@ function courseChildItems(courseId: string): NavItem[] {
     { to: `${prefix}/gradebook`, labelKey: 'grading.gradebookTitle', icon: GraduationCap },
     { to: `${prefix}/grading-policy`, labelKey: 'grading.policyTitle', icon: Sliders },
     { to: `${prefix}/alerts`, labelKey: 'nav.alerts', icon: AlertTriangle },
+  ];
+}
+
+function studentCourseChildItems(courseId: string): NavItem[] {
+  const prefix = `/student/courses/${courseId}`;
+  return [
+    { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
+    { to: `${prefix}/materials`, labelKey: 'materials.title', icon: FileText },
+    { to: `${prefix}/presentations`, labelKey: 'presentations.title', icon: Presentation },
+    { to: `${prefix}/assignments`, labelKey: 'assignments.title', icon: ClipboardList },
+    { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
+    { to: `${prefix}/quizzes`, labelKey: 'quizzes.title', icon: ListChecks },
+    { to: `${prefix}/attendance`, labelKey: 'attendance.myTitle', icon: UserCheck },
+    { to: `${prefix}/grade`, labelKey: 'nav.myGrade', icon: GraduationCap },
   ];
 }
 
@@ -94,6 +119,8 @@ export function SideNav({
   const { t } = useTranslation();
   const teacherCourseMatch = useMatch('/teacher/courses/:courseId/*');
   const teacherCourseId = teacherCourseMatch?.params.courseId;
+  const studentCourseMatch = useMatch('/student/courses/:courseId/*');
+  const studentCourseId = studentCourseMatch?.params.courseId;
   const isMobile = variant === 'mobile';
   // In mobile drawer, force expanded for readability
   const showLabels = isMobile ? true : !collapsed;
@@ -108,14 +135,28 @@ export function SideNav({
           {
             id: 'currentCourse',
             titleKey: 'nav.currentCourse',
-            items: courseChildItems(teacherCourseId),
+            items: teacherCourseChildItems(teacherCourseId),
+          },
+        ];
+      }
+      return top;
+    }
+    if (role === 'student') {
+      const top = STUDENT_TOP_GROUPS;
+      if (studentCourseId) {
+        return [
+          ...top,
+          {
+            id: 'currentCourse',
+            titleKey: 'nav.currentCourse',
+            items: studentCourseChildItems(studentCourseId),
           },
         ];
       }
       return top;
     }
     return [];
-  }, [role, teacherCourseId]);
+  }, [role, teacherCourseId, studentCourseId]);
 
   return (
     <div

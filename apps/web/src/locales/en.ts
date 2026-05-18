@@ -17,6 +17,8 @@ export const en = {
       expandMenu: 'Expand navigation menu',
       collapseMenu: 'Collapse navigation menu',
       currentCourse: 'Current course',
+      overview: 'Overview',
+      myGrade: 'My grade',
     },
     auth: {
       loginTitle: 'Sign in',

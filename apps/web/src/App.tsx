@@ -56,6 +56,8 @@ export default function App(): JSX.Element {
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+            </Route>
+            <Route element={<BackOfficeLayout role="student" />}>
               <Route
                 path="/student/dashboard"
                 element={
