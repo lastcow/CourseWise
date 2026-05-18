@@ -21,6 +21,10 @@ import { TeacherAssignmentFormPage } from '@/pages/teacher/TeacherAssignmentForm
 import { TeacherSubmissionsInboxPage } from '@/pages/teacher/TeacherSubmissionsInboxPage';
 import { TeacherDiscussionPage } from '@/pages/teacher/TeacherDiscussionPage';
 import { TeacherDiscussionTopicPage } from '@/pages/teacher/TeacherDiscussionTopicPage';
+import { TeacherQuizzesPage } from '@/pages/teacher/TeacherQuizzesPage';
+import { TeacherQuizEditorPage } from '@/pages/teacher/TeacherQuizEditorPage';
+import { TeacherQuizAttemptsPage } from '@/pages/teacher/TeacherQuizAttemptsPage';
+import { TeacherAttendancePage } from '@/pages/teacher/TeacherAttendancePage';
 import { StudentCoursesPage } from '@/pages/student/StudentCoursesPage';
 import { StudentCourseOverviewPage } from '@/pages/student/StudentCourseOverviewPage';
 import { StudentMaterialsPage } from '@/pages/student/StudentMaterialsPage';
@@ -30,6 +34,9 @@ import { StudentAssignmentsPage } from '@/pages/student/StudentAssignmentsPage';
 import { StudentAssignmentDetailPage } from '@/pages/student/StudentAssignmentDetailPage';
 import { StudentDiscussionPage } from '@/pages/student/StudentDiscussionPage';
 import { StudentDiscussionTopicPage } from '@/pages/student/StudentDiscussionTopicPage';
+import { StudentQuizzesPage } from '@/pages/student/StudentQuizzesPage';
+import { StudentQuizRunnerPage } from '@/pages/student/StudentQuizRunnerPage';
+import { StudentAttendancePage } from '@/pages/student/StudentAttendancePage';
 
 export default function App(): JSX.Element {
   return (
@@ -95,7 +102,18 @@ export default function App(): JSX.Element {
                 />
                 <Route path="discussion" element={<TeacherDiscussionPage />} />
                 <Route path="discussion/:topicId" element={<TeacherDiscussionTopicPage />} />
+                <Route path="quizzes" element={<TeacherQuizzesPage />} />
+                <Route path="quizzes/:quizId/attempts" element={<TeacherQuizAttemptsPage />} />
+                <Route path="attendance" element={<TeacherAttendancePage />} />
               </Route>
+              <Route
+                path="/teacher/courses/:courseId/quizzes/:quizId"
+                element={
+                  <RequireRole roles={['admin', 'teacher']}>
+                    <TeacherQuizEditorPage />
+                  </RequireRole>
+                }
+              />
               <Route
                 path="/teacher/courses/:courseId/presentations/:presentationId"
                 element={
@@ -165,6 +183,30 @@ export default function App(): JSX.Element {
                 element={
                   <RequireRole roles={['student']}>
                     <StudentDiscussionTopicPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/courses/:courseId/quizzes"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentQuizzesPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/courses/:courseId/quizzes/:quizId"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentQuizRunnerPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/student/courses/:courseId/attendance"
+                element={
+                  <RequireRole roles={['student']}>
+                    <StudentAttendancePage />
                   </RequireRole>
                 }
               />

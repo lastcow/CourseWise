@@ -1,6 +1,8 @@
 import type {
   ApiTokenScope,
   AssignmentStatus,
+  AttendanceSessionStatus,
+  AttendanceStatus,
   CourseStatus,
   DiscussionTopicStatus,
   FileAssetStatus,
@@ -9,6 +11,9 @@ import type {
   MaterialSourceType,
   MaterialStatus,
   PresentationStatus,
+  QuizAttemptStatus,
+  QuizQuestionType,
+  QuizStatus,
   SubmissionStatus,
   UserRole,
   UserStatus,
@@ -303,4 +308,125 @@ export interface DiscussionGradeRow {
   score: number | null;
   feedback: string | null;
   gradedAt: string | null;
+}
+
+export interface QuizSummary {
+  id: string;
+  courseId: string;
+  moduleId: string | null;
+  title: string;
+  description: string | null;
+  status: QuizStatus;
+  startTime: string | null;
+  endTime: string | null;
+  timeLimitMinutes: number | null;
+  maxAttempts: number;
+  maxScore: number | null;
+  passingScore: number | null;
+  publishedAt: string | null;
+  closedAt: string | null;
+  archivedAt: string | null;
+  questionCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuizQuestionTeacherView {
+  id: string;
+  quizId: string;
+  position: number;
+  prompt: string;
+  type: QuizQuestionType;
+  options: string[] | null;
+  correctAnswers: unknown;
+  explanation: string | null;
+  points: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuizQuestionStudentView {
+  id: string;
+  quizId: string;
+  position: number;
+  prompt: string;
+  type: QuizQuestionType;
+  options: string[] | null;
+  points: number;
+}
+
+export interface QuizAttemptSummary {
+  id: string;
+  quizId: string;
+  studentId: string;
+  status: QuizAttemptStatus;
+  startedAt: string;
+  expiresAt: string | null;
+  submittedAt: string | null;
+  score: number | null;
+  maxScore: number | null;
+  teacherReviewed: boolean;
+  gradedAt: string | null;
+  gradedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuizAttemptWithStudent extends QuizAttemptSummary {
+  student: { id: string; name: string; email: string };
+}
+
+export interface QuizAnswerSummary {
+  id: string;
+  attemptId: string;
+  questionId: string;
+  answer: unknown;
+  isCorrect: boolean | null;
+  pointsAwarded: number | null;
+  feedback: string | null;
+  gradedById: string | null;
+  gradedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuizAttemptDetail extends QuizAttemptSummary {
+  quiz: QuizSummary;
+  questions: QuizQuestionStudentView[] | QuizQuestionTeacherView[];
+  answers: QuizAnswerSummary[];
+  pendingReviewCount: number;
+}
+
+export interface AttendanceSessionSummary {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string | null;
+  sessionDate: string;
+  status: AttendanceSessionStatus;
+  closedAt: string | null;
+  recordCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AttendanceRecordRow {
+  id: string;
+  sessionId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  status: AttendanceStatus;
+  notes: string | null;
+  recordedById: string | null;
+  recordedAt: string;
+  updatedAt: string;
+}
+
+export interface StudentAttendanceRow {
+  sessionId: string;
+  sessionTitle: string;
+  sessionDate: string;
+  status: AttendanceStatus | null;
+  notes: string | null;
 }

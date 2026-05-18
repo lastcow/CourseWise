@@ -36,6 +36,12 @@ export const API_TOKEN_SCOPES = [
   'discussions:write',
   'grades:read',
   'grades:write',
+  'quizzes:read',
+  'quizzes:write',
+  'quiz_attempts:read',
+  'quiz_attempts:write',
+  'attendance:read',
+  'attendance:write',
 ] as const;
 export type ApiTokenScope = (typeof API_TOKEN_SCOPES)[number];
 
@@ -64,6 +70,12 @@ export const TEACHER_ALLOWED_SCOPES: readonly ApiTokenScope[] = [
   'discussions:write',
   'grades:read',
   'grades:write',
+  'quizzes:read',
+  'quizzes:write',
+  'quiz_attempts:read',
+  'quiz_attempts:write',
+  'attendance:read',
+  'attendance:write',
 ];
 
 export const STUDENT_ALLOWED_SCOPES: readonly ApiTokenScope[] = [
@@ -76,6 +88,10 @@ export const STUDENT_ALLOWED_SCOPES: readonly ApiTokenScope[] = [
   'submissions:write',
   'discussions:read',
   'discussions:write',
+  'quizzes:read',
+  'quiz_attempts:read',
+  'quiz_attempts:write',
+  'attendance:read',
 ];
 
 /**
@@ -99,6 +115,13 @@ export const SCOPE_GROUPS = {
   discussionsWrite: ['admin:write', 'teacher:write', 'student:read', 'discussions:write'],
   gradesRead: ['admin:read', 'admin:write', 'teacher:read', 'teacher:write', 'teacher:grades', 'grades:read', 'grades:write'],
   gradesWrite: ['admin:write', 'teacher:write', 'teacher:grades', 'grades:write', 'discussions:write'],
+  quizzesRead: ['admin:read', 'admin:write', 'teacher:read', 'teacher:write', 'student:read', 'quizzes:read', 'quizzes:write'],
+  quizzesWrite: ['admin:write', 'teacher:write', 'quizzes:write'],
+  quizAttemptsRead: ['admin:read', 'admin:write', 'teacher:read', 'teacher:write', 'student:read', 'quiz_attempts:read', 'quiz_attempts:write', 'quizzes:read', 'quizzes:write'],
+  quizAttemptsWrite: ['admin:write', 'teacher:write', 'student:read', 'quiz_attempts:write'],
+  quizGradeWrite: ['admin:write', 'teacher:write', 'teacher:grades', 'quizzes:write', 'grades:write'],
+  attendanceRead: ['admin:read', 'admin:write', 'teacher:read', 'teacher:write', 'student:read', 'attendance:read', 'attendance:write'],
+  attendanceWrite: ['admin:write', 'teacher:write', 'attendance:write'],
 } as const satisfies Record<string, readonly ApiTokenScope[]>;
 export type ScopeGroupName = keyof typeof SCOPE_GROUPS;
 
@@ -141,6 +164,33 @@ export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
 
 export const DISCUSSION_TOPIC_STATUSES = ['draft', 'published', 'archived'] as const;
 export type DiscussionTopicStatus = (typeof DISCUSSION_TOPIC_STATUSES)[number];
+
+export const QUIZ_STATUSES = ['draft', 'published', 'closed', 'archived'] as const;
+export type QuizStatus = (typeof QUIZ_STATUSES)[number];
+
+export const QUIZ_QUESTION_TYPES = [
+  'single_choice',
+  'multiple_choice',
+  'true_false',
+  'short_answer',
+  'case_analysis',
+] as const;
+export type QuizQuestionType = (typeof QUIZ_QUESTION_TYPES)[number];
+
+export const QUIZ_AUTO_GRADED_TYPES: readonly QuizQuestionType[] = [
+  'single_choice',
+  'multiple_choice',
+  'true_false',
+];
+
+export const QUIZ_ATTEMPT_STATUSES = ['in_progress', 'submitted', 'expired'] as const;
+export type QuizAttemptStatus = (typeof QUIZ_ATTEMPT_STATUSES)[number];
+
+export const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'excused'] as const;
+export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+
+export const ATTENDANCE_SESSION_STATUSES = ['open', 'closed'] as const;
+export type AttendanceSessionStatus = (typeof ATTENDANCE_SESSION_STATUSES)[number];
 
 export const ALLOWED_UPLOAD_MIME_TYPES = [
   'application/pdf',
@@ -189,4 +239,9 @@ export const API_ROUTES = {
   submissions: '/api/submissions',
   discussionTopics: '/api/discussion-topics',
   discussionPosts: '/api/discussion-posts',
+  quizzes: '/api/quizzes',
+  quizQuestions: '/api/quiz-questions',
+  quizAttempts: '/api/quiz-attempts',
+  quizAnswers: '/api/quiz-answers',
+  attendanceSessions: '/api/attendance-sessions',
 } as const;

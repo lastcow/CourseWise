@@ -33,7 +33,25 @@ export const attendanceStatusEnum = pgEnum('attendance_status', [
 export const quizQuestionTypeEnum = pgEnum('quiz_question_type', [
   'single_choice',
   'multi_choice',
+  'multiple_choice',
+  'true_false',
   'short_answer',
+  'case_analysis',
+]);
+export const quizStatusEnum = pgEnum('quiz_status', [
+  'draft',
+  'published',
+  'closed',
+  'archived',
+]);
+export const quizAttemptStatusEnum = pgEnum('quiz_attempt_status', [
+  'in_progress',
+  'submitted',
+  'expired',
+]);
+export const attendanceSessionStatusEnum = pgEnum('attendance_session_status', [
+  'open',
+  'closed',
 ]);
 export const auditActorTypeEnum = pgEnum('audit_actor_type', ['user', 'api_token', 'system']);
 export const materialStatusEnum = pgEnum('material_status', ['draft', 'published', 'archived']);
@@ -506,17 +524,29 @@ export const quizzes = pgTable(
   'quizzes',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    moduleId: uuid('module_id')
+    courseId: uuid('course_id')
       .notNull()
-      .references(() => modules.id, { onDelete: 'cascade' }),
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
-    timeLimitSeconds: integer('time_limit_seconds'),
+    description: text('description'),
+    status: quizStatusEnum('status').notNull().default('draft'),
+    startTime: timestamp('start_time', { withTimezone: true, mode: 'string' }),
+    endTime: timestamp('end_time', { withTimezone: true, mode: 'string' }),
+    timeLimitMinutes: integer('time_limit_minutes'),
     maxAttempts: integer('max_attempts').notNull().default(1),
     maxScore: numeric('max_score', { precision: 6, scale: 2 }),
+    passingScore: numeric('passing_score', { precision: 6, scale: 2 }),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'string' }),
+    closedAt: timestamp('closed_at', { withTimezone: true, mode: 'string' }),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
+    createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => ({
+    courseIdx: index('quizzes_course_idx').on(t.courseId),
     moduleIdx: index('quizzes_module_idx').on(t.moduleId),
+    statusIdx: index('quizzes_status_idx').on(t.status),
   }),
 );
 
@@ -532,6 +562,7 @@ export const quizQuestions = pgTable(
     type: quizQuestionTypeEnum('type').notNull(),
     options: jsonb('options'),
     correctAnswers: jsonb('correct_answers'),
+    explanation: text('explanation'),
     points: numeric('points', { precision: 6, scale: 2 }).notNull().default('1.00'),
     ...timestamps,
   },
@@ -550,11 +581,17 @@ export const quizAttempts = pgTable(
     studentId: uuid('student_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    status: quizAttemptStatusEnum('status').notNull().default('in_progress'),
     startedAt: timestamp('started_at', { withTimezone: true, mode: 'string' })
       .defaultNow()
       .notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }),
     submittedAt: timestamp('submitted_at', { withTimezone: true, mode: 'string' }),
     score: numeric('score', { precision: 6, scale: 2 }),
+    maxScore: numeric('max_score', { precision: 6, scale: 2 }),
+    teacherReviewed: boolean('teacher_reviewed').notNull().default(false),
+    gradedAt: timestamp('graded_at', { withTimezone: true, mode: 'string' }),
+    gradedById: uuid('graded_by_id').references(() => users.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => ({
@@ -575,10 +612,17 @@ export const quizAnswers = pgTable(
     answer: jsonb('answer'),
     isCorrect: boolean('is_correct'),
     pointsAwarded: numeric('points_awarded', { precision: 6, scale: 2 }),
+    feedback: text('feedback'),
+    gradedById: uuid('graded_by_id').references(() => users.id, { onDelete: 'set null' }),
+    gradedAt: timestamp('graded_at', { withTimezone: true, mode: 'string' }),
     ...timestamps,
   },
   (t) => ({
     attemptIdx: index('quiz_answers_attempt_idx').on(t.attemptId),
+    attemptQuestionUnique: uniqueIndex('quiz_answers_attempt_question_idx').on(
+      t.attemptId,
+      t.questionId,
+    ),
   }),
 );
 
@@ -590,11 +634,16 @@ export const attendanceSessions = pgTable(
       .notNull()
       .references(() => courses.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
+    description: text('description'),
     sessionDate: timestamp('session_date', { withTimezone: true, mode: 'string' }).notNull(),
+    status: attendanceSessionStatusEnum('status').notNull().default('open'),
+    closedAt: timestamp('closed_at', { withTimezone: true, mode: 'string' }),
+    createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => ({
     courseIdx: index('attendance_sessions_course_idx').on(t.courseId),
+    statusIdx: index('attendance_sessions_status_idx').on(t.status),
   }),
 );
 
@@ -609,6 +658,7 @@ export const attendanceRecords = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     status: attendanceStatusEnum('status').notNull(),
+    notes: text('notes'),
     recordedById: uuid('recorded_by_id').references(() => users.id, {
       onDelete: 'set null',
     }),

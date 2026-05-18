@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AssignmentSummary,
+  AttendanceRecordRow,
+  AttendanceSessionSummary,
+  BulkMarkAttendanceInput,
   CourseDetail,
   CourseSummary,
   CreateAssignmentInput,
+  CreateAttendanceSessionInput,
   CreateCourseInput,
   CreateDiscussionPostInput,
   CreateDiscussionTopicInput,
@@ -11,30 +15,46 @@ import type {
   CreateMaterialInput,
   CreateModuleInput,
   CreatePresentationInput,
+  CreateQuizInput,
+  CreateQuizQuestionInput,
   CreateSlideInput,
   DiscussionGradeRow,
   DiscussionPostSummary,
   DiscussionTopicSummary,
   GradeDiscussionInput,
+  GradeQuizAnswerInput,
   GradeSubmissionInput,
   InvitationCodeSummary,
   MaterialSummary,
   ModuleSummary,
   PresentationSummary,
+  QuizAttemptDetail,
+  QuizAttemptSummary,
+  QuizAttemptWithStudent,
+  QuizQuestionStudentView,
+  QuizQuestionTeacherView,
+  QuizSummary,
   ReorderModulesInput,
+  ReorderQuizQuestionsInput,
   ReorderSlidesInput,
   ReplyDiscussionPostInput,
   ReturnSubmissionInput,
+  SaveQuizAttemptAnswersInput,
   SlideSummary,
+  StudentAttendanceRow,
   SubmissionSummary,
   SubmissionWithStudent,
+  SubmitQuizAttemptInput,
   UpdateAssignmentInput,
+  UpdateAttendanceSessionInput,
   UpdateCourseInput,
   UpdateDiscussionPostInput,
   UpdateDiscussionTopicInput,
   UpdateMaterialInput,
   UpdateModuleInput,
   UpdatePresentationInput,
+  UpdateQuizInput,
+  UpdateQuizQuestionInput,
   UpdateSlideInput,
   UpdateSubmissionInput,
   UploadUrlRequest,
@@ -658,4 +678,308 @@ export function useGradeDiscussion(topicId: string) {
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['discussion-grades', topicId] }),
   });
+}
+
+// =================== Quizzes ===================
+export function useQuizzesList(courseId: string | null) {
+  return useQuery({
+    queryKey: ['quizzes', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<QuizSummary[]>(`/api/courses/${courseId}/quizzes`),
+  });
+}
+
+export function useQuiz(quizId: string | null) {
+  return useQuery({
+    queryKey: ['quiz', quizId],
+    enabled: !!quizId,
+    queryFn: () => apiCall<QuizSummary>(`/api/quizzes/${quizId}`),
+  });
+}
+
+export function useQuizQuestions(quizId: string | null) {
+  return useQuery({
+    queryKey: ['quiz-questions', quizId],
+    enabled: !!quizId,
+    queryFn: () =>
+      apiCall<QuizQuestionTeacherView[] | QuizQuestionStudentView[]>(
+        `/api/quizzes/${quizId}/questions`,
+      ),
+  });
+}
+
+export function useCreateQuiz(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateQuizInput) =>
+      apiCall<QuizSummary>(`/api/courses/${courseId}/quizzes`, { body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['quizzes', courseId] }),
+  });
+}
+
+export function useUpdateQuiz(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateQuizInput }) =>
+      apiCall<QuizSummary>(`/api/quizzes/${id}`, { method: 'PATCH', body: input }),
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ['quizzes', courseId] });
+      void qc.invalidateQueries({ queryKey: ['quiz', v.id] });
+    },
+  });
+}
+
+export function useTransitionQuiz(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action }: { id: string; action: 'publish' | 'close' | 'archive' }) =>
+      apiCall<QuizSummary>(`/api/quizzes/${id}/${action}`, { method: 'POST' }),
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ['quizzes', courseId] });
+      void qc.invalidateQueries({ queryKey: ['quiz', v.id] });
+    },
+  });
+}
+
+export function useDeleteQuiz(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiCall<{ id: string }>(`/api/quizzes/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['quizzes', courseId] }),
+  });
+}
+
+export function useCreateQuizQuestion(quizId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateQuizQuestionInput) =>
+      apiCall<QuizQuestionTeacherView>(`/api/quizzes/${quizId}/questions`, { body: input }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['quiz-questions', quizId] });
+      void qc.invalidateQueries({ queryKey: ['quiz', quizId] });
+    },
+  });
+}
+
+export function useUpdateQuizQuestion(quizId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateQuizQuestionInput }) =>
+      apiCall<QuizQuestionTeacherView>(`/api/quiz-questions/${id}`, {
+        method: 'PATCH',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['quiz-questions', quizId] });
+      void qc.invalidateQueries({ queryKey: ['quiz', quizId] });
+    },
+  });
+}
+
+export function useDeleteQuizQuestion(quizId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<{ id: string }>(`/api/quiz-questions/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['quiz-questions', quizId] });
+      void qc.invalidateQueries({ queryKey: ['quiz', quizId] });
+    },
+  });
+}
+
+export function useReorderQuizQuestions(quizId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ReorderQuizQuestionsInput) =>
+      apiCall<QuizQuestionTeacherView[]>(`/api/quizzes/${quizId}/questions/reorder`, {
+        body: input,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['quiz-questions', quizId] }),
+  });
+}
+
+// Quiz attempts
+export function useStartQuizAttempt(quizId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall<QuizAttemptDetail>(`/api/quizzes/${quizId}/attempts`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-quiz-attempts', quizId] }),
+  });
+}
+
+export function useQuizAttempt(attemptId: string | null) {
+  return useQuery({
+    queryKey: ['quiz-attempt', attemptId],
+    enabled: !!attemptId,
+    queryFn: () => apiCall<QuizAttemptDetail>(`/api/quiz-attempts/${attemptId}`),
+  });
+}
+
+export function useSaveQuizAttemptAnswers(attemptId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SaveQuizAttemptAnswersInput) =>
+      apiCall<QuizAttemptDetail>(`/api/quiz-attempts/${attemptId}/answers`, {
+        method: 'PATCH',
+        body: input,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['quiz-attempt', attemptId] }),
+  });
+}
+
+export function useSubmitQuizAttempt(attemptId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SubmitQuizAttemptInput) =>
+      apiCall<QuizAttemptDetail>(`/api/quiz-attempts/${attemptId}/submit`, { body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['quiz-attempt', attemptId] }),
+  });
+}
+
+export function useQuizAttempts(quizId: string | null) {
+  return useQuery({
+    queryKey: ['quiz-attempts', quizId],
+    enabled: !!quizId,
+    queryFn: () => apiCall<QuizAttemptWithStudent[]>(`/api/quizzes/${quizId}/attempts`),
+  });
+}
+
+export function useMyQuizAttempts(quizId: string | null) {
+  return useQuery({
+    queryKey: ['my-quiz-attempts', quizId],
+    enabled: !!quizId,
+    queryFn: () => apiCall<QuizAttemptSummary[]>(`/api/me/quizzes/${quizId}/attempts`),
+  });
+}
+
+export function useGradeQuizAnswer(attemptId: string, quizId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: GradeQuizAnswerInput }) =>
+      apiCall(`/api/quiz-answers/${id}/grade`, { method: 'PATCH', body: input }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['quiz-attempt', attemptId] });
+      if (quizId) void qc.invalidateQueries({ queryKey: ['quiz-attempts', quizId] });
+    },
+  });
+}
+
+// =================== Attendance ===================
+export function useAttendanceSessions(courseId: string | null) {
+  return useQuery({
+    queryKey: ['attendance-sessions', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<AttendanceSessionSummary[]>(`/api/courses/${courseId}/attendance-sessions`),
+  });
+}
+
+export function useAttendanceSession(sessionId: string | null) {
+  return useQuery({
+    queryKey: ['attendance-session', sessionId],
+    enabled: !!sessionId,
+    queryFn: () => apiCall<AttendanceSessionSummary>(`/api/attendance-sessions/${sessionId}`),
+  });
+}
+
+export function useAttendanceRecords(sessionId: string | null) {
+  return useQuery({
+    queryKey: ['attendance-records', sessionId],
+    enabled: !!sessionId,
+    queryFn: () =>
+      apiCall<AttendanceRecordRow[]>(`/api/attendance-sessions/${sessionId}/records`),
+  });
+}
+
+export function useCreateAttendanceSession(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateAttendanceSessionInput) =>
+      apiCall<AttendanceSessionSummary>(`/api/courses/${courseId}/attendance-sessions`, {
+        body: input,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance-sessions', courseId] }),
+  });
+}
+
+export function useUpdateAttendanceSession(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateAttendanceSessionInput }) =>
+      apiCall<AttendanceSessionSummary>(`/api/attendance-sessions/${id}`, {
+        method: 'PATCH',
+        body: input,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance-sessions', courseId] }),
+  });
+}
+
+export function useBulkMarkAttendance(sessionId: string, courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: BulkMarkAttendanceInput) =>
+      apiCall<AttendanceRecordRow[]>(`/api/attendance-sessions/${sessionId}/records`, {
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['attendance-records', sessionId] });
+      void qc.invalidateQueries({ queryKey: ['attendance-sessions', courseId] });
+    },
+  });
+}
+
+export function useDeleteAttendanceSession(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<{ id: string }>(`/api/attendance-sessions/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance-sessions', courseId] }),
+  });
+}
+
+export function useCloseAttendanceSession(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<AttendanceSessionSummary>(`/api/attendance-sessions/${id}/close`, {
+        method: 'POST',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance-sessions', courseId] }),
+  });
+}
+
+export function useMyAttendance(courseId: string | null) {
+  return useQuery({
+    queryKey: ['my-attendance', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<StudentAttendanceRow[]>(`/api/me/courses/${courseId}/attendance`),
+  });
+}
+
+export async function downloadAttendanceCsv(courseId: string): Promise<void> {
+  const stored = (() => {
+    try {
+      const raw = localStorage.getItem('coursewise.accessToken');
+      return raw ?? '';
+    } catch {
+      return '';
+    }
+  })();
+  const res = await fetch(`/api/courses/${courseId}/attendance/export.csv`, {
+    headers: stored ? { authorization: `Bearer ${stored}` } : {},
+  });
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+  const text = await res.text();
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `attendance-${courseId}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }

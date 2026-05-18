@@ -2,11 +2,13 @@ import { z } from 'zod';
 import {
   ALLOWED_UPLOAD_MIME_TYPES,
   API_TOKEN_SCOPES,
+  ATTENDANCE_STATUSES,
   COURSE_STATUSES,
   FILE_RELATED_TYPES,
   MATERIAL_SOURCE_TYPES,
   MATERIAL_STATUSES,
   MAX_UPLOAD_BYTES,
+  QUIZ_QUESTION_TYPES,
   SUPPORTED_LOCALES,
 } from './constants';
 
@@ -340,3 +342,136 @@ export const gradeDiscussionSchema = z.object({
   feedback: z.string().trim().max(20_000).optional().nullable(),
 });
 export type GradeDiscussionInput = z.infer<typeof gradeDiscussionSchema>;
+
+// ---------- M4: Quizzes ----------
+export const createQuizSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(20_000).optional().nullable(),
+  moduleId: z.string().uuid().optional().nullable(),
+  startTime: isoDateString.optional().nullable(),
+  endTime: isoDateString.optional().nullable(),
+  timeLimitMinutes: z.number().int().positive().max(24 * 60).optional().nullable(),
+  maxAttempts: z.number().int().positive().max(100).optional(),
+  passingScore: z.number().min(0).max(1000).optional().nullable(),
+});
+export type CreateQuizInput = z.infer<typeof createQuizSchema>;
+
+export const updateQuizSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(20_000).optional().nullable(),
+  moduleId: z.string().uuid().optional().nullable(),
+  startTime: isoDateString.optional().nullable(),
+  endTime: isoDateString.optional().nullable(),
+  timeLimitMinutes: z.number().int().positive().max(24 * 60).optional().nullable(),
+  maxAttempts: z.number().int().positive().max(100).optional(),
+  passingScore: z.number().min(0).max(1000).optional().nullable(),
+});
+export type UpdateQuizInput = z.infer<typeof updateQuizSchema>;
+
+const choiceOptionsSchema = z.array(z.string().trim().min(1).max(2000)).min(2).max(20);
+
+const baseQuizQuestionFields = {
+  prompt: z.string().trim().min(1).max(20_000),
+  type: z.enum(QUIZ_QUESTION_TYPES),
+  options: choiceOptionsSchema.optional().nullable(),
+  correctAnswers: z.unknown().optional(),
+  explanation: z.string().trim().max(20_000).optional().nullable(),
+  points: z.number().min(0).max(1000).optional(),
+  position: z.number().int().min(0).optional(),
+};
+
+export const createQuizQuestionSchema = z
+  .object(baseQuizQuestionFields)
+  .superRefine((val, ctx) => {
+    if (val.type === 'single_choice' || val.type === 'multiple_choice') {
+      if (!val.options || val.options.length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['options'],
+          message: 'Choice questions require at least two options',
+        });
+      }
+    }
+    if (val.type === 'true_false') {
+      // Coerce options to ['true', 'false'] later in service if missing.
+      if (val.correctAnswers != null) {
+        const ok =
+          val.correctAnswers === true ||
+          val.correctAnswers === false ||
+          val.correctAnswers === 'true' ||
+          val.correctAnswers === 'false';
+        if (!ok) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['correctAnswers'],
+            message: 'true_false correctAnswers must be true or false',
+          });
+        }
+      }
+    }
+  });
+export type CreateQuizQuestionInput = z.infer<typeof createQuizQuestionSchema>;
+
+export const updateQuizQuestionSchema = z.object({
+  prompt: z.string().trim().min(1).max(20_000).optional(),
+  options: choiceOptionsSchema.optional().nullable(),
+  correctAnswers: z.unknown().optional(),
+  explanation: z.string().trim().max(20_000).optional().nullable(),
+  points: z.number().min(0).max(1000).optional(),
+  position: z.number().int().min(0).optional(),
+});
+export type UpdateQuizQuestionInput = z.infer<typeof updateQuizQuestionSchema>;
+
+export const reorderQuizQuestionsSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+});
+export type ReorderQuizQuestionsInput = z.infer<typeof reorderQuizQuestionsSchema>;
+
+export const quizAnswerInputSchema = z.object({
+  questionId: z.string().uuid(),
+  answer: z.unknown(),
+});
+export type QuizAnswerInput = z.infer<typeof quizAnswerInputSchema>;
+
+export const saveQuizAttemptAnswersSchema = z.object({
+  answers: z.array(quizAnswerInputSchema).max(500),
+});
+export type SaveQuizAttemptAnswersInput = z.infer<typeof saveQuizAttemptAnswersSchema>;
+
+export const submitQuizAttemptSchema = z.object({
+  answers: z.array(quizAnswerInputSchema).max(500).optional(),
+});
+export type SubmitQuizAttemptInput = z.infer<typeof submitQuizAttemptSchema>;
+
+export const gradeQuizAnswerSchema = z.object({
+  pointsAwarded: z.number().min(0).max(1000),
+  feedback: z.string().trim().max(20_000).optional().nullable(),
+});
+export type GradeQuizAnswerInput = z.infer<typeof gradeQuizAnswerSchema>;
+
+// ---------- M4: Attendance ----------
+export const createAttendanceSessionSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(20_000).optional().nullable(),
+  sessionDate: isoDateString,
+});
+export type CreateAttendanceSessionInput = z.infer<typeof createAttendanceSessionSchema>;
+
+export const updateAttendanceSessionSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(20_000).optional().nullable(),
+  sessionDate: isoDateString.optional(),
+});
+export type UpdateAttendanceSessionInput = z.infer<typeof updateAttendanceSessionSchema>;
+
+export const attendanceRecordInputSchema = z.object({
+  studentId: z.string().uuid(),
+  status: z.enum(ATTENDANCE_STATUSES),
+  notes: z.string().trim().max(2000).optional().nullable(),
+});
+export type AttendanceRecordInput = z.infer<typeof attendanceRecordInputSchema>;
+
+export const bulkMarkAttendanceSchema = z.object({
+  records: z.array(attendanceRecordInputSchema).min(1).max(500),
+});
+export type BulkMarkAttendanceInput = z.infer<typeof bulkMarkAttendanceSchema>;
