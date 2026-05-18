@@ -115,5 +115,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/web/dist --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME || 'coursewise' }} --branch=main
+          workingDirectory: apps/api
+          command: pages deploy ../web/dist --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME || 'coursewise' }} --branch=main
           packageManager: pnpm
