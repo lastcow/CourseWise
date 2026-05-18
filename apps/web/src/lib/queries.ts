@@ -18,6 +18,8 @@ import type {
   CreateDiscussionPostInput,
   CreateDiscussionTopicInput,
   CreateInvitationCodeInput,
+  CreatedTeacherInvitation,
+  CreateTeacherInvitationInput,
   CreateManualAlertInput,
   CreateMaterialInput,
   CreateModuleInput,
@@ -36,6 +38,12 @@ import type {
   GradeSubmissionInput,
   GradingPolicySummary,
   InvitationCodeSummary,
+  LoginResponse,
+  RegisterTeacherInput,
+  TeacherInvitationLookup,
+  TeacherInvitationStatus,
+  TeacherInvitationSummary,
+  TeacherSummary,
   MaterialSummary,
   ModuleSummary,
   OverrideFinalGradeInput,
@@ -98,7 +106,8 @@ export function useCourse(courseId: string | null) {
 export function useCreateCourse() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateCourseInput) => apiCall<CourseSummary>('/api/courses', { body: input }),
+    mutationFn: (input: CreateCourseInput) =>
+      apiCall<CourseSummary>('/api/courses', { body: input }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['courses'] }),
   });
 }
@@ -119,7 +128,9 @@ export function useArchiveCourse() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, activate }: { id: string; activate: boolean }) =>
-      apiCall<CourseSummary>(`/api/courses/${id}/${activate ? 'activate' : 'archive'}`, { method: 'POST' }),
+      apiCall<CourseSummary>(`/api/courses/${id}/${activate ? 'activate' : 'archive'}`, {
+        method: 'POST',
+      }),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['courses'] });
       void qc.invalidateQueries({ queryKey: ['course', vars.id] });
@@ -220,7 +231,8 @@ export function useTransitionMaterial(courseId: string) {
 export function useDeleteMaterial(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiCall<{ id: string }>(`/api/materials/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiCall<{ id: string }>(`/api/materials/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['materials', courseId] }),
   });
 }
@@ -283,6 +295,79 @@ export function useRevokeMyApiToken() {
     mutationFn: (id: string) =>
       apiCall<{ ok: boolean }>(`/api/me/api-tokens/${id}/revoke`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-api-tokens'] }),
+  });
+}
+
+// Teacher invitations
+export interface TeacherInvitationListPage {
+  items: TeacherInvitationSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export function useTeachersList() {
+  return useQuery({
+    queryKey: ['admin-teachers'],
+    queryFn: () => apiCall<TeacherSummary[]>('/api/admin/teachers'),
+  });
+}
+
+export function useTeacherInvitationsList(status: TeacherInvitationStatus | 'all' = 'pending') {
+  return useQuery({
+    queryKey: ['teacher-invitations', status],
+    queryFn: () => {
+      const q = status === 'all' ? '' : `?status=${status}`;
+      return apiCall<TeacherInvitationListPage>(`/api/admin/teacher-invitations${q}`);
+    },
+  });
+}
+
+export function useCreateTeacherInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateTeacherInvitationInput) =>
+      apiCall<CreatedTeacherInvitation>('/api/admin/teacher-invitations', { body: input }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teacher-invitations'] });
+      qc.invalidateQueries({ queryKey: ['admin-teachers'] });
+    },
+  });
+}
+
+export function useRevokeTeacherInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<TeacherInvitationSummary>(`/api/admin/teacher-invitations/${id}/revoke`, {
+        method: 'POST',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teacher-invitations'] }),
+  });
+}
+
+export function useResendTeacherInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<CreatedTeacherInvitation>(`/api/admin/teacher-invitations/${id}/resend`, {
+        method: 'POST',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teacher-invitations'] }),
+  });
+}
+
+export function lookupTeacherInvitation(token: string) {
+  return apiCall<TeacherInvitationLookup>(
+    `/api/auth/teacher-invitations/${encodeURIComponent(token)}`,
+    { auth: false },
+  );
+}
+
+export function registerTeacher(input: RegisterTeacherInput) {
+  return apiCall<LoginResponse>('/api/auth/register-teacher', {
+    body: input,
+    auth: false,
   });
 }
 
@@ -389,7 +474,8 @@ export function useTransitionPresentation(courseId: string) {
 export function useDeletePresentation(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiCall<{ id: string }>(`/api/presentations/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiCall<{ id: string }>(`/api/presentations/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['presentations', courseId] }),
   });
 }
@@ -433,7 +519,9 @@ export function useReorderSlides(presentationId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: ReorderSlidesInput) =>
-      apiCall<SlideSummary[]>(`/api/presentations/${presentationId}/slides/reorder`, { body: input }),
+      apiCall<SlideSummary[]>(`/api/presentations/${presentationId}/slides/reorder`, {
+        body: input,
+      }),
     onMutate: async (input) => {
       await qc.cancelQueries({ queryKey: ['slides', presentationId] });
       const prev = qc.getQueryData<SlideSummary[]>(['slides', presentationId]);
@@ -509,7 +597,8 @@ export function useTransitionAssignment(courseId: string) {
 export function useDeleteAssignment(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiCall<{ id: string }>(`/api/assignments/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiCall<{ id: string }>(`/api/assignments/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['assignments', courseId] }),
   });
 }
@@ -519,8 +608,7 @@ export function useAssignmentSubmissions(assignmentId: string | null) {
   return useQuery({
     queryKey: ['submissions', assignmentId],
     enabled: !!assignmentId,
-    queryFn: () =>
-      apiCall<SubmissionWithStudent[]>(`/api/assignments/${assignmentId}/submissions`),
+    queryFn: () => apiCall<SubmissionWithStudent[]>(`/api/assignments/${assignmentId}/submissions`),
   });
 }
 
@@ -529,7 +617,9 @@ export function useMySubmission(assignmentId: string | null) {
     queryKey: ['my-submission', assignmentId],
     enabled: !!assignmentId,
     queryFn: () =>
-      apiCall<SubmissionSummary>(`/api/assignments/${assignmentId}/submissions`, { method: 'POST' }),
+      apiCall<SubmissionSummary>(`/api/assignments/${assignmentId}/submissions`, {
+        method: 'POST',
+      }),
   });
 }
 
@@ -596,7 +686,9 @@ export function useCreateDiscussionTopic(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateDiscussionTopicInput) =>
-      apiCall<DiscussionTopicSummary>(`/api/courses/${courseId}/discussion-topics`, { body: input }),
+      apiCall<DiscussionTopicSummary>(`/api/courses/${courseId}/discussion-topics`, {
+        body: input,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['discussion-topics', courseId] }),
   });
 }
@@ -605,7 +697,10 @@ export function useUpdateDiscussionTopic(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateDiscussionTopicInput }) =>
-      apiCall<DiscussionTopicSummary>(`/api/discussion-topics/${id}`, { method: 'PATCH', body: input }),
+      apiCall<DiscussionTopicSummary>(`/api/discussion-topics/${id}`, {
+        method: 'PATCH',
+        body: input,
+      }),
     onSuccess: (_d, v) => {
       void qc.invalidateQueries({ queryKey: ['discussion-topics', courseId] });
       void qc.invalidateQueries({ queryKey: ['discussion-topic', v.id] });
@@ -616,13 +711,7 @@ export function useUpdateDiscussionTopic(courseId: string) {
 export function useTransitionDiscussionTopic(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      action,
-    }: {
-      id: string;
-      action: 'publish' | 'archive' | 'pin' | 'unpin';
-    }) =>
+    mutationFn: ({ id, action }: { id: string; action: 'publish' | 'archive' | 'pin' | 'unpin' }) =>
       apiCall<DiscussionTopicSummary>(`/api/discussion-topics/${id}/${action}`, { method: 'POST' }),
     onSuccess: (_d, v) => {
       void qc.invalidateQueries({ queryKey: ['discussion-topics', courseId] });
@@ -690,7 +779,10 @@ export function useUpdateDiscussionPost(topicId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateDiscussionPostInput }) =>
-      apiCall<DiscussionPostSummary>(`/api/discussion-posts/${id}`, { method: 'PATCH', body: input }),
+      apiCall<DiscussionPostSummary>(`/api/discussion-posts/${id}`, {
+        method: 'PATCH',
+        body: input,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['discussion-posts', topicId] }),
   });
 }
@@ -932,8 +1024,7 @@ export function useAttendanceRecords(sessionId: string | null) {
   return useQuery({
     queryKey: ['attendance-records', sessionId],
     enabled: !!sessionId,
-    queryFn: () =>
-      apiCall<AttendanceRecordRow[]>(`/api/attendance-sessions/${sessionId}/records`),
+    queryFn: () => apiCall<AttendanceRecordRow[]>(`/api/attendance-sessions/${sessionId}/records`),
   });
 }
 
@@ -998,8 +1089,7 @@ export function useMyAttendance(courseId: string | null) {
   return useQuery({
     queryKey: ['my-attendance', courseId],
     enabled: !!courseId,
-    queryFn: () =>
-      apiCall<StudentAttendanceRow[]>(`/api/me/courses/${courseId}/attendance`),
+    queryFn: () => apiCall<StudentAttendanceRow[]>(`/api/me/courses/${courseId}/attendance`),
   });
 }
 
@@ -1041,8 +1131,7 @@ export function useGradingPolicy(courseId: string | null) {
   return useQuery({
     queryKey: ['grading-policy', courseId],
     enabled: !!courseId,
-    queryFn: () =>
-      apiCall<GradingPolicySummary>(`/api/courses/${courseId}/grading-policy`),
+    queryFn: () => apiCall<GradingPolicySummary>(`/api/courses/${courseId}/grading-policy`),
   });
 }
 
@@ -1066,8 +1155,7 @@ export function useFinalGrades(courseId: string | null) {
   return useQuery({
     queryKey: ['final-grades', courseId],
     enabled: !!courseId,
-    queryFn: () =>
-      apiCall<FinalGradeSummary[]>(`/api/courses/${courseId}/final-grades`),
+    queryFn: () => apiCall<FinalGradeSummary[]>(`/api/courses/${courseId}/final-grades`),
   });
 }
 
@@ -1075,10 +1163,10 @@ export function useRecalculateFinalGrades(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () =>
-      apiCall<RecalculateFinalGradesResult>(
-        `/api/courses/${courseId}/final-grades/recalculate`,
-        { method: 'POST', body: {} },
-      ),
+      apiCall<RecalculateFinalGradesResult>(`/api/courses/${courseId}/final-grades/recalculate`, {
+        method: 'POST',
+        body: {},
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
     },
@@ -1103,8 +1191,7 @@ export function useMyFinalGrade(courseId: string | null) {
   return useQuery({
     queryKey: ['my-final-grade', courseId],
     enabled: !!courseId,
-    queryFn: () =>
-      apiCall<FinalGradeSummary | null>(`/api/me/courses/${courseId}/final-grade`),
+    queryFn: () => apiCall<FinalGradeSummary | null>(`/api/me/courses/${courseId}/final-grade`),
   });
 }
 

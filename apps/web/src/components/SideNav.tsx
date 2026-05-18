@@ -22,6 +22,7 @@ import {
   Sliders,
   Ticket,
   UserCheck,
+  UserPlus,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -53,9 +54,7 @@ type NavGroup = {
 const SETTINGS_GROUP: NavGroup = {
   id: 'settings',
   titleKey: 'nav.settingsSection',
-  items: [
-    { to: '/settings/api-tokens', labelKey: 'nav.apiTokens', icon: KeyRound },
-  ],
+  items: [{ to: '/settings/api-tokens', labelKey: 'nav.apiTokens', icon: KeyRound }],
 };
 
 const ADMIN_GROUPS: NavGroup[] = [
@@ -67,6 +66,11 @@ const ADMIN_GROUPS: NavGroup[] = [
       { to: '/admin/alerts', labelKey: 'nav.alerts', icon: AlertTriangle },
       { to: '/admin/invitation-codes', labelKey: 'nav.invitationCodes', icon: Ticket },
     ],
+  },
+  {
+    id: 'users',
+    titleKey: 'nav.users',
+    items: [{ to: '/admin/teachers', labelKey: 'nav.inviteTeacher', icon: UserPlus }],
   },
   SETTINGS_GROUP,
 ];
@@ -98,9 +102,7 @@ function teacherCourseSections(courseId: string): NavSection[] {
       // Teacher landing for /teacher/courses/:id is the settings page, so
       // it sits standalone at the top of the menu (no section header).
       id: 'top',
-      items: [
-        { to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings },
-      ],
+      items: [{ to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings }],
     },
     {
       id: 'learn',
@@ -144,9 +146,7 @@ function studentCourseSections(courseId: string): NavSection[] {
   return [
     {
       id: 'top',
-      items: [
-        { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
-      ],
+      items: [{ to: prefix, labelKey: 'nav.overview', icon: Home, end: true }],
     },
     {
       id: 'learn',
@@ -175,9 +175,7 @@ function studentCourseSections(courseId: string): NavSection[] {
     {
       id: 'performance',
       titleKey: 'course.nav.section.performance',
-      items: [
-        { to: `${prefix}/grade`, labelKey: 'nav.myGrade', icon: GraduationCap },
-      ],
+      items: [{ to: `${prefix}/grade`, labelKey: 'nav.myGrade', icon: GraduationCap }],
     },
   ];
 }
@@ -245,10 +243,7 @@ export function SideNav({
 
   return (
     <div
-      className={cn(
-        'flex h-full w-full flex-col bg-card text-card-foreground',
-        isMobile && 'w-72',
-      )}
+      className={cn('flex h-full w-full flex-col bg-card text-card-foreground', isMobile && 'w-72')}
       aria-label={t('nav.sideMenu')}
     >
       <div
@@ -257,9 +252,7 @@ export function SideNav({
           showLabels ? 'justify-between' : 'justify-center',
         )}
       >
-        {showLabels ? (
-          <span className="text-sm font-semibold">{t('app.name')}</span>
-        ) : null}
+        {showLabels ? <span className="text-sm font-semibold">{t('app.name')}</span> : null}
         {isMobile ? (
           <button
             type="button"
@@ -318,7 +311,6 @@ export function SideNav({
           </div>
         ))}
       </nav>
-
     </div>
   );
 }
@@ -354,11 +346,7 @@ function SectionedGroupItems({
             className={showHeader ? 'mt-2 first:mt-0' : undefined}
           >
             {showDivider ? (
-              <div
-                role="separator"
-                aria-hidden
-                className="mx-3 my-2 border-t border-border"
-              />
+              <div role="separator" aria-hidden className="mx-3 my-2 border-t border-border" />
             ) : null}
             {showHeader ? (
               <div className="px-3 pb-1 pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">

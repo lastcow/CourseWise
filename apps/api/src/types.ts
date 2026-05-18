@@ -11,6 +11,7 @@ export interface AppBindings {
   BCRYPT_ROUNDS?: string;
   GIT_SHA?: string;
   BUILT_AT?: string;
+  ENVIRONMENT?: string;
   RATE_LIMIT_KV?: KVNamespace;
   // R2 / S3-compatible storage. The bucket can also be bound directly as
   // `COURSE_FILES` (used for HEAD checks and deletes); presigning needs the

@@ -4,28 +4,36 @@ import {
   loginSchema,
   refreshSchema,
   registerSchema,
+  registerTeacherSchema,
   type LoginInput,
   type LoginResponse,
   type RefreshInput,
   type RegisterInput,
+  type RegisterTeacherInput,
+  type TeacherInvitationLookup,
 } from '@coursewise/shared';
-import { enrollments, invitationCodes, refreshTokens, studentProfiles, users } from '../db/schema';
-import { hashPassword, verifyPassword } from '../services/password';
 import {
-  ACCESS_TOKEN_TTL_SECONDS,
-  REFRESH_TOKEN_TTL_SECONDS,
-  signAccessToken,
-  signRefreshToken,
-  verifyRefreshToken,
-} from '../services/jwt';
+  enrollments,
+  invitationCodes,
+  refreshTokens,
+  studentProfiles,
+  teacherInvitations,
+  teacherProfiles,
+  users,
+} from '../db/schema';
+import { hashPassword, verifyPassword } from '../services/password';
+import { ACCESS_TOKEN_TTL_SECONDS, verifyRefreshToken } from '../services/jwt';
+import { issueTokens } from '../services/tokens';
 import { sha256Hex } from '../lib/crypto';
 import { recordAudit } from '../services/audit';
 import { getRateLimiter } from '../services/rateLimit';
+import { deriveInvitationStatus } from '../services/teacherInvitations';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { validateJson } from '../middleware/validate';
 import { requireJwtAuth } from '../middleware/jwt';
 import { requireAuth } from '../middleware/auth';
+import { requireParam } from '../lib/params';
 import type { AppEnv } from '../types';
 
 const LOCKOUT_THRESHOLD = 5;
@@ -40,44 +48,28 @@ function requestMeta(c: Context<AppEnv>) {
   };
 }
 
-async function issueTokens(
-  c: Context<AppEnv>,
-  user: {
-    id: string;
-    email: string;
-    role: 'admin' | 'teacher' | 'student';
-  },
-  meta: { ip: string | null; userAgent: string | null },
-  familyId?: string,
-): Promise<{ accessToken: string; refreshToken: string }> {
-  const db = c.get('db');
-  const config = {
+function jwtConfig(c: Context<AppEnv>) {
+  return {
     accessSecret: c.env.JWT_SECRET,
     refreshSecret: c.env.JWT_REFRESH_SECRET,
     issuer: c.env.JWT_ISSUER,
     audience: c.env.JWT_AUDIENCE,
   };
+}
 
-  const fid = familyId ?? crypto.randomUUID();
-  const jti = crypto.randomUUID();
-  const accessToken = await signAccessToken(
-    { sub: user.id, email: user.email, role: user.role },
-    config,
-  );
-  const refreshToken = await signRefreshToken({ sub: user.id, fid, jti }, config);
-  const tokenHash = await sha256Hex(refreshToken);
-  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000).toISOString();
-
-  await db.insert(refreshTokens).values({
-    userId: user.id,
-    tokenHash,
-    familyId: fid,
-    expiresAt,
-    userAgent: meta.userAgent,
-    ip: meta.ip,
+async function issueTokensForContext(
+  c: Context<AppEnv>,
+  user: { id: string; email: string; role: 'admin' | 'teacher' | 'student' },
+  meta: { ip: string | null; userAgent: string | null },
+  familyId?: string,
+): Promise<{ accessToken: string; refreshToken: string }> {
+  return issueTokens({
+    db: c.get('db'),
+    user,
+    meta,
+    familyId,
+    config: jwtConfig(c),
   });
-
-  return { accessToken, refreshToken };
 }
 
 auth.post('/register-student', validateJson(registerSchema), async (c) => {
@@ -160,7 +152,7 @@ auth.post('/register-student', validateJson(registerSchema), async (c) => {
     })
     .where(eq(invitationCodes.id, code.id));
 
-  const tokens = await issueTokens(c, user, meta);
+  const tokens = await issueTokensForContext(c, user, meta);
 
   await recordAudit(db, {
     actorType: 'user',
@@ -263,7 +255,7 @@ auth.post('/login', validateJson(loginSchema), async (c) => {
     })
     .where(eq(users.id, user.id));
 
-  const tokens = await issueTokens(c, user, meta);
+  const tokens = await issueTokensForContext(c, user, meta);
 
   await recordAudit(db, {
     actorType: 'user',
@@ -293,12 +285,7 @@ auth.post('/refresh', validateJson(refreshSchema), async (c) => {
   const input = c.get('validated') as RefreshInput;
   const db = c.get('db');
   const meta = requestMeta(c);
-  const config = {
-    accessSecret: c.env.JWT_SECRET,
-    refreshSecret: c.env.JWT_REFRESH_SECRET,
-    issuer: c.env.JWT_ISSUER,
-    audience: c.env.JWT_AUDIENCE,
-  };
+  const config = jwtConfig(c);
 
   let payload;
   try {
@@ -345,7 +332,7 @@ auth.post('/refresh', validateJson(refreshSchema), async (c) => {
     throw new ApiException(401, ERROR_CODES.UNAUTHORIZED, 'User unavailable');
   }
 
-  const tokens = await issueTokens(c, user, meta, stored.familyId);
+  const tokens = await issueTokensForContext(c, user, meta, stored.familyId);
 
   await db
     .update(refreshTokens)
@@ -400,6 +387,151 @@ auth.post('/logout', requireAuth, validateJson(refreshSchema), async (c) => {
 auth.get('/me', requireJwtAuth, (c) => {
   const a = c.get('auth');
   return success(c, { user: a.user });
+});
+
+// Public lookup for a teacher invitation token. Rate-limited per IP.
+auth.get('/teacher-invitations/:token', async (c) => {
+  const token = requireParam(c, 'token');
+  const meta = requestMeta(c);
+  const limiter = getRateLimiter(c.env.RATE_LIMIT_KV);
+  const rl = await limiter.consume(`teacher-invite-lookup:${meta.ip ?? 'anon'}`, 30, 60);
+  if (!rl.allowed) {
+    throw new ApiException(429, ERROR_CODES.RATE_LIMITED, 'Too many lookups');
+  }
+  const db = c.get('db');
+  const tokenHash = await sha256Hex(token);
+  const rows = await db
+    .select({ inv: teacherInvitations, inviter: users })
+    .from(teacherInvitations)
+    .innerJoin(users, eq(teacherInvitations.invitedByUserId, users.id))
+    .where(eq(teacherInvitations.tokenHash, tokenHash))
+    .limit(1);
+  const row = rows[0];
+  if (!row) {
+    throw new ApiException(404, ERROR_CODES.INVALID_INVITATION, 'Invitation not found');
+  }
+  const status = deriveInvitationStatus(row.inv);
+  if (status === 'revoked') {
+    throw new ApiException(410, ERROR_CODES.INVITATION_REVOKED, 'Invitation has been revoked');
+  }
+  if (status === 'accepted') {
+    throw new ApiException(410, ERROR_CODES.INVITATION_ACCEPTED, 'Invitation already accepted');
+  }
+  if (status === 'expired') {
+    throw new ApiException(410, ERROR_CODES.INVITATION_EXPIRED, 'Invitation has expired');
+  }
+  const body: TeacherInvitationLookup = {
+    email: row.inv.email,
+    expiresAt: row.inv.expiresAt,
+    inviterName: row.inviter.name,
+  };
+  return success(c, body);
+});
+
+auth.post('/register-teacher', validateJson(registerTeacherSchema), async (c) => {
+  const input = c.get('validated') as RegisterTeacherInput;
+  const db = c.get('db');
+  const meta = requestMeta(c);
+
+  const limiter = getRateLimiter(c.env.RATE_LIMIT_KV);
+  const rl = await limiter.consume(`register-teacher:${meta.ip ?? 'anon'}`, 5, 60);
+  if (!rl.allowed) {
+    throw new ApiException(429, ERROR_CODES.RATE_LIMITED, 'Too many attempts');
+  }
+
+  const tokenHash = await sha256Hex(input.token);
+  const rows = await db
+    .select()
+    .from(teacherInvitations)
+    .where(eq(teacherInvitations.tokenHash, tokenHash))
+    .limit(1);
+  const invitation = rows[0];
+  if (!invitation) {
+    throw new ApiException(400, ERROR_CODES.INVALID_INVITATION, 'Invitation not valid');
+  }
+  const status = deriveInvitationStatus(invitation);
+  if (status === 'revoked') {
+    throw new ApiException(410, ERROR_CODES.INVITATION_REVOKED, 'Invitation has been revoked');
+  }
+  if (status === 'accepted') {
+    throw new ApiException(410, ERROR_CODES.INVITATION_ACCEPTED, 'Invitation already accepted');
+  }
+  if (status === 'expired') {
+    throw new ApiException(410, ERROR_CODES.INVITATION_EXPIRED, 'Invitation has expired');
+  }
+
+  const existingUser = (
+    await db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`lower(${users.email}) = lower(${invitation.email})`)
+      .limit(1)
+  )[0];
+  if (existingUser) {
+    throw new ApiException(
+      409,
+      ERROR_CODES.EMAIL_ALREADY_USER,
+      'A user with that email already exists',
+    );
+  }
+
+  const rounds = Number(c.env.BCRYPT_ROUNDS ?? '10') || 10;
+  const passwordHash = await hashPassword(input.password, rounds);
+
+  const inserted = (
+    await db
+      .insert(users)
+      .values({
+        email: invitation.email,
+        passwordHash,
+        name: input.name,
+        role: 'teacher',
+        status: 'active',
+      })
+      .returning()
+  )[0];
+  if (!inserted) {
+    throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create user');
+  }
+
+  await db.insert(teacherProfiles).values({ userId: inserted.id });
+
+  const nowIso = new Date().toISOString();
+  await db
+    .update(teacherInvitations)
+    .set({
+      acceptedAt: nowIso,
+      acceptedUserId: inserted.id,
+      updatedAt: nowIso,
+    })
+    .where(eq(teacherInvitations.id, invitation.id));
+
+  await recordAudit(db, {
+    actorType: 'user',
+    actorUserId: inserted.id,
+    action: 'teacher-invitation.accept',
+    target: invitation.id,
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+    metadata: { invitedByUserId: invitation.invitedByUserId },
+  });
+
+  const tokens = await issueTokensForContext(c, inserted, meta);
+
+  const body: LoginResponse = {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+    user: {
+      id: inserted.id,
+      email: inserted.email,
+      name: inserted.name,
+      role: inserted.role,
+      status: inserted.status,
+      preferredLanguage: inserted.preferredLanguage,
+    },
+  };
+  return success(c, body, 201);
 });
 
 export default auth;

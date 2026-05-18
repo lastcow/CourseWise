@@ -7,6 +7,7 @@ import { failure, unhandledFailure } from './lib/response';
 import authRoutes from './routes/auth';
 import meRoutes from './routes/me';
 import adminRoutes from './routes/admin';
+import teacherInvitationsAdminRoutes from './routes/teacherInvitations';
 import teacherRoutes from './routes/teacher';
 import coursesRoutes from './routes/courses';
 import modulesRoutes from './routes/modules';
@@ -57,7 +58,8 @@ app.get(API_ROUTES.version, (c) => {
 });
 
 app.get('/api/openapi.json', (c) => {
-  const protocol = c.req.header('x-forwarded-proto') ?? new URL(c.req.url).protocol.replace(':', '');
+  const protocol =
+    c.req.header('x-forwarded-proto') ?? new URL(c.req.url).protocol.replace(':', '');
   const host = c.req.header('host');
   const serverUrl = host ? `${protocol}://${host}` : undefined;
   return c.json(buildOpenApiSpec({ serverUrl }));
@@ -66,6 +68,7 @@ app.get('/api/openapi.json', (c) => {
 app.route('/api/auth', authRoutes);
 app.route('/api/me', meRoutes);
 app.route('/api/admin', adminRoutes);
+app.route('/api/admin', teacherInvitationsAdminRoutes);
 app.route('/api/teacher', teacherRoutes);
 app.route('/api', coursesRoutes);
 app.route('/api', modulesRoutes);

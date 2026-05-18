@@ -43,6 +43,13 @@
       "when": 1779388800000,
       "tag": "0005_cou13_material_description",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779475200000,
+      "tag": "0006_teacher_invitations",
+      "breakpoints": true
     }
   ]
 }

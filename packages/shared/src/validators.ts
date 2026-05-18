@@ -55,6 +55,28 @@ export const createApiTokenSchema = z.object({
 });
 export type CreateApiTokenInput = z.infer<typeof createApiTokenSchema>;
 
+export const TEACHER_INVITATION_STATUSES = ['pending', 'accepted', 'revoked', 'expired'] as const;
+
+export const createTeacherInvitationSchema = z.object({
+  email: emailSchema,
+  name: z.string().trim().min(1).max(120).optional(),
+});
+export type CreateTeacherInvitationInput = z.infer<typeof createTeacherInvitationSchema>;
+
+export const listTeacherInvitationsQuerySchema = z.object({
+  status: z.enum(TEACHER_INVITATION_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+});
+export type ListTeacherInvitationsQuery = z.infer<typeof listTeacherInvitationsQuerySchema>;
+
+export const registerTeacherSchema = z.object({
+  token: z.string().trim().min(1).max(256),
+  name: z.string().trim().min(1).max(120),
+  password: passwordSchema,
+});
+export type RegisterTeacherInput = z.infer<typeof registerTeacherSchema>;
+
 // Self-service token creation: the server auto-binds scopes to the caller's
 // role, so the client only needs a name and an optional lifetime.
 export const createSelfApiTokenSchema = z.object({
@@ -71,10 +93,10 @@ export const gradingPolicySchema = z
     discussion: z.number().int().min(0).max(100),
     finalProject: z.number().int().min(0).max(100),
   })
-  .refine(
-    (v) => v.attendance + v.assignments + v.quizzes + v.discussion + v.finalProject === 100,
-    { message: 'Grading policy weights must sum to 100', path: ['gradingPolicy'] },
-  );
+  .refine((v) => v.attendance + v.assignments + v.quizzes + v.discussion + v.finalProject === 100, {
+    message: 'Grading policy weights must sum to 100',
+    path: ['gradingPolicy'],
+  });
 export type GradingPolicy = z.infer<typeof gradingPolicySchema>;
 
 export const courseCodeSchema = z
@@ -82,7 +104,10 @@ export const courseCodeSchema = z
   .trim()
   .min(2)
   .max(32)
-  .regex(/^[A-Za-z0-9_-]+$/, 'Course code may contain letters, digits, hyphens and underscores only');
+  .regex(
+    /^[A-Za-z0-9_-]+$/,
+    'Course code may contain letters, digits, hyphens and underscores only',
+  );
 
 export const createCourseSchema = z.object({
   code: courseCodeSchema,
@@ -132,7 +157,10 @@ export const invitationCodeStringSchema = z
   .trim()
   .min(4)
   .max(64)
-  .regex(/^[A-Za-z0-9_-]+$/, 'Invitation code may contain letters, digits, hyphens and underscores');
+  .regex(
+    /^[A-Za-z0-9_-]+$/,
+    'Invitation code may contain letters, digits, hyphens and underscores',
+  );
 
 export const createInvitationCodeSchema = z.object({
   code: invitationCodeStringSchema.optional(),
@@ -388,7 +416,13 @@ export const createQuizSchema = z.object({
   moduleId: z.string().uuid().optional().nullable(),
   startTime: isoDateString.optional().nullable(),
   endTime: isoDateString.optional().nullable(),
-  timeLimitMinutes: z.number().int().positive().max(24 * 60).optional().nullable(),
+  timeLimitMinutes: z
+    .number()
+    .int()
+    .positive()
+    .max(24 * 60)
+    .optional()
+    .nullable(),
   maxAttempts: z.number().int().positive().max(100).optional(),
   passingScore: z.number().min(0).max(1000).optional().nullable(),
 });
@@ -400,7 +434,13 @@ export const updateQuizSchema = z.object({
   moduleId: z.string().uuid().optional().nullable(),
   startTime: isoDateString.optional().nullable(),
   endTime: isoDateString.optional().nullable(),
-  timeLimitMinutes: z.number().int().positive().max(24 * 60).optional().nullable(),
+  timeLimitMinutes: z
+    .number()
+    .int()
+    .positive()
+    .max(24 * 60)
+    .optional()
+    .nullable(),
   maxAttempts: z.number().int().positive().max(100).optional(),
   passingScore: z.number().min(0).max(1000).optional().nullable(),
 });
@@ -418,36 +458,34 @@ const baseQuizQuestionFields = {
   position: z.number().int().min(0).optional(),
 };
 
-export const createQuizQuestionSchema = z
-  .object(baseQuizQuestionFields)
-  .superRefine((val, ctx) => {
-    if (val.type === 'single_choice' || val.type === 'multiple_choice') {
-      if (!val.options || val.options.length < 2) {
+export const createQuizQuestionSchema = z.object(baseQuizQuestionFields).superRefine((val, ctx) => {
+  if (val.type === 'single_choice' || val.type === 'multiple_choice') {
+    if (!val.options || val.options.length < 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['options'],
+        message: 'Choice questions require at least two options',
+      });
+    }
+  }
+  if (val.type === 'true_false') {
+    // Coerce options to ['true', 'false'] later in service if missing.
+    if (val.correctAnswers != null) {
+      const ok =
+        val.correctAnswers === true ||
+        val.correctAnswers === false ||
+        val.correctAnswers === 'true' ||
+        val.correctAnswers === 'false';
+      if (!ok) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ['options'],
-          message: 'Choice questions require at least two options',
+          path: ['correctAnswers'],
+          message: 'true_false correctAnswers must be true or false',
         });
       }
     }
-    if (val.type === 'true_false') {
-      // Coerce options to ['true', 'false'] later in service if missing.
-      if (val.correctAnswers != null) {
-        const ok =
-          val.correctAnswers === true ||
-          val.correctAnswers === false ||
-          val.correctAnswers === 'true' ||
-          val.correctAnswers === 'false';
-        if (!ok) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['correctAnswers'],
-            message: 'true_false correctAnswers must be true or false',
-          });
-        }
-      }
-    }
-  });
+  }
+});
 export type CreateQuizQuestionInput = z.infer<typeof createQuizQuestionSchema>;
 
 export const updateQuizQuestionSchema = z.object({
