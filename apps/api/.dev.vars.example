@@ -14,3 +14,14 @@ R2_ACCESS_KEY_ID=replace-with-r2-access-key-id
 R2_SECRET_ACCESS_KEY=replace-with-r2-secret-access-key
 # Optional. Custom domain for public R2 endpoint; defaults to the *.r2.cloudflarestorage.com host.
 R2_PUBLIC_ENDPOINT=
+
+# AI Gateway (Phase 2 content generation). The account id and gateway slug are
+# non-secret; ANTHROPIC_API_KEY / OPENAI_API_KEY are provider secrets referenced
+# by ai_providers.api_key_secret_ref. AI_GATEWAY_TOKEN is only required when the
+# gateway has "Authenticated Gateway" enabled in the Cloudflare dashboard, in
+# which case the worker sends `cf-aig-authorization: Bearer <token>`.
+AI_GATEWAY_ACCOUNT_ID=
+AI_GATEWAY_ID=
+AI_GATEWAY_TOKEN=
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=

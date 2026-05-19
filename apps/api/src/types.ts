@@ -26,6 +26,9 @@ export interface AppBindings {
   // surfaces a "configured?" status in the admin UI.
   AI_GATEWAY_ACCOUNT_ID?: string;
   AI_GATEWAY_ID?: string;
+  // Set only when the gateway has "Authenticated Gateway" enabled in the
+  // Cloudflare dashboard. Sent as `cf-aig-authorization: Bearer <token>`.
+  AI_GATEWAY_TOKEN?: string;
   // Provider API keys. These are bound by name; the DB stores the binding name
   // in ai_providers.api_key_secret_ref so admins can rotate without redeploying.
   // Additional provider keys can be added the same way without touching this type
