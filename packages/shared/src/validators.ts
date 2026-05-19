@@ -815,3 +815,13 @@ export const updateAiPromptTemplateSchema = z.object({
 });
 export type UpdateAiPromptTemplateInput = z.infer<typeof updateAiPromptTemplateSchema>;
 
+// ---------- Public: Contact form ----------
+export const contactMessageSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  email: z.string().trim().email().max(200),
+  institution: z.string().trim().max(200).optional(),
+  subject: z.enum(['sales', 'support', 'press', 'other']),
+  message: z.string().trim().min(10).max(4000),
+});
+export type ContactMessageInput = z.infer<typeof contactMessageSchema>;
+
