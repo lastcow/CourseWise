@@ -721,6 +721,42 @@ export const en = {
       modelCreated: 'Model added',
       modelUpdated: 'Model updated',
       modelDeleted: 'Model removed',
+      generate: {
+        cta: 'Generate with AI',
+        title: 'Generate reading materials',
+        model: 'Model',
+        modules: 'Modules',
+        selectAll: 'Select all',
+        deselectAll: 'Deselect all',
+        language: 'Language',
+        lang: { en: 'English', zhCN: '简体中文' },
+        depth: 'Length',
+        depthValue: {
+          brief: 'Brief (~500 words)',
+          standard: 'Standard (~1000 words)',
+          detailed: 'Detailed (~1800 words)',
+        },
+        instructions: 'Additional instructions (optional)',
+        instructionsPlaceholder:
+          'Tone, audience, prerequisites, or any specific guidance for the model.',
+        start: 'Start generation',
+        started: 'Generation started — drafts will appear in Materials',
+        noModelsHint:
+          'No AI models are available. Ask an admin to configure a provider and at least one model.',
+        noModulesHint: 'This course has no modules yet. Add a module before generating materials.',
+      },
+      history: {
+        title: 'AI generation history',
+        progress: '{{succeeded}}/{{total}} done, {{failed}} failed',
+      },
+      jobStatus: {
+        queued: 'Queued',
+        running: 'Running',
+        succeeded: 'Succeeded',
+        partial: 'Partial',
+        failed: 'Failed',
+        canceled: 'Canceled',
+      },
     },
   },
 } as const;

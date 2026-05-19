@@ -6,6 +6,9 @@ import type {
   AlertStatus,
   AlertSummary,
   AlertWithStudent,
+  AiJobDetail,
+  AiJobSummary,
+  AiModelOption,
   ApiTokenSummary,
   AssignmentSummary,
   AttendanceRecordRow,
@@ -37,6 +40,7 @@ import type {
   DiscussionTopicSummary,
   FinalGradeSummary,
   GenerateAlertsResult,
+  GenerateMaterialsInput,
   GradeDiscussionInput,
   GradeQuizAnswerInput,
   GradeSubmissionInput,
@@ -1367,5 +1371,61 @@ export function useDeleteAiModel() {
     mutationFn: (id: string) =>
       apiCall<{ id: string }>(`/api/admin/ai/models/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ai', 'models'] }),
+  });
+}
+
+// ---------- AI: teacher course-scoped generation ----------
+export function useCourseAiModels(courseId: string | null) {
+  return useQuery({
+    queryKey: ['ai', 'course-models', courseId],
+    enabled: !!courseId,
+    queryFn: async () => {
+      const res = await apiCall<{ models: AiModelOption[] }>(
+        `/api/courses/${courseId}/ai/models`,
+      );
+      return res.models;
+    },
+  });
+}
+
+export function useGenerateMaterials(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: GenerateMaterialsInput) =>
+      apiCall<{ jobId: string }>(`/api/courses/${courseId}/ai/generate`, { body: input }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['ai', 'jobs', courseId] });
+    },
+  });
+}
+
+export function useCourseAiJobs(courseId: string | null) {
+  return useQuery({
+    queryKey: ['ai', 'jobs', courseId],
+    enabled: !!courseId,
+    queryFn: async () => {
+      const res = await apiCall<{ jobs: AiJobSummary[] }>(`/api/courses/${courseId}/ai/jobs`);
+      return res.jobs;
+    },
+    // Poll while any job is queued or running so the history card reflects
+    // progress without a manual refresh.
+    refetchInterval: (query) => {
+      const jobs = (query.state.data as AiJobSummary[] | undefined) ?? [];
+      const inFlight = jobs.some((j) => j.status === 'queued' || j.status === 'running');
+      return inFlight ? 3000 : false;
+    },
+  });
+}
+
+export function useCourseAiJob(courseId: string | null, jobId: string | null) {
+  return useQuery({
+    queryKey: ['ai', 'job', courseId, jobId],
+    enabled: !!courseId && !!jobId,
+    queryFn: () => apiCall<AiJobDetail>(`/api/courses/${courseId}/ai/jobs/${jobId}`),
+    refetchInterval: (query) => {
+      const job = query.state.data as AiJobDetail | undefined;
+      if (!job) return false;
+      return job.status === 'queued' || job.status === 'running' ? 2000 : false;
+    },
   });
 }
