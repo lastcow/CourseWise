@@ -1,0 +1,245 @@
+import { Hono } from 'hono';
+import { eq, inArray } from 'drizzle-orm';
+import {
+  generateGammaPresentationSchema,
+  type CreateGammaPresentationResponse,
+  type GammaGenerationJob,
+  type GammaTheme,
+  type GenerateGammaPresentationInput,
+} from '@coursewise/shared';
+import { gammaGenerationJobs, presentations, readingMaterials } from '../db/schema';
+import { ApiException, ERROR_CODES } from '../lib/errors';
+import { success } from '../lib/response';
+import { requireParam } from '../lib/params';
+import { requireAuth } from '../middleware/auth';
+import { requireScopeGroup } from '../middleware/scope';
+import { validateJson } from '../middleware/validate';
+import { recordAudit } from '../services/audit';
+import { canWriteCourse } from '../services/courseAccess';
+import {
+  GammaClient,
+  buildInputText,
+  pollAndFinalize,
+  type MaterialForGamma,
+} from '../services/gamma';
+import type { AppBindings, AppEnv } from '../types';
+
+const r = new Hono<AppEnv>();
+r.use('*', requireAuth);
+
+const THEMES_CACHE_KEY = 'gamma:themes:v1';
+const THEMES_CACHE_TTL_SECONDS = 60 * 60;
+
+function clientOr500(env: AppBindings): GammaClient {
+  if (!env.GAMMA_API_KEY) {
+    throw new ApiException(
+      500,
+      ERROR_CODES.INTERNAL_ERROR,
+      'GAMMA_API_KEY is not configured on this Worker',
+    );
+  }
+  return new GammaClient(env.GAMMA_API_KEY);
+}
+
+function toJobEnvelope(row: typeof gammaGenerationJobs.$inferSelect): GammaGenerationJob {
+  return {
+    id: row.id,
+    courseId: row.courseId,
+    presentationId: row.presentationId ?? null,
+    status: row.status,
+    gammaUrl: row.gammaUrl ?? null,
+    exportUrl: row.exportUrl ?? null,
+    errorMessage: row.errorMessage ?? null,
+    creditsDeducted: row.creditsDeducted ?? null,
+    creditsRemaining: row.creditsRemaining ?? null,
+    materialIds: row.materialIds,
+    requestParams: (row.requestParams ?? {}) as Record<string, unknown>,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    completedAt: row.completedAt ?? null,
+  };
+}
+
+// -------- GET /api/gamma/themes --------
+
+r.get('/gamma/themes', requireScopeGroup('presentationsRead'), async (c) => {
+  const client = clientOr500(c.env);
+  const kv = c.env.RATE_LIMIT_KV;
+
+  if (kv) {
+    const cached = await kv.get(THEMES_CACHE_KEY, { type: 'json' });
+    if (cached && Array.isArray(cached)) {
+      return success(c, cached as GammaTheme[]);
+    }
+  }
+
+  const themes = await client.listThemes();
+
+  if (kv) {
+    try {
+      await kv.put(THEMES_CACHE_KEY, JSON.stringify(themes), {
+        expirationTtl: THEMES_CACHE_TTL_SECONDS,
+      });
+    } catch (err) {
+      console.error('gamma: failed to cache themes', { err });
+    }
+  }
+
+  return success(c, themes);
+});
+
+// -------- POST /api/courses/:courseId/presentations/gamma --------
+
+r.post(
+  '/courses/:courseId/presentations/gamma',
+  requireScopeGroup('presentationsWrite'),
+  validateJson(generateGammaPresentationSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    if (!(await canWriteCourse(db, auth.user, courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+    }
+    const input = c.get('validated') as GenerateGammaPresentationInput;
+
+    // Fetch all referenced materials and assert they belong to this course.
+    const materialRows = await db
+      .select({
+        id: readingMaterials.id,
+        courseId: readingMaterials.courseId,
+        title: readingMaterials.title,
+        description: readingMaterials.description,
+        sourceType: readingMaterials.sourceType,
+        content: readingMaterials.content,
+      })
+      .from(readingMaterials)
+      .where(inArray(readingMaterials.id, input.materialIds));
+
+    if (materialRows.length !== input.materialIds.length) {
+      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'One or more reading materials not found');
+    }
+    for (const m of materialRows) {
+      if (m.courseId !== courseId) {
+        throw new ApiException(
+          403,
+          ERROR_CODES.FORBIDDEN,
+          'Reading material does not belong to this course',
+        );
+      }
+    }
+
+    const materials: MaterialForGamma[] = materialRows.map((m) => ({
+      id: m.id,
+      title: m.title,
+      description: m.description,
+      sourceType: m.sourceType,
+      content: m.content,
+    }));
+
+    const inputText = buildInputText(materials);
+    if (inputText.length === 0) {
+      throw new ApiException(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        'Selected reading materials produced no input text',
+      );
+    }
+
+    const client = clientOr500(c.env);
+    const created = await client.createGeneration({
+      inputText,
+      format: 'presentation',
+      exportAs: input.exportAs,
+      title: input.title,
+      themeId: input.themeId ?? null,
+      additionalInstructions: input.additionalInstructions ?? null,
+      textOptions: { amount: input.amount },
+      imageOptions: {
+        source: input.imageSource,
+        style: input.imageStyle ?? null,
+      },
+    });
+
+    const [presentation] = await db
+      .insert(presentations)
+      .values({
+        courseId,
+        moduleId: input.moduleId ?? null,
+        title: input.title,
+        status: 'draft',
+        provider: 'gamma',
+        createdById: auth.user.id,
+      })
+      .returning();
+    if (!presentation) {
+      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create presentation');
+    }
+
+    const [job] = await db
+      .insert(gammaGenerationJobs)
+      .values({
+        courseId,
+        presentationId: presentation.id,
+        requestedById: auth.user.id,
+        status: 'pending',
+        gammaGenerationId: created.generationId,
+        materialIds: input.materialIds,
+        requestParams: { ...input, inputTextChars: inputText.length },
+      })
+      .returning();
+    if (!job) {
+      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create gamma job');
+    }
+
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'gamma.generation.start',
+      target: job.id,
+      metadata: {
+        courseId,
+        presentationId: presentation.id,
+        materialCount: materials.length,
+      },
+    });
+
+    const body: CreateGammaPresentationResponse = {
+      presentationId: presentation.id,
+      jobId: job.id,
+    };
+    return success(c, body, 201);
+  },
+);
+
+// -------- GET /api/gamma-jobs/:jobId --------
+
+r.get('/gamma-jobs/:jobId', requireScopeGroup('presentationsRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const jobId = requireParam(c, 'jobId');
+
+  const [job] = await db
+    .select()
+    .from(gammaGenerationJobs)
+    .where(eq(gammaGenerationJobs.id, jobId))
+    .limit(1);
+  if (!job) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Gamma job not found');
+
+  if (!(await canWriteCourse(db, auth.user, job.courseId))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No access to this gamma job');
+  }
+
+  const client = clientOr500(c.env);
+  const updated = await pollAndFinalize(jobId, {
+    db,
+    client,
+    r2: c.env.COURSE_FILES,
+    bucketName: c.env.R2_BUCKET ?? 'coursewise-files',
+  });
+
+  return success(c, toJobEnvelope(updated));
+});
+
+export default r;
