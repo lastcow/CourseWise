@@ -15,7 +15,7 @@ export function MockActivityTimeline(): JSX.Element {
           Activity
         </div>
         <label className="flex items-center gap-2 text-xs">
-          <input type="checkbox" defaultChecked className="h-3 w-3" /> Show live activity
+          <input type="checkbox" defaultChecked disabled aria-hidden tabIndex={-1} className="h-3 w-3 accent-blue-500 opacity-100" /> Show live activity
         </label>
       </div>
       <ul className="space-y-1.5 px-4 py-4 text-xs">
