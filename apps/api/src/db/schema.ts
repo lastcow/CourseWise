@@ -346,6 +346,9 @@ export const presentations = pgTable(
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
     position: integer('position').notNull().default(0),
     createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
+    externalUrl: text('external_url'),
+    provider: text('provider'),
+    fileAssetId: uuid('file_asset_id').references(() => fileAssets.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => ({
@@ -374,6 +377,43 @@ export const slides = pgTable(
   },
   (t) => ({
     presentationIdx: index('slides_presentation_idx').on(t.presentationId),
+  }),
+);
+
+export const gammaJobStatusEnum = pgEnum('gamma_job_status', [
+  'pending',
+  'completed',
+  'failed',
+]);
+
+export const gammaGenerationJobs = pgTable(
+  'gamma_generation_jobs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    presentationId: uuid('presentation_id').references(() => presentations.id, {
+      onDelete: 'set null',
+    }),
+    requestedById: uuid('requested_by_id').references(() => users.id, { onDelete: 'set null' }),
+    status: gammaJobStatusEnum('status').notNull().default('pending'),
+    gammaGenerationId: text('gamma_generation_id'),
+    gammaUrl: text('gamma_url'),
+    exportUrl: text('export_url'),
+    errorMessage: text('error_message'),
+    materialIds: uuid('material_ids').array().notNull(),
+    requestParams: jsonb('request_params').notNull(),
+    creditsDeducted: integer('credits_deducted'),
+    creditsRemaining: integer('credits_remaining'),
+    lastPolledAt: timestamp('last_polled_at', { withTimezone: true, mode: 'string' }),
+    completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    courseIdx: index('gamma_generation_jobs_course_idx').on(t.courseId),
+    statusIdx: index('gamma_generation_jobs_status_idx').on(t.status),
+    presentationIdx: index('gamma_generation_jobs_presentation_idx').on(t.presentationId),
   }),
 );
 

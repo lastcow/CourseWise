@@ -453,6 +453,22 @@ export const ROUTES: readonly RouteSpec[] = [
     pathParams: idParams('slideId'),
   }),
 
+  // ---------- Gamma presentations ----------
+  r('get', '/api/gamma/themes', 'List Gamma themes (1h KV-cached)', 'gamma', {
+    scopeGroup: 'presentationsRead',
+  }),
+  r(
+    'post',
+    '/api/courses/{courseId}/presentations/gamma',
+    'Start a Gamma generation from selected reading materials',
+    'gamma',
+    { scopeGroup: 'presentationsWrite', pathParams: idParams('courseId') },
+  ),
+  r('get', '/api/gamma-jobs/{jobId}', 'Poll the status of a Gamma generation job', 'gamma', {
+    scopeGroup: 'presentationsWrite',
+    pathParams: idParams('jobId'),
+  }),
+
   // ---------- Assignments & submissions ----------
   r('get', '/api/courses/{courseId}/assignments', 'List assignments', 'assignments', {
     scopeGroup: 'assignmentsRead',
@@ -870,6 +886,7 @@ const TAG_DESCRIPTIONS: Record<string, string> = {
   materials: 'Reading materials (upload, link, manual text).',
   files: 'R2-backed file assets. Direct multipart upload, presigned download.',
   presentations: 'In-app presentations and their slides.',
+  gamma: 'Gamma-generated presentations (external rendering via gamma.app).',
   assignments: 'Assignments and submissions, including grading.',
   discussions: 'Discussion topics, threaded posts, per-student grades.',
   quizzes: 'Quizzes, questions, attempts, manual grading.',

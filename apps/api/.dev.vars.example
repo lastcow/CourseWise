@@ -25,3 +25,7 @@ AI_GATEWAY_ID=
 AI_GATEWAY_TOKEN=
 ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
+
+# Gamma Generate API key. Optional in dev — gamma routes return 500 with a
+# clear error until this is set. Create one at https://gamma.app/account-settings/api-keys
+GAMMA_API_KEY=

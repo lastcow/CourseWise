@@ -35,13 +35,17 @@ import type {
   CreatePresentationInput,
   CreateQuizInput,
   CreateQuizQuestionInput,
+  CreateGammaPresentationResponse,
   CreateSelfApiTokenInput,
   CreateSlideInput,
   DiscussionGradeRow,
   DiscussionPostSummary,
   DiscussionTopicSummary,
   FinalGradeSummary,
+  GammaGenerationJob,
+  GammaTheme,
   GenerateAlertsResult,
+  GenerateGammaPresentationInput,
   GenerateMaterialsInput,
   GradeDiscussionInput,
   GradeQuizAnswerInput,
@@ -498,6 +502,37 @@ export function useDeletePresentation(courseId: string) {
     mutationFn: (id: string) =>
       apiCall<{ id: string }>(`/api/presentations/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['presentations', courseId] }),
+  });
+}
+
+// =================== Gamma presentations ===================
+export function useGammaThemes() {
+  return useQuery({
+    queryKey: ['gamma', 'themes'],
+    queryFn: () => apiCall<GammaTheme[]>('/api/gamma/themes'),
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+export function useCreateGammaPresentation(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: GenerateGammaPresentationInput) =>
+      apiCall<CreateGammaPresentationResponse>(
+        `/api/courses/${courseId}/presentations/gamma`,
+        { body: input },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['presentations', courseId] }),
+  });
+}
+
+export function useGammaJob(jobId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['gamma', 'job', jobId],
+    enabled: !!jobId && enabled,
+    queryFn: () => apiCall<GammaGenerationJob>(`/api/gamma-jobs/${jobId}`),
+    refetchInterval: (query) =>
+      (query.state.data as GammaGenerationJob | undefined)?.status === 'pending' ? 5_000 : false,
   });
 }
 
