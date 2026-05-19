@@ -4,6 +4,7 @@ import {
   generateMaterialsSchema,
   type AiJobArtifact,
   type AiJobDetail,
+  type AiJobEvent,
   type AiJobSummary,
   type AiModelOption,
   type AiProviderKind,
@@ -11,6 +12,7 @@ import {
 } from '@coursewise/shared';
 import {
   aiGenerationArtifacts,
+  aiGenerationEvents,
   aiGenerationJobs,
   aiModels,
   aiProviders,
@@ -259,6 +261,12 @@ courseAi.get(
       .leftJoin(readingMaterials, eq(readingMaterials.id, aiGenerationArtifacts.artifactId))
       .where(eq(aiGenerationArtifacts.jobId, jobId));
 
+    const eventRows = await db
+      .select()
+      .from(aiGenerationEvents)
+      .where(eq(aiGenerationEvents.jobId, jobId))
+      .orderBy(asc(aiGenerationEvents.occurredAt), asc(aiGenerationEvents.id));
+
     let succeededCount = 0;
     let failedCount = 0;
     const out: AiJobArtifact[] = artifacts.map((a) => {
@@ -276,6 +284,16 @@ courseAi.get(
       };
     });
 
+    const events: AiJobEvent[] = eventRows.map((e) => ({
+      id: e.id,
+      artifactId: e.artifactId,
+      level: e.level,
+      type: e.type,
+      message: e.message,
+      metadata: (e.metadata as Record<string, unknown> | null) ?? null,
+      occurredAt: e.occurredAt,
+    }));
+
     const detail: AiJobDetail = {
       id: row.job.id,
       status: row.job.status,
@@ -289,6 +307,7 @@ courseAi.get(
       createdAt: row.job.createdAt,
       request: row.job.request as unknown as GenerateMaterialsInput,
       artifacts: out,
+      events,
     };
 
     return success(c, detail);
