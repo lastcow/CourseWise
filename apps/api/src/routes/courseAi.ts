@@ -20,6 +20,7 @@ import {
   readingMaterials,
 } from '../db/schema';
 import { hasProviderSecret } from '../services/ai/gateway';
+import { recordEvent } from '../services/ai/events';
 import { recordAudit } from '../services/audit';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
@@ -137,6 +138,15 @@ courseAi.post(
         moduleId,
         status: 'pending' as const,
       })),
+    );
+
+    await recordEvent(
+      db,
+      jobRow.id,
+      null,
+      'job.started',
+      `Starting reading-material generation for ${input.moduleIds.length} module${input.moduleIds.length === 1 ? '' : 's'}`,
+      { modelId: input.modelId, moduleCount: input.moduleIds.length },
     );
 
     if (!c.env.MATERIAL_GEN_WORKFLOW) {
