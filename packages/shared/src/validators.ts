@@ -759,8 +759,19 @@ export interface AiJobArtifact {
   error: string | null;
 }
 
+export interface AiJobEvent {
+  id: string;
+  artifactId: string | null;
+  level: 'info' | 'warn' | 'error';
+  type: string;
+  message: string;
+  metadata: Record<string, unknown> | null;
+  occurredAt: string; // ISO string
+}
+
 export interface AiJobDetail extends AiJobSummary {
   request: GenerateMaterialsInput;
   artifacts: AiJobArtifact[];
+  events: AiJobEvent[]; // ordered ascending by occurredAt
 }
 
