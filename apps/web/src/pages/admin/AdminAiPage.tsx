@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Trash2 } from 'lucide-react';
 import {
@@ -221,6 +221,7 @@ export function AdminAiPage(): JSX.Element {
       </Card>
 
       <ProviderDialog
+        key={`provider-${providerDialog.initial?.id ?? 'new'}-${providerDialog.open}`}
         open={providerDialog.open}
         initial={providerDialog.initial}
         onClose={() => setProviderDialog({ open: false })}
@@ -239,6 +240,7 @@ export function AdminAiPage(): JSX.Element {
       />
 
       <ModelDialog
+        key={`model-${modelDialog.initial?.id ?? 'new'}-${modelDialog.open}`}
         open={modelDialog.open}
         initial={modelDialog.initial}
         providers={providersQ.data ?? []}
@@ -278,13 +280,6 @@ function ProviderDialog({
   const [displayName, setDisplayName] = useState(initial?.displayName ?? '');
   const [apiKeySecretRef, setApiKeySecretRef] = useState(initial?.apiKeySecretRef ?? '');
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
-
-  useEffect(() => {
-    setKind(initial?.kind ?? 'anthropic');
-    setDisplayName(initial?.displayName ?? '');
-    setApiKeySecretRef(initial?.apiKeySecretRef ?? '');
-    setEnabled(initial?.enabled ?? true);
-  }, [initial?.id]);
 
   return (
     <Dialog open={open} onClose={onClose} title={initial ? t('common.edit') : t('ai.providerNewCta')}>
@@ -373,15 +368,6 @@ function ModelDialog({
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
   const [costIn, setCostIn] = useState(initial?.costInPer1m?.toString() ?? '');
   const [costOut, setCostOut] = useState(initial?.costOutPer1m?.toString() ?? '');
-
-  useEffect(() => {
-    setProviderId(initial?.providerId ?? providers[0]?.id ?? '');
-    setModelId(initial?.modelId ?? '');
-    setDisplayName(initial?.displayName ?? '');
-    setEnabled(initial?.enabled ?? true);
-    setCostIn(initial?.costInPer1m?.toString() ?? '');
-    setCostOut(initial?.costOutPer1m?.toString() ?? '');
-  }, [initial?.id, providers.length]);
 
   const parseCost = (s: string): number | null => {
     if (!s.trim()) return null;
