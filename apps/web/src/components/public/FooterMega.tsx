@@ -56,9 +56,9 @@ export function FooterMega(): JSX.Element {
           </div>
           {COLUMNS.map((c) => (
             <div key={c.headingKey}>
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 {t(c.headingKey)}
-              </div>
+              </h2>
               <ul className="mt-3 space-y-2 text-sm">
                 {c.links.map((l) => (
                   <li key={l.to}>

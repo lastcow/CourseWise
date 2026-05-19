@@ -820,6 +820,8 @@ export const en = {
         signin: 'Sign in',
         getStarted: 'Get started',
         dashboard: 'Dashboard',
+        open: 'Open menu',
+        close: 'Close menu',
       },
       footer: {
         product: 'Product',

@@ -813,6 +813,8 @@ export const zhCN = {
         signin: '登录',
         getStarted: '免费开始',
         dashboard: '工作台',
+        open: '打开菜单',
+        close: '关闭菜单',
       },
       footer: {
         product: '产品',
