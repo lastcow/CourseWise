@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
@@ -70,7 +70,15 @@ export function TeacherMaterialDetailPage(): JSX.Element {
       <BackLink courseId={courseIdSafe} />
 
       <header className="space-y-3 border-b pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{mat.title}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">{mat.title}</h1>
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/teacher/courses/${courseIdSafe}/materials/${mat.id}/edit`}>
+              <Pencil className="mr-1 h-3.5 w-3.5" />
+              {t('common.edit')}
+            </Link>
+          </Button>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge
             variant={
