@@ -476,6 +476,11 @@ export const API_ROUTES = {
   dashboards: '/api/dashboards',
 } as const;
 
+// ---------- Presentation providers ----------
+// Today only Gamma renders externally; everything else is in-app slides.
+export const PRESENTATION_PROVIDERS = ['gamma'] as const;
+export type PresentationProvider = (typeof PRESENTATION_PROVIDERS)[number];
+
 // ---------- Gamma Generate API (gamma.app) ----------
 export const GAMMA_IMAGE_SOURCES = [
   'aiGenerated',

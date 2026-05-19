@@ -48,7 +48,7 @@ function toSummary(
     position: row.position,
     slideCount,
     externalUrl: row.externalUrl ?? null,
-    provider: row.provider ?? null,
+    provider: row.provider === 'gamma' ? 'gamma' : null,
     fileAssetId: row.fileAssetId ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

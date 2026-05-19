@@ -16,6 +16,7 @@ import type {
   Locale,
   MaterialSourceType,
   MaterialStatus,
+  PresentationProvider,
   PresentationStatus,
   QuizAttemptStatus,
   QuizQuestionType,
@@ -251,7 +252,7 @@ export interface PresentationSummary {
   position: number;
   slideCount: number;
   externalUrl: string | null;
-  provider: string | null;
+  provider: PresentationProvider | null;
   fileAssetId: string | null;
   createdAt: string;
   updatedAt: string;
