@@ -32,6 +32,8 @@ R2_BUCKET = "coursewise-files"
 #                           enabled; sent as `cf-aig-authorization: Bearer <token>`
 #   ANTHROPIC_API_KEY     — Anthropic API key (referenced by ai_providers.api_key_secret_ref)
 #   OPENAI_API_KEY        — OpenAI API key (referenced by ai_providers.api_key_secret_ref)
+#   GAMMA_API_KEY        — Gamma Generate API key (https://developers.gamma.app),
+#                          required for POST /api/courses/{id}/presentations/gamma
 
 [observability]
 enabled = true

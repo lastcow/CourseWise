@@ -34,6 +34,7 @@ export interface AppBindings {
   // Additional provider keys can be added the same way without touching this type
   // — the gateway helper looks them up dynamically.
   ANTHROPIC_API_KEY?: string;
+  GAMMA_API_KEY?: string;
   OPENAI_API_KEY?: string;
   // Cloudflare Workflow that runs material generation. Created/inspected via
   // env.MATERIAL_GEN_WORKFLOW.create({ params }) and .get(id). Optional so
