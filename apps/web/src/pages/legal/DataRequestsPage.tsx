@@ -91,13 +91,28 @@ export function DataRequestsPage(): JSX.Element {
       return;
     }
 
+    const recordCategories = Array.from(categories);
     const payload = {
       requesterType,
       relationship,
-      recordCategories: Array.from(categories),
+      recordCategories,
       action,
       description,
     };
+
+    const summary = [
+      `Requester type: ${requesterType}`,
+      `Action requested: ${action}`,
+      `Record categories: ${recordCategories.join(', ') || '(none selected)'}`,
+      `Relationship: ${relationship || '(blank)'}`,
+      '',
+      'Description:',
+      description,
+      '',
+      '---',
+      'Structured payload:',
+      JSON.stringify(payload, null, 2),
+    ].join('\n');
 
     setPending(true);
     try {
@@ -112,7 +127,7 @@ export function DataRequestsPage(): JSX.Element {
           name: `${firstName} ${lastName}`.trim(),
           email,
           institution: institution || undefined,
-          message: JSON.stringify(payload),
+          message: summary,
         },
         auth: false,
       });
