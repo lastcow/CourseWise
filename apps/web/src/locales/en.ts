@@ -244,6 +244,9 @@ export const en = {
       uploading: 'Uploading {{progress}}%',
       uploadComplete: 'Upload complete',
       uploadFailed: 'Upload failed',
+      backToModules: 'Back to modules',
+      notFound: 'Material not found.',
+      emptyContent: 'This material has no content yet.',
     },
     invitations: {
       title: 'Invitation codes',

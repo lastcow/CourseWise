@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Archive, ChevronDown, ChevronUp, CircleCheck, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -165,8 +165,13 @@ export function TeacherModulesPage(): JSX.Element {
                             key={mat.id}
                             className="flex flex-wrap items-center justify-between gap-2 rounded border bg-background px-2.5 py-1.5"
                           >
-                            <div className="flex flex-1 items-center gap-2">
-                              <span className="text-sm font-medium">{mat.title}</span>
+                            <Link
+                              to={`/teacher/courses/${id}/materials/${mat.id}`}
+                              className="flex flex-1 items-center gap-2 rounded-sm hover:text-foreground"
+                            >
+                              <span className="text-sm font-medium hover:underline underline-offset-4">
+                                {mat.title}
+                              </span>
                               <Badge
                                 variant={
                                   mat.status === 'published'
@@ -185,7 +190,7 @@ export function TeacherModulesPage(): JSX.Element {
                                   `materials.kind${mat.sourceType.replace(/(^|_)(\w)/g, (_, _b, c: string) => c.toUpperCase())}`,
                                 )}
                               </Badge>
-                            </div>
+                            </Link>
                             <div className="flex items-center gap-1.5">
                               <ActionIconButton
                                 size="sm"
