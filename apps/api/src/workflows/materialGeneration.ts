@@ -125,6 +125,8 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
           result: { succeededCount: succeeded, failedCount: failed, totals },
         })
         .where(eq(aiGenerationJobs.id, jobId));
+      const finishedLevel: 'info' | 'warn' | 'error' =
+        status === 'failed' ? 'error' : status === 'partial' ? 'warn' : 'info';
       await recordEvent(
         db,
         jobId,
@@ -132,7 +134,7 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
         'job.finished',
         `${succeeded} succeeded, ${failed} failed`,
         { status, totals, costCents: cost },
-        failed > 0 && succeeded === 0 ? 'error' : 'info',
+        finishedLevel,
       );
     });
   }
@@ -258,6 +260,15 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
           .set({ status: 'failed', error: 'module-not-found' })
           .where(eq(aiGenerationArtifacts.id, artifactId));
       }
+      await recordEvent(
+        db,
+        jobId,
+        artifactId ?? null,
+        'artifact.failed',
+        'Module not found',
+        { moduleId },
+        'error',
+      );
       return { ok: false, usage: emptyUsage() };
     }
 
