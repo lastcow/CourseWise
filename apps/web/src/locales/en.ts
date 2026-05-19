@@ -757,6 +757,26 @@ export const en = {
         failed: 'Failed',
         canceled: 'Canceled',
       },
+      activity: {
+        title: 'Activity',
+        showRealtime: 'Show realtime output',
+        empty: 'No events yet.',
+        metadataToggle: 'Details',
+        relative: {
+          justNow: 'just now',
+          secondsAgo: '{{n}}s ago',
+          minutesAgo: '{{n}}m ago',
+        },
+        eventType: {
+          'job.started': 'Job started',
+          'context.loaded': 'Context loaded',
+          'artifact.calling_model': 'Calling model',
+          'artifact.model_responded': 'Model responded',
+          'artifact.saved': 'Saved',
+          'artifact.failed': 'Artifact failed',
+          'job.finished': 'Job finished',
+        },
+      },
     },
   },
 } as const;
