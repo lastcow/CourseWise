@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
-export const LEGAL_PAGES = [
+const LEGAL_PAGES = [
   { to: '/legal/privacy', labelKey: 'public.legal.privacy' },
   { to: '/legal/terms', labelKey: 'public.legal.terms' },
   { to: '/legal/ferpa', labelKey: 'public.legal.ferpa' },
