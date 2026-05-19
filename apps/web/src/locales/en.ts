@@ -795,7 +795,6 @@ export const en = {
         resetConfirm: 'Reset this template to the built-in defaults? Your edits will be lost.',
         saved: 'Prompt template saved',
         resetDone: 'Prompt template reset',
-        kindHeader: 'Kind',
         empty: 'No prompt templates configured.',
         kinds: {
           material: 'Reading material',

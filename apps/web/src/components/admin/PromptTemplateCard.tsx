@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { ApiClientError } from '@/lib/api';
 import {
   useAiPromptTemplates,
   useResetAiPromptTemplate,
@@ -177,8 +178,9 @@ function PromptTemplateForm({
     try {
       await updateM.mutateAsync({ kind: template.kind, input });
       toast.push({ title: t('ai.prompts.saved'), tone: 'success' });
-    } catch {
-      toast.push({ title: t('errors.internal'), tone: 'error' });
+    } catch (err) {
+      const i18nKey = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(i18nKey), tone: 'error' });
     }
   }
 
@@ -187,8 +189,9 @@ function PromptTemplateForm({
     try {
       await resetM.mutateAsync(template.kind);
       toast.push({ title: t('ai.prompts.resetDone'), tone: 'success' });
-    } catch {
-      toast.push({ title: t('errors.internal'), tone: 'error' });
+    } catch (err) {
+      const i18nKey = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(i18nKey), tone: 'error' });
     }
   }
 

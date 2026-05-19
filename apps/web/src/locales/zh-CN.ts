@@ -788,7 +788,6 @@ export const zhCN = {
         resetConfirm: '将此模板恢复为内置默认值吗?你的修改将丢失。',
         saved: '模板已保存',
         resetDone: '模板已恢复默认',
-        kindHeader: '类型',
         empty: '暂未配置提示词模板。',
         kinds: {
           material: '阅读材料',
