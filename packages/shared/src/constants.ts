@@ -495,6 +495,21 @@ export type GammaImageSource = (typeof GAMMA_IMAGE_SOURCES)[number];
 export const GAMMA_TEXT_AMOUNTS = ['brief', 'medium', 'detailed', 'extensive'] as const;
 export type GammaTextAmount = (typeof GAMMA_TEXT_AMOUNTS)[number];
 
+// Top-level Gamma field controlling how the inputText is transformed. Required
+// by Gamma's public API (validation: must be 'generate' | 'condense' | 'preserve').
+//   generate  — write new content from a short prompt
+//   condense  — summarise/shorten long source material (our default — feeds
+//               reading-material content into a slide deck)
+//   preserve  — keep wording mostly verbatim, just restructure for slides
+export const GAMMA_TEXT_MODES = ['generate', 'condense', 'preserve'] as const;
+export type GammaTextMode = (typeof GAMMA_TEXT_MODES)[number];
+
+// Bounds for `numCards` (Gamma slang for slide count). Gamma accepts higher
+// values on some plans; we cap at 60 to keep the UI sensible and credit usage
+// predictable. Gamma will decide the count when this is omitted.
+export const GAMMA_MIN_NUM_CARDS = 1;
+export const GAMMA_MAX_NUM_CARDS = 60;
+
 export const GAMMA_JOB_STATUSES = ['pending', 'completed', 'failed'] as const;
 export type GammaJobStatus = (typeof GAMMA_JOB_STATUSES)[number];
 

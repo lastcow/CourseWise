@@ -2,9 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   GAMMA_IMAGE_SOURCES,
+  GAMMA_MAX_NUM_CARDS,
+  GAMMA_MIN_NUM_CARDS,
   GAMMA_TEXT_AMOUNTS,
+  GAMMA_TEXT_MODES,
   type GammaImageSource,
   type GammaTextAmount,
+  type GammaTextMode,
   type GenerateGammaPresentationInput,
   type MaterialSummary,
   type ModuleSummary,
@@ -70,6 +74,10 @@ export function GenerateGammaDialog({
   const [imageSource, setImageSource] = useState<GammaImageSource>('aiGenerated');
   const [imageStyle, setImageStyle] = useState('');
   const [amount, setAmount] = useState<GammaTextAmount>('medium');
+  const [textMode, setTextMode] = useState<GammaTextMode>('condense');
+  // Empty string = "let Gamma decide". Keeping the input as text avoids a
+  // forced 0/NaN state while the field is being typed.
+  const [numCards, setNumCards] = useState<string>('');
 
   const modules: ModuleSummary[] = useMemo(() => modulesQ.data ?? [], [modulesQ.data]);
   const themes = themesQ.data ?? [];
@@ -149,6 +157,8 @@ export function GenerateGammaDialog({
     setImageSource('aiGenerated');
     setImageStyle('');
     setAmount('medium');
+    setTextMode('condense');
+    setNumCards('');
   };
 
   const close = () => {
@@ -159,6 +169,9 @@ export function GenerateGammaDialog({
   const onSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
     if (!title.trim() || selected.size === 0) return;
+    const trimmedCards = numCards.trim();
+    const parsedCards = trimmedCards === '' ? null : Number.parseInt(trimmedCards, 10);
+    if (parsedCards != null && !Number.isFinite(parsedCards)) return;
     const input: GenerateGammaPresentationInput = {
       title: title.trim(),
       moduleId: moduleId || null,
@@ -168,6 +181,8 @@ export function GenerateGammaDialog({
       imageSource,
       imageStyle: imageStyle.trim() || null,
       amount,
+      textMode,
+      numCards: parsedCards,
       exportAs: 'pptx',
     };
     try {
@@ -297,6 +312,40 @@ export function GenerateGammaDialog({
                 ) : null;
               })()
             : null}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="gamma-text-mode">{t('gamma.fields.textMode')}</Label>
+            <select
+              id="gamma-text-mode"
+              value={textMode}
+              onChange={(e) => setTextMode(e.target.value as GammaTextMode)}
+              className={SELECT_CLASS}
+            >
+              {GAMMA_TEXT_MODES.map((m) => (
+                <option key={m} value={m}>
+                  {t(`gamma.textMode.${m}`)}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">{t(`gamma.textModeHint.${textMode}`)}</p>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="gamma-num-cards">{t('gamma.fields.numCards')}</Label>
+            <Input
+              id="gamma-num-cards"
+              type="number"
+              inputMode="numeric"
+              min={GAMMA_MIN_NUM_CARDS}
+              max={GAMMA_MAX_NUM_CARDS}
+              step={1}
+              value={numCards}
+              onChange={(e) => setNumCards(e.target.value)}
+              placeholder={t('gamma.fields.numCardsPlaceholder')}
+            />
+            <p className="text-xs text-muted-foreground">{t('gamma.fields.numCardsHint')}</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
