@@ -1,12 +1,12 @@
 import { Hono } from 'hono';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
 import {
-  completeUploadSchema,
-  uploadUrlRequestSchema,
-  type CompleteUploadInput,
+  ALLOWED_UPLOAD_MIME_TYPES,
+  FILE_RELATED_TYPES,
+  MAX_UPLOAD_BYTES,
   type DownloadUrlResponse,
-  type UploadUrlRequest,
-  type UploadUrlResponse,
+  type UploadFileResponse,
 } from '@coursewise/shared';
 import {
   assignmentSubmissions,
@@ -20,7 +20,6 @@ import { requireParam } from '../lib/params';
 import { buildR2Key, presignR2Url, type R2SignerConfig } from '../lib/r2Sign';
 import { requireAuth } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
-import { validateJson } from '../middleware/validate';
 import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/courseAccess';
 import { recordAudit } from '../services/audit';
 import type { AppBindings, AppEnv } from '../types';
@@ -30,6 +29,9 @@ r.use('*', requireAuth);
 
 const PRESIGN_EXPIRES = 5 * 60; // 5 minutes
 
+// SigV4 signer config — used only for the download presign path. Uploads use
+// the COURSE_FILES R2 binding directly, which authenticates via the Worker's
+// native binding and does not need any S3 credentials.
 function signerConfig(env: AppBindings): R2SignerConfig {
   const accountId = env.R2_ACCOUNT_ID;
   const accessKeyId = env.R2_ACCESS_KEY_ID;
@@ -43,7 +45,7 @@ function signerConfig(env: AppBindings): R2SignerConfig {
     throw new ApiException(
       500,
       ERROR_CODES.INTERNAL_ERROR,
-      `R2 storage is not configured on this Worker: missing secret${missing.length === 1 ? '' : 's'} ${missing.join(', ')}. Run apps/api/scripts/setup-r2.sh to provision.`,
+      `R2 download presign is not configured on this Worker: missing secret${missing.length === 1 ? '' : 's'} ${missing.join(', ')}. Run apps/api/scripts/setup-r2.sh to provision.`,
     );
   }
   return {
@@ -55,134 +57,156 @@ function signerConfig(env: AppBindings): R2SignerConfig {
   };
 }
 
-r.post('/files/upload-url', validateJson(uploadUrlRequestSchema), async (c) => {
+const uploadFormSchema = z.object({
+  courseId: z.string().uuid(),
+  relatedType: z.enum(FILE_RELATED_TYPES).default('material'),
+});
+
+r.post('/files/upload', async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
-  const input = c.get('validated') as UploadUrlRequest;
 
-  // Permission: teachers/admins can upload material + assignment attachments;
-  // enrolled students can upload SUBMISSION attachments.
-  if (input.relatedType === 'submission') {
+  if (!c.env.COURSE_FILES) {
+    throw new ApiException(
+      500,
+      ERROR_CODES.INTERNAL_ERROR,
+      'R2 bucket binding (COURSE_FILES) is not configured on this Worker',
+    );
+  }
+
+  let form: FormData;
+  try {
+    form = await c.req.formData();
+  } catch {
+    throw new ApiException(
+      400,
+      ERROR_CODES.VALIDATION_ERROR,
+      'Expected multipart/form-data body with a "file" part',
+    );
+  }
+
+  // workers-types declares FormData.get() as `string | null`, but the runtime
+  // actually returns a File for binary parts. Cast through unknown so the
+  // instanceof check below can narrow properly.
+  const fileField = form.get('file') as unknown;
+  if (!(fileField instanceof File)) {
+    throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, '"file" multipart field is missing');
+  }
+
+  const parsed = uploadFormSchema.safeParse({
+    courseId: form.get('courseId'),
+    relatedType: form.get('relatedType') ?? undefined,
+  });
+  if (!parsed.success) {
+    throw new ApiException(
+      400,
+      ERROR_CODES.VALIDATION_ERROR,
+      parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+    );
+  }
+  const { courseId, relatedType } = parsed.data;
+
+  const fileName = fileField.name;
+  const fileType = fileField.type;
+  const fileSize = fileField.size;
+
+  if (!fileName || fileName.length > 255 || /[/\\?<>:"|*]/.test(fileName)) {
+    throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'Invalid file name');
+  }
+  if (!(ALLOWED_UPLOAD_MIME_TYPES as readonly string[]).includes(fileType)) {
+    throw new ApiException(
+      400,
+      ERROR_CODES.VALIDATION_ERROR,
+      `mimeType "${fileType || '<missing>'}" is not in the upload allowlist`,
+    );
+  }
+  if (fileSize === 0) {
+    throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'File is empty');
+  }
+  if (fileSize > MAX_UPLOAD_BYTES) {
+    throw new ApiException(
+      400,
+      ERROR_CODES.VALIDATION_ERROR,
+      `File exceeds max upload size of ${MAX_UPLOAD_BYTES} bytes`,
+    );
+  }
+
+  if (relatedType === 'submission') {
     if (auth.user.role === 'student') {
-      if (!(await isCourseEnrolled(db, input.courseId, auth.user.id))) {
+      if (!(await isCourseEnrolled(db, courseId, auth.user.id))) {
         throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
       }
-    } else if (!(await canWriteCourse(db, auth.user, input.courseId))) {
+    } else if (!(await canWriteCourse(db, auth.user, courseId))) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No access to this course');
     }
   } else {
-    if (!(await canWriteCourse(db, auth.user, input.courseId))) {
+    if (!(await canWriteCourse(db, auth.user, courseId))) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
     }
   }
 
-  const r2Key = buildR2Key(input.courseId, input.fileName);
-  const cfg = signerConfig(c.env);
+  const r2Key = buildR2Key(courseId, fileName);
+  const bucket = c.env.R2_BUCKET ?? 'coursewise-files';
 
-  // Insert the placeholder file_asset row.
-  const [inserted] = await db
-    .insert(fileAssets)
-    .values({
-      ownerId: auth.user.id,
-      courseId: input.courseId,
-      bucket: cfg.bucket,
-      objectKey: r2Key,
-      contentType: input.mimeType,
-      sizeBytes: input.fileSize,
-      originalFilename: input.fileName,
-      status: 'pending',
-      relatedType: input.relatedType,
-    })
-    .returning();
-  if (!inserted) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to register asset');
-
-  const presigned = await presignR2Url(cfg, {
-    method: 'PUT',
-    key: r2Key,
-    expiresInSeconds: PRESIGN_EXPIRES,
-    signedHeaders: { 'content-type': input.mimeType },
+  const put = await c.env.COURSE_FILES.put(r2Key, fileField.stream() as ReadableStream, {
+    httpMetadata: { contentType: fileType },
   });
+  const etag = put?.etag ?? null;
+  const uploadedSize = put?.size ?? fileSize;
+
+  let row: typeof fileAssets.$inferSelect | undefined;
+  try {
+    [row] = await db
+      .insert(fileAssets)
+      .values({
+        ownerId: auth.user.id,
+        courseId,
+        bucket,
+        objectKey: r2Key,
+        contentType: fileType,
+        sizeBytes: uploadedSize,
+        originalFilename: fileName,
+        etag,
+        status: 'ready',
+        relatedType,
+      })
+      .returning();
+  } catch (err) {
+    // Don't orphan the just-uploaded R2 object on a DB failure.
+    try {
+      await c.env.COURSE_FILES.delete(r2Key);
+    } catch {
+      // best-effort cleanup
+    }
+    throw err;
+  }
+  if (!row) {
+    try {
+      await c.env.COURSE_FILES.delete(r2Key);
+    } catch {
+      // best-effort cleanup
+    }
+    throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to register file asset');
+  }
 
   await recordAudit(db, {
     actorType: auth.method === 'jwt' ? 'user' : 'api_token',
     actorUserId: auth.user.id,
     actorTokenId: auth.tokenId ?? null,
-    action: 'file.upload-url',
-    target: inserted.id,
-    metadata: { courseId: input.courseId, mimeType: input.mimeType, sizeBytes: input.fileSize },
+    action: 'file.upload',
+    target: row.id,
+    metadata: { courseId, mimeType: fileType, sizeBytes: uploadedSize },
   });
 
-  const body: UploadUrlResponse = {
-    uploadUrl: presigned.url,
-    fileAssetId: inserted.id,
+  const body: UploadFileResponse = {
+    fileAssetId: row.id,
     r2Key,
-    expiresAt: presigned.expiresAt,
-    headers: { 'content-type': input.mimeType },
+    sizeBytes: uploadedSize,
+    contentType: fileType,
+    originalFilename: fileName,
+    status: 'ready',
   };
   return success(c, body, 201);
-});
-
-r.post('/files/complete-upload', validateJson(completeUploadSchema), async (c) => {
-  const auth = c.get('auth');
-  const db = c.get('db');
-  const input = c.get('validated') as CompleteUploadInput;
-  const [row] = await db.select().from(fileAssets).where(eq(fileAssets.id, input.fileAssetId)).limit(1);
-  if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'File asset not found');
-  // Only the original uploader (or course staff) can complete the upload.
-  const isOwner = row.ownerId === auth.user.id;
-  const isCourseStaff = !!row.courseId && (await canWriteCourse(db, auth.user, row.courseId));
-  if (!isOwner && !isCourseStaff) {
-    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this file');
-  }
-
-  // Confirm the object exists in R2 (HEAD via Worker binding when available;
-  // otherwise trust the presigned PUT succeeded and just flip the flag).
-  let etag: string | null = null;
-  let confirmedSize: number | null = null;
-  let confirmedType: string | null = null;
-  if (c.env.COURSE_FILES) {
-    const head = await c.env.COURSE_FILES.head(row.objectKey);
-    if (!head) {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Object not present in R2 — upload first');
-    }
-    etag = head.etag ?? null;
-    confirmedSize = head.size ?? null;
-    confirmedType = head.httpMetadata?.contentType ?? null;
-    if (confirmedSize !== null && row.sizeBytes !== null && confirmedSize !== row.sizeBytes) {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Uploaded size does not match the declared size');
-    }
-    if (confirmedType && row.contentType && confirmedType !== row.contentType) {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Uploaded content-type does not match the declared mime type');
-    }
-  }
-
-  const [updated] = await db
-    .update(fileAssets)
-    .set({
-      status: 'ready',
-      etag,
-      sizeBytes: confirmedSize ?? row.sizeBytes,
-      contentType: confirmedType ?? row.contentType,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(fileAssets.id, input.fileAssetId))
-    .returning();
-  if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'File asset not found');
-
-  await recordAudit(db, {
-    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
-    actorUserId: auth.user.id,
-    actorTokenId: auth.tokenId ?? null,
-    action: 'file.complete-upload',
-    target: input.fileAssetId,
-  });
-
-  return success(c, {
-    id: updated.id,
-    status: updated.status,
-    sizeBytes: updated.sizeBytes,
-    contentType: updated.contentType,
-  });
 });
 
 r.get('/files/:fileId/download-url', async (c) => {

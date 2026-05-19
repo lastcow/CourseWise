@@ -212,12 +212,13 @@ export interface FileAssetSummary {
   updatedAt: string;
 }
 
-export interface UploadUrlResponse {
-  uploadUrl: string;
+export interface UploadFileResponse {
   fileAssetId: string;
   r2Key: string;
-  expiresAt: string;
-  headers: Record<string, string>;
+  sizeBytes: number;
+  contentType: string;
+  originalFilename: string;
+  status: FileAssetStatus;
 }
 
 export interface DownloadUrlResponse {

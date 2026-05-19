@@ -95,11 +95,10 @@ import type {
   UpdateQuizQuestionInput,
   UpdateSlideInput,
   UpdateSubmissionInput,
-  UploadUrlRequest,
-  UploadUrlResponse,
+  UploadFileResponse,
   ValidateInvitationCodeResponse,
 } from '@coursewise/shared';
-import { apiCall } from './api';
+import { apiCall, getStoredAuth } from './api';
 
 export function useCoursesList() {
   return useQuery({
@@ -396,53 +395,51 @@ export function registerTeacher(input: RegisterTeacherInput) {
 }
 
 // Files
-export function requestUploadUrl(input: UploadUrlRequest) {
-  return apiCall<UploadUrlResponse>('/api/files/upload-url', { body: input });
-}
-
-export function completeUpload(fileAssetId: string) {
-  return apiCall<{ id: string; status: string }>('/api/files/complete-upload', {
-    body: { fileAssetId },
-  });
-}
-
 export function getDownloadUrl(fileId: string) {
   return apiCall<{ downloadUrl: string; fileName: string | null }>(
     `/api/files/${fileId}/download-url`,
   );
 }
 
-export async function uploadFile(
+const API_BASE: string =
+  (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL ?? '';
+
+export function uploadFile(
   file: File,
   courseId: string,
   relatedType: 'material' | 'assignment' | 'submission' = 'material',
   onProgress?: (pct: number) => void,
-) {
-  const presign = await requestUploadUrl({
-    courseId,
-    fileName: file.name,
-    mimeType: file.type as UploadUrlRequest['mimeType'],
-    fileSize: file.size,
-    relatedType,
-  });
+): Promise<UploadFileResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('courseId', courseId);
+  form.append('relatedType', relatedType);
+  const accessToken = getStoredAuth()?.accessToken;
 
-  await new Promise<void>((resolve, reject) => {
+  return new Promise<UploadFileResponse>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', presign.uploadUrl);
-    Object.entries(presign.headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.open('POST', `${API_BASE}/api/files/upload`);
+    if (accessToken) xhr.setRequestHeader('authorization', `Bearer ${accessToken}`);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
     };
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`Upload failed with status ${xhr.status}`));
+      let body: { success?: boolean; data?: UploadFileResponse; error?: { message?: string } };
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {
+        reject(new Error(`Upload failed (${xhr.status}): non-JSON response`));
+        return;
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && body.success && body.data) {
+        resolve(body.data);
+      } else {
+        reject(new Error(body.error?.message ?? `Upload failed (${xhr.status})`));
+      }
     };
-    xhr.onerror = () => reject(new Error('Upload failed'));
-    xhr.send(file);
+    xhr.onerror = () => reject(new Error('Upload failed (network error)'));
+    xhr.send(form);
   });
-
-  await completeUpload(presign.fileAssetId);
-  return { fileAssetId: presign.fileAssetId, r2Key: presign.r2Key };
 }
 
 // =================== Presentations ===================
