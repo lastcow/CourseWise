@@ -14,7 +14,6 @@ import {
   aiGenerationJobs,
   aiModels,
   aiProviders,
-  courses,
   modules,
   readingMaterials,
 } from '../db/schema';

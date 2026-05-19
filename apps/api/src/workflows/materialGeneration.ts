@@ -55,7 +55,10 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
   AppBindings,
   MaterialGenerationParams
 > {
-  async run(event: WorkflowEvent<MaterialGenerationParams>, step: WorkflowStep): Promise<void> {
+  override async run(
+    event: WorkflowEvent<MaterialGenerationParams>,
+    step: WorkflowStep,
+  ): Promise<void> {
     const { jobId } = event.payload;
     const env = this.env;
 
@@ -84,7 +87,7 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
         // Per-step config: retry transient errors a couple of times but don't
         // pound the upstream if it's a hard 4xx.
         { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
-        () => this.generateMaterialForModule(env, jobId, moduleId, context),
+        () => this.generateMaterialForModule(env, moduleId, context),
       );
       if (stepResult.ok) {
         succeeded++;
@@ -213,7 +216,6 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
 
   private async generateMaterialForModule(
     env: AppBindings,
-    jobId: string,
     moduleId: string,
     context: JobContext,
   ): Promise<{ ok: true; usage: AnthropicUsage } | { ok: false; usage: AnthropicUsage }> {
