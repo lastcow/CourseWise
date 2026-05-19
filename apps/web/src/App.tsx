@@ -11,6 +11,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { TeacherAcceptInvitePage } from '@/pages/TeacherAcceptInvitePage';
 import { SettingsApiTokensPage } from '@/pages/SettingsApiTokensPage';
+import { AdminAiPage } from '@/pages/admin/AdminAiPage';
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
 import { AdminInvitationCodesPage } from '@/pages/admin/AdminInvitationCodesPage';
 import { AdminTeachersPage } from '@/pages/admin/AdminTeachersPage';
@@ -125,6 +126,14 @@ export default function App(): JSX.Element {
                 element={
                   <RequireRole roles={['admin']}>
                     <AdminTeachersPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/ai"
+                element={
+                  <RequireRole roles={['admin']}>
+                    <AdminAiPage />
                   </RequireRole>
                 }
               />

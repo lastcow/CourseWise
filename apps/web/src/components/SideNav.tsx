@@ -20,6 +20,7 @@ import {
   Presentation,
   Settings,
   Sliders,
+  Sparkles,
   Ticket,
   UserCheck,
   UserPlus,
@@ -71,6 +72,11 @@ const ADMIN_GROUPS: NavGroup[] = [
     id: 'users',
     titleKey: 'nav.users',
     items: [{ to: '/admin/teachers', labelKey: 'nav.inviteTeacher', icon: UserPlus }],
+  },
+  {
+    id: 'ai',
+    titleKey: 'nav.aiSection',
+    items: [{ to: '/admin/ai', labelKey: 'nav.aiProviders', icon: Sparkles }],
   },
   SETTINGS_GROUP,
 ];

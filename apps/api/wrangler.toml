@@ -20,6 +20,11 @@ R2_BUCKET = "coursewise-files"
 #   R2_SECRET_ACCESS_KEY — R2 S3 token secret (for presigned uploads)
 # Optional:
 #   R2_PUBLIC_ENDPOINT   — public CDN host for the R2 bucket (presign falls back to bucket URL when unset)
+# AI content generation (Phase 2+; admin UI can be wired up before these exist):
+#   AI_GATEWAY_ACCOUNT_ID — Cloudflare account id that owns the AI Gateway
+#   AI_GATEWAY_ID         — AI Gateway slug (created in dashboard)
+#   ANTHROPIC_API_KEY     — Anthropic API key (referenced by ai_providers.api_key_secret_ref)
+#   OPENAI_API_KEY        — OpenAI API key (referenced by ai_providers.api_key_secret_ref)
 
 [observability]
 enabled = true

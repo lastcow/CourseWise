@@ -86,6 +86,28 @@ export const alertTypeEnum = pgEnum('alert_type', [
 ]);
 export const alertSeverityEnum = pgEnum('alert_severity', ['info', 'warning', 'critical']);
 export const alertStatusEnum = pgEnum('alert_status', ['open', 'resolved', 'dismissed']);
+export const aiProviderKindEnum = pgEnum('ai_provider_kind', ['anthropic', 'openai']);
+export const aiJobStatusEnum = pgEnum('ai_job_status', [
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+  'partial',
+  'canceled',
+]);
+export const aiArtifactKindEnum = pgEnum('ai_artifact_kind', [
+  'material',
+  'presentation',
+  'assignment',
+  'project',
+  'quiz',
+]);
+export const aiArtifactStatusEnum = pgEnum('ai_artifact_status', [
+  'pending',
+  'running',
+  'succeeded',
+  'failed',
+]);
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -813,9 +835,101 @@ export const teacherInvitations = pgTable(
   }),
 );
 
+export const aiProviders = pgTable(
+  'ai_providers',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    kind: aiProviderKindEnum('kind').notNull(),
+    displayName: text('display_name').notNull(),
+    // Name of the Worker secret that holds the API key for this provider
+    // (e.g. 'ANTHROPIC_API_KEY'). The secret value itself never lives in the DB.
+    apiKeySecretRef: text('api_key_secret_ref').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    ...timestamps,
+  },
+  (t) => ({
+    kindUnique: uniqueIndex('ai_providers_kind_unique').on(t.kind),
+  }),
+);
+
+export const aiModels = pgTable(
+  'ai_models',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    providerId: uuid('provider_id')
+      .notNull()
+      .references(() => aiProviders.id, { onDelete: 'cascade' }),
+    modelId: text('model_id').notNull(),
+    displayName: text('display_name').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    costInPer1m: numeric('cost_in_per_1m', { precision: 12, scale: 4 }),
+    costOutPer1m: numeric('cost_out_per_1m', { precision: 12, scale: 4 }),
+    capabilities: jsonb('capabilities').$type<Record<string, unknown>>(),
+    ...timestamps,
+  },
+  (t) => ({
+    providerModelUnique: uniqueIndex('ai_models_provider_model_unique').on(t.providerId, t.modelId),
+  }),
+);
+
+export const aiGenerationJobs = pgTable(
+  'ai_generation_jobs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    modelId: uuid('model_id')
+      .notNull()
+      .references(() => aiModels.id, { onDelete: 'restrict' }),
+    status: aiJobStatusEnum('status').notNull().default('queued'),
+    request: jsonb('request').$type<Record<string, unknown>>().notNull(),
+    result: jsonb('result').$type<Record<string, unknown>>(),
+    promptTokens: integer('prompt_tokens'),
+    completionTokens: integer('completion_tokens'),
+    costCents: integer('cost_cents'),
+    error: text('error'),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'string' }),
+    finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    courseIdx: index('ai_generation_jobs_course_idx').on(t.courseId),
+    statusIdx: index('ai_generation_jobs_status_idx').on(t.status),
+  }),
+);
+
+export const aiGenerationArtifacts = pgTable(
+  'ai_generation_artifacts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => aiGenerationJobs.id, { onDelete: 'cascade' }),
+    kind: aiArtifactKindEnum('kind').notNull(),
+    // Populated when the artifact row has been created in its target table
+    // (materials/assignments/etc.). Polymorphic, not enforced as a real FK.
+    artifactId: uuid('artifact_id'),
+    moduleId: uuid('module_id'),
+    status: aiArtifactStatusEnum('status').notNull().default('pending'),
+    error: text('error'),
+    ...timestamps,
+  },
+  (t) => ({
+    jobIdx: index('ai_generation_artifacts_job_idx').on(t.jobId),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type ApiTokenRow = typeof apiTokens.$inferSelect;
 export type RefreshTokenRow = typeof refreshTokens.$inferSelect;
 export type TeacherInvitationRow = typeof teacherInvitations.$inferSelect;
 export type Course = typeof courses.$inferSelect;
+export type AiProviderRow = typeof aiProviders.$inferSelect;
+export type AiModelRow = typeof aiModels.$inferSelect;
+export type AiGenerationJobRow = typeof aiGenerationJobs.$inferSelect;
+export type AiGenerationArtifactRow = typeof aiGenerationArtifacts.$inferSelect;

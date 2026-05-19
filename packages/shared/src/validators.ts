@@ -611,3 +611,97 @@ export const listAlertsQuerySchema = z.object({
   severity: z.enum(ALERT_SEVERITIES).optional(),
 });
 export type ListAlertsQuery = z.infer<typeof listAlertsQuerySchema>;
+
+// ---------- AI: providers & models (Phase 1) ----------
+export const AI_PROVIDER_KINDS = ['anthropic', 'openai'] as const;
+export type AiProviderKind = (typeof AI_PROVIDER_KINDS)[number];
+
+export const AI_JOB_STATUSES = [
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+  'partial',
+  'canceled',
+] as const;
+export type AiJobStatus = (typeof AI_JOB_STATUSES)[number];
+
+export const AI_ARTIFACT_KINDS = [
+  'material',
+  'presentation',
+  'assignment',
+  'project',
+  'quiz',
+] as const;
+export type AiArtifactKind = (typeof AI_ARTIFACT_KINDS)[number];
+
+export const createAiProviderSchema = z.object({
+  kind: z.enum(AI_PROVIDER_KINDS),
+  displayName: z.string().trim().min(1).max(120),
+  apiKeySecretRef: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(/^[A-Z][A-Z0-9_]*$/, 'Use UPPER_SNAKE_CASE matching the Worker secret name'),
+  enabled: z.boolean().optional(),
+});
+export type CreateAiProviderInput = z.infer<typeof createAiProviderSchema>;
+
+export const updateAiProviderSchema = z.object({
+  displayName: z.string().trim().min(1).max(120).optional(),
+  apiKeySecretRef: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(/^[A-Z][A-Z0-9_]*$/)
+    .optional(),
+  enabled: z.boolean().optional(),
+});
+export type UpdateAiProviderInput = z.infer<typeof updateAiProviderSchema>;
+
+export const createAiModelSchema = z.object({
+  providerId: z.string().uuid(),
+  modelId: z.string().trim().min(1).max(120),
+  displayName: z.string().trim().min(1).max(120),
+  enabled: z.boolean().optional(),
+  costInPer1m: z.number().nonnegative().optional().nullable(),
+  costOutPer1m: z.number().nonnegative().optional().nullable(),
+});
+export type CreateAiModelInput = z.infer<typeof createAiModelSchema>;
+
+export const updateAiModelSchema = z.object({
+  displayName: z.string().trim().min(1).max(120).optional(),
+  enabled: z.boolean().optional(),
+  costInPer1m: z.number().nonnegative().optional().nullable(),
+  costOutPer1m: z.number().nonnegative().optional().nullable(),
+});
+export type UpdateAiModelInput = z.infer<typeof updateAiModelSchema>;
+
+export interface AiProviderSummary {
+  id: string;
+  kind: AiProviderKind;
+  displayName: string;
+  apiKeySecretRef: string;
+  enabled: boolean;
+  // True if the Worker has a secret bound for this provider's secret ref.
+  // Admin UI uses this to flag misconfigured providers without exposing keys.
+  secretConfigured: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiModelSummary {
+  id: string;
+  providerId: string;
+  providerKind: AiProviderKind;
+  modelId: string;
+  displayName: string;
+  enabled: boolean;
+  costInPer1m: number | null;
+  costOutPer1m: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
