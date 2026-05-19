@@ -210,44 +210,26 @@ describe.skipIf(!hasDb)('M2 — course core (integration)', () => {
     await call(`/api/courses/${courseId}`, { method: 'DELETE' }, teacherToken);
   });
 
-  it('upload-url signs a presigned URL and rejects unsupported mime types', async () => {
+  it('upload rejects unsupported mime types before touching R2', async () => {
     const teacherToken = await login('teacher@example.com', 'Teacher123!');
     const coursesRes = await call<Array<{ id: string; code: string }>>(`/api/courses`, {}, teacherToken);
     const courseId = (coursesRes.body.data ?? []).find((c) => c.code === 'MGMT101')?.id;
     expect(courseId).toBeTruthy();
 
-    const good = await call<{ uploadUrl: string; fileAssetId: string; r2Key: string }>(
-      `/api/files/upload-url`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          courseId,
-          fileName: 'syllabus.pdf',
-          mimeType: 'application/pdf',
-          fileSize: 1024,
-          relatedType: 'material',
-        }),
-      },
-      teacherToken,
+    // The R2 binding isn't bound in the integration test env, so we can't
+    // assert a successful upload here — that's covered by the manual
+    // production smoke test. We *can* assert the validation gates that fire
+    // before any R2 work: bad mime → 400.
+    const badMime = new FormData();
+    badMime.append('file', new Blob(['MZ\x90\0'], { type: 'application/x-msdownload' }), 'evil.exe');
+    badMime.append('courseId', String(courseId));
+    badMime.append('relatedType', 'material');
+    const res = await app.request(
+      '/api/files/upload',
+      { method: 'POST', headers: { authorization: `Bearer ${teacherToken}` }, body: badMime },
+      env,
     );
-    expect(good.status).toBe(201);
-    expect(good.body.data?.uploadUrl).toMatch(/X-Amz-Signature=/);
-    expect(good.body.data?.r2Key.startsWith(`courses/${courseId}/`)).toBe(true);
-
-    const badMime = await call(
-      `/api/files/upload-url`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          courseId,
-          fileName: 'evil.exe',
-          mimeType: 'application/x-msdownload',
-          fileSize: 1024,
-        }),
-      },
-      teacherToken,
-    );
-    expect(badMime.status).toBe(400);
+    expect(res.status).toBe(400);
   });
 });
 

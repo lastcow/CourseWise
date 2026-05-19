@@ -3,14 +3,11 @@ import {
   ALERT_SEVERITIES,
   ALERT_STATUSES,
   ALERT_TYPES,
-  ALLOWED_UPLOAD_MIME_TYPES,
   API_TOKEN_SCOPES,
   ATTENDANCE_STATUSES,
   COURSE_STATUSES,
-  FILE_RELATED_TYPES,
   MATERIAL_SOURCE_TYPES,
   MATERIAL_STATUSES,
-  MAX_UPLOAD_BYTES,
   QUIZ_QUESTION_TYPES,
   SUPPORTED_LOCALES,
 } from './constants';
@@ -262,24 +259,14 @@ export const updateMaterialSchema = z
   });
 export type UpdateMaterialInput = z.infer<typeof updateMaterialSchema>;
 
-export const uploadUrlRequestSchema = z.object({
-  courseId: z.string().uuid(),
-  fileName: z
-    .string()
-    .trim()
-    .min(1)
-    .max(255)
-    .regex(/^[^/\\?<>:"|*]+$/, 'Invalid file name'),
-  mimeType: z.enum(ALLOWED_UPLOAD_MIME_TYPES),
-  fileSize: z.number().int().positive().max(MAX_UPLOAD_BYTES),
-  relatedType: z.enum(FILE_RELATED_TYPES).default('material'),
-});
-export type UploadUrlRequest = z.infer<typeof uploadUrlRequestSchema>;
-
-export const completeUploadSchema = z.object({
-  fileAssetId: z.string().uuid(),
-});
-export type CompleteUploadInput = z.infer<typeof completeUploadSchema>;
+// File uploads use POST /api/files/upload with multipart/form-data:
+//   file:        binary
+//   courseId:    uuid
+//   relatedType: 'material' | 'assignment' | 'submission' (optional, default 'material')
+// The Worker validates the file's name/type/size against the allowlists and
+// streams it to R2 via the COURSE_FILES binding in a single request. There is
+// no JSON schema for the request body — the validation lives inline in the
+// route handler because zod doesn't model multipart shapes well.
 
 // ---------- M3: Presentations ----------
 export const createPresentationSchema = z.object({

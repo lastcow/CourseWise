@@ -371,12 +371,13 @@ export const ROUTES: readonly RouteSpec[] = [
   }),
 
   // ---------- Files (R2) ----------
-  r('post', '/api/files/upload-url', 'Request a presigned PUT URL for R2', 'files', {
-    scopeGroup: 'materialsWrite',
-  }),
-  r('post', '/api/files/complete-upload', 'Finalize an R2 upload (marks file ready)', 'files', {
-    scopeGroup: 'materialsWrite',
-  }),
+  r(
+    'post',
+    '/api/files/upload',
+    'Upload a file directly (multipart/form-data) — the Worker streams it to R2 and registers the asset in a single call',
+    'files',
+    { scopeGroup: 'materialsWrite' },
+  ),
   r('get', '/api/files/{fileId}/download-url', 'Get a 5-min presigned download URL', 'files', {
     scopeGroup: 'materialsRead',
     pathParams: idParams('fileId'),
@@ -867,7 +868,7 @@ const TAG_DESCRIPTIONS: Record<string, string> = {
   courses: 'Courses, teachers, enrollments.',
   modules: 'Modules within a course (ordered).',
   materials: 'Reading materials (upload, link, manual text).',
-  files: 'R2-backed file assets. Presigned upload + download.',
+  files: 'R2-backed file assets. Direct multipart upload, presigned download.',
   presentations: 'In-app presentations and their slides.',
   assignments: 'Assignments and submissions, including grading.',
   discussions: 'Discussion topics, threaded posts, per-student grades.',

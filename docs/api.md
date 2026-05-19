@@ -162,10 +162,60 @@ JWT, role `teacher`.
 
 | Method | Path                                | Scope            | Description                          |
 | ------ | ----------------------------------- | ---------------- | ------------------------------------ |
-| POST   | `/api/files/upload-url`             | `materialsWrite` | Presigned PUT URL                    |
-| POST   | `/api/files/complete-upload`        | `materialsWrite` | Mark upload complete (`ready`)       |
+| POST   | `/api/files/upload`                 | `materialsWrite` | Direct multipart upload (single call) |
 | GET    | `/api/files/{fileId}/download-url`  | `materialsRead`  | Presigned GET URL (5 min)            |
 | DELETE | `/api/files/{fileId}`               | `materialsWrite` | Delete file asset                    |
+
+### `POST /api/files/upload`
+
+Uploads a single file in one call. The Worker streams the body straight to R2
+via the bound bucket (no S3-API credentials involved), inserts a `file_assets`
+row in `ready` status, and returns the asset id.
+
+Request — `multipart/form-data`:
+
+| Field         | Required | Description                                                        |
+| ------------- | -------- | ------------------------------------------------------------------ |
+| `file`        | yes      | The binary file. `name` and `type` are read from the form part.   |
+| `courseId`    | yes      | UUID of the course the file attaches to.                           |
+| `relatedType` | no       | `material` (default) · `assignment` · `submission`.                |
+
+Validation (returns 400 on failure):
+
+- File name ≤ 255 chars, no `/ \ ? < > : " | *`
+- `Content-Type` of the file part must be in the upload allowlist
+  (see `ALLOWED_UPLOAD_MIME_TYPES` in `packages/shared/src/constants.ts`)
+- File size > 0 and ≤ `MAX_UPLOAD_BYTES` (50 MiB)
+- `courseId` must be a UUID
+
+Authorization: teachers/admins can upload `material`/`assignment` parts to
+courses they can write; enrolled students may upload `submission` parts.
+
+Response — `201 Created`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "fileAssetId": "uuid",
+    "r2Key": "courses/<courseId>/<uuid>/<filename>",
+    "sizeBytes": 12345,
+    "contentType": "application/pdf",
+    "originalFilename": "syllabus.pdf",
+    "status": "ready"
+  }
+}
+```
+
+Example with curl:
+
+```sh
+curl -X POST "$API/api/files/upload" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@./syllabus.pdf;type=application/pdf" \
+  -F "courseId=$COURSE_ID" \
+  -F "relatedType=material"
+```
 
 ## Presentations & slides
 
