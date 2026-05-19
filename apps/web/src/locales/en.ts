@@ -832,6 +832,7 @@ export const en = {
         rights: 'All rights reserved.',
       },
       legal: {
+        sidebarLabel: 'Legal pages',
         privacy: 'Privacy Policy',
         terms: 'Terms of Service',
         ferpa: 'FERPA Statement',

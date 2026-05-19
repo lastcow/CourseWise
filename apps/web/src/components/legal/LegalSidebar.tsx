@@ -26,6 +26,7 @@ export function LegalSidebar(): JSX.Element {
       <select
         value={pathname}
         onChange={(e) => navigate(e.target.value)}
+        aria-label={t('public.legal.sidebarLabel')}
         className="mb-6 flex h-10 w-full rounded-md border bg-background px-3 text-sm md:hidden"
       >
         {LEGAL_PAGES.map((p) => (

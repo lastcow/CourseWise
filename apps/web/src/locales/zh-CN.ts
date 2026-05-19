@@ -825,6 +825,7 @@ export const zhCN = {
         rights: '保留所有权利。',
       },
       legal: {
+        sidebarLabel: '法律页面',
         privacy: '隐私政策',
         terms: '服务条款',
         ferpa: 'FERPA 声明',
