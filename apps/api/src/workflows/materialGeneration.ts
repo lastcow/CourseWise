@@ -5,6 +5,7 @@ import {
   aiGenerationArtifacts,
   aiGenerationJobs,
   aiModels,
+  aiPromptTemplates,
   aiProviders,
   courses,
   modules,
@@ -17,6 +18,7 @@ import {
   type AnthropicUsage,
 } from '../services/ai/gateway';
 import { recordEvent } from '../services/ai/events';
+import { interpolate } from '../services/ai/interpolate';
 import type { AppBindings } from '../types';
 
 export interface MaterialGenerationParams {
@@ -37,20 +39,21 @@ interface JobContext {
   instructions: string | null;
   moduleIds: string[];
   artifactIdByModuleId: Record<string, string>;
-  systemCacheable: string;
+  courseTitle: string;
+  courseCode: string;
+  courseTermLabel: string | null;
+  courseDescription: string | null;
+  moduleSummary: string;
+  template: {
+    systemPrompt: string;
+    userMessage: string;
+    depthConfig: {
+      brief: { wordTarget: string; maxTokens: number };
+      standard: { wordTarget: string; maxTokens: number };
+      detailed: { wordTarget: string; maxTokens: number };
+    };
+  };
 }
-
-const MAX_TOKENS_PER_DEPTH: Record<JobContext['depth'], number> = {
-  brief: 1200,
-  standard: 2400,
-  detailed: 4500,
-};
-
-const WORD_TARGETS: Record<JobContext['depth'], string> = {
-  brief: '~500 words',
-  standard: '~1000 words',
-  detailed: '~1800 words',
-};
 
 export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
   AppBindings,
@@ -76,8 +79,8 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
         jobId,
         null,
         'context.loaded',
-        `Loaded course context (${context.systemCacheable.length} chars cacheable, ${context.moduleIds.length} module${context.moduleIds.length === 1 ? '' : 's'})`,
-        { cacheableChars: context.systemCacheable.length, moduleCount: context.moduleIds.length },
+        `Loaded course context (${context.template.systemPrompt.length} chars in template, ${context.moduleIds.length} module${context.moduleIds.length === 1 ? '' : 's'})`,
+        { templateChars: context.template.systemPrompt.length, moduleCount: context.moduleIds.length },
       );
     });
 
@@ -199,18 +202,15 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
       .map((m, idx) => `${idx + 1}. ${m.title}${m.description ? ` — ${m.description}` : ''}`)
       .join('\n');
 
-    const systemCacheable = buildSystemPrompt({
-      course: {
-        title: course.title,
-        code: course.code,
-        termLabel: course.termLabel,
-        description: course.description,
-      },
-      moduleSummary,
-      language,
-      depth,
-      instructions,
-    });
+    const templateRows = await db
+      .select()
+      .from(aiPromptTemplates)
+      .where(eq(aiPromptTemplates.kind, 'material'))
+      .limit(1);
+    const templateRow = templateRows[0];
+    if (!templateRow) {
+      throw new Error('Prompt template for kind "material" is missing — run the 0009 migration.');
+    }
 
     return {
       courseId: course.id,
@@ -226,7 +226,16 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
       instructions,
       moduleIds,
       artifactIdByModuleId: artifactByModule,
-      systemCacheable,
+      courseTitle: course.title,
+      courseCode: course.code,
+      courseTermLabel: course.termLabel,
+      courseDescription: course.description,
+      moduleSummary,
+      template: {
+        systemPrompt: templateRow.systemPrompt,
+        userMessage: templateRow.userMessage,
+        depthConfig: templateRow.depthConfig,
+      },
     };
   }
 
@@ -272,9 +281,30 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
       return { ok: false, usage: emptyUsage() };
     }
 
-    const userMessage =
-      `Write a reading material for the module titled "${mod.title}".` +
-      (mod.description ? ` Module description: ${mod.description}` : '');
+    const langLine =
+      context.language === 'zh-CN' ? 'Write in Simplified Chinese.' : 'Write in English.';
+    const depthEntry = context.template.depthConfig[context.depth];
+    const systemPrompt = interpolate(context.template.systemPrompt, {
+      'course.title': context.courseTitle,
+      'course.code': context.courseCode,
+      'course.termLabel': context.courseTermLabel
+        ? `Term: ${context.courseTermLabel}`
+        : '',
+      'course.description': context.courseDescription
+        ? `Description: ${context.courseDescription}`
+        : '',
+      moduleSummary: context.moduleSummary || '(none)',
+      language: langLine,
+      wordTarget: depthEntry.wordTarget,
+      teacherInstructions: context.instructions
+        ? `Additional instructions from the teacher: ${context.instructions}`
+        : '',
+    });
+
+    const userMessage = interpolate(context.template.userMessage, {
+      'module.title': mod.title,
+      'module.description': mod.description ? ` Module description: ${mod.description}` : '',
+    });
 
     await recordEvent(
       db,
@@ -295,9 +325,9 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
           apiKeySecretRef: context.providerApiKeySecretRef,
         },
         model: context.modelId,
-        system: { cacheable: context.systemCacheable },
+        system: { cacheable: systemPrompt },
         userMessage,
-        maxTokens: MAX_TOKENS_PER_DEPTH[context.depth],
+        maxTokens: depthEntry.maxTokens,
         timeoutMs: 90_000,
       });
       usage = res.usage;
@@ -382,42 +412,3 @@ function emptyUsage(): AnthropicUsage {
   };
 }
 
-function buildSystemPrompt(args: {
-  course: {
-    title: string;
-    code: string;
-    termLabel: string | null;
-    description: string | null;
-  };
-  moduleSummary: string;
-  language: 'en' | 'zh-CN';
-  depth: 'brief' | 'standard' | 'detailed';
-  instructions: string | null;
-}): string {
-  const langLine =
-    args.language === 'zh-CN' ? 'Write in Simplified Chinese.' : 'Write in English.';
-  return [
-    'You are a curriculum-design assistant for a teaching platform.',
-    'You write reading materials that are clear, structured, and pedagogically sound.',
-    '',
-    `Course: ${args.course.title} (${args.course.code})`,
-    args.course.termLabel ? `Term: ${args.course.termLabel}` : null,
-    args.course.description ? `Description: ${args.course.description}` : null,
-    '',
-    'Course modules:',
-    args.moduleSummary || '(none)',
-    '',
-    'When asked to write a reading material for a specific module, follow these rules:',
-    '- Output valid Markdown only — no preamble, no commentary, no code fences around the whole thing.',
-    '- Begin with a single H2 heading derived from the module title.',
-    '- Include a 1–2 paragraph overview, 3–6 main sections each under an H3 heading, and a short summary at the end.',
-    '- Use concrete examples where they aid understanding.',
-    `- Target length: ${WORD_TARGETS[args.depth]}.`,
-    `- ${langLine}`,
-    '- Do not duplicate content that obviously belongs to other modules in this course.',
-    args.instructions ? '' : null,
-    args.instructions ? `Additional instructions from the teacher: ${args.instructions}` : null,
-  ]
-    .filter((line) => line !== null)
-    .join('\n');
-}

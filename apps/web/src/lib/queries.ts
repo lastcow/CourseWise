@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminDashboardResponse,
+  AiArtifactKind,
   AiModelSummary,
+  AiPromptTemplate,
   AiProviderSummary,
   AlertStatus,
   AlertSummary,
@@ -84,6 +86,7 @@ import type {
   UpdateDiscussionTopicInput,
   UpdateGradingPolicyInput,
   UpdateAiModelInput,
+  UpdateAiPromptTemplateInput,
   UpdateAiProviderInput,
   UpdateMaterialInput,
   UpdateModuleInput,
@@ -1371,6 +1374,43 @@ export function useDeleteAiModel() {
     mutationFn: (id: string) =>
       apiCall<{ id: string }>(`/api/admin/ai/models/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ai', 'models'] }),
+  });
+}
+
+export function useAiPromptTemplates() {
+  return useQuery({
+    queryKey: ['ai', 'prompts'],
+    queryFn: async () => {
+      const res = await apiCall<{ templates: AiPromptTemplate[] }>('/api/admin/ai/prompts');
+      return res.templates;
+    },
+  });
+}
+
+export function useUpdateAiPromptTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ kind, input }: { kind: AiArtifactKind; input: UpdateAiPromptTemplateInput }) =>
+      apiCall<AiPromptTemplate>(`/api/admin/ai/prompts/${kind}`, {
+        method: 'PUT',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['ai', 'prompts'] });
+    },
+  });
+}
+
+export function useResetAiPromptTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (kind: AiArtifactKind) =>
+      apiCall<AiPromptTemplate>(`/api/admin/ai/prompts/${kind}/reset`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['ai', 'prompts'] });
+    },
   });
 }
 

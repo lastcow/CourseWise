@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import type { AiPromptDepthConfig } from '@coursewise/shared';
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'teacher', 'student']);
 export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'suspended']);
@@ -948,6 +949,24 @@ export const aiGenerationEvents = pgTable(
 );
 
 export type AiGenerationEventRow = typeof aiGenerationEvents.$inferSelect;
+
+export const aiPromptTemplates = pgTable(
+  'ai_prompt_templates',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    kind: aiArtifactKindEnum('kind').notNull(),
+    systemPrompt: text('system_prompt').notNull(),
+    userMessage: text('user_message').notNull(),
+    depthConfig: jsonb('depth_config').$type<AiPromptDepthConfig>().notNull(),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (t) => ({
+    kindIdx: uniqueIndex('ai_prompt_templates_kind_idx').on(t.kind),
+  }),
+);
+
+export type AiPromptTemplateRow = typeof aiPromptTemplates.$inferSelect;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
