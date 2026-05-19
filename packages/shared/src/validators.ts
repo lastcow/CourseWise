@@ -6,6 +6,11 @@ import {
   API_TOKEN_SCOPES,
   ATTENDANCE_STATUSES,
   COURSE_STATUSES,
+  GAMMA_EXPORT_FORMATS,
+  GAMMA_IMAGE_SOURCES,
+  GAMMA_MAX_IMAGE_STYLE_CHARS,
+  GAMMA_MAX_INSTRUCTIONS_CHARS,
+  GAMMA_TEXT_AMOUNTS,
   MATERIAL_SOURCE_TYPES,
   MATERIAL_STATUSES,
   QUIZ_QUESTION_TYPES,
@@ -811,4 +816,22 @@ export const contactMessageSchema = z.object({
   message: z.string().trim().min(10).max(4000),
 });
 export type ContactMessageInput = z.infer<typeof contactMessageSchema>;
+
+export const generateGammaPresentationSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  moduleId: z.string().uuid().optional().nullable(),
+  materialIds: z.array(z.string().uuid()).min(1).max(50),
+  additionalInstructions: z
+    .string()
+    .trim()
+    .max(GAMMA_MAX_INSTRUCTIONS_CHARS)
+    .optional()
+    .nullable(),
+  themeId: z.string().trim().max(120).optional().nullable(),
+  imageSource: z.enum(GAMMA_IMAGE_SOURCES).default('aiGenerated'),
+  imageStyle: z.string().trim().max(GAMMA_MAX_IMAGE_STYLE_CHARS).optional().nullable(),
+  amount: z.enum(GAMMA_TEXT_AMOUNTS).default('medium'),
+  exportAs: z.enum(GAMMA_EXPORT_FORMATS).default('pptx'),
+});
+export type GenerateGammaPresentationInput = z.infer<typeof generateGammaPresentationSchema>;
 

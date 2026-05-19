@@ -47,6 +47,9 @@ function toSummary(
     archivedAt: row.archivedAt ?? null,
     position: row.position,
     slideCount,
+    externalUrl: row.externalUrl ?? null,
+    provider: row.provider ?? null,
+    fileAssetId: row.fileAssetId ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

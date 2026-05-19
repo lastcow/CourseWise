@@ -475,3 +475,28 @@ export const API_ROUTES = {
   alerts: '/api/alerts',
   dashboards: '/api/dashboards',
 } as const;
+
+// ---------- Gamma Generate API (gamma.app) ----------
+export const GAMMA_IMAGE_SOURCES = [
+  'aiGenerated',
+  'webFreeToUse',
+  'webFreeToUseCommercially',
+  'pictographic',
+  'themeAccent',
+  'noImages',
+] as const;
+export type GammaImageSource = (typeof GAMMA_IMAGE_SOURCES)[number];
+
+export const GAMMA_TEXT_AMOUNTS = ['brief', 'medium', 'detailed', 'extensive'] as const;
+export type GammaTextAmount = (typeof GAMMA_TEXT_AMOUNTS)[number];
+
+export const GAMMA_JOB_STATUSES = ['pending', 'completed', 'failed'] as const;
+export type GammaJobStatus = (typeof GAMMA_JOB_STATUSES)[number];
+
+export const GAMMA_EXPORT_FORMATS = ['pptx', 'pdf'] as const;
+export type GammaExportFormat = (typeof GAMMA_EXPORT_FORMATS)[number];
+
+// Soft caps; mirror Gamma's hard limits but lower so we keep headroom.
+export const GAMMA_MAX_INPUT_TEXT_CHARS = 380_000; // Gamma's hard cap is 400_000.
+export const GAMMA_MAX_INSTRUCTIONS_CHARS = 5_000;
+export const GAMMA_MAX_IMAGE_STYLE_CHARS = 500;

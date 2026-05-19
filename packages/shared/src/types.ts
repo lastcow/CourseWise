@@ -9,6 +9,7 @@ import type {
   CourseStatus,
   DiscussionTopicStatus,
   FileAssetStatus,
+  GammaJobStatus,
   GradingPolicyCategory,
   InvitationStatus,
   LetterGradeThreshold,
@@ -249,6 +250,9 @@ export interface PresentationSummary {
   archivedAt: string | null;
   position: number;
   slideCount: number;
+  externalUrl: string | null;
+  provider: string | null;
+  fileAssetId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -603,4 +607,32 @@ export interface StudentCourseSnapshot {
 export interface StudentDashboardResponse {
   courses: StudentCourseSnapshot[];
   recentAlerts: AlertSummary[];
+}
+
+export interface GammaTheme {
+  id: string;
+  name: string;
+  previewUrl?: string | null;
+}
+
+export interface GammaGenerationJob {
+  id: string;
+  courseId: string;
+  presentationId: string | null;
+  status: GammaJobStatus;
+  gammaUrl: string | null;
+  exportUrl: string | null;
+  errorMessage: string | null;
+  creditsDeducted: number | null;
+  creditsRemaining: number | null;
+  materialIds: string[];
+  requestParams: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+export interface CreateGammaPresentationResponse {
+  presentationId: string;
+  jobId: string;
 }
