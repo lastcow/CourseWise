@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import type { AiPromptDepthConfig } from '@coursewise/shared';
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'teacher', 'student']);
 export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'suspended']);
@@ -956,13 +957,7 @@ export const aiPromptTemplates = pgTable(
     kind: aiArtifactKindEnum('kind').notNull(),
     systemPrompt: text('system_prompt').notNull(),
     userMessage: text('user_message').notNull(),
-    depthConfig: jsonb('depth_config')
-      .$type<{
-        brief: { wordTarget: string; maxTokens: number };
-        standard: { wordTarget: string; maxTokens: number };
-        detailed: { wordTarget: string; maxTokens: number };
-      }>()
-      .notNull(),
+    depthConfig: jsonb('depth_config').$type<AiPromptDepthConfig>().notNull(),
     updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
     ...timestamps,
   },
