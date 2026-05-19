@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
 import { Container } from '@/components/public/Container';
-import { PageHeader } from '@/components/public/PageHeader';
 import { SectionBand } from '@/components/public/SectionBand';
 import { useAuth } from '@/lib/authContext';
 import { ApiClientError } from '@/lib/api';
@@ -38,12 +37,17 @@ export function RegisterPage(): JSX.Element {
     <SectionBand>
       <Container>
         <div className="mx-auto max-w-md rounded-2xl border bg-white p-8">
-          <PageHeader
-            eyebrow="Get started"
-            title="Create your workspace."
-            subtitle="Free for educators. 60 seconds to your first AI-drafted material."
-            align="center"
-          />
+          <div className="mb-6 text-center">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Get started
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+              Create your workspace.
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Free for educators. 60 seconds to your first AI-drafted material.
+            </p>
+          </div>
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
             <div className="space-y-1">
               <Label htmlFor="name">{t('auth.name')}</Label>

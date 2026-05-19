@@ -5,7 +5,6 @@ import type { TeacherInvitationLookup } from '@coursewise/shared';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
 import { Container } from '@/components/public/Container';
-import { PageHeader } from '@/components/public/PageHeader';
 import { SectionBand } from '@/components/public/SectionBand';
 import { ApiClientError } from '@/lib/api';
 import { lookupTeacherInvitation } from '@/lib/queries';
@@ -67,12 +66,17 @@ export function TeacherAcceptInvitePage(): JSX.Element {
     <SectionBand>
       <Container>
         <div className="mx-auto max-w-md rounded-2xl border bg-white p-8">
-          <PageHeader
-            eyebrow="Teacher invitation"
-            title="Join your school on CourseWise."
-            subtitle="Complete the steps below to claim your teacher account."
-            align="center"
-          />
+          <div className="mb-6 text-center">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Teacher invitation
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+              Join your school on CourseWise.
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Complete the steps below to claim your teacher account.
+            </p>
+          </div>
           {lookup.status === 'loading' ? (
             <p className="mt-8 text-center text-sm text-muted-foreground">{t('common.loading')}</p>
           ) : lookup.status === 'error' ? (
