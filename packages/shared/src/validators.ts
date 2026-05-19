@@ -775,3 +775,43 @@ export interface AiJobDetail extends AiJobSummary {
   events: AiJobEvent[]; // ordered ascending by occurredAt
 }
 
+// ---------- AI: editable prompt templates ----------
+
+export interface AiPromptDepthEntry {
+  wordTarget: string;
+  maxTokens: number;
+}
+
+export interface AiPromptDepthConfig {
+  brief: AiPromptDepthEntry;
+  standard: AiPromptDepthEntry;
+  detailed: AiPromptDepthEntry;
+}
+
+export interface AiPromptTemplate {
+  id: string;
+  kind: AiArtifactKind;
+  systemPrompt: string;
+  userMessage: string;
+  depthConfig: AiPromptDepthConfig;
+  updatedBy: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+const aiPromptDepthEntrySchema = z.object({
+  wordTarget: z.string().trim().min(1).max(120),
+  maxTokens: z.number().int().min(100).max(32000),
+});
+
+export const updateAiPromptTemplateSchema = z.object({
+  systemPrompt: z.string().trim().min(1).max(8000),
+  userMessage: z.string().trim().min(1).max(8000),
+  depthConfig: z.object({
+    brief: aiPromptDepthEntrySchema,
+    standard: aiPromptDepthEntrySchema,
+    detailed: aiPromptDepthEntrySchema,
+  }),
+});
+export type UpdateAiPromptTemplateInput = z.infer<typeof updateAiPromptTemplateSchema>;
+

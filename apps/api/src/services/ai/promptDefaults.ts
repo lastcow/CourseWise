@@ -1,16 +1,5 @@
 // apps/api/src/services/ai/promptDefaults.ts
-type AiArtifactKind = 'material' | 'presentation' | 'assignment' | 'project' | 'quiz';
-
-export interface AiPromptDepthEntry {
-  wordTarget: string;
-  maxTokens: number;
-}
-
-export interface AiPromptDepthConfig {
-  brief: AiPromptDepthEntry;
-  standard: AiPromptDepthEntry;
-  detailed: AiPromptDepthEntry;
-}
+import type { AiArtifactKind, AiPromptDepthConfig } from '@coursewise/shared';
 
 export interface AiPromptTemplateDefaults {
   systemPrompt: string;
