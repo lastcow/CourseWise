@@ -26,7 +26,7 @@ CourseWise's home-grown presentations entity is a container of DB-stored slides 
 - Three new routes:
   - `GET  /api/gamma/themes` — caches Gamma's `GET /themes` in `RATE_LIMIT_KV` for 1 h.
   - `POST /api/courses/{courseId}/presentations/gamma` — scope `presentationsWrite`. Body: `{ title, moduleId?, materialIds: uuid[], additionalInstructions?, themeId?, imageSource?, imageStyle?, amount?, exportAs }`. Creates the placeholder presentation + job, kicks off the Gamma generation, returns both ids.
-  - `GET  /api/gamma-jobs/{jobId}` — scope `presentationsRead`. Calls `pollAndFinalize`, returns the job row.
+  - `GET  /api/gamma-jobs/{jobId}` — scope `presentationsWrite` (same scope as the create route — job lifecycle is staff-only). Calls `pollAndFinalize`, returns the job row.
 
 No Cloudflare Workflows: the polling lifecycle lives entirely on Gamma's side, the Worker just relays status when asked. Browser polls our endpoint every 5 s; we throttle to Gamma so a polling client can't blow our quota.
 
@@ -50,7 +50,7 @@ Materials are joined with `\n\n---\n\n`. We hard-truncate to 380 000 chars to le
 
 ## Failure modes
 
-- **Gamma 401/402/4xx on `POST /generations`** → job lands in `failed` status with `error_message`, no placeholder presentation created (transactional rollback).
+- **Gamma 401/402/4xx on `POST /generations`** → the route call fails fast; the Gamma exception is mapped to an `ApiException` (401/402/403 propagate; everything else becomes a 502 with the upstream body excerpted). No `presentations` or `gamma_generation_jobs` row is written, because the inserts only run inside the transaction *after* `createGeneration` returns. The web client shows the error in a toast and the user can retry without any orphaned state in CourseWise. (Trade-off: there's no persisted audit trail of failed POSTs — if that becomes valuable, switch to "insert pending rows → call Gamma → patch the row on success / flip to failed on error".)
 - **Gamma 5xx on poll** → keep job `pending`, surface the last response so the next poll retries.
 - **R2 binding missing or upload fails when fetching the `.pptx`** → job marks `completed` (Gamma succeeded), but `file_asset_id` stays null. UI shows "Open in Gamma" only.
 - **`exportUrl` expired (> 1 week)** → user can re-trigger a generation; the old presentation row gets a new job.
@@ -61,3 +61,4 @@ Materials are joined with `\n\n---\n\n`. We hard-truncate to 380 000 chars to le
 - Per-teacher Gamma keys / billing isolation.
 - PDF text extraction for uploaded materials.
 - Watching Gamma's webhooks (Gamma doesn't offer one yet — poll-only).
+- A background reconciler. If a teacher starts a generation and then closes their browser, the job stays in `pending` status until someone polls again. Re-opening the presentations page resumes polling automatically. A future cron/sweeper keyed on `gamma_generation_jobs.status_idx` could finalize idle pending jobs without a UI poll; we already have the index for it.
