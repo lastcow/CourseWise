@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { Check } from 'lucide-react';
 import { Container } from '@/components/public/Container';
 import { SectionBand } from '@/components/public/SectionBand';
@@ -9,6 +9,8 @@ import { MockActivityTimeline } from '@/components/public/MockActivityTimeline';
 import { MockPromptEditor } from '@/components/public/MockPromptEditor';
 
 type Role = 'teachers' | 'students' | 'admins';
+
+const ROLE_ORDER: Role[] = ['teachers', 'students', 'admins'];
 
 const TABS: Record<Role, { label: string; title: string; body: string; checklist: string[]; mock: () => JSX.Element }> = {
   teachers: {
@@ -62,6 +64,18 @@ export function FeaturesPage(): JSX.Element {
   const [active, setActive] = useState<Role>('teachers');
   const tab = TABS[active];
   const Mock = tab.mock;
+
+  function onTablistKeyDown(e: KeyboardEvent<HTMLDivElement>): void {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const i = ROLE_ORDER.indexOf(active);
+    const next =
+      e.key === 'ArrowRight'
+        ? ROLE_ORDER[(i + 1) % ROLE_ORDER.length]!
+        : ROLE_ORDER[(i - 1 + ROLE_ORDER.length) % ROLE_ORDER.length]!;
+    setActive(next);
+  }
+
   return (
     <>
       <SectionBand>
@@ -72,12 +86,21 @@ export function FeaturesPage(): JSX.Element {
         />
         <Container className="mt-12">
           <Reveal>
-            <div role="tablist" className="inline-flex rounded-full border bg-white p-1">
-              {(Object.keys(TABS) as Role[]).map((r) => (
+            <div
+              role="tablist"
+              aria-label="Audiences"
+              onKeyDown={onTablistKeyDown}
+              className="inline-flex rounded-full border bg-white p-1"
+            >
+              {ROLE_ORDER.map((r) => (
                 <button
                   key={r}
+                  id={`features-tab-${r}`}
                   role="tab"
+                  type="button"
                   aria-selected={active === r}
+                  aria-controls={`features-panel-${r}`}
+                  tabIndex={active === r ? 0 : -1}
                   onClick={() => setActive(r)}
                   className={
                     'rounded-full px-4 py-1.5 text-sm transition-colors ' +
@@ -92,7 +115,13 @@ export function FeaturesPage(): JSX.Element {
             </div>
           </Reveal>
           <Reveal>
-            <div className="mt-12 grid items-center gap-12 md:grid-cols-2">
+            <div
+              role="tabpanel"
+              id={`features-panel-${active}`}
+              aria-labelledby={`features-tab-${active}`}
+              tabIndex={0}
+              className="mt-12 grid items-center gap-12 md:grid-cols-2 focus:outline-none"
+            >
               <div>
                 <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">{tab.title}</h2>
                 <p className="mt-4 text-base text-muted-foreground md:text-lg">{tab.body}</p>
