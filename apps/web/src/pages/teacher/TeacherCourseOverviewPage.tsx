@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
@@ -11,12 +12,16 @@ import {
   MessageSquare,
   Presentation,
   Sliders,
+  Sparkles,
   UserCheck,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MarkdownView } from '@/components/ui/markdown';
 import { useCourse } from '@/lib/queries';
+import { GenerateMaterialsDialog } from '@/components/ai/GenerateMaterialsDialog';
+import { GenerationHistoryCard } from '@/components/ai/GenerationHistoryCard';
 
 type QuickLink = { to: string; labelKey: string; icon: LucideIcon };
 
@@ -40,6 +45,7 @@ export function TeacherCourseOverviewPage(): JSX.Element {
   const { courseId } = useParams();
   const id = courseId ?? '';
   const course = useCourse(id);
+  const [aiOpen, setAiOpen] = useState(false);
 
   if (course.isLoading) return <p>{t('common.loading')}</p>;
   if (!course.data) return <p>{t('common.error')}</p>;
@@ -62,7 +68,13 @@ export function TeacherCourseOverviewPage(): JSX.Element {
                 {c.termLabel ? ` · ${c.termLabel}` : ''}
               </CardDescription>
             </div>
-            <Badge variant={statusVariant}>{t(statusKey)}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={statusVariant}>{t(statusKey)}</Badge>
+              <Button onClick={() => setAiOpen(true)} className="gap-1.5">
+                <Sparkles className="h-4 w-4" aria-hidden />
+                {t('ai.generate.cta')}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -73,6 +85,8 @@ export function TeacherCourseOverviewPage(): JSX.Element {
           )}
         </CardContent>
       </Card>
+
+      <GenerationHistoryCard courseId={id} />
 
       <Card>
         <CardHeader>
@@ -97,6 +111,13 @@ export function TeacherCourseOverviewPage(): JSX.Element {
           </ul>
         </CardContent>
       </Card>
+
+      <GenerateMaterialsDialog
+        courseId={id}
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        onStarted={() => setAiOpen(false)}
+      />
     </div>
   );
 }

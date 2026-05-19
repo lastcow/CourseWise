@@ -23,8 +23,10 @@ import attendanceRoutes from './routes/attendance';
 import gradingRoutes from './routes/grading';
 import alertsRoutes from './routes/alerts';
 import dashboardsRoutes from './routes/dashboards';
+import courseAiRoutes from './routes/courseAi';
 import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
+export { MaterialGenerationWorkflow } from './workflows/materialGeneration';
 
 export type Env = AppBindings;
 
@@ -85,6 +87,7 @@ app.route('/api', attendanceRoutes);
 app.route('/api', gradingRoutes);
 app.route('/api', alertsRoutes);
 app.route('/api', dashboardsRoutes);
+app.route('/api', courseAiRoutes);
 
 app.notFound((c) =>
   c.json(

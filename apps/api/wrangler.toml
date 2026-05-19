@@ -41,3 +41,11 @@ preview_bucket_name = "coursewise-files"
 binding = "RATE_LIMIT_KV"
 id = "9192503f091047d7ab16adcbe280f3f2"
 preview_id = "f1dab99148d44a3eb565753873d3d36c"
+
+# Cloudflare Workflow that runs AI material generation. The class is exported
+# from src/index.ts as `MaterialGenerationWorkflow`. The Workflow API is
+# available on Workers paid plans.
+[[workflows]]
+binding = "MATERIAL_GEN_WORKFLOW"
+name = "coursewise-material-gen"
+class_name = "MaterialGenerationWorkflow"

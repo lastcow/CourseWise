@@ -705,3 +705,62 @@ export interface AiModelSummary {
   updatedAt: string;
 }
 
+// ---------- AI: course-scoped generation (Phase 2) ----------
+
+export const AI_GENERATION_LANGUAGES = ['en', 'zh-CN'] as const;
+export type AiGenerationLanguage = (typeof AI_GENERATION_LANGUAGES)[number];
+
+export const AI_GENERATION_DEPTHS = ['brief', 'standard', 'detailed'] as const;
+export type AiGenerationDepth = (typeof AI_GENERATION_DEPTHS)[number];
+
+/**
+ * Phase 2 only supports `material`. The full enum is declared in shared so the
+ * UI/types are stable when Phase 3 adds the rest.
+ */
+export const generateMaterialsSchema = z.object({
+  modelId: z.string().uuid(),
+  moduleIds: z.array(z.string().uuid()).min(1).max(50),
+  language: z.enum(AI_GENERATION_LANGUAGES).optional(),
+  depth: z.enum(AI_GENERATION_DEPTHS).optional(),
+  instructions: z.string().trim().max(4000).optional(),
+});
+export type GenerateMaterialsInput = z.infer<typeof generateMaterialsSchema>;
+
+export interface AiModelOption {
+  id: string;
+  providerKind: AiProviderKind;
+  modelId: string;
+  displayName: string;
+  costInPer1m: number | null;
+  costOutPer1m: number | null;
+}
+
+export interface AiJobSummary {
+  id: string;
+  status: AiJobStatus;
+  modelDisplayName: string;
+  artifactCount: number;
+  succeededCount: number;
+  failedCount: number;
+  costCents: number | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+export interface AiJobArtifact {
+  id: string;
+  kind: AiArtifactKind;
+  status: 'pending' | 'running' | 'succeeded' | 'failed';
+  moduleId: string | null;
+  moduleTitle: string | null;
+  artifactId: string | null;
+  artifactTitle: string | null;
+  error: string | null;
+}
+
+export interface AiJobDetail extends AiJobSummary {
+  request: GenerateMaterialsInput;
+  artifacts: AiJobArtifact[];
+}
+
