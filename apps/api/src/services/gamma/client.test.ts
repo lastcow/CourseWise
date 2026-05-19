@@ -129,5 +129,37 @@ describe('GammaClient', () => {
       expect(err).toBeInstanceOf(ApiException);
       expect((err as ApiException).status).toBe(403);
     });
+
+    it('maps a 2xx with a non-JSON body to a 502 ApiException', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response('<!doctype html><html>oops misrouted</html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+        }),
+      );
+      const client = new GammaClient('sk-test');
+      const err = await client.listThemes().catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ApiException);
+      expect((err as ApiException).status).toBe(502);
+      expect((err as ApiException).message).toContain('non-JSON');
+    });
+
+    it('returns {} for a 2xx with empty body', async () => {
+      fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+      const client = new GammaClient('sk-test');
+      const themes = await client.listThemes();
+      expect(themes).toEqual([]);
+    });
+  });
+
+  describe('baseUrl override', () => {
+    it('uses the configured baseUrl', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse(200, []));
+      const client = new GammaClient('sk-test', { baseUrl: 'https://gamma.local/v1.0/' });
+      await client.listThemes();
+      const [url] = fetchMock.mock.calls[0]!;
+      // Trailing slash should be stripped from the option.
+      expect(url).toBe('https://gamma.local/v1.0/themes');
+    });
   });
 });

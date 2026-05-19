@@ -48,16 +48,37 @@ describe('buildInputText', () => {
   });
 
   it('truncates beyond GAMMA_MAX_INPUT_TEXT_CHARS', () => {
+    // A single chunk with NO internal breaks (use a long upload stub) — the
+    // slice can't back off to a boundary, so we get exactly the cap.
     const big = 'x'.repeat(400_000);
     const out = buildInputText([
       {
         id: 'a',
-        title: 't',
-        description: null,
-        sourceType: 'manual_text',
-        content: big,
+        title: 'doc',
+        description: big,
+        sourceType: 'upload',
+        content: null,
       },
     ]);
     expect(out.length).toBe(GAMMA_MAX_INPUT_TEXT_CHARS);
+  });
+
+  it('backs truncation off to the last section boundary when possible', () => {
+    // Two sections joined by `\n\n---\n\n`. The total exceeds the cap, so
+    // truncation must kick in but should never leave us with a partial
+    // separator at the end.
+    const big = 'x'.repeat(GAMMA_MAX_INPUT_TEXT_CHARS - 100);
+    const small = 'y'.repeat(2_000);
+    const out = buildInputText([
+      { id: 'a', title: 'First', description: null, sourceType: 'manual_text', content: big },
+      { id: 'b', title: 'Second', description: null, sourceType: 'manual_text', content: small },
+    ]);
+    expect(out.length).toBeLessThanOrEqual(GAMMA_MAX_INPUT_TEXT_CHARS);
+    // Output must not end with a partial separator.
+    expect(out.endsWith('---')).toBe(false);
+    expect(/\n\n-+$/.test(out)).toBe(false);
+    // Output should still contain the first section's content.
+    expect(out).toContain('First\n\n');
+    expect(out).toContain('x'.repeat(100));
   });
 });

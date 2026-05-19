@@ -300,7 +300,7 @@ describe('pollAndFinalize', () => {
     );
     expect(r2.put).toHaveBeenCalledTimes(1);
     const [key, body, putOpts] = r2.put.mock.calls[0]!;
-    expect(key).toBe('courses/course-1/gamma/job-1/job-1.pptx');
+    expect(key).toBe('courses/course-1/gamma/job-1.pptx');
     expect(body).toBeTruthy();
     expect(putOpts).toMatchObject({
       httpMetadata: {
@@ -315,7 +315,7 @@ describe('pollAndFinalize', () => {
       ownerId: 'user-1',
       courseId: 'course-1',
       bucket: 'coursewise-files',
-      objectKey: 'courses/course-1/gamma/job-1/job-1.pptx',
+      objectKey: 'courses/course-1/gamma/job-1.pptx',
       originalFilename: 'job-1.pptx',
       status: 'ready',
       relatedType: 'material',

@@ -6,7 +6,11 @@ import type {
 } from '@coursewise/shared';
 import { ApiException, ERROR_CODES } from '../../lib/errors';
 
-const BASE_URL = 'https://public-api.gamma.app/v1.0';
+const DEFAULT_BASE_URL = 'https://public-api.gamma.app/v1.0';
+
+export interface GammaClientOptions {
+  baseUrl?: string;
+}
 
 export interface GammaCreateGenerationInput {
   inputText: string;
@@ -52,8 +56,13 @@ export type GammaGetGenerationResponse =
  * those directly.
  */
 export class GammaClient {
-  constructor(private readonly apiKey: string) {
+  private readonly baseUrl: string;
+  constructor(
+    private readonly apiKey: string,
+    options: GammaClientOptions = {},
+  ) {
     if (!apiKey) throw new Error('GammaClient: apiKey is required');
+    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '');
   }
 
   async createGeneration(
@@ -92,7 +101,7 @@ export class GammaClient {
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const res = await fetch(`${this.baseUrl}${path}`, {
       method,
       headers: {
         'X-API-KEY': this.apiKey,
@@ -121,6 +130,15 @@ export class GammaClient {
         `Gamma API ${method} ${path} → ${res.status}: ${text.slice(0, 500)}`,
       );
     }
-    return text ? (JSON.parse(text) as T) : ({} as T);
+    if (!text) return {} as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new ApiException(
+        502,
+        ERROR_CODES.INTERNAL_ERROR,
+        `Gamma API ${method} ${path} returned non-JSON body: ${text.slice(0, 200)}`,
+      );
+    }
   }
 }

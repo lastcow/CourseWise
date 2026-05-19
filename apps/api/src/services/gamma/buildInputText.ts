@@ -36,7 +36,16 @@ export function buildInputText(materials: MaterialForGamma[]): string {
     parts.push(`[Slide source: ${m.title} — ${note}]`);
   }
   const joined = parts.join('\n\n---\n\n');
-  return joined.length <= GAMMA_MAX_INPUT_TEXT_CHARS
-    ? joined
-    : joined.slice(0, GAMMA_MAX_INPUT_TEXT_CHARS);
+  if (joined.length <= GAMMA_MAX_INPUT_TEXT_CHARS) return joined;
+
+  // Truncate back to the last section boundary so Gamma never sees a
+  // half-section. Falls back to a paragraph or line break if no `---`
+  // boundary exists within the cap.
+  const sliced = joined.slice(0, GAMMA_MAX_INPUT_TEXT_CHARS);
+  const sectionBreak = sliced.lastIndexOf('\n\n---\n\n');
+  if (sectionBreak > 0) return sliced.slice(0, sectionBreak);
+  const paragraphBreak = sliced.lastIndexOf('\n\n');
+  if (paragraphBreak > 0) return sliced.slice(0, paragraphBreak);
+  const lineBreak = sliced.lastIndexOf('\n');
+  return lineBreak > 0 ? sliced.slice(0, lineBreak) : sliced;
 }
