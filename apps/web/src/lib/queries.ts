@@ -214,6 +214,14 @@ export function useMaterialsList(courseId: string | null) {
   });
 }
 
+export function useMaterial(materialId: string | null) {
+  return useQuery({
+    queryKey: ['material', materialId],
+    enabled: !!materialId,
+    queryFn: () => apiCall<MaterialSummary>(`/api/materials/${materialId}`),
+  });
+}
+
 export function useCreateMaterial(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
