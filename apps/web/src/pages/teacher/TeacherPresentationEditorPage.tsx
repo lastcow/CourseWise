@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { Markdown } from '@/components/ui/markdown';
 import { useToast } from '@/components/ui/toast';
 import {
+  getDownloadUrl,
   useCreateSlide,
   useDeleteSlide,
   usePresentation,
@@ -97,6 +98,52 @@ export function TeacherPresentationEditorPage(): JSX.Element {
     });
     setSelectedId(created.id);
   };
+
+  // External-deck short-circuit: when a Gamma-rendered presentation is loaded,
+  // we skip the slide editor entirely and render a small landing card with
+  // links to the Gamma deck and the cached .pptx.
+  if (presentation.data?.provider === 'gamma') {
+    const ext = presentation.data.externalUrl;
+    const fileId = presentation.data.fileAssetId;
+    const onDownload = async () => {
+      if (!fileId) return;
+      try {
+        const res = await getDownloadUrl(fileId);
+        window.location.href = res.downloadUrl;
+      } catch (err) {
+        const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+        toast.push({ title: t(key), tone: 'error' });
+      }
+    };
+    return (
+      <div className="space-y-4 p-2">
+        <Link
+          to={`/teacher/courses/${cId}/presentations`}
+          className="text-sm text-muted-foreground hover:underline"
+        >
+          ← {t('common.back')}
+        </Link>
+        <h1 className="text-xl font-semibold">{presentation.data.title}</h1>
+        <p className="text-muted-foreground">{t('gamma.externalDeckBanner')}</p>
+        <div className="flex flex-wrap gap-2">
+          {ext ? (
+            <Button asChild>
+              <a href={ext} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4" />
+                {t('gamma.openInGamma')}
+              </a>
+            </Button>
+          ) : null}
+          {fileId ? (
+            <Button variant="outline" onClick={onDownload}>
+              <Download className="h-4 w-4" />
+              {t('gamma.downloadPptx')}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
