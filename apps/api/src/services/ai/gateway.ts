@@ -36,6 +36,17 @@ export function gatewayBaseUrl(cfg: GatewayConfig, provider: AiProviderKind): st
   return `https://gateway.ai.cloudflare.com/v1/${cfg.accountId}/${cfg.gatewayId}/${provider}`;
 }
 
+/**
+ * Returns the Cloudflare AI Gateway token when "Authenticated Gateway" mode is
+ * enabled on the gateway. Null when unset — callers should omit the
+ * `cf-aig-authorization` header in that case so unauthenticated gateways keep
+ * working.
+ */
+export function readGatewayToken(env: AppBindings): string | null {
+  const token = env.AI_GATEWAY_TOKEN?.trim();
+  return token && token.length > 0 ? token : null;
+}
+
 export function readProviderApiKey(env: AppBindings, apiKeySecretRef: string): string | null {
   // The Worker secret is exposed on the env object under the same name the
   // admin recorded as the secret ref. We treat the env type as a generic record
@@ -118,6 +129,13 @@ export async function callAnthropic(params: AnthropicCallParams): Promise<Anthro
   }
 
   const url = `${gatewayBaseUrl(cfg, 'anthropic')}/v1/messages`;
+  const headers: Record<string, string> = {
+    ...(buildAuthHeaders('anthropic', apiKey) as Record<string, string>),
+  };
+  const gatewayToken = readGatewayToken(params.env);
+  if (gatewayToken) {
+    headers['cf-aig-authorization'] = `Bearer ${gatewayToken}`;
+  }
   const systemBlocks: Array<Record<string, unknown>> = [
     {
       type: 'text',
@@ -136,7 +154,7 @@ export async function callAnthropic(params: AnthropicCallParams): Promise<Anthro
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: buildAuthHeaders('anthropic', apiKey),
+      headers,
       body: JSON.stringify({
         model: params.model,
         max_tokens: params.maxTokens,
