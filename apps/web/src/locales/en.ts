@@ -782,7 +782,7 @@ export const en = {
       prompts: {
         title: 'Prompt templates',
         description:
-          'Customize the system prompt, per-module user message, and depth knobs sent to the model. Variables in {{double braces}} are substituted at generation time.',
+          'Customize the system prompt, per-module user message, and depth knobs sent to the model. Variables in {{example}} are substituted at generation time.',
         systemLabel: 'System prompt',
         userMessageLabel: 'User message',
         variablesLabel: 'Available variables',
@@ -799,8 +799,8 @@ export const en = {
         empty: 'No prompt templates configured.',
         validation: {
           required: 'This field is required.',
-          tooLong: 'Maximum 8000 characters.',
-          tokensRange: 'Must be between 100 and 32000.',
+          tooLong: 'Maximum {{max}} characters.',
+          tokensRange: 'Must be between {{min}} and {{max}}.',
         },
       },
     },

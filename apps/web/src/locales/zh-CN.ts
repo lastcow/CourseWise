@@ -775,7 +775,7 @@ export const zhCN = {
       prompts: {
         title: '提示词模板',
         description:
-          '自定义发送给模型的系统提示、按章节的用户消息以及长度参数。生成时会替换{{双花括号}}中的变量。',
+          '自定义发送给模型的系统提示、按章节的用户消息以及长度参数。生成时会替换 {{example}} 中的变量。',
         systemLabel: '系统提示',
         userMessageLabel: '用户消息',
         variablesLabel: '可用变量',
@@ -792,8 +792,8 @@ export const zhCN = {
         empty: '暂未配置提示词模板。',
         validation: {
           required: '必填项。',
-          tooLong: '最多 8000 字符。',
-          tokensRange: '取值必须在 100 到 32000 之间。',
+          tooLong: '最多 {{max}} 字符。',
+          tokensRange: '取值必须在 {{min}} 到 {{max}} 之间。',
         },
       },
     },
