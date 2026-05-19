@@ -35,17 +35,21 @@ function signerConfig(env: AppBindings): R2SignerConfig {
   const accessKeyId = env.R2_ACCESS_KEY_ID;
   const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
   const bucket = env.R2_BUCKET ?? 'coursewise-files';
-  if (!accountId || !accessKeyId || !secretAccessKey) {
+  const missing: string[] = [];
+  if (!accountId) missing.push('R2_ACCOUNT_ID');
+  if (!accessKeyId) missing.push('R2_ACCESS_KEY_ID');
+  if (!secretAccessKey) missing.push('R2_SECRET_ACCESS_KEY');
+  if (missing.length > 0) {
     throw new ApiException(
       500,
       ERROR_CODES.INTERNAL_ERROR,
-      'R2 storage is not configured on this Worker',
+      `R2 storage is not configured on this Worker: missing secret${missing.length === 1 ? '' : 's'} ${missing.join(', ')}. Run apps/api/scripts/setup-r2.sh to provision.`,
     );
   }
   return {
-    accountId,
-    accessKeyId,
-    secretAccessKey,
+    accountId: accountId as string,
+    accessKeyId: accessKeyId as string,
+    secretAccessKey: secretAccessKey as string,
     bucket,
     endpoint: env.R2_PUBLIC_ENDPOINT || undefined,
   };

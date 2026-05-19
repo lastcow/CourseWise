@@ -15,7 +15,30 @@ Do these once per environment, in this order:
 
 1. **Neon project**. Create a Neon project named `coursewise`. Copy the
    **pooled** connection string (`-pooler` host). Save it as `DATABASE_URL`.
-2. **R2 bucket**. Create `coursewise-files`, leave private.
+2. **R2 bucket + S3 credentials.** The Worker uses two R2 interfaces:
+   - the **direct binding** (`COURSE_FILES` in `wrangler.toml`) for HEAD checks
+     and deletes, and
+   - the **S3-compatible API** for presigned-PUT uploads.
+
+   The S3 API needs three Worker secrets: `R2_ACCOUNT_ID`,
+   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. Until all three are set,
+   `POST /api/files/upload-url` fails with a 500 that names the specific
+   missing secret(s).
+
+   First, mint an R2 API token: Cloudflare dashboard → My Profile → API
+   Tokens → Create Token → **R2 Token**, scoped to **Object Read & Write**
+   on the `coursewise-files` bucket. Save the Access Key ID and Secret
+   Access Key.
+
+   Then run:
+   ```sh
+   ./apps/api/scripts/setup-r2.sh
+   ```
+   The script creates the `coursewise-files` bucket (idempotent — succeeds
+   if it already exists) and prompts for each secret, piping into
+   `wrangler secret put`. It does **not** echo the values. Optional:
+   `R2_PUBLIC_ENDPOINT` if you have a custom CDN host; otherwise R2's
+   default `*.r2.cloudflarestorage.com` is used for downloads.
 3. **Cloudflare Workers project**. `wrangler login`, then deploy once from
    `apps/api` so the Worker name is registered:
    ```sh
