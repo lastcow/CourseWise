@@ -245,6 +245,7 @@ export const en = {
       uploadComplete: 'Upload complete',
       uploadFailed: 'Upload failed',
       backToModules: 'Back to modules',
+      backToMaterial: 'Back to material',
       notFound: 'Material not found.',
       emptyContent: 'This material has no content yet.',
     },

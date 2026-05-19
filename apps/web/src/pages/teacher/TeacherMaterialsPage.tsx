@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Archive, CircleCheck, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,6 @@ import {
   useMaterialsList,
   useModulesList,
   useTransitionMaterial,
-  useUpdateMaterial,
 } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
@@ -27,7 +26,6 @@ import {
   type MaterialSourceType,
   type MaterialSummary,
   type ModuleSummary,
-  type UpdateMaterialInput,
 } from '@coursewise/shared';
 
 // Layout choice: a single unified Materials page that visually groups materials
@@ -40,15 +38,14 @@ export function TeacherMaterialsPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId } = useParams();
   const id = courseId ?? '';
+  const navigate = useNavigate();
   const materialsQ = useMaterialsList(id);
   const modulesQ = useModulesList(id);
   const create = useCreateMaterial(id);
-  const update = useUpdateMaterial(id);
   const transition = useTransitionMaterial(id);
   const del = useDeleteMaterial(id);
   const toast = useToast();
   const [showCreate, setShowCreate] = useState<Exclude<MaterialSourceType, 'upload'> | null>(null);
-  const [editing, setEditing] = useState<MaterialSummary | null>(null);
   const [deleting, setDeleting] = useState<MaterialSummary | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,7 +101,7 @@ export function TeacherMaterialsPage(): JSX.Element {
           toast.push({ title: t(i18n), tone: 'error' });
         }
       }}
-      onEdit={() => setEditing(m)}
+      onEdit={() => navigate(`/teacher/courses/${id}/materials/${m.id}/edit`)}
       onDelete={() => setDeleting(m)}
     />
   );
@@ -190,25 +187,6 @@ export function TeacherMaterialsPage(): JSX.Element {
               await create.mutateAsync(input);
               toast.push({ title: t('materials.created'), tone: 'success' });
               setShowCreate(null);
-            } catch (err) {
-              const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-              toast.push({ title: t(i18n), tone: 'error' });
-            }
-          }}
-        />
-      ) : null}
-
-      {editing ? (
-        <EditMaterialDialog
-          material={editing}
-          modules={modulesQ.data ?? []}
-          courseId={id}
-          onClose={() => setEditing(null)}
-          onSubmit={async (input) => {
-            try {
-              await update.mutateAsync({ id: editing.id, input });
-              toast.push({ title: t('materials.updated'), tone: 'success' });
-              setEditing(null);
             } catch (err) {
               const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
               toast.push({ title: t(i18n), tone: 'error' });
@@ -503,189 +481,3 @@ function CreateMaterialDialog({
   );
 }
 
-function EditMaterialDialog({
-  material,
-  modules,
-  courseId,
-  onClose,
-  onSubmit,
-}: {
-  material: MaterialSummary;
-  modules: ModuleSummary[];
-  courseId: string;
-  onClose: () => void;
-  onSubmit: (input: UpdateMaterialInput) => Promise<void>;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const toast = useToast();
-  const [title, setTitle] = useState(material.title);
-  const [description, setDescription] = useState(material.description ?? '');
-  const [moduleId, setModuleId] = useState(material.moduleId ?? '');
-  const [sourceType, setSourceType] = useState<MaterialSourceType>(material.sourceType);
-  const [externalUrl, setExternalUrl] = useState(material.externalUrl ?? '');
-  const [content, setContent] = useState(material.content ?? '');
-  const [fileAssetId, setFileAssetId] = useState<string | null>(material.fileAssetId);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!ALLOWED_UPLOAD_MIME_TYPES.includes(file.type as (typeof ALLOWED_UPLOAD_MIME_TYPES)[number])) {
-      toast.push({ title: t('files.invalidType'), tone: 'error' });
-      return;
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      toast.push({ title: t('files.tooLarge'), tone: 'error' });
-      return;
-    }
-    try {
-      setUploadProgress(0);
-      const result = await uploadFile(file, courseId, 'material', setUploadProgress);
-      setFileAssetId(result.fileAssetId);
-      setFileName(file.name);
-      toast.push({ title: t('materials.uploadComplete'), tone: 'success' });
-    } catch (err) {
-      const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-      toast.push({ title: t('materials.uploadFailed'), description: t(i18n), tone: 'error' });
-    } finally {
-      setUploadProgress(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={t('materials.editTitle')}
-      className="max-w-7xl"
-      dismissOnBackdropClick={false}
-    >
-      <form
-        className="space-y-3"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const input: UpdateMaterialInput = {
-            title,
-            description: description.trim() ? description : null,
-            moduleId: moduleId || null,
-            sourceType,
-          };
-          if (sourceType === 'external_link') {
-            input.externalUrl = externalUrl;
-            input.content = null;
-            input.fileAssetId = null;
-          } else if (sourceType === 'manual_text') {
-            input.content = content;
-            input.externalUrl = null;
-            input.fileAssetId = null;
-          } else if (sourceType === 'upload') {
-            input.fileAssetId = fileAssetId;
-            input.externalUrl = null;
-            input.content = null;
-          }
-          await onSubmit(input);
-        }}
-      >
-        <div className="space-y-1">
-          <Label htmlFor="edit-title">{t('materials.titleLabel')}</Label>
-          <Input id="edit-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="edit-description">{t('materials.descriptionLabel')}</Label>
-          <Textarea
-            id="edit-description"
-            rows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="edit-moduleId">{t('materials.module')}</Label>
-          <select
-            id="edit-moduleId"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            value={moduleId}
-            onChange={(e) => setModuleId(e.target.value)}
-          >
-            <option value="">{t('common.none')}</option>
-            {modules.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.title}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="edit-sourceType">{t('materials.sourceType')}</Label>
-          <select
-            id="edit-sourceType"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            value={sourceType}
-            onChange={(e) => setSourceType(e.target.value as MaterialSourceType)}
-          >
-            <option value="upload">{t('materials.kindUpload')}</option>
-            <option value="external_link">{t('materials.kindExternalLink')}</option>
-            <option value="manual_text">{t('materials.kindManualText')}</option>
-          </select>
-        </div>
-        {sourceType === 'external_link' ? (
-          <div className="space-y-1">
-            <Label htmlFor="edit-externalUrl">{t('materials.externalUrl')}</Label>
-            <Input
-              id="edit-externalUrl"
-              type="url"
-              required
-              value={externalUrl}
-              onChange={(e) => setExternalUrl(e.target.value)}
-              placeholder="https://"
-            />
-          </div>
-        ) : null}
-        {sourceType === 'manual_text' ? (
-          <div className="space-y-1">
-            <Label htmlFor="edit-content">{t('materials.content')}</Label>
-            <MarkdownEditor id="edit-content" required value={content} onChange={setContent} />
-          </div>
-        ) : null}
-        {sourceType === 'upload' ? (
-          <div className="space-y-1">
-            <Label>{t('materials.fileLabel')}</Label>
-            <div className="flex items-center gap-2">
-              <Button asChild variant="outline" type="button">
-                <label>
-                  {fileAssetId ? t('materials.replaceFile') : t('materials.uploadCta')}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
-                    onChange={onUpload}
-                  />
-                </label>
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {fileName ?? (fileAssetId ? t('materials.currentFileAttached') : t('common.none'))}
-              </span>
-            </div>
-            {uploadProgress !== null ? (
-              <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-muted">
-                <div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button type="submit" disabled={uploadProgress !== null}>
-            {t('common.save')}
-          </Button>
-        </div>
-      </form>
-    </Dialog>
-  );
-}

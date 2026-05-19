@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Archive, ChevronDown, ChevronUp, CircleCheck, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/accordion';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Input, Label, Textarea } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { stripMarkdown } from '@/components/ui/markdown';
 import { EmptyState } from '@/components/ui/empty';
@@ -25,20 +25,16 @@ import {
   useReorderModules,
   useTransitionMaterial,
   useUpdateModule,
-  useUpdateMaterial,
 } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
-import type {
-  MaterialSummary,
-  ModuleSummary,
-  UpdateMaterialInput,
-} from '@coursewise/shared';
+import type { MaterialSummary } from '@coursewise/shared';
 
 export function TeacherModulesPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId } = useParams();
   const id = courseId ?? '';
+  const navigate = useNavigate();
   const list = useModulesList(id);
   const materialsQ = useMaterialsList(id);
   const create = useCreateModule(id);
@@ -46,13 +42,11 @@ export function TeacherModulesPage(): JSX.Element {
   const del = useDeleteModule(id);
   const reorder = useReorderModules(id);
   const transitionMaterial = useTransitionMaterial(id);
-  const updateMaterial = useUpdateMaterial(id);
   const delMaterial = useDeleteMaterial(id);
   const toast = useToast();
 
   const [openCreate, setOpenCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingMaterial, setEditingMaterial] = useState<MaterialSummary | null>(null);
 
   const moduleMaterials = useMemo(() => {
     const map = new Map<string, MaterialSummary[]>();
@@ -225,7 +219,9 @@ export function TeacherModulesPage(): JSX.Element {
                                 icon={Pencil}
                                 label={t('common.edit')}
                                 color="yellow"
-                                onClick={() => setEditingMaterial(mat)}
+                                onClick={() =>
+                                  navigate(`/teacher/courses/${id}/materials/${mat.id}/edit`)
+                                }
                               />
                               <ActionIconButton
                                 size="sm"
@@ -290,24 +286,6 @@ export function TeacherModulesPage(): JSX.Element {
         />
       ) : null}
 
-      {editingMaterial ? (
-        <ModuleMaterialEditDialog
-          material={editingMaterial}
-          modules={list.data ?? []}
-          courseId={id}
-          onClose={() => setEditingMaterial(null)}
-          onSubmit={async (input) => {
-            try {
-              await updateMaterial.mutateAsync({ id: editingMaterial.id, input });
-              toast.push({ title: t('materials.updated'), tone: 'success' });
-              setEditingMaterial(null);
-            } catch (err) {
-              const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-              toast.push({ title: t(i18n), tone: 'error' });
-            }
-          }}
-        />
-      ) : null}
     </div>
   );
 }
@@ -354,105 +332,3 @@ function ModuleDialog({
   );
 }
 
-function ModuleMaterialEditDialog({
-  material,
-  modules,
-  onClose,
-  onSubmit,
-}: {
-  material: MaterialSummary;
-  modules: ModuleSummary[];
-  courseId: string;
-  onClose: () => void;
-  onSubmit: (input: UpdateMaterialInput) => Promise<void>;
-}): JSX.Element {
-  // Lightweight reuse of the same fields as the standalone edit dialog — only
-  // text-based source types are supported inline here. For replacing an
-  // uploaded file, the teacher uses the Materials page edit dialog which has
-  // the upload widget. (Keeping these decoupled avoids two copies of the same
-  // upload XHR state.)
-  const { t } = useTranslation();
-  const [title, setTitle] = useState(material.title);
-  const [description, setDescription] = useState(material.description ?? '');
-  const [moduleId, setModuleId] = useState(material.moduleId ?? '');
-  const [content, setContent] = useState(material.content ?? '');
-  const [externalUrl, setExternalUrl] = useState(material.externalUrl ?? '');
-
-  return (
-    <Dialog open onClose={onClose} title={t('materials.editTitle')}>
-      <form
-        className="space-y-3"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const input: UpdateMaterialInput = {
-            title,
-            description: description.trim() ? description : null,
-            moduleId: moduleId || null,
-          };
-          if (material.sourceType === 'manual_text') input.content = content;
-          if (material.sourceType === 'external_link') input.externalUrl = externalUrl;
-          await onSubmit(input);
-        }}
-      >
-        <div className="space-y-1">
-          <Label htmlFor="mm-title">{t('materials.titleLabel')}</Label>
-          <Input id="mm-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="mm-desc">{t('materials.descriptionLabel')}</Label>
-          <Textarea
-            id="mm-desc"
-            rows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="mm-module">{t('materials.module')}</Label>
-          <select
-            id="mm-module"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            value={moduleId}
-            onChange={(e) => setModuleId(e.target.value)}
-          >
-            <option value="">{t('common.none')}</option>
-            {modules.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.title}
-              </option>
-            ))}
-          </select>
-        </div>
-        {material.sourceType === 'external_link' ? (
-          <div className="space-y-1">
-            <Label htmlFor="mm-url">{t('materials.externalUrl')}</Label>
-            <Input
-              id="mm-url"
-              type="url"
-              required
-              value={externalUrl}
-              onChange={(e) => setExternalUrl(e.target.value)}
-            />
-          </div>
-        ) : null}
-        {material.sourceType === 'manual_text' ? (
-          <div className="space-y-1">
-            <Label htmlFor="mm-content">{t('materials.content')}</Label>
-            <MarkdownEditor id="mm-content" required value={content} onChange={setContent} />
-          </div>
-        ) : null}
-        {material.sourceType === 'upload' ? (
-          <p className="rounded border bg-muted/30 p-2 text-xs text-muted-foreground">
-            {t('materials.uploadEditHint')}
-          </p>
-        ) : null}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button type="submit">{t('common.save')}</Button>
-        </div>
-      </form>
-    </Dialog>
-  );
-}

@@ -236,7 +236,10 @@ export function useUpdateMaterial(courseId: string) {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateMaterialInput }) =>
       apiCall<MaterialSummary>(`/api/materials/${id}`, { method: 'PATCH', body: input }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['materials', courseId] }),
+    onSuccess: (data) => {
+      void qc.invalidateQueries({ queryKey: ['materials', courseId] });
+      void qc.invalidateQueries({ queryKey: ['material', data.id] });
+    },
   });
 }
 

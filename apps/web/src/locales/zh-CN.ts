@@ -242,6 +242,7 @@ export const zhCN = {
       uploadComplete: '上传完成',
       uploadFailed: '上传失败',
       backToModules: '返回章节',
+      backToMaterial: '返回资料',
       notFound: '未找到资料。',
       emptyContent: '此资料暂无内容。',
     },
