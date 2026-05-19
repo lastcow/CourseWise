@@ -705,6 +705,7 @@ export const en = {
       kind: 'Provider',
       displayName: 'Display name',
       modelId: 'Model ID',
+      modelIdPlaceholder: 'Select a model…',
       secretRef: 'Secret name',
       secretRefHint: 'UPPER_SNAKE_CASE name of the Worker secret holding the API key (e.g. ANTHROPIC_API_KEY).',
       secretConfigured: 'Secret bound',

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Trash2 } from 'lucide-react';
 import {
+  AI_MODEL_CATALOG,
   AI_PROVIDER_KINDS,
   type AiModelSummary,
   type AiProviderKind,
@@ -369,6 +370,27 @@ function ModelDialog({
   const [costIn, setCostIn] = useState(initial?.costInPer1m?.toString() ?? '');
   const [costOut, setCostOut] = useState(initial?.costOutPer1m?.toString() ?? '');
 
+  const selectedProvider = providers.find((p) => p.id === providerId);
+  const catalog = selectedProvider
+    ? (AI_MODEL_CATALOG[selectedProvider.kind] ?? [])
+    : [];
+
+  // Picking a catalog entry pre-fills displayName when the admin hasn't yet
+  // edited it. Editing keeps whatever they typed.
+  const onPickModelId = (next: string) => {
+    setModelId(next);
+    const match = catalog.find((m) => m.id === next);
+    if (match && (!displayName || catalog.some((m) => m.label === displayName))) {
+      setDisplayName(match.label);
+    }
+  };
+
+  const onPickProvider = (next: string) => {
+    setProviderId(next);
+    // Reset modelId since the previous provider's catalog no longer applies.
+    setModelId('');
+  };
+
   const parseCost = (s: string): number | null => {
     if (!s.trim()) return null;
     const n = Number(s);
@@ -403,7 +425,7 @@ function ModelDialog({
             id="ai-model-provider"
             disabled={!!initial}
             value={providerId}
-            onChange={(e) => setProviderId(e.target.value)}
+            onChange={(e) => onPickProvider(e.target.value)}
             required
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
@@ -416,14 +438,26 @@ function ModelDialog({
         </div>
         <div className="space-y-1">
           <Label htmlFor="ai-model-id">{t('ai.modelId')}</Label>
-          <Input
-            id="ai-model-id"
-            required
-            disabled={!!initial}
-            value={modelId}
-            onChange={(e) => setModelId(e.target.value)}
-            placeholder="claude-sonnet-4-6"
-          />
+          {initial ? (
+            <Input id="ai-model-id" disabled value={modelId} />
+          ) : (
+            <select
+              id="ai-model-id"
+              required
+              value={modelId}
+              onChange={(e) => onPickModelId(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="" disabled>
+                {t('ai.modelIdPlaceholder')}
+              </option>
+              {catalog.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label} ({m.id})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="space-y-1">
           <Label htmlFor="ai-model-name">{t('ai.displayName')}</Label>
