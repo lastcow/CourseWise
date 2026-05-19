@@ -31,13 +31,21 @@ echo "=== CourseWise R2 setup ==="
 echo "Bucket name: $BUCKET"
 echo
 
-if ! command -v wrangler >/dev/null 2>&1; then
-  echo "error: wrangler CLI not found on PATH. Install with: npm i -g wrangler" >&2
+# Find a wrangler invocation that works in this shell. Prefer a direct
+# `wrangler` on PATH; fall back to the locally-installed copy via pnpm or npx.
+if command -v wrangler >/dev/null 2>&1; then
+  WRANGLER=(wrangler)
+elif command -v pnpm >/dev/null 2>&1 && pnpm exec wrangler --version >/dev/null 2>&1; then
+  WRANGLER=(pnpm exec wrangler)
+elif command -v npx >/dev/null 2>&1; then
+  WRANGLER=(npx --no-install wrangler)
+else
+  echo "error: could not find wrangler. Install with: npm i -g wrangler" >&2
   exit 1
 fi
 
 echo "Step 1/3: ensuring R2 bucket exists…"
-if wrangler r2 bucket create "$BUCKET" 2>&1 | tee /tmp/coursewise-r2-create.log; then
+if "${WRANGLER[@]}" r2 bucket create "$BUCKET" 2>&1 | tee /tmp/coursewise-r2-create.log; then
   echo "  ✓ bucket ready."
 else
   # Cloudflare returns a non-zero exit if the bucket already exists. Treat that as success.
@@ -66,7 +74,7 @@ put_secret() {
     echo "  skipping $name (no value entered)"
     return
   fi
-  printf '%s' "$value" | wrangler secret put "$name" >/dev/null
+  printf '%s' "$value" | "${WRANGLER[@]}" secret put "$name" >/dev/null
   echo "  ✓ $name set."
 }
 
@@ -80,7 +88,7 @@ echo "  Leave blank to fall back to the default *.r2.cloudflarestorage.com host.
 printf "  %-22s : " "R2 public endpoint"
 read -r public_endpoint
 if [[ -n "$public_endpoint" ]]; then
-  printf '%s' "$public_endpoint" | wrangler secret put R2_PUBLIC_ENDPOINT >/dev/null
+  printf '%s' "$public_endpoint" | "${WRANGLER[@]}" secret put R2_PUBLIC_ENDPOINT >/dev/null
   echo "  ✓ R2_PUBLIC_ENDPOINT set."
 else
   echo "  skipping R2_PUBLIC_ENDPOINT."
