@@ -700,6 +700,7 @@ export const zhCN = {
       kind: '提供商',
       displayName: '显示名称',
       modelId: '模型 ID',
+      modelIdPlaceholder: '请选择模型…',
       secretRef: 'Secret 名称',
       secretRefHint: 'Worker secret 的名称,需为大写下划线格式 (例如 ANTHROPIC_API_KEY)。',
       secretConfigured: '已绑定密钥',
