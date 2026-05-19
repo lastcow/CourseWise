@@ -32,6 +32,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { Input, Label } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
+import { PromptTemplateCard } from '@/components/admin/PromptTemplateCard';
 
 export function AdminAiPage(): JSX.Element {
   const { t } = useTranslation();
@@ -220,6 +221,8 @@ export function AdminAiPage(): JSX.Element {
           )}
         </CardContent>
       </Card>
+
+      <PromptTemplateCard />
 
       <ProviderDialog
         key={`provider-${providerDialog.initial?.id ?? 'new'}-${providerDialog.open}`}
