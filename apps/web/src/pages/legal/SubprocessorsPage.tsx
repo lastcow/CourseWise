@@ -44,7 +44,7 @@ export function SubprocessorsPage(): JSX.Element {
                 <a
                   href="https://www.cloudflare.com/cloudflare-customer-dpa/"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="text-violet-700 underline"
                 >
                   DPA
@@ -60,7 +60,7 @@ export function SubprocessorsPage(): JSX.Element {
                 <a
                   href="https://neon.tech/dpa"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="text-violet-700 underline"
                 >
                   DPA
@@ -78,7 +78,7 @@ export function SubprocessorsPage(): JSX.Element {
                 <a
                   href="https://www.anthropic.com/legal/dpa"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="text-violet-700 underline"
                 >
                   DPA
