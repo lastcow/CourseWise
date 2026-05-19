@@ -250,22 +250,23 @@ courseAi.get(
     const row = jobRows[0];
     if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Job not found');
 
-    const artifacts = await db
-      .select({
-        artifact: aiGenerationArtifacts,
-        moduleTitle: modules.title,
-        materialTitle: readingMaterials.title,
-      })
-      .from(aiGenerationArtifacts)
-      .leftJoin(modules, eq(modules.id, aiGenerationArtifacts.moduleId))
-      .leftJoin(readingMaterials, eq(readingMaterials.id, aiGenerationArtifacts.artifactId))
-      .where(eq(aiGenerationArtifacts.jobId, jobId));
-
-    const eventRows = await db
-      .select()
-      .from(aiGenerationEvents)
-      .where(eq(aiGenerationEvents.jobId, jobId))
-      .orderBy(asc(aiGenerationEvents.occurredAt), asc(aiGenerationEvents.id));
+    const [artifacts, eventRows] = await Promise.all([
+      db
+        .select({
+          artifact: aiGenerationArtifacts,
+          moduleTitle: modules.title,
+          materialTitle: readingMaterials.title,
+        })
+        .from(aiGenerationArtifacts)
+        .leftJoin(modules, eq(modules.id, aiGenerationArtifacts.moduleId))
+        .leftJoin(readingMaterials, eq(readingMaterials.id, aiGenerationArtifacts.artifactId))
+        .where(eq(aiGenerationArtifacts.jobId, jobId)),
+      db
+        .select()
+        .from(aiGenerationEvents)
+        .where(eq(aiGenerationEvents.jobId, jobId))
+        .orderBy(asc(aiGenerationEvents.occurredAt), asc(aiGenerationEvents.id)),
+    ]);
 
     let succeededCount = 0;
     let failedCount = 0;
@@ -290,7 +291,7 @@ courseAi.get(
       level: e.level,
       type: e.type,
       message: e.message,
-      metadata: (e.metadata as Record<string, unknown> | null) ?? null,
+      metadata: e.metadata,
       occurredAt: e.occurredAt,
     }));
 
