@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { PublicLayout } from '@/components/public/PublicLayout';
 import { BackOfficeLayout } from '@/components/BackOfficeLayout';
 import { RoleAwareBackOfficeLayout } from '@/components/RoleAwareBackOfficeLayout';
 import { RequireRole } from '@/components/RequireRole';
@@ -10,6 +10,11 @@ import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { TeacherAcceptInvitePage } from '@/pages/TeacherAcceptInvitePage';
+import { FeaturesPage } from '@/pages/public/FeaturesPage';
+import { PricingPage } from '@/pages/public/PricingPage';
+import { AboutPage } from '@/pages/public/AboutPage';
+import { ContactPage } from '@/pages/public/ContactPage';
+import { LegalRoutes } from '@/pages/legal/LegalRoutes';
 import { SettingsApiTokensPage } from '@/pages/SettingsApiTokensPage';
 import { AdminAiPage } from '@/pages/admin/AdminAiPage';
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
@@ -56,11 +61,16 @@ export default function App(): JSX.Element {
       <ToastProvider>
         <AuthProvider>
           <Routes>
-            <Route element={<Layout />}>
+            <Route element={<PublicLayout />}>
               <Route path="/" element={<HomePage />} />
+              <Route path="/features" element={<FeaturesPage />} />
+              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/contact" element={<ContactPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/teacher/accept-invite" element={<TeacherAcceptInvitePage />} />
+              <Route path="/legal/*" element={<LegalRoutes />} />
             </Route>
             <Route element={<RoleAwareBackOfficeLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
