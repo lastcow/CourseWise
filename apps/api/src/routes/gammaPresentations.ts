@@ -165,31 +165,32 @@ r.post(
       },
     });
 
-    // Insert the presentation + job rows in one transaction so a partial
-    // DB failure can't leave us with a presentation that has no job (or
-    // vice versa). If this transaction throws AFTER createGeneration
-    // succeeded, the Gamma side has already debited credits and there is
-    // no local record to reconcile from — a known orphan window that
-    // would need a sweeper if it starts happening. Logged as `metadata`
-    // on the audit row below so post-hoc reconciliation has a hook.
-    // `requestParams` snapshots the *effective* request (zod defaults
-    // already applied — `amount`, `imageSource`, `exportAs`).
-    const { presentation, job } = await db.transaction(async (tx) => {
-      const [presRow] = await tx
-        .insert(presentations)
-        .values({
-          courseId,
-          moduleId: input.moduleId ?? null,
-          title: input.title,
-          status: 'draft',
-          provider: 'gamma',
-          createdById: auth.user.id,
-        })
-        .returning();
-      if (!presRow) {
-        throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create presentation');
-      }
-      const [jobRow] = await tx
+    // The neon-http driver doesn't support `db.transaction`, so insert the
+    // presentation first and then the job. If the job insert fails, best-effort
+    // delete the presentation we just created so we don't leave a draft row
+    // with no Gamma job pointing at it. The Gamma side has already debited
+    // credits at this point — that remains a known orphan window that would
+    // need a sweeper if it starts happening.
+    // `requestParams` snapshots the *effective* request (zod defaults already
+    // applied — `amount`, `imageSource`, `exportAs`, `textMode`).
+    const [presRow] = await db
+      .insert(presentations)
+      .values({
+        courseId,
+        moduleId: input.moduleId ?? null,
+        title: input.title,
+        status: 'draft',
+        provider: 'gamma',
+        createdById: auth.user.id,
+      })
+      .returning();
+    if (!presRow) {
+      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create presentation');
+    }
+
+    let jobRow: typeof gammaGenerationJobs.$inferSelect | undefined;
+    try {
+      const inserted = await db
         .insert(gammaGenerationJobs)
         .values({
           courseId,
@@ -201,11 +202,24 @@ r.post(
           requestParams: { ...input, inputTextChars: inputText.length },
         })
         .returning();
+      jobRow = inserted[0];
       if (!jobRow) {
         throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create gamma job');
       }
-      return { presentation: presRow, job: jobRow };
-    });
+    } catch (err) {
+      try {
+        await db.delete(presentations).where(eq(presentations.id, presRow.id));
+      } catch (cleanupErr) {
+        console.error('gamma: failed to roll back orphan presentation', {
+          presentationId: presRow.id,
+          err: cleanupErr,
+        });
+      }
+      throw err;
+    }
+
+    const presentation = presRow;
+    const job = jobRow;
 
     await recordAudit(db, {
       actorType: auth.method === 'jwt' ? 'user' : 'api_token',
