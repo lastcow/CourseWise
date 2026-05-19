@@ -33,6 +33,8 @@ function formatWhen(j: AiJobSummary): string {
 
 function JobRow({ courseId, j }: { courseId: string; j: AiJobSummary }): JSX.Element {
   const { t } = useTranslation();
+  // Initial-state only; intentionally not synced via useEffect so a user
+  // collapsing a still-running row stays collapsed across polls.
   const [open, setOpen] = useState(j.status === 'running' || j.status === 'queued');
   const detailQ = useCourseAiJob(courseId, open ? j.id : null);
 
@@ -47,7 +49,7 @@ function JobRow({ courseId, j }: { courseId: string; j: AiJobSummary }): JSX.Ele
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-2">
             {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-            <Badge variant={statusVariant(j.status)}>{t(`ai.jobStatus.${j.status}`)}</Badge>
+            <Badge variant={statusVariant(j.status)} className="shrink-0">{t(`ai.jobStatus.${j.status}`)}</Badge>
             <span className="truncate text-sm font-medium">{j.modelDisplayName}</span>
           </div>
           <div className="text-xs text-muted-foreground">
