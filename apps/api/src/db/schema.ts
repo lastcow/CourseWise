@@ -967,7 +967,7 @@ export const aiPromptTemplates = pgTable(
     ...timestamps,
   },
   (t) => ({
-    kindUnique: uniqueIndex('ai_prompt_templates_kind_unique').on(t.kind),
+    kindIdx: uniqueIndex('ai_prompt_templates_kind_idx').on(t.kind),
   }),
 );
 

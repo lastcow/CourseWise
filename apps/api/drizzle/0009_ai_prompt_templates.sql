@@ -16,7 +16,7 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "ai_prompt_templates_kind_unique"
+CREATE UNIQUE INDEX IF NOT EXISTS "ai_prompt_templates_kind_idx"
   ON "ai_prompt_templates" ("kind");
 --> statement-breakpoint
 -- Seed: one row per artifact kind. The `material` row uses the real default
