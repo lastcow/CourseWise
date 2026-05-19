@@ -49,6 +49,7 @@ export function TeacherMaterialsPage(): JSX.Element {
   const toast = useToast();
   const [showCreate, setShowCreate] = useState<Exclude<MaterialSourceType, 'upload'> | null>(null);
   const [editing, setEditing] = useState<MaterialSummary | null>(null);
+  const [deleting, setDeleting] = useState<MaterialSummary | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,18 +105,13 @@ export function TeacherMaterialsPage(): JSX.Element {
         }
       }}
       onEdit={() => setEditing(m)}
-      onDelete={async () => {
-        if (!window.confirm(`${t('common.delete')}: ${m.title}?`)) return;
-        try {
-          await del.mutateAsync(m.id);
-          toast.push({ title: t('materials.deleted'), tone: 'success' });
-        } catch (err) {
-          const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-          toast.push({ title: t(i18n), tone: 'error' });
-        }
-      }}
+      onDelete={() => setDeleting(m)}
     />
   );
+
+  const deletingModule = deleting?.moduleId
+    ? (modulesQ.data ?? []).find((mod) => mod.id === deleting.moduleId) ?? null
+    : null;
 
   return (
     <div className="space-y-4">
@@ -220,7 +216,93 @@ export function TeacherMaterialsPage(): JSX.Element {
           }}
         />
       ) : null}
+
+      <DeleteMaterialConfirmDialog
+        material={deleting}
+        moduleTitle={deletingModule?.title ?? null}
+        pending={del.isPending}
+        onCancel={() => setDeleting(null)}
+        onConfirm={async () => {
+          if (!deleting) return;
+          try {
+            await del.mutateAsync(deleting.id);
+            toast.push({ title: t('materials.deleted'), tone: 'success' });
+            setDeleting(null);
+          } catch (err) {
+            const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+            toast.push({ title: t(i18n), tone: 'error' });
+          }
+        }}
+      />
     </div>
+  );
+}
+
+function DeleteMaterialConfirmDialog({
+  material,
+  moduleTitle,
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  material: MaterialSummary | null;
+  moduleTitle: string | null;
+  pending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void | Promise<void>;
+}): JSX.Element {
+  const { t } = useTranslation();
+
+  const statusKey =
+    material?.status === 'published'
+      ? 'materials.statusPublished'
+      : material?.status === 'archived'
+        ? 'materials.statusArchived'
+        : 'materials.statusDraft';
+
+  const sourceKey =
+    material?.sourceType === 'upload'
+      ? 'materials.kindUpload'
+      : material?.sourceType === 'external_link'
+        ? 'materials.kindExternalLink'
+        : 'materials.kindManualText';
+
+  const lastUpdated = material ? new Date(material.updatedAt).toLocaleDateString() : '';
+
+  return (
+    <Dialog
+      open={material !== null}
+      onClose={pending ? () => undefined : onCancel}
+      title={t('materials.deleteConfirmTitle')}
+    >
+      {material ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('materials.deleteConfirmBody')}</p>
+          <div className="rounded-md border bg-muted/30 p-3">
+            <div className="break-words text-sm font-semibold">{material.title}</div>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <dt>{t('materials.module')}</dt>
+              <dd className="text-foreground">{moduleTitle ?? t('materials.unassignedGroup')}</dd>
+              <dt>{t('materials.sourceType')}</dt>
+              <dd className="flex items-center gap-2 text-foreground">
+                <Badge variant="secondary">{t(sourceKey)}</Badge>
+                <Badge variant="secondary">{t(statusKey)}</Badge>
+              </dd>
+              <dt>{t('materials.deleteConfirmLastUpdated')}</dt>
+              <dd className="text-foreground">{lastUpdated}</dd>
+            </dl>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={onCancel} disabled={pending}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={() => void onConfirm()} disabled={pending}>
+              {pending ? t('common.loading') : t('materials.deleteConfirmAction')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </Dialog>
   );
 }
 
@@ -259,7 +341,7 @@ function MaterialRow({
   material: MaterialSummary;
   onPublishToggle: () => Promise<void>;
   onEdit: () => void;
-  onDelete: () => Promise<void>;
+  onDelete: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
