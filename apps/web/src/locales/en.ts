@@ -351,6 +351,20 @@ export const en = {
         imageStyle: 'Image style',
         imageStyleHint: 'Optional. Example: "Photorealistic, soft natural light".',
         amount: 'Detail length',
+        textMode: 'Content handling',
+        numCards: 'Pages needed',
+        numCardsPlaceholder: 'Auto',
+        numCardsHint: 'Leave blank to let Gamma decide.',
+      },
+      textMode: {
+        generate: 'Generate (new content from prompt)',
+        condense: 'Condense (summarise long material)',
+        preserve: 'Preserve (keep wording, restructure)',
+      },
+      textModeHint: {
+        generate: 'Use when your input is a short brief.',
+        condense: 'Best for turning long readings into a deck.',
+        preserve: 'Keeps your text as-is, just arranged into slides.',
       },
       imageSource: {
         aiGenerated: 'AI generated',

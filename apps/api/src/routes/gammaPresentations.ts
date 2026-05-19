@@ -151,9 +151,13 @@ r.post(
       inputText,
       format: 'presentation',
       exportAs: input.exportAs,
+      textMode: input.textMode,
       title: input.title,
       themeId: input.themeId ?? null,
       additionalInstructions: input.additionalInstructions ?? null,
+      // Only forward numCards when the teacher set one — letting Gamma decide
+      // when omitted gives better defaults than pinning a fixed count.
+      ...(input.numCards ? { numCards: input.numCards } : {}),
       textOptions: { amount: input.amount },
       imageOptions: {
         source: input.imageSource,

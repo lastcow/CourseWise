@@ -2,6 +2,7 @@ import type {
   GammaExportFormat,
   GammaImageSource,
   GammaTextAmount,
+  GammaTextMode,
   GammaTheme,
 } from '@coursewise/shared';
 import { ApiException, ERROR_CODES } from '../../lib/errors';
@@ -16,9 +17,14 @@ export interface GammaCreateGenerationInput {
   inputText: string;
   format: 'presentation';
   exportAs: GammaExportFormat;
+  // Required by Gamma's public API: how the inputText is transformed into the
+  // deck. See GAMMA_TEXT_MODES in shared/constants for the semantics.
+  textMode: GammaTextMode;
   title?: string;
   themeId?: string | null;
   additionalInstructions?: string | null;
+  // Slide count. Omitted → Gamma picks.
+  numCards?: number | null;
   textOptions?: { amount?: GammaTextAmount };
   imageOptions?: { source?: GammaImageSource; style?: string | null };
 }

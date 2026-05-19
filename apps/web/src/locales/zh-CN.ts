@@ -346,6 +346,20 @@ export const zhCN = {
         imageStyle: '图片风格',
         imageStyleHint: '可选。例如:"写实风格,柔和自然光"。',
         amount: '内容详尽程度',
+        textMode: '内容处理方式',
+        numCards: '页数',
+        numCardsPlaceholder: '自动',
+        numCardsHint: '留空则由 Gamma 自动决定。',
+      },
+      textMode: {
+        generate: '生成(从提示词创建新内容)',
+        condense: '浓缩(将长篇材料整理为幻灯片)',
+        preserve: '保留(保持原文措辞,仅重新组织)',
+      },
+      textModeHint: {
+        generate: '适用于输入较为简短的提示词。',
+        condense: '将长篇阅读材料转化为演示文稿时使用。',
+        preserve: '保持原文不变,仅按幻灯片结构重新排列。',
       },
       imageSource: {
         aiGenerated: 'AI 生成',

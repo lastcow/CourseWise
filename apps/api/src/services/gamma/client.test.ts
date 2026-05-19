@@ -37,6 +37,7 @@ describe('GammaClient', () => {
         inputText: 'hello',
         format: 'presentation',
         exportAs: 'pptx',
+        textMode: 'condense',
         title: 'Test deck',
       });
 
@@ -54,8 +55,25 @@ describe('GammaClient', () => {
         inputText: 'hello',
         format: 'presentation',
         exportAs: 'pptx',
+        textMode: 'condense',
         title: 'Test deck',
       });
+    });
+
+    it('forwards numCards when provided', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse(200, { generationId: 'gen_456' }));
+      const client = new GammaClient('sk-test');
+      await client.createGeneration({
+        inputText: 'hello',
+        format: 'presentation',
+        exportAs: 'pptx',
+        textMode: 'generate',
+        numCards: 12,
+      });
+      const [, init] = fetchMock.mock.calls[0]!;
+      const parsed = JSON.parse(init.body as string);
+      expect(parsed.numCards).toBe(12);
+      expect(parsed.textMode).toBe('generate');
     });
   });
 

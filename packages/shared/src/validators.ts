@@ -10,7 +10,10 @@ import {
   GAMMA_IMAGE_SOURCES,
   GAMMA_MAX_IMAGE_STYLE_CHARS,
   GAMMA_MAX_INSTRUCTIONS_CHARS,
+  GAMMA_MAX_NUM_CARDS,
+  GAMMA_MIN_NUM_CARDS,
   GAMMA_TEXT_AMOUNTS,
+  GAMMA_TEXT_MODES,
   MATERIAL_SOURCE_TYPES,
   MATERIAL_STATUSES,
   QUIZ_QUESTION_TYPES,
@@ -831,6 +834,18 @@ export const generateGammaPresentationSchema = z.object({
   imageSource: z.enum(GAMMA_IMAGE_SOURCES).default('aiGenerated'),
   imageStyle: z.string().trim().max(GAMMA_MAX_IMAGE_STYLE_CHARS).optional().nullable(),
   amount: z.enum(GAMMA_TEXT_AMOUNTS).default('medium'),
+  // Required by Gamma's public API. Default to `condense` since our typical
+  // input is long-form reading material that should become a slide deck.
+  textMode: z.enum(GAMMA_TEXT_MODES).default('condense'),
+  // Number of slides to generate. Optional — Gamma picks a sensible count when
+  // omitted.
+  numCards: z
+    .number()
+    .int()
+    .min(GAMMA_MIN_NUM_CARDS)
+    .max(GAMMA_MAX_NUM_CARDS)
+    .optional()
+    .nullable(),
   exportAs: z.enum(GAMMA_EXPORT_FORMATS).default('pptx'),
 });
 export type GenerateGammaPresentationInput = z.infer<typeof generateGammaPresentationSchema>;
