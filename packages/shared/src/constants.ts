@@ -267,6 +267,30 @@ export const SCOPE_GROUPS = {
 } as const satisfies Record<string, readonly ApiTokenScope[]>;
 export type ScopeGroupName = keyof typeof SCOPE_GROUPS;
 
+// Curated allowlist of upstream model IDs per provider that admins can pick
+// from in the AI configuration UI. Bumping this list does not require a
+// schema migration; it just widens what an admin may choose to enable.
+// Adjust as new models ship.
+export const AI_MODEL_CATALOG = {
+  anthropic: [
+    { id: 'claude-opus-4-7', label: 'Claude Opus 4.7' },
+    { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
+    { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+  ],
+  openai: [
+    { id: 'gpt-4o', label: 'GPT-4o' },
+    { id: 'gpt-4o-mini', label: 'GPT-4o mini' },
+    { id: 'gpt-4.1', label: 'GPT-4.1' },
+    { id: 'gpt-4.1-mini', label: 'GPT-4.1 mini' },
+    { id: 'gpt-4.1-nano', label: 'GPT-4.1 nano' },
+    { id: 'o3', label: 'o3' },
+    { id: 'o3-mini', label: 'o3-mini' },
+    { id: 'o4-mini', label: 'o4-mini' },
+  ],
+} as const satisfies Record<'anthropic' | 'openai', readonly { id: string; label: string }[]>;
+
 export const COURSE_STATUSES = ['draft', 'active', 'archived'] as const;
 export type CourseStatus = (typeof COURSE_STATUSES)[number];
 
