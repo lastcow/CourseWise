@@ -5,17 +5,23 @@ import {
   createAiProviderSchema,
   updateAiModelSchema,
   updateAiProviderSchema,
+  updateAiPromptTemplateSchema,
   type AiModelSummary,
   type AiProviderKind,
   type AiProviderSummary,
+  type AiPromptTemplate,
+  type AiArtifactKind,
+  AI_ARTIFACT_KINDS,
   type CreateAiModelInput,
   type CreateAiProviderInput,
   type UpdateAiModelInput,
   type UpdateAiProviderInput,
+  type UpdateAiPromptTemplateInput,
 } from '@coursewise/shared';
-import { aiModels, aiProviders } from '../../db/schema';
+import { aiModels, aiProviders, aiPromptTemplates } from '../../db/schema';
 import { recordAudit } from '../../services/audit';
 import { hasProviderSecret } from '../../services/ai/gateway';
+import { DEFAULT_PROMPT_BY_KIND } from '../../services/ai/promptDefaults';
 import { ApiException, ERROR_CODES } from '../../lib/errors';
 import { success } from '../../lib/response';
 import { validateJson } from '../../middleware/validate';
@@ -58,6 +64,19 @@ function toModelSummary(
     costOutPer1m: row.costOutPer1m === null ? null : Number(row.costOutPer1m),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  };
+}
+
+function toPromptTemplate(row: typeof aiPromptTemplates.$inferSelect): AiPromptTemplate {
+  return {
+    id: row.id,
+    kind: row.kind as AiArtifactKind,
+    systemPrompt: row.systemPrompt,
+    userMessage: row.userMessage,
+    depthConfig: row.depthConfig,
+    updatedBy: row.updatedBy,
+    updatedAt: row.updatedAt,
+    createdAt: row.createdAt,
   };
 }
 
@@ -305,6 +324,81 @@ ai.delete('/models/:id', requireScopeGroup('aiAdminWrite'), async (c) => {
   });
 
   return success(c, { id: row.id });
+});
+
+// ---------- Prompt templates ----------
+ai.get('/prompts', requireScopeGroup('aiAdminRead'), async (c) => {
+  const db = c.get('db');
+  const rows = await db.select().from(aiPromptTemplates).orderBy(asc(aiPromptTemplates.kind));
+  const templates = rows.map(toPromptTemplate);
+  return success(c, { templates });
+});
+
+ai.put(
+  '/prompts/:kind',
+  requireScopeGroup('aiAdminWrite'),
+  validateJson(updateAiPromptTemplateSchema),
+  async (c) => {
+    const kind = c.req.param('kind') as AiArtifactKind;
+    if (!AI_ARTIFACT_KINDS.includes(kind)) {
+      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Unknown artifact kind.');
+    }
+    const input = c.get('validated') as UpdateAiPromptTemplateInput;
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const [row] = await db
+      .update(aiPromptTemplates)
+      .set({
+        systemPrompt: input.systemPrompt,
+        userMessage: input.userMessage,
+        depthConfig: input.depthConfig,
+        updatedBy: auth.user.id,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(aiPromptTemplates.kind, kind))
+      .returning();
+    if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Prompt template not found.');
+    await recordAudit(db, {
+      actorType: auth.method === 'api_token' ? 'api_token' : 'user',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'admin.ai.prompts.update',
+      target: row.id,
+      metadata: { kind },
+    });
+    return success(c, toPromptTemplate(row));
+  },
+);
+
+ai.post('/prompts/:kind/reset', requireScopeGroup('aiAdminWrite'), async (c) => {
+  const kind = c.req.param('kind') as AiArtifactKind;
+  if (!AI_ARTIFACT_KINDS.includes(kind)) {
+    throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Unknown artifact kind.');
+  }
+  const defaults = DEFAULT_PROMPT_BY_KIND[kind];
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const [row] = await db
+    .update(aiPromptTemplates)
+    .set({
+      systemPrompt: defaults.systemPrompt,
+      userMessage: defaults.userMessage,
+      depthConfig: defaults.depthConfig,
+      updatedBy: auth.user.id,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(aiPromptTemplates.kind, kind))
+    .returning();
+  if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Prompt template not found.');
+  await recordAudit(db, {
+    actorType: auth.method === 'api_token' ? 'api_token' : 'user',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'admin.ai.prompts.reset',
+    target: row.id,
+    metadata: { kind },
+  });
+  return success(c, toPromptTemplate(row));
 });
 
 export default ai;
