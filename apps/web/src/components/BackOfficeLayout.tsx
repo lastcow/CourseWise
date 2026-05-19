@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, KeyRound, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { SideNav, type UserRole } from '@/components/SideNav';
 import { useEscapeToClose, useSideNavCollapsed } from '@/components/sideNavHooks';
 import { useAuth } from '@/lib/authContext';
@@ -122,14 +123,18 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
                     <KeyRound className="h-4 w-4" aria-hidden />
                     <span className="hidden md:inline">{t('nav.apiTokens')}</span>
                   </Link>
+                  <LanguageSwitcher />
                   <Button size="sm" variant="outline" onClick={onLogout}>
                     {t('nav.logout')}
                   </Button>
                 </>
               ) : (
-                <Link to="/login" className="px-3 py-1 hover:underline">
-                  {t('auth.loginCta')}
-                </Link>
+                <>
+                  <LanguageSwitcher />
+                  <Link to="/login" className="px-3 py-1 hover:underline">
+                    {t('auth.loginCta')}
+                  </Link>
+                </>
               )}
             </div>
           </div>

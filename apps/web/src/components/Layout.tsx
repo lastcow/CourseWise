@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useAuth } from '@/lib/authContext';
 import { useToast } from '@/components/ui/toast';
 
@@ -60,6 +61,7 @@ export function Layout(): JSX.Element {
                 </Link>
               </>
             ) : null}
+            <LanguageSwitcher />
             {auth ? (
               <Button size="sm" variant="outline" onClick={onLogout}>
                 {t('nav.logout')}
