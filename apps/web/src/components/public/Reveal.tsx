@@ -10,9 +10,12 @@ export function Reveal({
   className?: string;
 }): JSX.Element {
   const reduce = useReducedMotion();
+  if (reduce) {
+    return <div className={className}>{children}</div>;
+  }
   return (
     <motion.div
-      initial={reduce ? false : { opacity: 0, y: 4 }}
+      initial={{ opacity: 0, y: 4 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.4, delay, ease: [0.16, 1, 0.3, 1] }}

@@ -1,7 +1,13 @@
+/**
+ * Absolute-positioned aurora mesh for use behind a hero section.
+ * Requires a positioned (relative/absolute) ancestor; the component
+ * forms its own stacking context via `isolate` so the blurs sit behind
+ * sibling content without escaping the parent stack.
+ */
 export function AuroraBackground(): JSX.Element {
   return (
     <div
-      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+      className="pointer-events-none absolute inset-0 isolate overflow-hidden"
       aria-hidden
     >
       <div
