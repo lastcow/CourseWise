@@ -932,7 +932,7 @@ export const aiGenerationEvents = pgTable(
       .notNull()
       .references(() => aiGenerationJobs.id, { onDelete: 'cascade' }),
     artifactId: uuid('artifact_id').references(() => aiGenerationArtifacts.id, {
-      onDelete: 'cascade',
+      onDelete: 'set null',
     }),
     level: aiEventLevelEnum('level').notNull().default('info'),
     type: text('type').notNull(),

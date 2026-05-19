@@ -24,7 +24,7 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "ai_generation_events" ADD CONSTRAINT "ai_generation_events_artifact_id_fkey"
-   FOREIGN KEY ("artifact_id") REFERENCES "ai_generation_artifacts"("id") ON DELETE CASCADE;
+   FOREIGN KEY ("artifact_id") REFERENCES "ai_generation_artifacts"("id") ON DELETE SET NULL;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
