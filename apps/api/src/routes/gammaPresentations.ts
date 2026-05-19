@@ -161,36 +161,47 @@ r.post(
       },
     });
 
-    const [presentation] = await db
-      .insert(presentations)
-      .values({
-        courseId,
-        moduleId: input.moduleId ?? null,
-        title: input.title,
-        status: 'draft',
-        provider: 'gamma',
-        createdById: auth.user.id,
-      })
-      .returning();
-    if (!presentation) {
-      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create presentation');
-    }
-
-    const [job] = await db
-      .insert(gammaGenerationJobs)
-      .values({
-        courseId,
-        presentationId: presentation.id,
-        requestedById: auth.user.id,
-        status: 'pending',
-        gammaGenerationId: created.generationId,
-        materialIds: input.materialIds,
-        requestParams: { ...input, inputTextChars: inputText.length },
-      })
-      .returning();
-    if (!job) {
-      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create gamma job');
-    }
+    // Insert the presentation + job rows in one transaction so a partial
+    // DB failure can't leave us with a presentation that has no job (or
+    // vice versa). If this transaction throws AFTER createGeneration
+    // succeeded, the Gamma side has already debited credits and there is
+    // no local record to reconcile from — a known orphan window that
+    // would need a sweeper if it starts happening. Logged as `metadata`
+    // on the audit row below so post-hoc reconciliation has a hook.
+    // `requestParams` snapshots the *effective* request (zod defaults
+    // already applied — `amount`, `imageSource`, `exportAs`).
+    const { presentation, job } = await db.transaction(async (tx) => {
+      const [presRow] = await tx
+        .insert(presentations)
+        .values({
+          courseId,
+          moduleId: input.moduleId ?? null,
+          title: input.title,
+          status: 'draft',
+          provider: 'gamma',
+          createdById: auth.user.id,
+        })
+        .returning();
+      if (!presRow) {
+        throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create presentation');
+      }
+      const [jobRow] = await tx
+        .insert(gammaGenerationJobs)
+        .values({
+          courseId,
+          presentationId: presRow.id,
+          requestedById: auth.user.id,
+          status: 'pending',
+          gammaGenerationId: created.generationId,
+          materialIds: input.materialIds,
+          requestParams: { ...input, inputTextChars: inputText.length },
+        })
+        .returning();
+      if (!jobRow) {
+        throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create gamma job');
+      }
+      return { presentation: presRow, job: jobRow };
+    });
 
     await recordAudit(db, {
       actorType: auth.method === 'jwt' ? 'user' : 'api_token',
@@ -215,7 +226,13 @@ r.post(
 
 // -------- GET /api/gamma-jobs/:jobId --------
 
-r.get('/gamma-jobs/:jobId', requireScopeGroup('presentationsRead'), async (c) => {
+// Job status reads are gated by the same authz as creation: only course staff
+// see job lifecycle. Students consume the final published presentation, not
+// the generation pipeline. We therefore use `presentationsWrite` so the API-
+// token scope matches the course-staff auth check below — picking
+// `presentationsRead` here would let an enrolled student's read-scoped token
+// reach the route only to bounce on `canWriteCourse`, which is incoherent.
+r.get('/gamma-jobs/:jobId', requireScopeGroup('presentationsWrite'), async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
   const jobId = requireParam(c, 'jobId');

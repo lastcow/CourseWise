@@ -465,7 +465,7 @@ export const ROUTES: readonly RouteSpec[] = [
     { scopeGroup: 'presentationsWrite', pathParams: idParams('courseId') },
   ),
   r('get', '/api/gamma-jobs/{jobId}', 'Poll the status of a Gamma generation job', 'gamma', {
-    scopeGroup: 'presentationsRead',
+    scopeGroup: 'presentationsWrite',
     pathParams: idParams('jobId'),
   }),
 
