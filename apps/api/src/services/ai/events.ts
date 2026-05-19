@@ -2,8 +2,9 @@ import type { Db } from '../../db/client';
 import { aiGenerationEvents } from '../../db/schema';
 
 /**
- * Append a progress event to a job. Errors are swallowed — recording
- * telemetry must never fail the parent step.
+ * Append a progress event to a job. Designed to be called from inside
+ * Cloudflare Workflow step callbacks where a telemetry-insert failure
+ * must NOT fail the parent step. Errors are logged and swallowed.
  */
 export async function recordEvent(
   db: Db,
@@ -23,7 +24,12 @@ export async function recordEvent(
       message,
       metadata: metadata ?? null,
     });
-  } catch {
-    // intentionally swallowed — see jsdoc
+  } catch (err) {
+    console.warn('recordEvent failed', {
+      jobId,
+      artifactId,
+      type,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
