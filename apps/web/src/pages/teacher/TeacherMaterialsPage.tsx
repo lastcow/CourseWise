@@ -556,7 +556,13 @@ function EditMaterialDialog({
   };
 
   return (
-    <Dialog open onClose={onClose} title={t('materials.editTitle')}>
+    <Dialog
+      open
+      onClose={onClose}
+      title={t('materials.editTitle')}
+      className="max-w-7xl"
+      dismissOnBackdropClick={false}
+    >
       <form
         className="space-y-3"
         onSubmit={async (e) => {

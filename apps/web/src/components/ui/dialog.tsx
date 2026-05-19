@@ -7,15 +7,28 @@ export interface DialogProps {
   title?: string;
   children: React.ReactNode;
   className?: string;
+  /**
+   * When false, clicks on the backdrop do not dismiss the dialog.
+   * Use for dialogs that contain unsaved edits, so the user has to
+   * make a deliberate Save / Close choice. Default true.
+   */
+  dismissOnBackdropClick?: boolean;
 }
 
-export function Dialog({ open, onClose, title, children, className }: DialogProps): JSX.Element | null {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  className,
+  dismissOnBackdropClick = true,
+}: DialogProps): JSX.Element | null {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={dismissOnBackdropClick ? onClose : undefined}
         aria-hidden
       />
       <div
