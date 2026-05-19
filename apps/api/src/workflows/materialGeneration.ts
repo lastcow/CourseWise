@@ -16,6 +16,7 @@ import {
   GatewayCallError,
   type AnthropicUsage,
 } from '../services/ai/gateway';
+import { recordEvent } from '../services/ai/events';
 import type { AppBindings } from '../types';
 
 export interface MaterialGenerationParams {
@@ -70,6 +71,14 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
         .update(aiGenerationJobs)
         .set({ status: 'running', startedAt: new Date().toISOString() })
         .where(eq(aiGenerationJobs.id, jobId));
+      await recordEvent(
+        db,
+        jobId,
+        null,
+        'context.loaded',
+        `Loaded course context (${context.systemCacheable.length} chars cacheable, ${context.moduleIds.length} module${context.moduleIds.length === 1 ? '' : 's'})`,
+        { cacheableChars: context.systemCacheable.length, moduleCount: context.moduleIds.length },
+      );
     });
 
     const totals: AnthropicUsage = {
@@ -87,7 +96,7 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
         // Per-step config: retry transient errors a couple of times but don't
         // pound the upstream if it's a hard 4xx.
         { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
-        () => this.generateMaterialForModule(env, moduleId, context),
+        () => this.generateMaterialForModule(env, jobId, moduleId, context),
       );
       if (stepResult.ok) {
         succeeded++;
@@ -113,13 +122,18 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
           promptTokens: totals.inputTokens + totals.cacheReadTokens + totals.cacheCreationTokens,
           completionTokens: totals.outputTokens,
           costCents: cost,
-          result: {
-            succeededCount: succeeded,
-            failedCount: failed,
-            totals,
-          },
+          result: { succeededCount: succeeded, failedCount: failed, totals },
         })
         .where(eq(aiGenerationJobs.id, jobId));
+      await recordEvent(
+        db,
+        jobId,
+        null,
+        'job.finished',
+        `${succeeded} succeeded, ${failed} failed`,
+        { status, totals, costCents: cost },
+        failed > 0 && succeeded === 0 ? 'error' : 'info',
+      );
     });
   }
 
@@ -216,6 +230,7 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
 
   private async generateMaterialForModule(
     env: AppBindings,
+    jobId: string,
     moduleId: string,
     context: JobContext,
   ): Promise<{ ok: true; usage: AnthropicUsage } | { ok: false; usage: AnthropicUsage }> {
@@ -250,6 +265,15 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
       `Write a reading material for the module titled "${mod.title}".` +
       (mod.description ? ` Module description: ${mod.description}` : '');
 
+    await recordEvent(
+      db,
+      jobId,
+      artifactId ?? null,
+      'artifact.calling_model',
+      `Calling ${context.modelId} for module "${mod.title}"`,
+      { moduleId, modelId: context.modelId, moduleTitle: mod.title },
+    );
+
     let usage = emptyUsage();
     let text = '';
     try {
@@ -268,6 +292,14 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
       usage = res.usage;
       text = res.text.trim();
       if (!text) throw new Error('Empty response from model.');
+      await recordEvent(
+        db,
+        jobId,
+        artifactId ?? null,
+        'artifact.model_responded',
+        `Got ${usage.outputTokens} output token${usage.outputTokens === 1 ? '' : 's'}`,
+        { usage },
+      );
     } catch (err) {
       const msg =
         err instanceof GatewayCallError
@@ -281,6 +313,15 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
           .set({ status: 'failed', error: msg })
           .where(eq(aiGenerationArtifacts.id, artifactId));
       }
+      await recordEvent(
+        db,
+        jobId,
+        artifactId ?? null,
+        'artifact.failed',
+        msg,
+        { moduleId },
+        'error',
+      );
       return { ok: false, usage };
     }
 
@@ -307,6 +348,15 @@ export class MaterialGenerationWorkflow extends WorkflowEntrypoint<
         .set({ status: 'succeeded', artifactId: materialId })
         .where(eq(aiGenerationArtifacts.id, artifactId));
     }
+
+    await recordEvent(
+      db,
+      jobId,
+      artifactId ?? null,
+      'artifact.saved',
+      `Saved draft "${title}"`,
+      { moduleId, materialId },
+    );
 
     return { ok: true, usage };
   }
