@@ -161,6 +161,15 @@ courseAi.post(
           finishedAt: new Date().toISOString(),
         })
         .where(eq(aiGenerationJobs.id, jobRow.id));
+      await recordEvent(
+        db,
+        jobRow.id,
+        null,
+        'job.finished',
+        '0 succeeded, 0 failed',
+        { status: 'failed', error: 'workflow-binding-missing' },
+        'error',
+      );
       throw new ApiException(
         503,
         ERROR_CODES.INTERNAL_ERROR,
