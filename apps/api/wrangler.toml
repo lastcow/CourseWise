@@ -15,9 +15,14 @@ R2_BUCKET = "coursewise-files"
 #   DATABASE_URL         — Neon pooled connection string
 #   JWT_SECRET           — 32+ byte access-token signing secret
 #   JWT_REFRESH_SECRET   — 32+ byte refresh-token signing secret
+#
+# R2 file uploads (POST /api/files/upload-url). The bucket binding below is
+# necessary but NOT sufficient — presigned PUT URLs are signed using the R2
+# S3-compatible API, which needs three additional secrets:
 #   R2_ACCOUNT_ID        — Cloudflare account id used as the R2 S3 endpoint host
 #   R2_ACCESS_KEY_ID     — R2 S3 token access key (for presigned uploads)
 #   R2_SECRET_ACCESS_KEY — R2 S3 token secret (for presigned uploads)
+# Run `apps/api/scripts/setup-r2.sh` for one-command provisioning.
 # Optional:
 #   R2_PUBLIC_ENDPOINT   — public CDN host for the R2 bucket (presign falls back to bucket URL when unset)
 # AI content generation (Phase 2+; admin UI can be wired up before these exist):
