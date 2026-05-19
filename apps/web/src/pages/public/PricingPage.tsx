@@ -7,14 +7,14 @@ import { SectionBand } from '@/components/public/SectionBand';
 import { PageHeader } from '@/components/public/PageHeader';
 import { Reveal } from '@/components/public/Reveal';
 
-// TODO_SET_PRICING: confirm dollar amounts before launch
+// TODO_SET_PRICING: confirm dollar amounts and routing before launch
 const TIERS = [
   {
     name: 'Educators',
-    price: '$X',
-    cadence: '/ teacher / month',
+    price: 'Custom',
+    cadence: 'per teacher / month',
     summary: 'For individual educators and small departments running pilots.',
-    cta: { label: 'Start free', to: '/register' },
+    cta: { label: 'Talk to us', to: '/contact' },
     features: [
       'Up to 5 courses',
       'AI material generation (BYO API key or pooled credits)',
@@ -24,8 +24,8 @@ const TIERS = [
   },
   {
     name: 'Institutions',
-    price: '$Y',
-    cadence: '/ student / year, billed annually',
+    price: 'Custom',
+    cadence: 'per student / year, billed annually',
     summary: 'For schools, districts, and higher-ed departments.',
     cta: { label: 'Talk to sales', to: '/contact' },
     features: [
