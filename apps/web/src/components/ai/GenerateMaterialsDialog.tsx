@@ -5,6 +5,7 @@ import {
   AI_GENERATION_LANGUAGES,
   type AiGenerationDepth,
   type AiGenerationLanguage,
+  type AiModelOption,
   type GenerateMaterialsInput,
   type ModuleSummary,
 } from '@coursewise/shared';
@@ -21,6 +22,18 @@ type Props = {
   onClose: () => void;
   onStarted: (jobId: string) => void;
 };
+
+function formatModelOptionLabel(
+  m: AiModelOption,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  if (m.costInPer1m == null || m.costOutPer1m == null) return m.displayName;
+  const suffix = t('ai.generate.modelPriceSuffix', {
+    in: m.costInPer1m.toFixed(2),
+    out: m.costOutPer1m.toFixed(2),
+  });
+  return `${m.displayName} — ${suffix}`;
+}
 
 export function GenerateMaterialsDialog({ courseId, open, onClose, onStarted }: Props): JSX.Element {
   const { t } = useTranslation();
@@ -115,7 +128,7 @@ export function GenerateMaterialsDialog({ courseId, open, onClose, onStarted }: 
               >
                 {models.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.displayName} ({m.modelId})
+                    {formatModelOptionLabel(m, t)}
                   </option>
                 ))}
               </select>

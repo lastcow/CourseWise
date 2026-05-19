@@ -738,6 +738,7 @@ export const zhCN = {
         started: '生成任务已开始 — 草稿将出现在「阅读资料」中',
         noModelsHint: '暂无可用的 AI 模型。请联系管理员配置提供商和模型。',
         noModulesHint: '当前课程还没有章节,请先创建章节再生成资料。',
+        modelPriceSuffix: '输入 ${{in}} / 输出 ${{out}} / 每 1M tokens',
       },
       history: {
         title: 'AI 生成历史',

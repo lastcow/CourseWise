@@ -745,6 +745,7 @@ export const en = {
         noModelsHint:
           'No AI models are available. Ask an admin to configure a provider and at least one model.',
         noModulesHint: 'This course has no modules yet. Add a module before generating materials.',
+        modelPriceSuffix: '${{in}} in / ${{out}} out per 1M',
       },
       history: {
         title: 'AI generation history',
