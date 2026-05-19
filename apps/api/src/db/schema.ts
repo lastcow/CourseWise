@@ -949,6 +949,30 @@ export const aiGenerationEvents = pgTable(
 
 export type AiGenerationEventRow = typeof aiGenerationEvents.$inferSelect;
 
+export const aiPromptTemplates = pgTable(
+  'ai_prompt_templates',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    kind: aiArtifactKindEnum('kind').notNull(),
+    systemPrompt: text('system_prompt').notNull(),
+    userMessage: text('user_message').notNull(),
+    depthConfig: jsonb('depth_config')
+      .$type<{
+        brief: { wordTarget: string; maxTokens: number };
+        standard: { wordTarget: string; maxTokens: number };
+        detailed: { wordTarget: string; maxTokens: number };
+      }>()
+      .notNull(),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (t) => ({
+    kindUnique: uniqueIndex('ai_prompt_templates_kind_unique').on(t.kind),
+  }),
+);
+
+export type AiPromptTemplateRow = typeof aiPromptTemplates.$inferSelect;
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type ApiTokenRow = typeof apiTokens.$inferSelect;
