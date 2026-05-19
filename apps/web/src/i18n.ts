@@ -11,7 +11,7 @@ void i18n
   .init({
     fallbackLng: DEFAULT_LOCALE,
     supportedLngs: [...SUPPORTED_LOCALES],
-    nonExplicitSupportedLngs: true,
+    load: 'currentOnly',
     interpolation: { escapeValue: false },
     resources: {
       en,
