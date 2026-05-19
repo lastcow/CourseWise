@@ -790,6 +790,14 @@ export const zhCN = {
         resetDone: '模板已恢复默认',
         kindHeader: '类型',
         empty: '暂未配置提示词模板。',
+        kinds: {
+          material: '阅读材料',
+          presentation: '幻灯片',
+          assignment: '作业',
+          project: '项目',
+          quiz: '测验',
+        },
+        discardConfirm: '放弃未保存的修改并切换?',
         validation: {
           required: '必填项。',
           tooLong: '最多 {{max}} 字符。',

@@ -797,6 +797,14 @@ export const en = {
         resetDone: 'Prompt template reset',
         kindHeader: 'Kind',
         empty: 'No prompt templates configured.',
+        kinds: {
+          material: 'Reading material',
+          presentation: 'Presentation',
+          assignment: 'Assignment',
+          project: 'Project',
+          quiz: 'Quiz',
+        },
+        discardConfirm: 'Discard your unsaved edits and switch?',
         validation: {
           required: 'This field is required.',
           tooLong: 'Maximum {{max}} characters.',

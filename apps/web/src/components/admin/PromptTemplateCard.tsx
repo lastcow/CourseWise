@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import type { RefObject } from 'react';
+import type { MutableRefObject, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RotateCcw, Save } from 'lucide-react';
 import type {
@@ -39,12 +39,18 @@ export function PromptTemplateCard(): JSX.Element {
   const templatesQ = useAiPromptTemplates();
   const templates = templatesQ.data ?? [];
   const [activeKind, setActiveKind] = useState<AiArtifactKind | null>(null);
+  const dirtyRef = useRef<() => boolean>(() => false);
 
   // Default to the first template once loaded.
   const effectiveKind = activeKind ?? templates[0]?.kind ?? null;
   const active = effectiveKind
     ? templates.find((tpl) => tpl.kind === effectiveKind) ?? null
     : null;
+
+  function tryChangeKind(next: AiArtifactKind): void {
+    if (dirtyRef.current() && !window.confirm(t('ai.prompts.discardConfirm'))) return;
+    setActiveKind(next);
+  }
 
   return (
     <Card>
@@ -64,9 +70,11 @@ export function PromptTemplateCard(): JSX.Element {
             <KindTabs
               kinds={templates.map((tpl) => tpl.kind)}
               active={effectiveKind}
-              onChange={setActiveKind}
+              onChange={tryChangeKind}
             />
-            {active ? <PromptTemplateForm key={active.id} template={active} /> : null}
+            {active ? (
+              <PromptTemplateForm key={active.id} template={active} dirtyRef={dirtyRef} />
+            ) : null}
           </div>
         )}
       </CardContent>
@@ -96,14 +104,20 @@ function KindTabs({
             (k === active ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground')
           }
         >
-          {t('ai.prompts.kindHeader')}: {k}
+          {t(`ai.prompts.kinds.${k}`)}
         </button>
       ))}
     </div>
   );
 }
 
-function PromptTemplateForm({ template }: { template: AiPromptTemplate }): JSX.Element {
+function PromptTemplateForm({
+  template,
+  dirtyRef,
+}: {
+  template: AiPromptTemplate;
+  dirtyRef: MutableRefObject<() => boolean>;
+}): JSX.Element {
   const { t } = useTranslation();
   const updateM = useUpdateAiPromptTemplate();
   const resetM = useResetAiPromptTemplate();
@@ -123,6 +137,8 @@ function PromptTemplateForm({ template }: { template: AiPromptTemplate }): JSX.E
       JSON.stringify(depthConfig) !== JSON.stringify(template.depthConfig),
     [systemPrompt, userMessage, depthConfig, template],
   );
+  // Publish a fresh "isDirty" getter so the parent's tryChangeKind reads current state.
+  dirtyRef.current = () => dirty;
 
   // Local validation — server is the source of truth, this is just to gate Save.
   const valid = useMemo(() => {
@@ -296,6 +312,9 @@ function DepthRow({
   entry: { wordTarget: string; maxTokens: number };
   onChange: (patch: Partial<{ wordTarget: string; maxTokens: number }>) => void;
 }): JSX.Element {
+  const { t } = useTranslation();
+  const tokensValid =
+    Number.isInteger(entry.maxTokens) && entry.maxTokens >= 100 && entry.maxTokens <= 32000;
   return (
     <>
       <div className="self-center font-medium">{depth}</div>
@@ -304,13 +323,21 @@ function DepthRow({
         onChange={(e) => onChange({ wordTarget: e.target.value })}
         maxLength={120}
       />
-      <Input
-        type="number"
-        min={100}
-        max={32000}
-        value={entry.maxTokens}
-        onChange={(e) => onChange({ maxTokens: Number(e.target.value) || 0 })}
-      />
+      <div>
+        <Input
+          type="number"
+          min={100}
+          max={32000}
+          value={entry.maxTokens}
+          onChange={(e) => onChange({ maxTokens: Number(e.target.value) || 0 })}
+          aria-invalid={!tokensValid}
+        />
+        {!tokensValid ? (
+          <p className="mt-0.5 text-[10px] text-destructive">
+            {t('ai.prompts.validation.tokensRange', { min: 100, max: 32000 })}
+          </p>
+        ) : null}
+      </div>
     </>
   );
 }
