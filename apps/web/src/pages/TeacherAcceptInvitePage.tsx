@@ -3,15 +3,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { TeacherInvitationLookup } from '@coursewise/shared';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
+import { Container } from '@/components/public/Container';
+import { SectionBand } from '@/components/public/SectionBand';
 import { ApiClientError } from '@/lib/api';
 import { lookupTeacherInvitation } from '@/lib/queries';
 import { useAuth } from '@/lib/authContext';
@@ -69,34 +63,37 @@ export function TeacherAcceptInvitePage(): JSX.Element {
   }
 
   return (
-    <div className="mx-auto max-w-md py-12">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('teacherInvite.title')}</CardTitle>
-          <CardDescription>{t('teacherInvite.subtitle')}</CardDescription>
-        </CardHeader>
-        {lookup.status === 'loading' ? (
-          <CardContent>
-            <p>{t('common.loading')}</p>
-          </CardContent>
-        ) : lookup.status === 'error' ? (
-          <>
-            <CardContent className="space-y-3">
+    <SectionBand>
+      <Container>
+        <div className="mx-auto max-w-md rounded-2xl border bg-white p-8">
+          <div className="mb-6 text-center">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Teacher invitation
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+              Join your school on CourseWise.
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Complete the steps below to claim your teacher account.
+            </p>
+          </div>
+          {lookup.status === 'loading' ? (
+            <p className="mt-8 text-center text-sm text-muted-foreground">{t('common.loading')}</p>
+          ) : lookup.status === 'error' ? (
+            <div className="mt-8 space-y-4">
               <p className="text-sm text-destructive">{t(lookup.i18nKey)}</p>
               <p className="text-sm text-muted-foreground">{t('teacherInvite.requestNew')}</p>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Link to="/" className="text-sm text-muted-foreground hover:underline">
-                {t('nav.home')}
-              </Link>
-              <Link to="/login" className="text-sm hover:underline">
-                {t('auth.loginCta')}
-              </Link>
-            </CardFooter>
-          </>
-        ) : (
-          <form onSubmit={onSubmit}>
-            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Link to="/" className="text-sm text-muted-foreground hover:underline">
+                  {t('nav.home')}
+                </Link>
+                <Link to="/login" className="text-sm hover:underline">
+                  {t('auth.loginCta')}
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="mt-8 space-y-4">
               <p className="text-sm text-muted-foreground">
                 {t('teacherInvite.invitedBy', { name: lookup.data.inviterName })}
               </p>
@@ -134,15 +131,13 @@ export function TeacherAcceptInvitePage(): JSX.Element {
               {submitErrorKey ? (
                 <p className="text-sm text-destructive">{t(submitErrorKey)}</p>
               ) : null}
-            </CardContent>
-            <CardFooter>
               <Button type="submit" disabled={isLoading} className="w-full">
                 {isLoading ? t('common.loading') : t('teacherInvite.cta')}
               </Button>
-            </CardFooter>
-          </form>
-        )}
-      </Card>
-    </div>
+            </form>
+          )}
+        </div>
+      </Container>
+    </SectionBand>
   );
 }

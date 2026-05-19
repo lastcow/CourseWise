@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
+import { Container } from '@/components/public/Container';
+import { SectionBand } from '@/components/public/SectionBand';
 import { useAuth } from '@/lib/authContext';
 import { ApiClientError } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
@@ -33,14 +34,21 @@ export function RegisterPage(): JSX.Element {
   };
 
   return (
-    <div className="mx-auto max-w-md py-12">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('auth.registerTitle')}</CardTitle>
-          <CardDescription>{t('app.tagline')}</CardDescription>
-        </CardHeader>
-        <form onSubmit={onSubmit}>
-          <CardContent className="space-y-4">
+    <SectionBand>
+      <Container>
+        <div className="mx-auto max-w-md rounded-2xl border bg-white p-8">
+          <div className="mb-6 text-center">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Get started
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+              Create your workspace.
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Free for educators. 60 seconds to your first AI-drafted material.
+            </p>
+          </div>
+          <form onSubmit={onSubmit} className="mt-8 space-y-4">
             <div className="space-y-1">
               <Label htmlFor="name">{t('auth.name')}</Label>
               <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
@@ -58,17 +66,21 @@ export function RegisterPage(): JSX.Element {
               <Input id="invitationCode" required value={invitationCode} onChange={(e) => setInvitationCode(e.target.value)} />
             </div>
             {errorKey ? <p className="text-sm text-destructive">{t(errorKey)}</p> : null}
-          </CardContent>
-          <CardFooter className="flex flex-col items-stretch gap-2">
-            <Button disabled={isLoading} type="submit">
+            <Button disabled={isLoading} type="submit" className="w-full">
               {isLoading ? t('common.loading') : t('auth.registerCta')}
             </Button>
-            <Link to="/login" className="text-center text-sm text-muted-foreground hover:underline">
+            <Link
+              to="/login"
+              className="block text-center text-sm text-muted-foreground hover:underline"
+            >
               {t('auth.switchToLogin')}
             </Link>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
+          </form>
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            <Link to="/features" className="underline">Why CourseWise?</Link>
+          </p>
+        </div>
+      </Container>
+    </SectionBand>
   );
 }

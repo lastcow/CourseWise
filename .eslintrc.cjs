@@ -49,5 +49,23 @@ module.exports = {
         'react-refresh/only-export-components': 'off',
       },
     },
+    {
+      // Legal pages and public marketing pages contain natural-language
+      // prose with apostrophes and quote marks. Escaping every one as
+      // &apos;/&quot; would make the source unreadable and the prose
+      // harder to edit. The rule is appropriate for component code, not
+      // long-form copy.
+      files: [
+        'apps/web/src/pages/legal/**/*.{ts,tsx}',
+        'apps/web/src/pages/public/**/*.{ts,tsx}',
+        'apps/web/src/pages/HomePage.tsx',
+        'apps/web/src/pages/LoginPage.tsx',
+        'apps/web/src/pages/RegisterPage.tsx',
+        'apps/web/src/pages/TeacherAcceptInvitePage.tsx',
+      ],
+      rules: {
+        'react/no-unescaped-entities': 'off',
+      },
+    },
   ],
 };
