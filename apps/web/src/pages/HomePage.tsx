@@ -141,13 +141,11 @@ export function HomePage(): JSX.Element {
               { mock: <MockPromptEditor />, eyebrow: 'For governance', title: 'Editable prompt templates per artifact kind.', body: 'Admins customize the system prompt, user message, and depth knobs. Click-to-insert variables; Reset-to-defaults restores the built-in template. Server stamps every edit.' },
             ].map((row, idx) => (
               <Reveal key={row.title}>
-                <div className={`grid items-center gap-10 md:grid-cols-2 ${idx % 2 === 1 ? 'md:[&>div:first-child]:order-2' : ''}`}>
-                  <div className="relative">
-                    <div className="relative">
-                      {row.mock}
-                    </div>
+                <div className="grid items-center gap-10 md:grid-cols-2">
+                  <div className={`relative ${idx % 2 === 1 ? 'md:order-2' : 'md:order-1'}`}>
+                    {row.mock}
                   </div>
-                  <div>
+                  <div className={idx % 2 === 1 ? 'md:order-1' : 'md:order-2'}>
                     <div className="text-xs font-medium uppercase tracking-[0.18em] text-[#a3a3a3]">{row.eyebrow}</div>
                     <h3 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">{row.title}</h3>
                     <p className="mt-4 text-sm text-[#a3a3a3] md:text-base">{row.body}</p>
