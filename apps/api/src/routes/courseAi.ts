@@ -4,6 +4,7 @@ import {
   generateMaterialsSchema,
   type AiJobArtifact,
   type AiJobDetail,
+  type AiJobEvent,
   type AiJobSummary,
   type AiModelOption,
   type AiProviderKind,
@@ -11,6 +12,7 @@ import {
 } from '@coursewise/shared';
 import {
   aiGenerationArtifacts,
+  aiGenerationEvents,
   aiGenerationJobs,
   aiModels,
   aiProviders,
@@ -18,6 +20,7 @@ import {
   readingMaterials,
 } from '../db/schema';
 import { hasProviderSecret } from '../services/ai/gateway';
+import { recordEvent } from '../services/ai/events';
 import { recordAudit } from '../services/audit';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
@@ -137,6 +140,15 @@ courseAi.post(
       })),
     );
 
+    await recordEvent(
+      db,
+      jobRow.id,
+      null,
+      'job.started',
+      `Starting reading-material generation for ${input.moduleIds.length} module${input.moduleIds.length === 1 ? '' : 's'}`,
+      { modelId: input.modelId, moduleCount: input.moduleIds.length },
+    );
+
     if (!c.env.MATERIAL_GEN_WORKFLOW) {
       // The Workflow binding is required for this endpoint to actually do
       // anything. We still create the job row so the failure is visible in
@@ -149,6 +161,15 @@ courseAi.post(
           finishedAt: new Date().toISOString(),
         })
         .where(eq(aiGenerationJobs.id, jobRow.id));
+      await recordEvent(
+        db,
+        jobRow.id,
+        null,
+        'job.finished',
+        '0 succeeded, 0 failed',
+        { status: 'failed', error: 'workflow-binding-missing' },
+        'error',
+      );
       throw new ApiException(
         503,
         ERROR_CODES.INTERNAL_ERROR,
@@ -248,16 +269,23 @@ courseAi.get(
     const row = jobRows[0];
     if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Job not found');
 
-    const artifacts = await db
-      .select({
-        artifact: aiGenerationArtifacts,
-        moduleTitle: modules.title,
-        materialTitle: readingMaterials.title,
-      })
-      .from(aiGenerationArtifacts)
-      .leftJoin(modules, eq(modules.id, aiGenerationArtifacts.moduleId))
-      .leftJoin(readingMaterials, eq(readingMaterials.id, aiGenerationArtifacts.artifactId))
-      .where(eq(aiGenerationArtifacts.jobId, jobId));
+    const [artifacts, eventRows] = await Promise.all([
+      db
+        .select({
+          artifact: aiGenerationArtifacts,
+          moduleTitle: modules.title,
+          materialTitle: readingMaterials.title,
+        })
+        .from(aiGenerationArtifacts)
+        .leftJoin(modules, eq(modules.id, aiGenerationArtifacts.moduleId))
+        .leftJoin(readingMaterials, eq(readingMaterials.id, aiGenerationArtifacts.artifactId))
+        .where(eq(aiGenerationArtifacts.jobId, jobId)),
+      db
+        .select()
+        .from(aiGenerationEvents)
+        .where(eq(aiGenerationEvents.jobId, jobId))
+        .orderBy(asc(aiGenerationEvents.occurredAt), asc(aiGenerationEvents.id)),
+    ]);
 
     let succeededCount = 0;
     let failedCount = 0;
@@ -276,6 +304,16 @@ courseAi.get(
       };
     });
 
+    const events: AiJobEvent[] = eventRows.map((e) => ({
+      id: e.id,
+      artifactId: e.artifactId,
+      level: e.level,
+      type: e.type,
+      message: e.message,
+      metadata: e.metadata,
+      occurredAt: e.occurredAt,
+    }));
+
     const detail: AiJobDetail = {
       id: row.job.id,
       status: row.job.status,
@@ -289,6 +327,7 @@ courseAi.get(
       createdAt: row.job.createdAt,
       request: row.job.request as unknown as GenerateMaterialsInput,
       artifacts: out,
+      events,
     };
 
     return success(c, detail);

@@ -108,6 +108,7 @@ export const aiArtifactStatusEnum = pgEnum('ai_artifact_status', [
   'succeeded',
   'failed',
 ]);
+export const aiEventLevelEnum = pgEnum('ai_event_level', ['info', 'warn', 'error']);
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -922,6 +923,31 @@ export const aiGenerationArtifacts = pgTable(
     jobIdx: index('ai_generation_artifacts_job_idx').on(t.jobId),
   }),
 );
+
+export const aiGenerationEvents = pgTable(
+  'ai_generation_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => aiGenerationJobs.id, { onDelete: 'cascade' }),
+    artifactId: uuid('artifact_id').references(() => aiGenerationArtifacts.id, {
+      onDelete: 'set null',
+    }),
+    level: aiEventLevelEnum('level').notNull().default('info'),
+    type: text('type').notNull(),
+    message: text('message').notNull(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    jobOccurredIdx: index('ai_generation_events_job_occurred_idx').on(t.jobId, t.occurredAt),
+  }),
+);
+
+export type AiGenerationEventRow = typeof aiGenerationEvents.$inferSelect;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

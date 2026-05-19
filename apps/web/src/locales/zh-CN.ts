@@ -750,6 +750,26 @@ export const zhCN = {
         failed: '失败',
         canceled: '已取消',
       },
+      activity: {
+        title: '活动',
+        showRealtime: '显示实时活动',
+        empty: '暂无事件。',
+        metadataToggle: '详情',
+        relative: {
+          justNow: '刚刚',
+          secondsAgo: '{{n}} 秒前',
+          minutesAgo: '{{n}} 分钟前',
+        },
+        eventType: {
+          jobStarted: '任务开始',
+          contextLoaded: '上下文已加载',
+          artifactCallingModel: '正在调用模型',
+          artifactModelResponded: '模型已响应',
+          artifactSaved: '已保存',
+          artifactFailed: '生成失败',
+          jobFinished: '任务完成',
+        },
+      },
     },
   },
 } as const;
