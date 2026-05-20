@@ -354,6 +354,9 @@ export const en = {
         instructionsHint:
           'Optional. Example: "Open with the agenda, end with discussion questions."',
         theme: 'Theme',
+        format: 'Document type',
+        formatHint:
+          'What Gamma renders. "Presentation" is the default; pick another to get a long-form doc, social post, or single-page site.',
         imageSource: 'Image source',
         imageStyle: 'Image style',
         imageStyleHint: 'Optional. Example: "Photorealistic, soft natural light".',
@@ -362,6 +365,12 @@ export const en = {
         numCards: 'Pages needed',
         numCardsPlaceholder: 'Auto',
         numCardsHint: 'Leave blank to let Gamma decide.',
+      },
+      format: {
+        presentation: 'Presentation',
+        document: 'Document',
+        social: 'Social post',
+        webpage: 'Webpage',
       },
       textMode: {
         generate: 'Generate (new content from prompt)',

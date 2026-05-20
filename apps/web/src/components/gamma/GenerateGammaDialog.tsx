@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  GAMMA_BUILTIN_THEMES,
+  GAMMA_FORMATS,
   GAMMA_IMAGE_SOURCES,
   GAMMA_MAX_NUM_CARDS,
   GAMMA_MIN_NUM_CARDS,
   GAMMA_TEXT_AMOUNTS,
   GAMMA_TEXT_MODES,
+  type GammaFormat,
   type GammaImageSource,
   type GammaTextAmount,
   type GammaTextMode,
+  type GammaTheme,
   type GenerateGammaPresentationInput,
   type MaterialSummary,
   type ModuleSummary,
@@ -71,6 +75,7 @@ export function GenerateGammaDialog({
   const [touchedSelection, setTouchedSelection] = useState(false);
   const [instructions, setInstructions] = useState('');
   const [themeId, setThemeId] = useState<string>('');
+  const [format, setFormat] = useState<GammaFormat>('presentation');
   const [imageSource, setImageSource] = useState<GammaImageSource>('aiGenerated');
   const [imageStyle, setImageStyle] = useState('');
   const [amount, setAmount] = useState<GammaTextAmount>('medium');
@@ -80,7 +85,14 @@ export function GenerateGammaDialog({
   const [numCards, setNumCards] = useState<string>('');
 
   const modules: ModuleSummary[] = useMemo(() => modulesQ.data ?? [], [modulesQ.data]);
-  const themes = themesQ.data ?? [];
+  // Always include Gamma's built-in themes (e.g. Pearl), de-duping by id so an
+  // API entry with the same id wins on metadata like previewUrl.
+  const themes = useMemo<GammaTheme[]>(() => {
+    const apiThemes = themesQ.data ?? [];
+    const seen = new Set(apiThemes.map((t) => t.id));
+    const fallback = GAMMA_BUILTIN_THEMES.filter((t) => !seen.has(t.id));
+    return [...apiThemes, ...fallback];
+  }, [themesQ.data]);
   const materials = useMemo<MaterialSummary[]>(
     () => (materialsQ.data ?? []).filter((m) => m.status !== 'draft'),
     [materialsQ.data],
@@ -154,6 +166,7 @@ export function GenerateGammaDialog({
     setTouchedSelection(false);
     setInstructions('');
     setThemeId('');
+    setFormat('presentation');
     setImageSource('aiGenerated');
     setImageStyle('');
     setAmount('medium');
@@ -184,6 +197,7 @@ export function GenerateGammaDialog({
       textMode,
       numCards: parsedCards,
       exportAs: 'pptx',
+      format,
     };
     try {
       const res = await create.mutateAsync(input);
@@ -282,6 +296,23 @@ export function GenerateGammaDialog({
             placeholder={t('gamma.fields.instructionsHint')}
           />
           <p className="text-xs text-muted-foreground">{t('gamma.fields.instructionsHint')}</p>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="gamma-format">{t('gamma.fields.format')}</Label>
+          <select
+            id="gamma-format"
+            value={format}
+            onChange={(e) => setFormat(e.target.value as GammaFormat)}
+            className={SELECT_CLASS}
+          >
+            {GAMMA_FORMATS.map((f) => (
+              <option key={f} value={f}>
+                {t(`gamma.format.${f}`)}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">{t('gamma.fields.formatHint')}</p>
         </div>
 
         <div className="space-y-1">

@@ -149,7 +149,7 @@ r.post(
     const client = clientOr500(c.env);
     const created = await client.createGeneration({
       inputText,
-      format: 'presentation',
+      format: input.format,
       exportAs: input.exportAs,
       textMode: input.textMode,
       title: input.title,
