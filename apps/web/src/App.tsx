@@ -32,6 +32,7 @@ import { TeacherMaterialDetailPage } from '@/pages/teacher/TeacherMaterialDetail
 import { TeacherMaterialEditPage } from '@/pages/teacher/TeacherMaterialEditPage';
 import { TeacherPresentationsPage } from '@/pages/teacher/TeacherPresentationsPage';
 import { TeacherPresentationEditorPage } from '@/pages/teacher/TeacherPresentationEditorPage';
+import { TeacherGenerateGammaPage } from '@/pages/teacher/TeacherGenerateGammaPage';
 import { TeacherAssignmentsPage } from '@/pages/teacher/TeacherAssignmentsPage';
 import { TeacherAssignmentFormPage } from '@/pages/teacher/TeacherAssignmentFormPage';
 import { TeacherSubmissionsInboxPage } from '@/pages/teacher/TeacherSubmissionsInboxPage';
@@ -192,6 +193,7 @@ export default function App(): JSX.Element {
                 <Route path="materials/:materialId" element={<TeacherMaterialDetailPage />} />
                 <Route path="materials/:materialId/edit" element={<TeacherMaterialEditPage />} />
                 <Route path="presentations" element={<TeacherPresentationsPage />} />
+                <Route path="presentations/new-gamma" element={<TeacherGenerateGammaPage />} />
                 <Route path="assignments" element={<TeacherAssignmentsPage />} />
                 <Route path="assignments/new" element={<TeacherAssignmentFormPage />} />
                 <Route path="assignments/:assignmentId" element={<TeacherAssignmentFormPage />} />
