@@ -64,14 +64,16 @@ Do these once per environment, in this order:
 6. **Cloudflare Pages project**. Create a Pages project named `coursewise`.
    Build command: `pnpm install --frozen-lockfile && pnpm --filter @coursewise/web build`.
    Output directory: `apps/web/dist`. Env vars on the Pages project:
-   - `VITE_API_BASE_URL=https://coursewise-api.<account>.workers.dev`
+   - `VITE_API_BASE_URL=https://api.fsuac.com` (or
+     `https://coursewise-api.<account>.workers.dev` if no custom domain is
+     attached yet)
    - `VITE_DEFAULT_LOCALE=en`
 7. **GitHub Secrets** for the CI deploy workflow:
    ```sh
    gh secret set CLOUDFLARE_API_TOKEN          --body "<token>"
    gh secret set CLOUDFLARE_ACCOUNT_ID         --body "<account-id>"
    gh secret set CLOUDFLARE_PAGES_PROJECT_NAME --body "coursewise"
-   gh secret set VITE_API_BASE_URL             --body "https://coursewise-api.<account>.workers.dev"
+   gh secret set VITE_API_BASE_URL             --body "https://api.fsuac.com"
    gh secret set DATABASE_URL                  --body "postgresql://<user>:<pw>@<neon-pooler-host>/<db>?sslmode=require"
    # optional
    gh secret set VITE_DEFAULT_LOCALE           --body "en"
@@ -133,7 +135,7 @@ wrangler pages deploy dist --project-name=coursewise --branch=main
 After every production deploy, run this smoke runbook (5 minutes, no GUI):
 
 ```sh
-API=https://coursewise-api.<account>.workers.dev
+API=https://api.fsuac.com
 
 # 1. Health
 curl -fsS "$API/api/health" | jq .
