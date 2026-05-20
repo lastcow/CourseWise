@@ -31,14 +31,17 @@ import type { AppEnv, AppBindings } from '../types';
 const DEFAULT_EMAIL_FROM = 'CourseWise <noreply@fsuac.com>';
 
 /**
- * Best-effort: send the invitation email via the Cloudflare `send_email`
- * binding. Returns whether the dispatch succeeded. Never throws — email send
- * failures must NOT block the underlying mutation (the invite is still valid
- * and the inviteUrl is still in the response for the admin to share manually).
+ * Best-effort: send the invitation email via the Cloudflare Email Service
+ * (beta) Worker binding. Returns whether the dispatch succeeded. Never throws
+ * — email send failures must NOT block the underlying mutation (the invite is
+ * still valid and the inviteUrl is still in the response for the admin to
+ * share manually).
  *
- * Common failure case to expect: the recipient is not on the binding's
- * `allowed_destination_addresses` list. The binding throws and we log + return
- * false. The admin UI then falls back to the copy-link toast.
+ * Common failure cases:
+ *   - sender domain not yet verified in the Cloudflare dashboard
+ *   - account hasn't opted into the Email Service beta
+ *   - upstream throttle / transient error
+ * In all of these the admin UI falls back to the copy-link toast.
  */
 async function trySendInvitationEmail(
   env: AppBindings,
