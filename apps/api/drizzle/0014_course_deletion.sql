@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS "course_deletion_log" (
   "course_id" uuid NOT NULL,
   "course_code" text NOT NULL,
   "course_title" text NOT NULL,
-  "deleted_by" uuid NOT NULL,
+  "deleted_by" uuid,
   "deleted_at" timestamp with time zone DEFAULT now() NOT NULL,
   "child_counts" jsonb NOT NULL
 );
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS "r2_cleanup_jobs" (
 );
 --> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "course_deletion_log" ADD CONSTRAINT "course_deletion_log_deleted_by_users_id_fk" FOREIGN KEY ("deleted_by") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
+ ALTER TABLE "course_deletion_log" ADD CONSTRAINT "course_deletion_log_deleted_by_users_id_fk" FOREIGN KEY ("deleted_by") REFERENCES "users"("id") ON DELETE set null ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;

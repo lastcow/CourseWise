@@ -1028,9 +1028,7 @@ export const courseDeletionLog = pgTable('course_deletion_log', {
   courseId: uuid('course_id').notNull(),
   courseCode: text('course_code').notNull(),
   courseTitle: text('course_title').notNull(),
-  deletedBy: uuid('deleted_by')
-    .notNull()
-    .references(() => users.id),
+  deletedBy: uuid('deleted_by').references(() => users.id, { onDelete: 'set null' }),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   childCounts: jsonb('child_counts').notNull(),
 });
