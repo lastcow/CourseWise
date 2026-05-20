@@ -4,12 +4,14 @@ import {
   GAMMA_BUILTIN_THEMES,
   GAMMA_FORMATS,
   GAMMA_IMAGE_SOURCES,
+  GAMMA_IMAGE_STYLES,
   GAMMA_MAX_NUM_CARDS,
   GAMMA_MIN_NUM_CARDS,
   GAMMA_TEXT_AMOUNTS,
   GAMMA_TEXT_MODES,
   type GammaFormat,
   type GammaImageSource,
+  type GammaImageStyleSlug,
   type GammaTextAmount,
   type GammaTextMode,
   type GammaTheme,
@@ -77,7 +79,7 @@ export function GenerateGammaDialog({
   const [themeId, setThemeId] = useState<string>('');
   const [format, setFormat] = useState<GammaFormat>('presentation');
   const [imageSource, setImageSource] = useState<GammaImageSource>('aiGenerated');
-  const [imageStyle, setImageStyle] = useState('');
+  const [imageStyleSlug, setImageStyleSlug] = useState<GammaImageStyleSlug>('auto');
   const [amount, setAmount] = useState<GammaTextAmount>('medium');
   const [textMode, setTextMode] = useState<GammaTextMode>('condense');
   // Empty string = "let Gamma decide". Keeping the input as text avoids a
@@ -168,7 +170,7 @@ export function GenerateGammaDialog({
     setThemeId('');
     setFormat('presentation');
     setImageSource('aiGenerated');
-    setImageStyle('');
+    setImageStyleSlug('auto');
     setAmount('medium');
     setTextMode('condense');
     setNumCards('');
@@ -192,7 +194,8 @@ export function GenerateGammaDialog({
       additionalInstructions: instructions.trim() || null,
       themeId: themeId || null,
       imageSource,
-      imageStyle: imageStyle.trim() || null,
+      imageStyle:
+        GAMMA_IMAGE_STYLES.find((s) => s.slug === imageStyleSlug)?.value || null,
       amount,
       textMode,
       numCards: parsedCards,
@@ -315,34 +318,52 @@ export function GenerateGammaDialog({
           <p className="text-xs text-muted-foreground">{t('gamma.fields.formatHint')}</p>
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="gamma-theme">{t('gamma.fields.theme')}</Label>
-          <select
-            id="gamma-theme"
-            value={themeId}
-            onChange={(e) => setThemeId(e.target.value)}
-            className={SELECT_CLASS}
-            disabled={themesQ.isLoading}
-          >
-            <option value="">—</option>
-            {themes.map((th) => (
-              <option key={th.id} value={th.id}>
-                {th.name}
-              </option>
-            ))}
-          </select>
-          {themeId
-            ? (() => {
-                const sel = themes.find((th) => th.id === themeId);
-                return sel?.previewUrl ? (
-                  <img
-                    src={sel.previewUrl}
-                    alt={sel.name}
-                    className="mt-2 h-16 w-28 rounded border object-cover"
-                  />
-                ) : null;
-              })()
-            : null}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="gamma-theme">{t('gamma.fields.theme')}</Label>
+            <select
+              id="gamma-theme"
+              value={themeId}
+              onChange={(e) => setThemeId(e.target.value)}
+              className={SELECT_CLASS}
+              disabled={themesQ.isLoading}
+            >
+              <option value="">—</option>
+              {themes.map((th) => (
+                <option key={th.id} value={th.id}>
+                  {th.name}
+                </option>
+              ))}
+            </select>
+            {themeId
+              ? (() => {
+                  const sel = themes.find((th) => th.id === themeId);
+                  return sel?.previewUrl ? (
+                    <img
+                      src={sel.previewUrl}
+                      alt={sel.name}
+                      className="mt-2 h-16 w-28 rounded border object-cover"
+                    />
+                  ) : null;
+                })()
+              : null}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="gamma-image-style">{t('gamma.fields.imageStyle')}</Label>
+            <select
+              id="gamma-image-style"
+              value={imageStyleSlug}
+              onChange={(e) => setImageStyleSlug(e.target.value as GammaImageStyleSlug)}
+              className={SELECT_CLASS}
+            >
+              {GAMMA_IMAGE_STYLES.map((s) => (
+                <option key={s.slug} value={s.slug}>
+                  {t(`gamma.imageStyle.${s.slug}`)}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">{t('gamma.fields.imageStyleHint')}</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -410,18 +431,6 @@ export function GenerateGammaDialog({
               ))}
             </select>
           </div>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="gamma-image-style">{t('gamma.fields.imageStyle')}</Label>
-          <Input
-            id="gamma-image-style"
-            value={imageStyle}
-            onChange={(e) => setImageStyle(e.target.value)}
-            maxLength={500}
-            placeholder={t('gamma.fields.imageStyleHint')}
-          />
-          <p className="text-xs text-muted-foreground">{t('gamma.fields.imageStyleHint')}</p>
         </div>
 
         <div className="flex items-center justify-end gap-2 pt-2">
