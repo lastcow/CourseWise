@@ -17,7 +17,7 @@ import {
   type UpdatePresentationInput,
   type UpdateSlideInput,
 } from '@coursewise/shared';
-import { modules, presentations, slides } from '../db/schema';
+import { gammaGenerationJobs, modules, presentations, slides } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -127,6 +127,34 @@ async function getSlideCount(c: Context<AppEnv>, presentationId: string): Promis
   return rows.length;
 }
 
+// Gamma decks never populate `slides` (the deck lives in Gamma; we only mirror
+// the .pptx into R2), and Gamma's API doesn't report the produced slide count.
+// As a best-effort, surface the teacher's requested `numCards` from the job's
+// `requestParams`. Returns 0 when unset (teacher let Gamma decide) or no job
+// is linked.
+async function gammaRequestedSlideCount(
+  c: Context<AppEnv>,
+  presentationId: string,
+): Promise<number> {
+  const db = c.get('db');
+  const [job] = await db
+    .select({ params: gammaGenerationJobs.requestParams })
+    .from(gammaGenerationJobs)
+    .where(eq(gammaGenerationJobs.presentationId, presentationId))
+    .limit(1);
+  const n = (job?.params as { numCards?: unknown } | null)?.numCards;
+  return typeof n === 'number' && n > 0 ? n : 0;
+}
+
+async function effectiveSlideCount(
+  c: Context<AppEnv>,
+  row: typeof presentations.$inferSelect,
+): Promise<number> {
+  const inApp = await getSlideCount(c, row.id);
+  if (inApp > 0 || row.provider !== 'gamma') return inApp;
+  return gammaRequestedSlideCount(c, row.id);
+}
+
 // -------- Course-scoped list / create --------
 
 r.get(
@@ -163,6 +191,26 @@ r.get(
         .where(inArray(slides.presentationId, ids))
         .groupBy(slides.presentationId);
       for (const r of rs) counts.set(r.presentationId, r.c);
+    }
+
+    // Gamma rows with no in-app slides: fall back to the teacher's requested
+    // numCards. See gammaRequestedSlideCount for why this is the best signal.
+    const gammaFallbackIds = rows
+      .filter((r) => r.provider === 'gamma' && (counts.get(r.id) ?? 0) === 0)
+      .map((r) => r.id);
+    if (gammaFallbackIds.length > 0) {
+      const jobs = await db
+        .select({
+          presentationId: gammaGenerationJobs.presentationId,
+          params: gammaGenerationJobs.requestParams,
+        })
+        .from(gammaGenerationJobs)
+        .where(inArray(gammaGenerationJobs.presentationId, gammaFallbackIds));
+      for (const j of jobs) {
+        if (!j.presentationId) continue;
+        const n = (j.params as { numCards?: unknown } | null)?.numCards;
+        if (typeof n === 'number' && n > 0) counts.set(j.presentationId, n);
+      }
     }
 
     return success(c, rows.map((row) => toSummary(row, counts.get(row.id) ?? 0)));
@@ -229,7 +277,7 @@ r.get('/presentations/:presentationId', requireScopeGroup('presentationsRead'), 
   const id = requireParam(c, 'presentationId');
   const row = await loadPresentation(c, id);
   await ensureViewable(c, row);
-  const count = await getSlideCount(c, id);
+  const count = await effectiveSlideCount(c, row);
   return success(c, toSummary(row, count));
 });
 
@@ -267,7 +315,7 @@ r.patch(
       target: id,
       metadata: { fields: Object.keys(patch) },
     });
-    return success(c, toSummary(updated, await getSlideCount(c, id)));
+    return success(c, toSummary(updated, await effectiveSlideCount(c, updated)));
   },
 );
 
@@ -365,7 +413,7 @@ async function transitionStatus(c: Context<AppEnv>, next: 'published' | 'archive
     action: `presentation.${next}`,
     target: id,
   });
-  return success(c, toSummary(updated, await getSlideCount(c, id)));
+  return success(c, toSummary(updated, await effectiveSlideCount(c, updated)));
 }
 
 r.post('/presentations/:presentationId/publish', requireScopeGroup('presentationsWrite'), (c) =>
