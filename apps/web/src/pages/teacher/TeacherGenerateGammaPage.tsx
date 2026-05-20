@@ -84,8 +84,11 @@ export function TeacherGenerateGammaPage(): JSX.Element {
     const fallback = GAMMA_BUILTIN_THEMES.filter((th) => !seen.has(th.id));
     return [...apiThemes, ...fallback];
   }, [themesQ.data]);
+  // Show every material the course has, including drafts. AI-generated
+  // reading materials land as drafts, and a teacher generating their own
+  // deck should be able to feed those in without first publishing them.
   const materials = useMemo<MaterialSummary[]>(
-    () => (materialsQ.data ?? []).filter((m) => m.status !== 'draft'),
+    () => materialsQ.data ?? [],
     [materialsQ.data],
   );
 
@@ -94,7 +97,7 @@ export function TeacherGenerateGammaPage(): JSX.Element {
     if (touchedSelection) return;
     if (!materialsQ.data) return;
     const initial = materialsQ.data
-      .filter((m) => m.status !== 'draft' && m.sourceType === 'manual_text')
+      .filter((m) => m.sourceType === 'manual_text')
       .map((m) => m.id);
     if (initial.length === 0) return;
     setSelected((prev) => {
@@ -242,6 +245,11 @@ export function TeacherGenerateGammaPage(): JSX.Element {
                               onChange={() => toggleMaterial(m.id)}
                             />
                             <span className="flex-1 truncate">{m.title}</span>
+                            {m.status === 'draft' ? (
+                              <Badge variant="secondary">{t('materials.statusDraft')}</Badge>
+                            ) : m.status === 'archived' ? (
+                              <Badge variant="outline">{t('materials.statusArchived')}</Badge>
+                            ) : null}
                             <Badge variant="outline">{t(sourceTypeKey(m.sourceType))}</Badge>
                           </label>
                         </li>
