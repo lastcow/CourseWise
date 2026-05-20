@@ -166,6 +166,7 @@ export const zhCN = {
       emptyTeacher: '创建你的第一门课程。',
       emptyStudent: '你还没有加入任何课程。',
       code: '课程代码',
+      codeHint: '仅允许字母、数字、连字符与下划线,共 2–32 个字符。',
       name: '课程名称',
       term: '学期',
       status: '状态',
