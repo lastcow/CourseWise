@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/input';
 import {
@@ -112,16 +111,23 @@ function StatusIcon({ status }: { status: PresentationSummary['status'] }): JSX.
   const { t } = useTranslation();
   const label = t(`presentations.status${status[0]!.toUpperCase()}${status.slice(1)}`);
   const Icon = status === 'published' ? CircleCheck : status === 'archived' ? Archive : Circle;
+  // Mirror the ActionIconButton visual (h-7 w-7, rounded-md, colored border +
+  // text) but as a non-interactive span so it reads as a status indicator
+  // rather than a clickable action.
   const tone =
     status === 'published'
-      ? 'text-emerald-500'
+      ? 'border-emerald-500/60 text-emerald-500'
       : status === 'archived'
-        ? 'text-amber-500'
-        : 'text-slate-400';
+        ? 'border-orange-500/60 text-orange-500'
+        : 'border-slate-400/60 text-slate-400';
   return (
-    <Badge variant="outline" className="px-1.5 py-0.5" aria-label={label} title={label}>
-      <Icon className={`h-3.5 w-3.5 ${tone}`} aria-hidden />
-    </Badge>
+    <span
+      aria-label={label}
+      title={label}
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-md border bg-transparent ${tone}`}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+    </span>
   );
 }
 
