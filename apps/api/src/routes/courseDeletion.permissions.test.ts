@@ -38,4 +38,13 @@ describe('Course hard-delete route wiring', () => {
     );
     expect(res.status).toBe(401);
   });
+
+  it('POST /api/admin/r2-cleanup-jobs/:id/retry without auth → 401', async () => {
+    const res = await app.request(
+      '/api/admin/r2-cleanup-jobs/00000000-0000-0000-0000-000000000000/retry',
+      { method: 'POST' },
+      env,
+    );
+    expect(res.status).toBe(401);
+  });
 });
