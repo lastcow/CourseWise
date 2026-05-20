@@ -69,6 +69,7 @@ import type {
   OverrideFinalGradeInput,
   PresentationShareState,
   PresentationSummary,
+  RedeemInvitationCodeResponse,
   QuizAttemptDetail,
   QuizAttemptSummary,
   QuizAttemptWithStudent,
@@ -380,6 +381,34 @@ export function validateInvitationCode(code: string) {
   return apiCall<ValidateInvitationCodeResponse>('/api/invitation-codes/validate', {
     method: 'POST',
     body: { code },
+  });
+}
+
+export function useValidateInvitationCode(code: string | undefined) {
+  return useQuery({
+    queryKey: ['invitation-code-validate', code],
+    queryFn: () =>
+      apiCall<ValidateInvitationCodeResponse>('/api/invitation-codes/validate', {
+        method: 'POST',
+        body: { code: code! },
+      }),
+    enabled: !!code,
+    retry: false,
+  });
+}
+
+export function useRedeemInvitationCode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) =>
+      apiCall<RedeemInvitationCodeResponse>('/api/invitation-codes/redeem', {
+        method: 'POST',
+        body: { code },
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['courses'] });
+      void qc.invalidateQueries({ queryKey: ['dashboard', 'student'] });
+    },
   });
 }
 
