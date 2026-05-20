@@ -6,24 +6,30 @@ export function PrivacyPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Privacy Policy"
-        summary="How [COMPANY LEGAL NAME] handles personal information, education records, and the rights of the people they belong to."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="How CourseWise LLC handles personal information, education records, and the rights of the people they belong to."
+        lastUpdated="2026-05-20"
+        version="v1.0"
       />
 
       <h2>Who we are</h2>
       <p>
-        [COMPANY LEGAL NAME] (registered at [REGISTERED ADDRESS], [STATE], United
-        States) operates the CourseWise platform, a software service that helps
-        teachers author and assign reading material, run AI-graded discussion,
-        and report on student understanding. We sell CourseWise to educational
-        institutions such as schools, school districts, colleges, and
-        universities. For most personal information that flows through the
-        product, the institution is the data controller and [COMPANY LEGAL NAME]
-        is its service provider (a "school official" under FERPA, and a
-        processor for purposes of state privacy law). This policy describes the
-        information we handle in both that role and our own role as the
-        operator of the CourseWise website and marketing pages.
+        CourseWise LLC (registered in Frostburg, MD, United States) operates the
+        CourseWise platform, a software service that helps teachers author and
+        assign reading material, run AI-graded discussion, and report on student
+        understanding. CourseWise is offered both to educational institutions —
+        schools, school districts, colleges, and universities — and to
+        individual educators (typically college professors and instructors) who
+        sign up directly without an institutional contract. For personal
+        information processed under an institutional contract, the institution
+        is the data controller and CourseWise LLC is its service provider (a
+        "school official" under FERPA, and a processor for purposes of state
+        privacy law). For information from individual educators who sign up
+        directly, CourseWise LLC is the controller of the educator's own
+        account information and acts as the educator's service provider with
+        respect to the class rosters and student work they bring into the
+        product. This policy describes the information we handle in each of
+        those roles, together with our role as the operator of the CourseWise
+        website and marketing pages.
       </p>
 
       <h2>What we collect</h2>
@@ -31,16 +37,18 @@ export function PrivacyPage(): JSX.Element {
         We collect three broad categories of information, and we try to be
         specific about each because they are governed by different rules.
       </p>
-      <h3>Information schools provide to us</h3>
+      <h3>Information educators and institutions provide to us</h3>
       <p>
-        When [INSTITUTION NAME] contracts with us, the institution provisions
+        When an institution contracts with us, the institution provisions
         teacher accounts and may upload or sync student rosters, course
-        enrollments, and class section data. Where rosters are involved we
-        typically receive student names, the institution's own student
-        identifier, grade level or course section, and the email address the
-        institution has assigned. We do not require home addresses, phone
-        numbers, dates of birth, government identifiers, or biometric data, and
-        we ask schools not to send them.
+        enrollments, and class section data. When an individual educator signs
+        up directly, the educator provides their own name, work email address,
+        and (optionally) institutional affiliation, and may add the rosters for
+        the classes they teach. In either case, rosters typically include
+        student names, a student or course-section identifier, grade level or
+        course section, and the email address used to log in. We do not require
+        home addresses, phone numbers, dates of birth, government identifiers,
+        or biometric data, and we ask educators and schools not to send them.
       </p>
       <h3>Information generated through use of the product</h3>
       <p>
@@ -136,13 +144,19 @@ export function PrivacyPage(): JSX.Element {
 
       <h2>Children's data</h2>
       <p>
-        CourseWise is designed for use inside a school. When a school assigns
-        CourseWise to a class that includes children under thirteen, the school
-        acts in loco parentis and provides consent on the parent's behalf
-        consistent with the operator exception under COPPA, and we limit our
-        use of that information to the educational purpose authorized by the
-        school. Our specific commitments around younger students are described
-        in our <Link to="/legal/coppa">COPPA notice</Link> and our{' '}
+        CourseWise is designed for use in classroom settings. When CourseWise
+        is assigned to a class that includes children under thirteen, the
+        institution or individual educator using the product is responsible for
+        the consent or authorization required under COPPA. Where a school
+        assigns CourseWise, the school typically acts in loco parentis and
+        provides consent on the parent's behalf consistent with the operator
+        exception under COPPA. Where an individual educator uses CourseWise
+        without an institutional contract, the educator must confirm they have
+        the necessary authority or parental consent before enrolling
+        under-thirteen students. In either case, we limit our use of that
+        information to the educational purpose authorized by the school or
+        educator. Our specific commitments around younger students are
+        described in our <Link to="/legal/coppa">COPPA notice</Link> and our{' '}
         <Link to="/legal/ferpa">FERPA statement</Link>.
       </p>
 
@@ -156,13 +170,22 @@ export function PrivacyPage(): JSX.Element {
         school's privacy officer or registrar.
       </p>
       <p>
-        If you are a visitor to our marketing site, a teacher who has signed up
-        directly without an institutional contract, or otherwise interacting
-        with us outside a school relationship, you may contact us directly to
-        access, correct, or delete the limited information we hold about you.
-        Where state privacy law (for example in California, Colorado,
-        Connecticut, or Virginia) gives you specific rights, we honor them at
-        the level the law requires.
+        If you are a student in a class run by an individual educator who has
+        signed up to CourseWise directly, requests to access, correct, or
+        delete your work are first directed to that educator, who controls the
+        class roster and decides what to retain. We will support the educator
+        in responding and, where the educator is unreachable or your request
+        concerns information we hold about you outside their class, you may
+        contact us directly.
+      </p>
+      <p>
+        If you are a visitor to our marketing site, an educator who has signed
+        up directly, or otherwise interacting with us outside a school
+        relationship, you may contact us directly to access, correct, or
+        delete the limited information we hold about you. Where state privacy
+        law (for example in California, Colorado, Connecticut, or Virginia)
+        gives you specific rights, we honor them at the level the law
+        requires.
       </p>
 
       <h2>Contact</h2>
@@ -170,8 +193,8 @@ export function PrivacyPage(): JSX.Element {
         For questions about this policy, to exercise your rights, or to file a
         request on behalf of a student, please use our{' '}
         <Link to="/legal/data-requests">Data Requests page</Link>. Requests are
-        routed to [COMPANY LEGAL NAME]'s privacy team and acknowledged within
-        the timeframe required by applicable law.
+        routed to CourseWise LLC's privacy team and acknowledged within the
+        timeframe required by applicable law.
       </p>
     </>
   );
