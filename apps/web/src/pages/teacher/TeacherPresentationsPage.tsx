@@ -1,15 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Archive, CircleCheck, Download, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import {
   getDownloadUrl,
@@ -144,7 +151,7 @@ export function TeacherPresentationsPage(): JSX.Element {
     });
   }, []);
 
-  // presentationId → its job's createdAt, so cards can find their progress.
+  // presentationId → its job's createdAt, so rows can find their progress.
   const pendingByPresentation = new Map<string, string | null>();
   for (const state of Object.values(jobStates)) {
     if (state.presentationId) {
@@ -195,105 +202,125 @@ export function TeacherPresentationsPage(): JSX.Element {
       ) : !list.data || list.data.length === 0 ? (
         <EmptyState title={t('presentations.empty')} />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {list.data.map((p) => {
-            const isGamma = p.provider === 'gamma';
-            const jobCreatedAt = isGamma ? pendingByPresentation.get(p.id) ?? null : null;
-            const isGenerating = isGamma && pendingByPresentation.has(p.id);
-            return (
-              <Card key={p.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-base">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('presentations.colTitle')}</TableHead>
+              <TableHead>{t('presentations.colDescription')}</TableHead>
+              <TableHead>{t('presentations.colStatus')}</TableHead>
+              <TableHead className="text-right">{t('presentations.colSlides')}</TableHead>
+              <TableHead>{t('presentations.colSource')}</TableHead>
+              <TableHead className="text-right">{t('presentations.colActions')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.data.map((p) => {
+              const isGamma = p.provider === 'gamma';
+              const jobCreatedAt = isGamma ? pendingByPresentation.get(p.id) ?? null : null;
+              const isGenerating = isGamma && pendingByPresentation.has(p.id);
+              return (
+                <Fragment key={p.id}>
+                  <TableRow>
+                    <TableCell className="font-medium">
                       <Link
                         to={`/teacher/courses/${id}/presentations/${p.id}`}
                         className="hover:underline"
                       >
                         {p.title}
                       </Link>
-                    </CardTitle>
-                    <div className="flex items-center gap-1.5">
+                    </TableCell>
+                    <TableCell className="max-w-[24ch] text-muted-foreground">
+                      <span className="line-clamp-1">{p.description ?? '—'}</span>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={p.status === 'published' ? 'success' : 'secondary'}>
                         {t(`presentations.status${p.status[0]!.toUpperCase()}${p.status.slice(1)}`)}
                       </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm text-muted-foreground">
-                  {isGenerating && jobCreatedAt ? (
-                    <GammaProgressBar createdAt={jobCreatedAt} />
-                  ) : null}
-                  <p className="line-clamp-2">{p.description ?? '—'}</p>
-                  <p>{t('presentations.slidesCount', { count: p.slideCount })}</p>
-                  {isGamma && (p.externalUrl || p.fileAssetId) ? (
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {p.externalUrl ? (
-                        <Button size="sm" variant="outline" asChild>
-                          <a
-                            href={p.externalUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                            {t('gamma.openInGamma')}
-                          </a>
-                        </Button>
-                      ) : null}
-                      {p.fileAssetId ? (
-                        <DownloadPptxButton
-                          fileAssetId={p.fileAssetId}
-                          label={t('gamma.downloadPptx')}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{p.slideCount}</TableCell>
+                    <TableCell>
+                      {isGamma && (p.externalUrl || p.fileAssetId) ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {p.externalUrl ? (
+                            <Button size="sm" variant="outline" asChild>
+                              <a
+                                href={p.externalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                                {t('gamma.openInGamma')}
+                              </a>
+                            </Button>
+                          ) : null}
+                          {p.fileAssetId ? (
+                            <DownloadPptxButton
+                              fileAssetId={p.fileAssetId}
+                              label={t('gamma.downloadPptx')}
+                            />
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <ActionIconButton
+                          asChild
+                          icon={Pencil}
+                          label={t('common.edit')}
+                          color="yellow"
+                        >
+                          <Link to={`/teacher/courses/${id}/presentations/${p.id}`} />
+                        </ActionIconButton>
+                        {p.status !== 'published' ? (
+                          <ActionIconButton
+                            icon={CircleCheck}
+                            label={t('presentations.publish')}
+                            color="emerald"
+                            onClick={async () => {
+                              await transition.mutateAsync({ id: p.id, action: 'publish' });
+                              toast.push({ title: t('presentations.published'), tone: 'success' });
+                            }}
+                          />
+                        ) : null}
+                        {p.status !== 'archived' ? (
+                          <ActionIconButton
+                            icon={Archive}
+                            label={t('presentations.archive')}
+                            color="orange"
+                            onClick={async () => {
+                              await transition.mutateAsync({ id: p.id, action: 'archive' });
+                              toast.push({ title: t('presentations.archived'), tone: 'success' });
+                            }}
+                          />
+                        ) : null}
+                        <ActionIconButton
+                          icon={Trash2}
+                          label={t('common.delete')}
+                          color="red"
+                          onClick={async () => {
+                            if (!confirm(t('presentations.deleteConfirm'))) return;
+                            await del.mutateAsync(p.id);
+                            toast.push({ title: t('presentations.deleted'), tone: 'success' });
+                          }}
                         />
-                      ) : null}
-                    </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {isGenerating && jobCreatedAt ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="bg-muted/30">
+                        <GammaProgressBar createdAt={jobCreatedAt} />
+                      </TableCell>
+                    </TableRow>
                   ) : null}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-2">
-                    <ActionIconButton
-                      asChild
-                      icon={Pencil}
-                      label={t('common.edit')}
-                      color="yellow"
-                    >
-                      <Link to={`/teacher/courses/${id}/presentations/${p.id}`} />
-                    </ActionIconButton>
-                    {p.status !== 'published' ? (
-                      <ActionIconButton
-                        icon={CircleCheck}
-                        label={t('presentations.publish')}
-                        color="emerald"
-                        onClick={async () => {
-                          await transition.mutateAsync({ id: p.id, action: 'publish' });
-                          toast.push({ title: t('presentations.published'), tone: 'success' });
-                        }}
-                      />
-                    ) : null}
-                    {p.status !== 'archived' ? (
-                      <ActionIconButton
-                        icon={Archive}
-                        label={t('presentations.archive')}
-                        color="orange"
-                        onClick={async () => {
-                          await transition.mutateAsync({ id: p.id, action: 'archive' });
-                          toast.push({ title: t('presentations.archived'), tone: 'success' });
-                        }}
-                      />
-                    ) : null}
-                    <ActionIconButton
-                      icon={Trash2}
-                      label={t('common.delete')}
-                      color="red"
-                      onClick={async () => {
-                        if (!confirm(t('presentations.deleteConfirm'))) return;
-                        await del.mutateAsync(p.id);
-                        toast.push({ title: t('presentations.deleted'), tone: 'success' });
-                      }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                </Fragment>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
 
       <Dialog open={open} onClose={() => setOpen(false)} title={t('presentations.createTitle')}>
