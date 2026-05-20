@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -35,7 +35,6 @@ import {
   useUpdatePresentation,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
-import { GenerateGammaDialog } from '@/components/gamma/GenerateGammaDialog';
 import { GammaProgressBar } from '@/components/ai/GammaProgressBar';
 import type { PresentationSummary } from '@coursewise/shared';
 
@@ -143,7 +142,8 @@ export function TeacherPresentationsPage(): JSX.Element {
   const toast = useToast();
   const qc = useQueryClient();
 
-  const [gammaOpen, setGammaOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [deleteTarget, setDeleteTarget] = useState<PresentationSummary | null>(null);
   const [moveTarget, setMoveTarget] = useState<PresentationSummary | null>(null);
   const [moveModuleId, setMoveModuleId] = useState<string>('');
@@ -172,6 +172,24 @@ export function TeacherPresentationsPage(): JSX.Element {
     },
     [id, qc, t, toast],
   );
+
+  // Pick up a freshly-started Gamma job handed back by the generate page.
+  useEffect(() => {
+    const state = (location.state ?? null) as {
+      startedGammaJob?: { jobId: string; presentationId: string };
+    } | null;
+    const started = state?.startedGammaJob;
+    if (!started) return;
+    setActiveJobIds((prev) => (prev.includes(started.jobId) ? prev : [...prev, started.jobId]));
+    setJobStates((prev) =>
+      prev[started.jobId]
+        ? prev
+        : { ...prev, [started.jobId]: { presentationId: started.presentationId, jobCreatedAt: null } },
+    );
+    void qc.invalidateQueries({ queryKey: ['presentations', id] });
+    // Clear the navigation state so it doesn't re-fire on next render.
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location, navigate, id, qc]);
 
   const onJobUpdate = useCallback((jobId: string, state: ActiveJobState) => {
     setJobStates((prev) => {
@@ -216,7 +234,11 @@ export function TeacherPresentationsPage(): JSX.Element {
 
       <div className="overflow-hidden rounded-md border">
         <div className="flex items-center justify-end gap-1.5 border-b bg-muted/30 px-3 py-2">
-          <Button variant="outline" size="sm" onClick={() => setGammaOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/teacher/courses/${id}/presentations/new-gamma`)}
+          >
             {t('gamma.generateButton')}
           </Button>
           <Button
@@ -364,19 +386,6 @@ export function TeacherPresentationsPage(): JSX.Element {
         )}
       </div>
 
-      <GenerateGammaDialog
-        open={gammaOpen}
-        onClose={() => setGammaOpen(false)}
-        courseId={id}
-        onStarted={(jobId, presentationId) => {
-          setActiveJobIds((prev) => [...prev, jobId]);
-          setJobStates((prev) => ({
-            ...prev,
-            [jobId]: { presentationId, jobCreatedAt: null },
-          }));
-          void qc.invalidateQueries({ queryKey: ['presentations', id] });
-        }}
-      />
 
       <Dialog
         open={deleteTarget !== null}
