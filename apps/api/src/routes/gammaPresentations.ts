@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import {
   generateGammaPresentationSchema,
   type CreateGammaPresentationResponse,
@@ -239,6 +239,35 @@ r.post(
       jobId: job.id,
     };
     return success(c, body, 201);
+  },
+);
+
+// -------- GET /api/courses/:courseId/gamma-jobs/pending --------
+
+// Returns currently in-flight Gamma jobs for this course so the presentations
+// page can resume polling them after a navigation/refresh. Without this, a
+// job that was created in one session and never polled to completion sits
+// frozen at `pending` because pollAndFinalize only runs on demand.
+r.get(
+  '/courses/:courseId/gamma-jobs/pending',
+  requireScopeGroup('presentationsWrite'),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    if (!(await canWriteCourse(db, auth.user, courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+    }
+    const rows = await db
+      .select()
+      .from(gammaGenerationJobs)
+      .where(
+        and(
+          eq(gammaGenerationJobs.courseId, courseId),
+          eq(gammaGenerationJobs.status, 'pending'),
+        ),
+      );
+    return success(c, { jobs: rows.map(toJobEnvelope) });
   },
 );
 

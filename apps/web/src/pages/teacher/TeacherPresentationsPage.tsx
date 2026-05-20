@@ -27,6 +27,7 @@ import {
 import { useToast } from '@/components/ui/toast';
 import {
   getDownloadUrl,
+  useCourseGammaPendingJobs,
   useDeletePresentation,
   useGammaJob,
   useModulesList,
@@ -139,6 +140,10 @@ export function TeacherPresentationsPage(): JSX.Element {
   const del = useDeletePresentation(id);
   const update = useUpdatePresentation(id);
   const modulesQ = useModulesList(id || null);
+  // Pending Gamma jobs the course already has open from a previous session.
+  // Without this, navigating away mid-generation freezes the job at
+  // `pending` because pollAndFinalize only runs on demand.
+  const pendingJobsQ = useCourseGammaPendingJobs(id || null);
   const toast = useToast();
   const qc = useQueryClient();
 
@@ -190,6 +195,28 @@ export function TeacherPresentationsPage(): JSX.Element {
     // Clear the navigation state so it doesn't re-fire on next render.
     navigate(location.pathname, { replace: true, state: null });
   }, [location, navigate, id, qc]);
+
+  // Resume polling any Gamma jobs that were left mid-flight by a previous
+  // session. Once seeded into activeJobIds, the GammaJobWatcher mounts and
+  // pollAndFinalize takes over from there.
+  useEffect(() => {
+    const jobs = pendingJobsQ.data?.jobs;
+    if (!jobs || jobs.length === 0) return;
+    setActiveJobIds((prev) => {
+      const next = new Set(prev);
+      for (const j of jobs) next.add(j.id);
+      return Array.from(next);
+    });
+    setJobStates((prev) => {
+      const next = { ...prev };
+      for (const j of jobs) {
+        if (!next[j.id]) {
+          next[j.id] = { presentationId: j.presentationId, jobCreatedAt: j.createdAt };
+        }
+      }
+      return next;
+    });
+  }, [pendingJobsQ.data]);
 
   const onJobUpdate = useCallback((jobId: string, state: ActiveJobState) => {
     setJobStates((prev) => {
