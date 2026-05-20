@@ -1,5 +1,5 @@
 import { Hono, type Context } from 'hono';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import {
   DEFAULT_GRADING_POLICY,
   courseDeleteBodySchema,
@@ -15,11 +15,9 @@ import {
   type UpdateCourseInput,
 } from '@coursewise/shared';
 import {
-  courseDeletionLog,
   courseTeachers,
   courses,
   enrollments,
-  r2CleanupJobs,
   studentProfiles,
   users,
 } from '../db/schema';
@@ -301,23 +299,32 @@ r.delete('/courses/:courseId', requireScopeGroup('coursesWrite'), requireTokenCo
   const counts = await courseChildCounts(db, courseId);
   const jobId = crypto.randomUUID();
 
-  await db.transaction(async (tx) => {
-    await tx.insert(courseDeletionLog).values({
-      courseId: course.id,
-      courseCode: course.code,
-      courseTitle: course.title,
-      deletedBy: auth.user.id,
-      childCounts: counts,
-    });
-    const deleted = await tx
-      .delete(courses)
-      .where(eq(courses.id, courseId))
-      .returning({ id: courses.id });
-    if (deleted.length === 0) {
-      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
-    }
-    await tx.insert(r2CleanupJobs).values({ id: jobId, courseId, status: 'pending' });
-  });
+  // Single atomic statement: delete the course (FK cascades wipe all 23+ child
+  // tables), insert the FERPA audit row and the R2 cleanup job both gated on
+  // the delete returning a row. Postgres evaluates all CTE INSERT/DELETE in
+  // one snapshot, so the three writes are atomic at the server. Drizzle's
+  // db.transaction() is unavailable on the neon-http driver.
+  const result = await db.execute(sql`
+    WITH deleted AS (
+      DELETE FROM courses WHERE id = ${courseId} RETURNING id, code, title
+    ),
+    log AS (
+      INSERT INTO course_deletion_log (course_id, course_code, course_title, deleted_by, child_counts)
+      SELECT id, code, title, ${auth.user.id}::uuid, ${JSON.stringify(counts)}::jsonb
+      FROM deleted
+      RETURNING id
+    ),
+    job AS (
+      INSERT INTO r2_cleanup_jobs (id, course_id, status)
+      SELECT ${jobId}::uuid, id, 'pending'
+      FROM deleted
+      RETURNING id
+    )
+    SELECT (SELECT id FROM deleted) AS course_id
+  `);
+  if (!result.rows[0]?.course_id) {
+    throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+  }
 
   await recordAudit(db, {
     actorType: auth.method === 'jwt' ? 'user' : 'api_token',
