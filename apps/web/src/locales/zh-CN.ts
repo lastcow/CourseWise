@@ -71,6 +71,7 @@ export const zhCN = {
       submit: '提交',
       back: '返回',
       retry: '重试',
+      refresh: '刷新',
       loading: '加载中…',
       error: '出错了',
       none: '无',

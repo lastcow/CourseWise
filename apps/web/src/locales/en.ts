@@ -71,6 +71,7 @@ export const en = {
       submit: 'Submit',
       back: 'Back',
       retry: 'Retry',
+      refresh: 'Refresh',
       loading: 'Loading…',
       error: 'Something went wrong',
       none: 'None',
