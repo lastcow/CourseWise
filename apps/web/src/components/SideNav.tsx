@@ -147,7 +147,10 @@ function teacherCourseSections(courseId: string): NavSection[] {
     {
       id: 'manage',
       titleKey: 'course.nav.section.manage',
-      items: [{ to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings }],
+      items: [
+        { to: `${prefix}/invitations`, labelKey: 'invitations.title', icon: UserPlus },
+        { to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings },
+      ],
     },
   ];
 }

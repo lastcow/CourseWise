@@ -287,7 +287,32 @@ export function useDeactivateInvitationCode() {
   return useMutation({
     mutationFn: (id: string) =>
       apiCall<InvitationCodeSummary>(`/api/invitation-codes/${id}/deactivate`, { method: 'POST' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['invitation-codes'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['invitation-codes'] });
+      void qc.invalidateQueries({ queryKey: ['course-invitation-codes'] });
+    },
+  });
+}
+
+// Course-scoped invitation codes (teacher-accessible).
+export function useCourseInvitationCodes(courseId: string | null) {
+  return useQuery({
+    queryKey: ['course-invitation-codes', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<InvitationCodeSummary[]>(`/api/courses/${courseId}/invitation-codes`),
+  });
+}
+
+export function useCreateCourseInvitationCode(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Omit<CreateInvitationCodeInput, 'courseId'>) =>
+      apiCall<InvitationCodeSummary>(`/api/courses/${courseId}/invitation-codes`, {
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['course-invitation-codes', courseId] });
+    },
   });
 }
 
@@ -534,10 +559,9 @@ export function useCreateGammaPresentation(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: GenerateGammaPresentationInput) =>
-      apiCall<CreateGammaPresentationResponse>(
-        `/api/courses/${courseId}/presentations/gamma`,
-        { body: input },
-      ),
+      apiCall<CreateGammaPresentationResponse>(`/api/courses/${courseId}/presentations/gamma`, {
+        body: input,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['presentations', courseId] }),
   });
 }
@@ -1479,9 +1503,7 @@ export function useCourseAiModels(courseId: string | null) {
     queryKey: ['ai', 'course-models', courseId],
     enabled: !!courseId,
     queryFn: async () => {
-      const res = await apiCall<{ models: AiModelOption[] }>(
-        `/api/courses/${courseId}/ai/models`,
-      );
+      const res = await apiCall<{ models: AiModelOption[] }>(`/api/courses/${courseId}/ai/models`);
       return res.models;
     },
   });

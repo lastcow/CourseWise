@@ -281,6 +281,22 @@ export const en = {
       statusActive: 'Active',
       statusRevoked: 'Revoked',
       statusExpired: 'Expired',
+      // Teacher per-course flow:
+      helpText:
+        'Generate a code your students can use to register and join this course. Each code can have a use limit and an expiry.',
+      generateCta: 'Generate code',
+      generateTitle: 'Generate invitation code',
+      generateHint:
+        'Leave both fields blank for an unlimited, non-expiring code. The new code is copied to your clipboard.',
+      maxUsesLabel: 'Max uses',
+      maxUsesPlaceholder: 'No limit',
+      maxUsesHint: 'Optional. Leave blank for unlimited uses.',
+      maxUsesInvalid: 'Max uses must be a positive number.',
+      expiresAtLabel: 'Expires on',
+      expiresAtHint: 'Optional. Code stops working at midnight UTC on this date.',
+      deactivateTitle: 'Deactivate invitation code?',
+      deactivateConfirm:
+        'Students will no longer be able to register with this code. This cannot be undone.',
     },
     teachers: {
       title: 'Teachers',
