@@ -28,6 +28,7 @@ import {
 } from '../services/courseAccess';
 import {
   applyTeacherOverride,
+  buildGradebookStudentDetail,
   recalculateFinalGrades,
   toFinalGradeSummary,
 } from '../services/finalGrade';
@@ -195,6 +196,28 @@ r.patch(
       },
     });
     return success(c, updated);
+  },
+);
+
+r.get(
+  '/courses/:courseId/students/:studentId/gradebook-detail',
+  requireScopeGroup('gradesRead'),
+  requireCourseAccess(),
+  requireTokenCourseAccess(),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    const studentId = requireParam(c, 'studentId');
+    if (auth.user.role === 'student') {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot view gradebook detail');
+    }
+    const policy = await ensureGradingPolicy(db, courseId);
+    const detail = await buildGradebookStudentDetail(db, courseId, studentId, policy);
+    if (!detail) {
+      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Student is not enrolled in this course');
+    }
+    return success(c, detail);
   },
 );
 

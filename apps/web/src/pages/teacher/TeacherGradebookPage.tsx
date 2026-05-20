@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Pencil } from 'lucide-react';
 import type { FinalGradeSummary } from '@coursewise/shared';
@@ -105,7 +105,12 @@ export function TeacherGradebookPage(): JSX.Element {
                 {grades.data.map((g) => (
                   <tr key={g.id} className="border-b last:border-0">
                     <td className="py-2 pr-3">
-                      <div className="font-medium">{g.studentName ?? '—'}</div>
+                      <Link
+                        to={`/teacher/courses/${cid}/gradebook/${g.studentId}`}
+                        className="font-medium hover:underline"
+                      >
+                        {g.studentName ?? '—'}
+                      </Link>
                       <div className="text-xs text-muted-foreground">{g.studentEmail}</div>
                     </td>
                     <td className="py-2 pr-3 font-mono">{g.score?.toFixed(1) ?? '—'}</td>

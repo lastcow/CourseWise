@@ -1,7 +1,13 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import {
   type CategoryScoreBreakdown,
   type FinalGradeSummary,
+  type GradebookAssignmentItem,
+  type GradebookAttendanceItem,
+  type GradebookCategoryRollup,
+  type GradebookDiscussionItem,
+  type GradebookQuizItem,
+  type GradebookStudentDetail,
   type GradingPolicy,
   type GradingPolicySummary,
 } from '@coursewise/shared';
@@ -426,6 +432,240 @@ export async function applyTeacherOverride(
     .where(eq(finalGrades.id, finalGradeId))
     .returning();
   return updated ? toFinalGradeSummary(updated) : null;
+}
+
+function rollupFromBreakdown(
+  breakdown: CategoryScoreBreakdown,
+  key: keyof CategoryScoreBreakdown,
+): GradebookCategoryRollup {
+  const c = breakdown[key];
+  return { raw: c.raw, weight: c.weight, weighted: c.weighted };
+}
+
+export async function buildGradebookStudentDetail(
+  db: Db,
+  courseId: string,
+  studentId: string,
+  policy: GradingPolicySummary,
+): Promise<GradebookStudentDetail | null> {
+  // Student lookup (must be enrolled).
+  const [enrollment] = await db
+    .select({
+      studentId: enrollments.studentId,
+      name: users.name,
+      email: users.email,
+    })
+    .from(enrollments)
+    .innerJoin(users, eq(enrollments.studentId, users.id))
+    .where(
+      and(
+        eq(enrollments.courseId, courseId),
+        eq(enrollments.studentId, studentId),
+        eq(enrollments.status, 'enrolled'),
+      ),
+    )
+    .limit(1);
+  if (!enrollment) return null;
+
+  // Aggregate counters for category rollups (reuses existing aggregator).
+  const aggregates = await aggregateCourseCategoryScores(db, courseId, [studentId]);
+  const agg = aggregates.get(studentId)!;
+  const gradingPolicy = policyToGradingPolicy(policy);
+  const { breakdown } = computeWeightedScore(agg, gradingPolicy);
+
+  // Attendance: list every session in the course; join the student's record (if any).
+  const sessions = await db
+    .select({
+      id: attendanceSessions.id,
+      title: attendanceSessions.title,
+      sessionDate: attendanceSessions.sessionDate,
+    })
+    .from(attendanceSessions)
+    .where(eq(attendanceSessions.courseId, courseId))
+    .orderBy(asc(attendanceSessions.sessionDate));
+  const recs = sessions.length
+    ? await db
+        .select()
+        .from(attendanceRecords)
+        .where(
+          and(
+            inArray(
+              attendanceRecords.sessionId,
+              sessions.map((s) => s.id),
+            ),
+            eq(attendanceRecords.studentId, studentId),
+          ),
+        )
+    : [];
+  const recBySession = new Map(recs.map((r) => [r.sessionId, r]));
+  const attendanceItems: GradebookAttendanceItem[] = sessions.map((s) => {
+    const r = recBySession.get(s.id);
+    return {
+      sessionId: s.id,
+      recordId: r?.id ?? null,
+      title: s.title,
+      sessionDate: s.sessionDate,
+      status: r?.status ?? null,
+      notes: r?.notes ?? null,
+    };
+  });
+
+  // Assignments (regular + final project): every published assignment, joined to the student's submission.
+  const courseAssignments = await db
+    .select({
+      id: assignments.id,
+      title: assignments.title,
+      maxScore: assignments.maxScore,
+    })
+    .from(assignments)
+    .where(eq(assignments.courseId, courseId))
+    .orderBy(asc(assignments.title));
+  const subs = courseAssignments.length
+    ? await db
+        .select()
+        .from(assignmentSubmissions)
+        .where(
+          and(
+            inArray(
+              assignmentSubmissions.assignmentId,
+              courseAssignments.map((a) => a.id),
+            ),
+            eq(assignmentSubmissions.studentId, studentId),
+          ),
+        )
+    : [];
+  const subByAssignment = new Map(subs.map((s) => [s.assignmentId, s]));
+  const assignmentItems: GradebookAssignmentItem[] = [];
+  const finalProjectItems: GradebookAssignmentItem[] = [];
+  for (const a of courseAssignments) {
+    const sub = subByAssignment.get(a.id);
+    const item: GradebookAssignmentItem = {
+      assignmentId: a.id,
+      submissionId: sub?.id ?? null,
+      title: a.title,
+      maxScore: a.maxScore !== null ? Number(a.maxScore) : 100,
+      score: sub?.score !== null && sub?.score !== undefined ? Number(sub.score) : null,
+      status: sub?.status ?? null,
+      feedback: sub?.feedback ?? null,
+      isFinalProject: isFinalProjectTitle(a.title),
+      gradedAt: sub?.gradedAt ?? null,
+    };
+    if (item.isFinalProject) finalProjectItems.push(item);
+    else assignmentItems.push(item);
+  }
+
+  // Quizzes: list every quiz in the course; pick the student's best (or latest) attempt.
+  const courseQuizzes = await db
+    .select({
+      id: quizzes.id,
+      title: quizzes.title,
+      maxScore: quizzes.maxScore,
+    })
+    .from(quizzes)
+    .where(eq(quizzes.courseId, courseId))
+    .orderBy(asc(quizzes.title));
+  const attempts = courseQuizzes.length
+    ? await db
+        .select()
+        .from(quizAttempts)
+        .where(
+          and(
+            inArray(
+              quizAttempts.quizId,
+              courseQuizzes.map((q) => q.id),
+            ),
+            eq(quizAttempts.studentId, studentId),
+          ),
+        )
+    : [];
+  const bestByQuiz = new Map<string, (typeof attempts)[number]>();
+  for (const a of attempts) {
+    const prev = bestByQuiz.get(a.quizId);
+    const aScore = a.score !== null ? Number(a.score) : -1;
+    const prevScore = prev?.score !== null && prev?.score !== undefined ? Number(prev.score) : -1;
+    if (!prev || aScore > prevScore) bestByQuiz.set(a.quizId, a);
+  }
+  const quizItems: GradebookQuizItem[] = [];
+  for (const q of courseQuizzes) {
+    const a = bestByQuiz.get(q.id);
+    quizItems.push({
+      quizId: q.id,
+      attemptId: a?.id ?? null,
+      title: q.title,
+      score: a?.score !== null && a?.score !== undefined ? Number(a.score) : null,
+      maxScore:
+        a?.maxScore !== null && a?.maxScore !== undefined
+          ? Number(a.maxScore)
+          : q.maxScore !== null
+            ? Number(q.maxScore)
+            : null,
+      status: a?.status ?? null,
+      teacherReviewed: a?.teacherReviewed ?? false,
+      pendingReviewCount: 0,
+    });
+  }
+
+  // Discussion: every graded topic in the course, joined to the student's grade.
+  const topics = await db
+    .select({
+      id: discussionTopics.id,
+      title: discussionTopics.title,
+      maxScore: discussionTopics.maxScore,
+    })
+    .from(discussionTopics)
+    .where(
+      and(eq(discussionTopics.courseId, courseId), eq(discussionTopics.isGraded, true)),
+    )
+    .orderBy(asc(discussionTopics.title));
+  const grades = topics.length
+    ? await db
+        .select()
+        .from(discussionGrades)
+        .where(
+          and(
+            inArray(
+              discussionGrades.topicId,
+              topics.map((t) => t.id),
+            ),
+            eq(discussionGrades.studentId, studentId),
+          ),
+        )
+    : [];
+  const gradeByTopic = new Map(grades.map((g) => [g.topicId, g]));
+  const discussionItems: GradebookDiscussionItem[] = topics.map((t) => {
+    const g = gradeByTopic.get(t.id);
+    return {
+      topicId: t.id,
+      title: t.title,
+      maxScore: t.maxScore !== null ? Number(t.maxScore) : 100,
+      score: g?.score !== null && g?.score !== undefined ? Number(g.score) : null,
+      feedback: g?.feedback ?? null,
+      gradedAt: g?.gradedAt ?? null,
+    };
+  });
+
+  // Current persisted final grade row, if any.
+  const [finalRow] = await db
+    .select()
+    .from(finalGrades)
+    .where(
+      and(eq(finalGrades.courseId, courseId), eq(finalGrades.studentId, studentId)),
+    )
+    .limit(1);
+
+  return {
+    courseId,
+    studentId,
+    studentName: enrollment.name,
+    studentEmail: enrollment.email,
+    finalGrade: finalRow ? toFinalGradeSummary(finalRow) : null,
+    gradingPolicy: policy,
+    attendance: { ...rollupFromBreakdown(breakdown, 'attendance'), items: attendanceItems },
+    assignments: { ...rollupFromBreakdown(breakdown, 'assignments'), items: assignmentItems },
+    finalProject: { ...rollupFromBreakdown(breakdown, 'finalProject'), items: finalProjectItems },
+    quizzes: { ...rollupFromBreakdown(breakdown, 'quizzes'), items: quizItems },
+    discussion: { ...rollupFromBreakdown(breakdown, 'discussion'), items: discussionItems },
+  };
 }
 
 // Lightweight helper used by alerts service: per-student percent attendance.

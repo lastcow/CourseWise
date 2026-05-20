@@ -579,6 +579,68 @@ export interface RecalculateFinalGradesResult {
   policyVersion: number;
 }
 
+// ---------- M5: Gradebook student detail ----------
+export interface GradebookCategoryRollup {
+  raw: number | null;
+  weight: number;
+  weighted: number;
+}
+
+export interface GradebookAssignmentItem {
+  assignmentId: string;
+  submissionId: string | null;
+  title: string;
+  maxScore: number;
+  score: number | null;
+  status: SubmissionStatus | null;
+  feedback: string | null;
+  isFinalProject: boolean;
+  gradedAt: string | null;
+}
+
+export interface GradebookQuizItem {
+  quizId: string;
+  attemptId: string | null;
+  title: string;
+  score: number | null;
+  maxScore: number | null;
+  status: QuizAttemptStatus | null;
+  teacherReviewed: boolean;
+  pendingReviewCount: number;
+}
+
+export interface GradebookDiscussionItem {
+  topicId: string;
+  title: string;
+  maxScore: number;
+  score: number | null;
+  feedback: string | null;
+  gradedAt: string | null;
+}
+
+export interface GradebookAttendanceItem {
+  sessionId: string;
+  recordId: string | null;
+  title: string;
+  sessionDate: string;
+  status: AttendanceStatus | null;
+  notes: string | null;
+}
+
+export interface GradebookStudentDetail {
+  courseId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  finalGrade: FinalGradeSummary | null;
+  gradingPolicy: GradingPolicySummary;
+  attendance: GradebookCategoryRollup & { items: GradebookAttendanceItem[] };
+  assignments: GradebookCategoryRollup & { items: GradebookAssignmentItem[] };
+  finalProject: GradebookCategoryRollup & { items: GradebookAssignmentItem[] };
+  quizzes: GradebookCategoryRollup & { items: GradebookQuizItem[] };
+  discussion: GradebookCategoryRollup & { items: GradebookDiscussionItem[] };
+}
+
 // ---------- M5: Alerts ----------
 export interface AlertSummary {
   id: string;
