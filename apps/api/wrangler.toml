@@ -8,7 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 JWT_ISSUER = "coursewise"
 JWT_AUDIENCE = "coursewise-web"
-CORS_ORIGIN = "https://coursewise.pages.dev"
+CORS_ORIGIN = "https://fsuac.com"
 R2_BUCKET = "coursewise-files"
 
 # Required production secrets (uploaded with `wrangler secret put`):

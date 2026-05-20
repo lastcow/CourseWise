@@ -128,8 +128,9 @@ In dev, the rate-limit middleware falls back to an in-memory `Map`.
 2. Build command: `pnpm install --frozen-lockfile && pnpm --filter @coursewise/web build`.
 3. Build output: `apps/web/dist`.
 4. Env vars: set `VITE_API_BASE_URL` to your deployed API URL (e.g.
-   `https://coursewise-api.<account>.workers.dev`) and optionally
-   `VITE_DEFAULT_LOCALE`.
+   `https://api.fsuac.com`, or the workers.dev fallback
+   `https://coursewise-api.<account>.workers.dev` if no custom domain is
+   attached) and optionally `VITE_DEFAULT_LOCALE`.
 5. The CI workflow can also deploy on each push to `main`; see below.
 
 ## GitHub Secrets for CI deploy
@@ -150,7 +151,7 @@ Configure these in **Settings → Secrets and variables → Actions** (or via th
 gh secret set CLOUDFLARE_API_TOKEN          --body "<token>"
 gh secret set CLOUDFLARE_ACCOUNT_ID         --body "<account-id>"
 gh secret set CLOUDFLARE_PAGES_PROJECT_NAME --body "coursewise"
-gh secret set VITE_API_BASE_URL             --body "https://coursewise-api.<account>.workers.dev"
+gh secret set VITE_API_BASE_URL             --body "https://api.fsuac.com"
 gh secret set DATABASE_URL                  --body "postgresql://<user>:<pw>@<neon-pooler-host>/<db>?sslmode=require"
 ```
 
@@ -203,7 +204,7 @@ returns `401 UNAUTHORIZED` without a Bearer token.
 ### Curl walkthrough — teacher creating a course and uploading a file
 
 ```sh
-API=https://coursewise-api.example.workers.dev
+API=https://api.fsuac.com
 TOKEN=cmpt_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   # teacher token with courses:write, materials:write
 
 # 1. Create a course
@@ -231,7 +232,7 @@ curl -sS "$API/api/files/complete-upload" \
 ### Curl walkthrough — self-serve token (any role)
 
 ```sh
-API=https://coursewise-api.example.workers.dev
+API=https://api.fsuac.com
 
 # Get a JWT first
 curl -sS "$API/api/auth/login" -H "Content-Type: application/json" \
@@ -399,7 +400,7 @@ OpenAPI 3.1 规范：`GET https://<api-host>/api/openapi.json`（无需鉴权）
 ### 示例：自助创建 Token（任意角色）
 
 ```sh
-API=https://coursewise-api.example.workers.dev
+API=https://api.fsuac.com
 
 JWT=$(curl -sS "$API/api/auth/login" -H "Content-Type: application/json" \
   -d '{"email":"teacher@example.com","password":"Teacher123!"}' | jq -r '.data.accessToken')
