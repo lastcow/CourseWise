@@ -169,6 +169,7 @@ export const en = {
       emptyTeacher: 'Create your first course to get started.',
       emptyStudent: 'You are not enrolled in any course yet.',
       code: 'Code',
+      codeHint: 'Letters, digits, hyphens or underscores. 2–32 characters.',
       name: 'Title',
       term: 'Term',
       status: 'Status',
