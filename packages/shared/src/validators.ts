@@ -853,6 +853,10 @@ export const contactMessageSchema = z.object({
 });
 export type ContactMessageInput = z.infer<typeof contactMessageSchema>;
 
+export const courseDeleteBodySchema = z.object({
+  confirmCode: z.string().trim().min(1).max(64),
+});
+
 export const generateGammaPresentationSchema = z.object({
   title: z.string().trim().min(1).max(200),
   moduleId: z.string().uuid().optional().nullable(),

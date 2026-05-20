@@ -1,10 +1,12 @@
 import { Hono, type Context } from 'hono';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import {
   DEFAULT_GRADING_POLICY,
+  courseDeleteBodySchema,
   createCourseSchema,
   enrollStudentSchema,
   updateCourseSchema,
+  type CourseDeletionPreview,
   type CourseDetail,
   type CourseSummary,
   type CreateCourseInput,
@@ -25,8 +27,10 @@ import { requireParam } from '../lib/params';
 import { requireAuth, requireCourseAccess, requireTokenCourseAccess } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
-import { canWriteCourse } from '../services/courseAccess';
+import { canDeleteCourse, canWriteCourse } from '../services/courseAccess';
+import { courseChildCounts } from '../services/courseDeletion';
 import { recordAudit } from '../services/audit';
+import { runR2Cleanup } from '../jobs/r2Cleanup';
 import type { AppEnv } from '../types';
 
 const r = new Hono<AppEnv>();
@@ -232,24 +236,95 @@ r.patch(
   },
 );
 
-// Delete a course (only when no enrollments).
+// Preview the child-row counts that a hard-delete would remove.
+r.get(
+  '/courses/:courseId/deletion-preview',
+  requireScopeGroup('coursesWrite'),
+  requireTokenCourseAccess(),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    if (!(await canDeleteCourse(db, auth.user, courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No delete access to this course');
+    }
+    const [course] = await db
+      .select({ id: courses.id, code: courses.code, title: courses.title })
+      .from(courses)
+      .where(eq(courses.id, courseId))
+      .limit(1);
+    if (!course) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+    const counts = await courseChildCounts(db, courseId);
+    const payload: CourseDeletionPreview = {
+      courseId: course.id,
+      courseCode: course.code,
+      courseTitle: course.title,
+      counts,
+    };
+    return success(c, payload);
+  },
+);
+
+// Hard delete a course (admin or primary teacher only).
+//
+// Wipes every cascaded child row in one transaction, queues the R2 prefix
+// cleanup for ctx.waitUntil execution, and writes a metadata-only audit row
+// to course_deletion_log. The user must type the course code into the request
+// body's `confirmCode` field, matching course.code exactly.
 r.delete('/courses/:courseId', requireScopeGroup('coursesWrite'), requireTokenCourseAccess(), async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
   const courseId = requireParam(c, 'courseId');
-  if (!(await canWriteCourse(db, auth.user, courseId))) {
-    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+
+  if (!(await canDeleteCourse(db, auth.user, courseId))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No delete access to this course');
   }
-  const enrolledRows = await db
-    .select({ id: enrollments.id })
-    .from(enrollments)
-    .where(eq(enrollments.courseId, courseId))
+
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = courseDeleteBodySchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'confirmCode required');
+  }
+
+  const [course] = await db
+    .select({ id: courses.id, code: courses.code, title: courses.title })
+    .from(courses)
+    .where(eq(courses.id, courseId))
     .limit(1);
-  if (enrolledRows.length > 0) {
-    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Course has enrollments; drop them first');
+  if (!course) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+  if (parsed.data.confirmCode !== course.code) {
+    throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'Confirmation code does not match course code');
   }
-  const result = await db.delete(courses).where(eq(courses.id, courseId)).returning({ id: courses.id });
-  if (result.length === 0) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+
+  const counts = await courseChildCounts(db, courseId);
+  const jobId = crypto.randomUUID();
+
+  // Single atomic statement: delete the course (FK cascades wipe all 23+ child
+  // tables), insert the FERPA audit row and the R2 cleanup job both gated on
+  // the delete returning a row. Postgres evaluates all CTE INSERT/DELETE in
+  // one snapshot, so the three writes are atomic at the server. Drizzle's
+  // db.transaction() is unavailable on the neon-http driver.
+  const result = await db.execute(sql`
+    WITH deleted AS (
+      DELETE FROM courses WHERE id = ${courseId} RETURNING id, code, title
+    ),
+    log AS (
+      INSERT INTO course_deletion_log (course_id, course_code, course_title, deleted_by, child_counts)
+      SELECT id, code, title, ${auth.user.id}::uuid, ${JSON.stringify(counts)}::jsonb
+      FROM deleted
+      RETURNING id
+    ),
+    job AS (
+      INSERT INTO r2_cleanup_jobs (id, course_id, status)
+      SELECT ${jobId}::uuid, id, 'pending'
+      FROM deleted
+      RETURNING id
+    )
+    SELECT (SELECT id FROM deleted) AS course_id
+  `);
+  if (!result.rows[0]?.course_id) {
+    throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+  }
 
   await recordAudit(db, {
     actorType: auth.method === 'jwt' ? 'user' : 'api_token',
@@ -258,6 +333,10 @@ r.delete('/courses/:courseId', requireScopeGroup('coursesWrite'), requireTokenCo
     action: 'course.delete',
     target: courseId,
   });
+
+  if (c.env.COURSE_FILES) {
+    c.executionCtx.waitUntil(runR2Cleanup(db, c.env.COURSE_FILES, jobId, courseId));
+  }
 
   return success(c, { id: courseId });
 });

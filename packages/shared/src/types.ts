@@ -21,6 +21,7 @@ import type {
   QuizAttemptStatus,
   QuizQuestionType,
   QuizStatus,
+  R2CleanupJobStatus,
   SubmissionStatus,
   UserRole,
   UserStatus,
@@ -745,3 +746,48 @@ export interface CreateGammaPresentationResponse {
   presentationId: string;
   jobId: string;
 }
+
+// ---------- Course hard-delete ----------
+export type ChildCounts = {
+  enrollments: number;
+  modules: number;
+  readingMaterials: number;
+  assignments: number;
+  submissions: number;
+  quizzes: number;
+  quizAttempts: number;
+  discussionTopics: number;
+  discussionPosts: number;
+  attendanceSessions: number;
+  fileCount: number;
+  fileBytes: number;
+};
+
+export type CourseDeletionPreview = {
+  courseId: string;
+  courseCode: string;
+  courseTitle: string;
+  counts: ChildCounts;
+};
+
+export type R2CleanupJob = {
+  id: string;
+  courseId: string;
+  status: R2CleanupJobStatus;
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+  completedAt: string | null;
+};
+
+export type CourseDeletionLogEntry = {
+  id: string;
+  courseId: string;
+  courseCode: string;
+  courseTitle: string;
+  deletedBy: string | null;
+  deletedByName: string | null;
+  deletedAt: string;
+  childCounts: ChildCounts;
+  cleanup: R2CleanupJob | null;
+};

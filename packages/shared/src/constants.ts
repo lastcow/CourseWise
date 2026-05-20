@@ -513,6 +513,9 @@ export const GAMMA_MAX_NUM_CARDS = 60;
 export const GAMMA_JOB_STATUSES = ['pending', 'completed', 'failed'] as const;
 export type GammaJobStatus = (typeof GAMMA_JOB_STATUSES)[number];
 
+export const R2_CLEANUP_JOB_STATUSES = ['pending', 'running', 'done', 'failed'] as const;
+export type R2CleanupJobStatus = (typeof R2_CLEANUP_JOB_STATUSES)[number];
+
 export const GAMMA_EXPORT_FORMATS = ['pptx', 'pdf'] as const;
 export type GammaExportFormat = (typeof GAMMA_EXPORT_FORMATS)[number];
 

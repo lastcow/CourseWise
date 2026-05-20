@@ -11,12 +11,16 @@ import type {
   AiJobDetail,
   AiJobSummary,
   AiModelOption,
+  ApiError,
+  ApiResponse,
   ApiTokenSummary,
   AssignmentSummary,
   AttendanceRecordRow,
   AttendanceSessionSummary,
   AttendanceStatus,
   BulkMarkAttendanceInput,
+  CourseDeletionLogEntry,
+  CourseDeletionPreview,
   CourseDetail,
   CourseSummary,
   CreateAiModelInput,
@@ -106,7 +110,7 @@ import type {
   UploadFileResponse,
   ValidateInvitationCodeResponse,
 } from '@coursewise/shared';
-import { apiCall, getStoredAuth } from './api';
+import { ApiClientError, apiCall, getStoredAuth } from './api';
 
 export function useCoursesList() {
   return useQuery({
@@ -158,13 +162,64 @@ export function useArchiveCourse() {
   });
 }
 
+export function useDeletionPreview(courseId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['course-deletion-preview', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<CourseDeletionPreview>(`/api/courses/${courseId}/deletion-preview`),
+  });
+}
+
 export function useDeleteCourse() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiCall<{ id: string }>(`/api/courses/${id}`, { method: 'DELETE' }),
+    mutationFn: ({ courseId, confirmCode }: { courseId: string; confirmCode: string }) =>
+      apiCall<{ id: string }>(`/api/courses/${courseId}`, {
+        method: 'DELETE',
+        body: { confirmCode },
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['courses'] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'course-deletion-log'] });
     },
+  });
+}
+
+export function useCourseDeletionLog() {
+  return useQuery({
+    queryKey: ['admin', 'course-deletion-log'],
+    queryFn: () => apiCall<CourseDeletionLogEntry[]>('/api/admin/course-deletion-log'),
+  });
+}
+
+export function useRetryR2Cleanup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      // The retry endpoint responds 202 with an empty body on success, so
+      // bypass the JSON-envelope parsing and check the status code directly.
+      const res = await apiCall<Response>(`/api/admin/r2-cleanup-jobs/${jobId}/retry`, {
+        method: 'POST',
+        raw: true,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let err: ApiError = {
+          code: 'UNKNOWN',
+          message: res.statusText,
+          i18nKey: 'errors.internal',
+        };
+        try {
+          const parsed = text ? (JSON.parse(text) as ApiResponse<unknown>) : undefined;
+          if (parsed && parsed.success === false) err = parsed.error;
+        } catch {
+          /* fall through with default err */
+        }
+        throw new ApiClientError(res.status, err);
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'course-deletion-log'] }),
   });
 }
 
