@@ -24,13 +24,19 @@ import {
   useMaterialsList,
   useModulesList,
   usePresentationsList,
+  useQuizzesList,
   useReorderModules,
   useTransitionMaterial,
   useUpdateModule,
 } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
-import type { AssignmentSummary, MaterialSummary, PresentationSummary } from '@coursewise/shared';
+import type {
+  AssignmentSummary,
+  MaterialSummary,
+  PresentationSummary,
+  QuizSummary,
+} from '@coursewise/shared';
 
 export function TeacherModulesPage(): JSX.Element {
   const { t } = useTranslation();
@@ -41,6 +47,7 @@ export function TeacherModulesPage(): JSX.Element {
   const materialsQ = useMaterialsList(id);
   const presentationsQ = usePresentationsList(id);
   const assignmentsQ = useAssignmentsList(id);
+  const quizzesQ = useQuizzesList(id);
   const create = useCreateModule(id);
   const update = useUpdateModule(id);
   const del = useDeleteModule(id);
@@ -85,6 +92,17 @@ export function TeacherModulesPage(): JSX.Element {
     return map;
   }, [assignmentsQ.data]);
 
+  const moduleQuizzes = useMemo(() => {
+    const map = new Map<string, QuizSummary[]>();
+    for (const q of quizzesQ.data ?? []) {
+      if (!q.moduleId) continue;
+      const arr = map.get(q.moduleId) ?? [];
+      arr.push(q);
+      map.set(q.moduleId, arr);
+    }
+    return map;
+  }, [quizzesQ.data]);
+
   const onMove = async (index: number, dir: -1 | 1) => {
     if (!list.data) return;
     const next = list.data.slice();
@@ -119,6 +137,7 @@ export function TeacherModulesPage(): JSX.Element {
             const mats = moduleMaterials.get(m.id) ?? [];
             const pres = modulePresentations.get(m.id) ?? [];
             const asgs = moduleAssignments.get(m.id) ?? [];
+            const qzs = moduleQuizzes.get(m.id) ?? [];
             return (
               <AccordionItem key={m.id} value={m.id}>
                 <AccordionTrigger
@@ -361,6 +380,47 @@ export function TeacherModulesPage(): JSX.Element {
                                   {new Date(a.dueDate).toLocaleDateString()}
                                 </span>
                               ) : null}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {qzs.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {t('quizzes.title')}
+                      </div>
+                      <ul className="space-y-1.5">
+                        {qzs.map((q) => (
+                          <li
+                            key={q.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded border bg-background px-2.5 py-1.5"
+                          >
+                            <Link
+                              to={`/teacher/courses/${id}/quizzes/${q.id}`}
+                              className="flex flex-1 items-center gap-2 rounded-sm hover:text-foreground"
+                            >
+                              <span className="text-sm font-medium underline-offset-4 hover:underline">
+                                {q.title}
+                              </span>
+                              <Badge
+                                variant={
+                                  q.status === 'published'
+                                    ? 'success'
+                                    : q.status === 'draft'
+                                      ? 'outline'
+                                      : 'secondary'
+                                }
+                              >
+                                {t(
+                                  `quizzes.status${q.status[0]!.toUpperCase()}${q.status.slice(1)}`,
+                                )}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {t('quizzes.questionsCount', { count: q.questionCount ?? 0 })}
+                              </span>
                             </Link>
                           </li>
                         ))}
