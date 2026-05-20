@@ -216,9 +216,6 @@ export const en = {
     },
     studentModules: {
       emptyModule: 'Nothing yet in this module.',
-      openFull: 'Open full view',
-      openFullForFiles: 'For file attachments, open the full assignment view.',
-      startQuiz: 'Start quiz',
     },
     materials: {
       title: 'Reading materials',

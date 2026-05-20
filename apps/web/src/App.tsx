@@ -49,6 +49,7 @@ import { StudentGradePage } from '@/pages/student/StudentGradePage';
 import { StudentCoursesPage } from '@/pages/student/StudentCoursesPage';
 import { StudentCourseOverviewPage } from '@/pages/student/StudentCourseOverviewPage';
 import { StudentMaterialsPage } from '@/pages/student/StudentMaterialsPage';
+import { StudentMaterialDetailPage } from '@/pages/student/StudentMaterialDetailPage';
 import { StudentModulesPage } from '@/pages/student/StudentModulesPage';
 import { StudentPresentationsPage } from '@/pages/student/StudentPresentationsPage';
 import { StudentPresentationViewerPage } from '@/pages/student/StudentPresentationViewerPage';
@@ -103,6 +104,7 @@ export default function App(): JSX.Element {
                 <Route index element={<StudentCourseOverviewPage />} />
                 <Route path="modules" element={<StudentModulesPage />} />
                 <Route path="materials" element={<StudentMaterialsPage />} />
+                <Route path="materials/:materialId" element={<StudentMaterialDetailPage />} />
                 <Route path="presentations" element={<StudentPresentationsPage />} />
                 <Route path="assignments" element={<StudentAssignmentsPage />} />
                 <Route path="assignments/:assignmentId" element={<StudentAssignmentDetailPage />} />
