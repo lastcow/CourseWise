@@ -25,6 +25,7 @@ import { TeacherCoursesPage } from '@/pages/teacher/TeacherCoursesPage';
 import { TeacherNewCoursePage } from '@/pages/teacher/TeacherNewCoursePage';
 import { TeacherCourseOverviewPage } from '@/pages/teacher/TeacherCourseOverviewPage';
 import { TeacherCourseSettings } from '@/pages/teacher/TeacherCourseSettings';
+import { TeacherInvitationsPage } from '@/pages/teacher/TeacherInvitationsPage';
 import { TeacherModulesPage } from '@/pages/teacher/TeacherModulesPage';
 import { TeacherMaterialsPage } from '@/pages/teacher/TeacherMaterialsPage';
 import { TeacherMaterialDetailPage } from '@/pages/teacher/TeacherMaterialDetailPage';
@@ -182,6 +183,7 @@ export default function App(): JSX.Element {
               >
                 <Route index element={<TeacherCourseOverviewPage />} />
                 <Route path="settings" element={<TeacherCourseSettings />} />
+                <Route path="invitations" element={<TeacherInvitationsPage />} />
                 <Route path="modules" element={<TeacherModulesPage />} />
                 <Route path="materials" element={<TeacherMaterialsPage />} />
                 <Route path="materials/:materialId" element={<TeacherMaterialDetailPage />} />
