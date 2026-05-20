@@ -5,6 +5,7 @@ import {
   createCourseSchema,
   enrollStudentSchema,
   updateCourseSchema,
+  type CourseDeletionPreview,
   type CourseDetail,
   type CourseSummary,
   type CreateCourseInput,
@@ -25,7 +26,8 @@ import { requireParam } from '../lib/params';
 import { requireAuth, requireCourseAccess, requireTokenCourseAccess } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
-import { canWriteCourse } from '../services/courseAccess';
+import { canDeleteCourse, canWriteCourse } from '../services/courseAccess';
+import { courseChildCounts } from '../services/courseDeletion';
 import { recordAudit } from '../services/audit';
 import type { AppEnv } from '../types';
 
@@ -229,6 +231,35 @@ r.patch(
     });
 
     return success(c, toCourseSummary(updated));
+  },
+);
+
+// Preview the child-row counts that a hard-delete would remove.
+r.get(
+  '/courses/:courseId/deletion-preview',
+  requireScopeGroup('coursesWrite'),
+  requireTokenCourseAccess(),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    if (!(await canDeleteCourse(db, auth.user, courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No delete access to this course');
+    }
+    const [course] = await db
+      .select({ id: courses.id, code: courses.code, title: courses.title })
+      .from(courses)
+      .where(eq(courses.id, courseId))
+      .limit(1);
+    if (!course) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+    const counts = await courseChildCounts(db, courseId);
+    const payload: CourseDeletionPreview = {
+      courseId: course.id,
+      courseCode: course.code,
+      courseTitle: course.title,
+      counts,
+    };
+    return success(c, payload);
   },
 );
 
