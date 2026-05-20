@@ -202,10 +202,18 @@ export const zhCN = {
       deleted: '章节已删除',
       reordered: '顺序已保存',
     },
+    studentModules: {
+      itemCount: '{{count}} 项',
+      emptyModule: '该章节暂无内容。',
+      openFull: '打开完整视图',
+      openFullForFiles: '需要附件提交?请打开完整作业视图。',
+      startQuiz: '开始测验',
+    },
     materials: {
       title: '阅读资料',
       empty: '暂无资料。',
       emptyInModule: '该章节暂无资料。',
+      openLink: '打开链接',
       unassignedGroup: '未分组',
       countInModule: '({{count}})',
       newCta: '+ 新增资料',

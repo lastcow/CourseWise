@@ -158,8 +158,7 @@ export const en = {
     },
     share: {
       notFoundTitle: 'Share link not found',
-      notFoundBody:
-        'This link may have been disabled by the teacher, or the URL is incorrect.',
+      notFoundBody: 'This link may have been disabled by the teacher, or the URL is incorrect.',
       noEmbed:
         'This deck can’t be embedded directly. Use “Open in Gamma” or download the .pptx above.',
     },
@@ -206,10 +205,18 @@ export const en = {
       deleted: 'Module deleted',
       reordered: 'Order saved',
     },
+    studentModules: {
+      itemCount: '{{count}} items',
+      emptyModule: 'Nothing yet in this module.',
+      openFull: 'Open full view',
+      openFullForFiles: 'For file attachments, open the full assignment view.',
+      startQuiz: 'Start quiz',
+    },
     materials: {
       title: 'Reading materials',
       empty: 'No materials yet.',
       emptyInModule: 'No materials in this module yet.',
+      openLink: 'Open link',
       unassignedGroup: 'Unassigned',
       countInModule: '({{count}})',
       newCta: '+ New material',
@@ -425,8 +432,7 @@ export const en = {
       openInGamma: 'Open in Gamma',
       downloadPptx: 'Download .pptx',
       failed: 'Generation failed',
-      externalDeckBanner:
-        'This deck lives in Gamma. Open it there to edit, or download the .pptx.',
+      externalDeckBanner: 'This deck lives in Gamma. Open it there to edit, or download the .pptx.',
       progress: {
         generating: 'Generating with Gamma…',
         stillWorking: 'Still working — Gamma is finalising the deck.',
@@ -851,7 +857,8 @@ export const en = {
     },
     ai: {
       adminTitle: 'AI providers',
-      adminSubtitle: 'Configure which model providers and models are available for AI generation in courses.',
+      adminSubtitle:
+        'Configure which model providers and models are available for AI generation in courses.',
       providersTitle: 'Providers',
       providersDescription:
         'Each provider is reached via Cloudflare AI Gateway. Store the API key as a Worker secret and reference it here by name.',
@@ -866,7 +873,8 @@ export const en = {
       modelId: 'Model ID',
       modelIdPlaceholder: 'Select a model…',
       secretRef: 'Secret name',
-      secretRefHint: 'UPPER_SNAKE_CASE name of the Worker secret holding the API key (e.g. ANTHROPIC_API_KEY).',
+      secretRefHint:
+        'UPPER_SNAKE_CASE name of the Worker secret holding the API key (e.g. ANTHROPIC_API_KEY).',
       secretConfigured: 'Secret bound',
       secretMissing: 'Secret missing',
       costIn: 'Input $/1M',
