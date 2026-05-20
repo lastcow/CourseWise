@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, Circle, CircleCheck, FolderInput, Lock, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  Archive,
+  Circle,
+  CircleCheck,
+  FolderInput,
+  Lock,
+  Pencil,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Dialog } from '@/components/ui/dialog';
@@ -168,6 +177,14 @@ export function TeacherAssignmentsPage(): JSX.Element {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1.5">
+                      <ActionIconButton
+                        asChild
+                        icon={Pencil}
+                        label={t('common.edit')}
+                        color="yellow"
+                      >
+                        <Link to={`/teacher/courses/${id}/assignments/${a.id}`} />
+                      </ActionIconButton>
                       {a.status === 'draft' ? (
                         <ActionIconButton
                           icon={CircleCheck}
