@@ -22,7 +22,7 @@ export function StudentCoursesPage(): JSX.Element {
           variant={courseCount === 0 ? 'default' : 'outline'}
           onClick={() => setJoinOpen(true)}
         >
-          Join a course
+          {t('student.joinCourse.button')}
         </Button>
       </header>
       {courses.isLoading ? (

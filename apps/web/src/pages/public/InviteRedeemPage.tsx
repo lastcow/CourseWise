@@ -1,10 +1,12 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/lib/authContext';
 import { useRedeemInvitationCode, useValidateInvitationCode } from '@/lib/queries';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 
 export function InviteRedeemPage(): JSX.Element {
+  const { t } = useTranslation();
   const { code = '' } = useParams<{ code: string }>();
   const { auth } = useAuth();
   const navigate = useNavigate();
@@ -19,40 +21,36 @@ export function InviteRedeemPage(): JSX.Element {
   if (auth.user.role !== 'student') {
     return (
       <div className="mx-auto max-w-md p-6">
-        <h1 className="text-lg font-semibold">Switch accounts to join</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Invitation codes are for student accounts. Switch to a student account to join.
-        </p>
+        <h1 className="text-lg font-semibold">{t('invite.notStudent.title')}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t('invite.notStudent.body')}</p>
         <Button className="mt-4" variant="outline" onClick={() => navigate('/')}>
-          Back
+          {t('invite.notStudent.back')}
         </Button>
       </div>
     );
   }
 
   if (validate.isLoading) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+    return <div className="p-6 text-sm text-muted-foreground">{t('invite.loading')}</div>;
   }
   if (validate.isError || !validate.data?.valid) {
     return (
       <div className="mx-auto max-w-md p-6">
-        <h1 className="text-lg font-semibold text-red-800">Invitation not valid</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This invitation code is invalid, expired, or already used. Check with your teacher.
-        </p>
+        <h1 className="text-lg font-semibold text-red-800">{t('invite.invalid.title')}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t('invite.invalid.body')}</p>
       </div>
     );
   }
 
-  const courseTitle = validate.data.courseTitle ?? 'this course';
+  const courseTitle = validate.data.courseTitle ?? t('invite.fallbackCourseLabel');
 
   async function onJoin(): Promise<void> {
     try {
       const result = await redeem.mutateAsync(code);
       toast.push({
         title: result.alreadyEnrolled
-          ? `You're already in ${result.courseTitle}`
-          : `Joined ${result.courseTitle}`,
+          ? t('student.joinCourse.toast.alreadyEnrolled', { course: result.courseTitle })
+          : t('student.joinCourse.toast.joined', { course: result.courseTitle }),
         tone: 'success',
       });
       navigate(`/student/courses/${result.courseId}`);
@@ -66,16 +64,14 @@ export function InviteRedeemPage(): JSX.Element {
 
   return (
     <div className="mx-auto max-w-md p-6">
-      <h1 className="text-xl font-semibold">Join {courseTitle}?</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        You'll be enrolled and can start working right away.
-      </p>
+      <h1 className="text-xl font-semibold">{t('invite.join.title', { course: courseTitle })}</h1>
+      <p className="mt-2 text-sm text-muted-foreground">{t('invite.join.body')}</p>
       <div className="mt-4 flex gap-2">
         <Button variant="outline" onClick={() => navigate('/')} disabled={redeem.isPending}>
-          Cancel
+          {t('invite.join.cancel')}
         </Button>
         <Button onClick={onJoin} disabled={redeem.isPending}>
-          {redeem.isPending ? 'Joining…' : 'Join course'}
+          {redeem.isPending ? t('invite.join.joining') : t('invite.join.cta')}
         </Button>
       </div>
     </div>

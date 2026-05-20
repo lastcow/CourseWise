@@ -256,6 +256,42 @@ export const en = {
     studentModules: {
       emptyModule: 'Nothing yet in this module.',
     },
+    student: {
+      joinCourse: {
+        button: 'Join a course',
+        title: 'Join a course',
+        description: 'Paste the invitation code your teacher shared.',
+        codeLabel: 'Invitation code',
+        codePlaceholder: 'INV-XXXX-YYYY',
+        join: 'Join',
+        joining: 'Joining…',
+        cancel: 'Cancel',
+        toast: {
+          joined: 'Joined {{course}}',
+          alreadyEnrolled: "You're already in {{course}}",
+        },
+      },
+    },
+    invite: {
+      loading: 'Loading…',
+      invalid: {
+        title: 'Invitation not valid',
+        body: 'This invitation code is invalid, expired, or already used. Check with your teacher.',
+      },
+      notStudent: {
+        title: 'Switch accounts to join',
+        body: 'Invitation codes are for student accounts. Switch to a student account to join.',
+        back: 'Back',
+      },
+      fallbackCourseLabel: 'this course',
+      join: {
+        title: 'Join {{course}}?',
+        body: "You'll be enrolled and can start working right away.",
+        cta: 'Join course',
+        joining: 'Joining…',
+        cancel: 'Cancel',
+      },
+    },
     materials: {
       title: 'Reading materials',
       empty: 'No materials yet.',

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export function JoinCourseDialog({ open, onOpenChange }: Props): JSX.Element {
+  const { t } = useTranslation();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const redeem = useRedeemInvitationCode();
@@ -33,8 +35,8 @@ export function JoinCourseDialog({ open, onOpenChange }: Props): JSX.Element {
       onOpenChange(false);
       toast.push({
         title: result.alreadyEnrolled
-          ? `You're already in ${result.courseTitle}`
-          : `Joined ${result.courseTitle}`,
+          ? t('student.joinCourse.toast.alreadyEnrolled', { course: result.courseTitle })
+          : t('student.joinCourse.toast.joined', { course: result.courseTitle }),
         tone: 'success',
       });
       navigate(`/student/courses/${result.courseId}`);
@@ -45,20 +47,18 @@ export function JoinCourseDialog({ open, onOpenChange }: Props): JSX.Element {
   }
 
   return (
-    <Dialog open={open} onClose={close} title="Join a course" className="max-w-md">
+    <Dialog open={open} onClose={close} title={t('student.joinCourse.title')} className="max-w-md">
       <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Paste the invitation code your teacher shared.
-        </p>
+        <p className="text-sm text-muted-foreground">{t('student.joinCourse.description')}</p>
         <div className="space-y-2">
-          <Label htmlFor="join-course-code">Invitation code</Label>
+          <Label htmlFor="join-course-code">{t('student.joinCourse.codeLabel')}</Label>
           <Input
             id="join-course-code"
             autoFocus
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            aria-label="Invitation code"
-            placeholder="INV-XXXX-YYYY"
+            aria-label={t('student.joinCourse.codeLabel')}
+            placeholder={t('student.joinCourse.codePlaceholder')}
             autoComplete="off"
           />
         </div>
@@ -69,14 +69,14 @@ export function JoinCourseDialog({ open, onOpenChange }: Props): JSX.Element {
         ) : null}
         <div className="flex items-center justify-end gap-2 border-t pt-4">
           <Button type="button" variant="outline" onClick={close} disabled={redeem.isPending}>
-            Cancel
+            {t('student.joinCourse.cancel')}
           </Button>
           <Button
             type="button"
             disabled={!code.trim() || redeem.isPending}
             onClick={onSubmit}
           >
-            {redeem.isPending ? 'Joining...' : 'Join'}
+            {redeem.isPending ? t('student.joinCourse.joining') : t('student.joinCourse.join')}
           </Button>
         </div>
       </div>
