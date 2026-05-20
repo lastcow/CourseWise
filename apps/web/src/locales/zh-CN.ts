@@ -202,9 +202,16 @@ export const zhCN = {
       updated: '章节已更新',
       deleted: '章节已删除',
       reordered: '顺序已保存',
+      summary: {
+        materials: '{{count}} 份阅读资料',
+        presentations: '{{count}} 份演示文稿',
+        assignments: '{{count}} 项作业',
+        quizzes: '{{count}} 份测验',
+        discussions: '{{count}} 个讨论',
+        empty: '暂无内容',
+      },
     },
     studentModules: {
-      itemCount: '{{count}} 项',
       emptyModule: '该章节暂无内容。',
       openFull: '打开完整视图',
       openFullForFiles: '需要附件提交?请打开完整作业视图。',

@@ -16,6 +16,7 @@ import { Input, Label } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { stripMarkdown } from '@/components/ui/markdown';
 import { EmptyState } from '@/components/ui/empty';
+import { ModuleContentSummary } from '@/components/ModuleContentSummary';
 import {
   useAssignmentsList,
   useCreateModule,
@@ -197,11 +198,17 @@ export function TeacherModulesPage(): JSX.Element {
                     </>
                   }
                 >
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-col items-start gap-1">
                     <span className="font-medium">{m.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {t('materials.countInModule', { count: mats.length })}
-                    </span>
+                    <ModuleContentSummary
+                      counts={{
+                        materials: mats.length,
+                        presentations: pres.length,
+                        assignments: asgs.length,
+                        quizzes: qzs.length,
+                        discussions: dscs.length,
+                      }}
+                    />
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="space-y-3">

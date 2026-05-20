@@ -205,9 +205,16 @@ export const en = {
       updated: 'Module updated',
       deleted: 'Module deleted',
       reordered: 'Order saved',
+      summary: {
+        materials: '{{count}} reading materials',
+        presentations: '{{count}} presentations',
+        assignments: '{{count}} assignments',
+        quizzes: '{{count}} quizzes',
+        discussions: '{{count}} discussions',
+        empty: 'No content yet',
+      },
     },
     studentModules: {
-      itemCount: '{{count}} items',
       emptyModule: 'Nothing yet in this module.',
       openFull: 'Open full view',
       openFullForFiles: 'For file attachments, open the full assignment view.',
