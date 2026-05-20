@@ -73,6 +73,8 @@ export function StudentCourseOverviewPage(): JSX.Element {
           courseId={id}
           session={todayQ.data.session}
           alreadySigned={todayQ.data.alreadySigned}
+          windowState={todayQ.data.windowState}
+          minutesSinceStart={todayQ.data.minutesSinceStart}
         />
       ) : null}
       <Card>

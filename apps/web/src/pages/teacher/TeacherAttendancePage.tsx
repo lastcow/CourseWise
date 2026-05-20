@@ -50,7 +50,13 @@ export function TeacherAttendancePage(): JSX.Element {
   const [marks, setMarks] = useState<Record<string, { status: AttendanceStatus; notes: string }>>({});
 
   const [openDialog, setOpenDialog] = useState(false);
-  const [draft, setDraft] = useState({ title: '', description: '', sessionDate: '' });
+  const [draft, setDraft] = useState({
+    title: '',
+    description: '',
+    sessionDate: '',
+    lateAfterMinutes: '15',
+    absentAfterMinutes: '30',
+  });
 
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   useEffect(() => {
@@ -308,6 +314,36 @@ export function TeacherAttendancePage(): JSX.Element {
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
             />
           </div>
+          <div className="space-y-2 rounded-md border bg-muted/40 p-3">
+            <div className="text-sm font-medium">{t('attendance.thresholds.title')}</div>
+            <p className="text-xs text-muted-foreground">{t('attendance.thresholds.help')}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>{t('attendance.thresholds.lateAfter')}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={1440}
+                  inputMode="numeric"
+                  placeholder={t('attendance.thresholds.noLimit')}
+                  value={draft.lateAfterMinutes}
+                  onChange={(e) => setDraft({ ...draft, lateAfterMinutes: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>{t('attendance.thresholds.absentAfter')}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={1440}
+                  inputMode="numeric"
+                  placeholder={t('attendance.thresholds.noLimit')}
+                  value={draft.absentAfterMinutes}
+                  onChange={(e) => setDraft({ ...draft, absentAfterMinutes: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setOpenDialog(false)}>
               {t('common.cancel')}
@@ -315,14 +351,37 @@ export function TeacherAttendancePage(): JSX.Element {
             <Button
               onClick={async () => {
                 if (!draft.title.trim() || !draft.sessionDate) return;
+                const parseMinutes = (raw: string): number | null => {
+                  const trimmed = raw.trim();
+                  if (!trimmed) return null;
+                  const n = Number(trimmed);
+                  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+                };
+                const lateAfter = parseMinutes(draft.lateAfterMinutes);
+                const absentAfter = parseMinutes(draft.absentAfterMinutes);
+                if (lateAfter != null && absentAfter != null && absentAfter < lateAfter) {
+                  toast.push({
+                    title: t('attendance.thresholds.orderError'),
+                    tone: 'error',
+                  });
+                  return;
+                }
                 try {
                   await createSession.mutateAsync({
                     title: draft.title.trim(),
                     description: draft.description.trim() || null,
                     sessionDate: new Date(draft.sessionDate).toISOString(),
+                    lateAfterMinutes: lateAfter,
+                    absentAfterMinutes: absentAfter,
                   });
                   setOpenDialog(false);
-                  setDraft({ title: '', description: '', sessionDate: '' });
+                  setDraft({
+                    title: '',
+                    description: '',
+                    sessionDate: '',
+                    lateAfterMinutes: '15',
+                    absentAfterMinutes: '30',
+                  });
                   toast.push({ title: t('attendance.sessionCreated'), tone: 'success' });
                 } catch (err) {
                   toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });

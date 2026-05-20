@@ -712,6 +712,8 @@ export const attendanceSessions = pgTable(
     status: attendanceSessionStatusEnum('status').notNull().default('open'),
     closedAt: timestamp('closed_at', { withTimezone: true, mode: 'string' }),
     createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
+    lateAfterMinutes: integer('late_after_minutes'),
+    absentAfterMinutes: integer('absent_after_minutes'),
     ...timestamps,
   },
   (t) => ({

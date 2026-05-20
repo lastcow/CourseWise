@@ -527,18 +527,45 @@ export const gradeQuizAnswerSchema = z.object({
 export type GradeQuizAnswerInput = z.infer<typeof gradeQuizAnswerSchema>;
 
 // ---------- M4: Attendance ----------
-export const createAttendanceSessionSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(20_000).optional().nullable(),
-  sessionDate: isoDateString,
-});
+// Self-sign cut-offs in minutes. Bounded at 24h so a typo can't turn into a
+// week-long window; nullable to allow "no cut-off" sessions.
+const thresholdMinutes = z.number().int().min(0).max(1440).nullable().optional();
+
+function refineThresholdOrder<T extends { lateAfterMinutes?: number | null; absentAfterMinutes?: number | null }>(
+  schema: z.ZodType<T>,
+): z.ZodEffects<z.ZodType<T>, T, T> {
+  return schema.refine(
+    (v) =>
+      v.lateAfterMinutes == null ||
+      v.absentAfterMinutes == null ||
+      v.absentAfterMinutes >= v.lateAfterMinutes,
+    {
+      message: 'absentAfterMinutes must be >= lateAfterMinutes',
+      path: ['absentAfterMinutes'],
+    },
+  );
+}
+
+export const createAttendanceSessionSchema = refineThresholdOrder(
+  z.object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(20_000).optional().nullable(),
+    sessionDate: isoDateString,
+    lateAfterMinutes: thresholdMinutes,
+    absentAfterMinutes: thresholdMinutes,
+  }),
+);
 export type CreateAttendanceSessionInput = z.infer<typeof createAttendanceSessionSchema>;
 
-export const updateAttendanceSessionSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
-  description: z.string().trim().max(20_000).optional().nullable(),
-  sessionDate: isoDateString.optional(),
-});
+export const updateAttendanceSessionSchema = refineThresholdOrder(
+  z.object({
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(20_000).optional().nullable(),
+    sessionDate: isoDateString.optional(),
+    lateAfterMinutes: thresholdMinutes,
+    absentAfterMinutes: thresholdMinutes,
+  }),
+);
 export type UpdateAttendanceSessionInput = z.infer<typeof updateAttendanceSessionSchema>;
 
 export const attendanceRecordInputSchema = z.object({
