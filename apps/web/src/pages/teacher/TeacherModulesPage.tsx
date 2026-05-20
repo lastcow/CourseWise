@@ -22,13 +22,14 @@ import {
   useDeleteMaterial,
   useMaterialsList,
   useModulesList,
+  usePresentationsList,
   useReorderModules,
   useTransitionMaterial,
   useUpdateModule,
 } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
-import type { MaterialSummary } from '@coursewise/shared';
+import type { MaterialSummary, PresentationSummary } from '@coursewise/shared';
 
 export function TeacherModulesPage(): JSX.Element {
   const { t } = useTranslation();
@@ -37,6 +38,7 @@ export function TeacherModulesPage(): JSX.Element {
   const navigate = useNavigate();
   const list = useModulesList(id);
   const materialsQ = useMaterialsList(id);
+  const presentationsQ = usePresentationsList(id);
   const create = useCreateModule(id);
   const update = useUpdateModule(id);
   const del = useDeleteModule(id);
@@ -58,6 +60,17 @@ export function TeacherModulesPage(): JSX.Element {
     }
     return map;
   }, [materialsQ.data]);
+
+  const modulePresentations = useMemo(() => {
+    const map = new Map<string, PresentationSummary[]>();
+    for (const p of presentationsQ.data ?? []) {
+      if (!p.moduleId) continue;
+      const arr = map.get(p.moduleId) ?? [];
+      arr.push(p);
+      map.set(p.moduleId, arr);
+    }
+    return map;
+  }, [presentationsQ.data]);
 
   const onMove = async (index: number, dir: -1 | 1) => {
     if (!list.data) return;
@@ -91,6 +104,7 @@ export function TeacherModulesPage(): JSX.Element {
         <Accordion className="space-y-3">
           {list.data.map((m, idx) => {
             const mats = moduleMaterials.get(m.id) ?? [];
+            const pres = modulePresentations.get(m.id) ?? [];
             return (
               <AccordionItem key={m.id} value={m.id}>
                 <AccordionTrigger
@@ -126,7 +140,8 @@ export function TeacherModulesPage(): JSX.Element {
                             await del.mutateAsync(m.id);
                             toast.push({ title: t('modules.deleted'), tone: 'success' });
                           } catch (err) {
-                            const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                            const i18n =
+                              err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
                             toast.push({ title: t(i18n), tone: 'error' });
                           }
                         }}
@@ -151,7 +166,9 @@ export function TeacherModulesPage(): JSX.Element {
                       {t('materials.title')}
                     </div>
                     {mats.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">{t('materials.emptyInModule')}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {t('materials.emptyInModule')}
+                      </p>
                     ) : (
                       <ul className="space-y-1.5">
                         {mats.map((mat) => (
@@ -209,7 +226,9 @@ export function TeacherModulesPage(): JSX.Element {
                                     });
                                   } catch (err) {
                                     const i18n =
-                                      err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                                      err instanceof ApiClientError
+                                        ? err.error.i18nKey
+                                        : 'errors.internal';
                                     toast.push({ title: t(i18n), tone: 'error' });
                                   }
                                 }}
@@ -229,13 +248,16 @@ export function TeacherModulesPage(): JSX.Element {
                                 label={t('common.delete')}
                                 color="red"
                                 onClick={async () => {
-                                  if (!window.confirm(`${t('common.delete')}: ${mat.title}?`)) return;
+                                  if (!window.confirm(`${t('common.delete')}: ${mat.title}?`))
+                                    return;
                                   try {
                                     await delMaterial.mutateAsync(mat.id);
                                     toast.push({ title: t('materials.deleted'), tone: 'success' });
                                   } catch (err) {
                                     const i18n =
-                                      err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                                      err instanceof ApiClientError
+                                        ? err.error.i18nKey
+                                        : 'errors.internal';
                                     toast.push({ title: t(i18n), tone: 'error' });
                                   }
                                 }}
@@ -246,6 +268,47 @@ export function TeacherModulesPage(): JSX.Element {
                       </ul>
                     )}
                   </div>
+
+                  {pres.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {t('presentations.title')}
+                      </div>
+                      <ul className="space-y-1.5">
+                        {pres.map((p) => (
+                          <li
+                            key={p.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded border bg-background px-2.5 py-1.5"
+                          >
+                            <Link
+                              to={`/teacher/courses/${id}/presentations/${p.id}`}
+                              className="flex flex-1 items-center gap-2 rounded-sm hover:text-foreground"
+                            >
+                              <span className="text-sm font-medium underline-offset-4 hover:underline">
+                                {p.title}
+                              </span>
+                              <Badge
+                                variant={
+                                  p.status === 'published'
+                                    ? 'success'
+                                    : p.status === 'draft'
+                                      ? 'outline'
+                                      : 'secondary'
+                                }
+                              >
+                                {t(
+                                  `presentations.status${p.status[0]!.toUpperCase()}${p.status.slice(1)}`,
+                                )}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {t('presentations.slidesCount', { count: p.slideCount })}
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </AccordionContent>
               </AccordionItem>
             );
@@ -285,7 +348,6 @@ export function TeacherModulesPage(): JSX.Element {
           }}
         />
       ) : null}
-
     </div>
   );
 }
@@ -331,4 +393,3 @@ function ModuleDialog({
     </Dialog>
   );
 }
-
