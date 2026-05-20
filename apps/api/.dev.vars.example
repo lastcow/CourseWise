@@ -30,9 +30,11 @@ OPENAI_API_KEY=
 # clear error until this is set. Create one at https://gamma.app/account-settings/api-keys
 GAMMA_API_KEY=
 
-# Outbound email uses the Cloudflare Worker `send_email` binding (configured
-# in wrangler.toml under [[send_email]]). The binding only exists inside the
+# Outbound email uses Cloudflare Email Service (beta) via the `[[send_email]]`
+# binding configured in wrangler.toml. The binding only exists inside the
 # Workers runtime — `wrangler dev` will surface it, but local Node-based
-# scripts cannot send. The binding has no API key; bindings are not env vars.
+# scripts cannot send. There's no API key for it (bindings are not env vars).
+# Sends fail until you've verified fsuac.com as a sender domain in the
+# Cloudflare dashboard (DKIM / SPF / MX / DMARC DNS records).
 # Optional: override the From: header (defaults to "CourseWise <noreply@fsuac.com>").
 EMAIL_FROM=

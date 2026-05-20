@@ -1,6 +1,3 @@
-import { EmailMessage } from 'cloudflare:email';
-import { createMimeMessage } from 'mimetext';
-
 export interface SendEmailInput {
   to: string;
   subject: string;
@@ -13,49 +10,41 @@ export interface SendEmailInput {
 
 /**
  * Parse a From header value (e.g. `"CourseWise <noreply@fsuac.com>"`) into
- * separate name + addr parts. Falls back to addr-only when there is no name.
+ * the `{ email, name }` object shape that the Cloudflare binding accepts.
+ * Bare addresses (no angle brackets) come back as a plain string so the
+ * binding falls through its `string | EmailAddress` union without a name.
  */
-function parseAddress(raw: string): { name: string; addr: string } {
+function parseFrom(raw: string): string | { email: string; name: string } {
   const m = raw.match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
-  if (m) return { name: m[1] ?? '', addr: (m[2] ?? '').trim() };
-  return { name: '', addr: raw.trim() };
+  if (m && m[1] && m[2]) {
+    return { email: m[2].trim(), name: m[1] };
+  }
+  return raw.trim();
 }
 
 /**
- * Send an email via the Cloudflare Worker `send_email` binding.
+ * Send an email via Cloudflare's Email Service (beta) Worker binding.
  *
- * IMPORTANT CONSTRAINT: this binding only delivers to addresses listed in the
- * binding's `allowed_destination_addresses` (configured in wrangler.toml).
- * `.send()` throws for non-allowlisted recipients, which the caller can catch
- * and treat as a best-effort failure (e.g. fall back to copy-link UX).
+ * Unlike the older Email Routing send_email binding (which only delivers to
+ * verified destinations on an allowlist), Email Service supports arbitrary
+ * recipient addresses once the sender domain is verified via DKIM/SPF/MX/DMARC
+ * DNS records — that setup is operator-side, not in code.
  *
- * The MIME body is assembled with `mimetext` — that's the same package the
- * official Cloudflare docs recommend for this binding.
+ * Returns the Cloudflare `messageId` on success. Throws on transport errors;
+ * the caller decides whether the send is fatal or best-effort.
+ *
+ * See https://developers.cloudflare.com/email-service/api/send-emails/workers-api/
  */
 export async function sendEmailViaCloudflare(
   binding: SendEmail,
   input: SendEmailInput,
-): Promise<void> {
-  const sender = parseAddress(input.from);
-  const recipient = parseAddress(input.to);
-
-  const msg = createMimeMessage();
-  if (sender.name) {
-    msg.setSender({ name: sender.name, addr: sender.addr });
-  } else {
-    msg.setSender(sender.addr);
-  }
-  msg.setRecipient(recipient.addr);
-  msg.setSubject(input.subject);
-  if (input.replyTo) {
-    msg.setHeader('Reply-To', input.replyTo);
-  }
-  // Multipart/alternative: clients pick the LAST matching part as the
-  // preferred view. Add text first so HTML-capable clients render the HTML
-  // version while plaintext-only clients still get a readable body.
-  msg.addMessage({ contentType: 'text/plain', data: input.text });
-  msg.addMessage({ contentType: 'text/html', data: input.html });
-
-  const email = new EmailMessage(sender.addr, recipient.addr, msg.asRaw());
-  await binding.send(email);
+): Promise<EmailSendResult> {
+  return binding.send({
+    from: parseFrom(input.from),
+    to: input.to,
+    subject: input.subject,
+    html: input.html,
+    text: input.text,
+    ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+  });
 }

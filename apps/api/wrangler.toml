@@ -35,12 +35,12 @@ EMAIL_FROM = "CourseWise <noreply@fsuac.com>"
 #   OPENAI_API_KEY        — OpenAI API key (referenced by ai_providers.api_key_secret_ref)
 #   GAMMA_API_KEY        — Gamma Generate API key (https://developers.gamma.app),
 #                          required for POST /api/courses/{id}/presentations/gamma
-# Outbound email (teacher invitations + future notifications). Uses the
-# Cloudflare Worker `send_email` binding (see the [[send_email]] block below).
-# When the binding is unset or the recipient is not on its
-# `allowed_destination_addresses` list, the send fails and the response's
-# `emailSent` flag is false — the admin UI still shows the invite URL for
-# manual sharing. Non-secret default for the From: header:
+# Outbound email (teacher invitations + future notifications). Uses
+# Cloudflare Email Service (beta) via the `[[send_email]]` binding block
+# below. When the binding is unset or the sender domain isn't yet verified,
+# sends fail and the response's `emailSent` flag is false — the admin UI
+# still shows the invite URL for manual sharing. Non-secret default for
+# the From: header:
 #   EMAIL_FROM           — friendly name + address, e.g.
 #                          "CourseWise <noreply@fsuac.com>" (the default).
 
@@ -68,17 +68,25 @@ binding = "MATERIAL_GEN_WORKFLOW"
 name = "coursewise-material-gen"
 class_name = "MaterialGenerationWorkflow"
 
-# Outbound email binding (teacher invitations + future notifications). See
-# https://developers.cloudflare.com/email-routing/email-workers/send-email-workers/
+# Outbound email binding (teacher invitations + future notifications). Uses
+# Cloudflare Email Service (beta) — NOT the older Email Routing send_email
+# binding. Email Service supports ARBITRARY recipient addresses once the
+# sender domain is verified via DKIM / SPF / MX / DMARC DNS records.
 #
-# IMPORTANT constraint: this binding only delivers to addresses listed in
-# `allowed_destination_addresses` AND each of those addresses must be verified
-# in Cloudflare Email Routing under your fsuac.com zone (Email → Email Routing
-# → Destination addresses → Add destination address → click verification link).
+# See https://developers.cloudflare.com/email-service/api/send-emails/workers-api/
 #
-# Updating the allowlist requires a redeploy (wrangler accepts the array at
-# deploy time). Each address has to be a real, monitored inbox — verification
-# links land in the destination inbox, not yours.
+# Operator setup (one-time, in the Cloudflare dashboard):
+#   1. Email → Email Service → enable for the account (beta opt-in).
+#   2. Add sender domain `fsuac.com` → Cloudflare provides the DNS records:
+#         MX     cf-bounce.fsuac.com  →  route1/2/3.mx.cloudflare.net
+#         TXT    cf-bounce.fsuac.com  →  "v=spf1 include:_spf.mx.cloudflare.net ~all"
+#         TXT    cf-bounce._domainkey.fsuac.com  →  "v=DKIM1; ... p=<key>"
+#         TXT    _dmarc.fsuac.com    →  "v=DMARC1; p=reject;"
+#   3. Wait for verification ✓ in the dashboard, then redeploy this Worker.
+#
+# No allowlist on receivers; sends to any well-formed address. The optional
+# `allowed_sender_addresses` field below restricts WHO can send (e.g. to
+# prevent a compromised Worker from spoofing other addresses on your domain).
 [[send_email]]
 name = "SEND_EMAIL"
-# allowed_destination_addresses = ["admin@example.com", "teacher@example.com"]
+# allowed_sender_addresses = ["noreply@fsuac.com"]
