@@ -97,40 +97,39 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
         </h2>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
+      <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)]">
         <Card>
-          <CardHeader>
+          <CardHeader className="px-3 py-2">
             <CardTitle className="text-sm">{t('submissions.inbox')}</CardTitle>
           </CardHeader>
-          <CardContent className="p-2">
+          <CardContent className="p-1">
             {submissions.isLoading ? (
-              <p className="px-2">{t('common.loading')}</p>
+              <p className="px-2 py-1 text-sm">{t('common.loading')}</p>
             ) : !submissions.data || submissions.data.length === 0 ? (
               <EmptyState title={t('submissions.empty')} />
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {submissions.data.map((s) => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => openSelected(s.id)}
                     className={cn(
-                      'flex w-full flex-col gap-1 rounded px-3 py-2 text-left text-sm hover:bg-muted',
+                      'flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left text-sm hover:bg-muted',
                       selectedId === s.id ? 'bg-muted' : '',
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{s.student.name}</span>
-                      <Badge variant={statusVariant(s.status)}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-medium">{s.student.name}</span>
+                      <Badge variant={statusVariant(s.status)} className="shrink-0">
                         {t(`submissions.status${s.status[0]!.toUpperCase()}${s.status.slice(1)}`)}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">{s.student.email}</p>
-                    {s.score != null ? (
-                      <p className="text-xs">
-                        {t('submissions.scoreLabel')}: {s.score} / {assignment.data?.maxScore ?? '—'}
-                      </p>
-                    ) : null}
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {s.score != null
+                        ? `${s.score} / ${assignment.data?.maxScore ?? '—'}`
+                        : '—'}
+                    </p>
                   </button>
                 ))}
               </div>

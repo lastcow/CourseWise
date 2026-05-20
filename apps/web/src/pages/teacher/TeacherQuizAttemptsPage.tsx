@@ -60,38 +60,38 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
         </Button>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
+      <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)]">
         <Card>
-          <CardHeader>
-            <CardTitle>{t('quizzes.attemptsListTitle')}</CardTitle>
+          <CardHeader className="px-3 py-2">
+            <CardTitle className="text-sm">{t('quizzes.attemptsListTitle')}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-1">
             {attempts.isLoading ? (
-              <p>{t('common.loading')}</p>
+              <p className="px-2 py-1 text-sm">{t('common.loading')}</p>
             ) : !attempts.data || attempts.data.length === 0 ? (
               <EmptyState title={t('quizzes.noAttempts')} />
             ) : (
-              <ul className="space-y-1">
+              <ul className="space-y-0.5">
                 {attempts.data.map((a) => (
                   <li key={a.id}>
                     <button
                       type="button"
                       onClick={() => setSelectedAttemptId(a.id)}
-                      className={`w-full rounded-md border p-2 text-left text-sm transition hover:bg-accent ${
-                        selectedAttemptId === a.id ? 'border-primary bg-accent' : ''
+                      className={`flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left text-sm hover:bg-muted ${
+                        selectedAttemptId === a.id ? 'bg-muted' : ''
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{a.student.name}</span>
-                        <Badge variant={a.teacherReviewed ? 'success' : 'secondary'}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-medium">{a.student.name}</span>
+                        <Badge
+                          variant={a.teacherReviewed ? 'success' : 'secondary'}
+                          className="shrink-0"
+                        >
                           {t(`quizzes.attemptStatus.${a.status}`)}
                         </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {a.score ?? '—'} / {a.maxScore ?? '—'} ·{' '}
-                        {a.teacherReviewed
-                          ? t('quizzes.reviewed')
-                          : t('quizzes.pendingReview')}
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {a.score ?? '—'} / {a.maxScore ?? '—'}
                       </p>
                     </button>
                   </li>
