@@ -335,6 +335,12 @@ export const zhCN = {
       statusDraft: '草稿',
       statusPublished: '已发布',
       statusArchived: '已归档',
+      colTitle: '标题',
+      colDescription: '描述',
+      colStatus: '状态',
+      colSlides: '幻灯片',
+      colSource: '来源',
+      colActions: '操作',
     },
     gamma: {
       dialogTitle: '使用 Gamma 生成演示文稿',

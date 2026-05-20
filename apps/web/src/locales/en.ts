@@ -341,6 +341,12 @@ export const en = {
       statusDraft: 'Draft',
       statusPublished: 'Published',
       statusArchived: 'Archived',
+      colTitle: 'Title',
+      colDescription: 'Description',
+      colStatus: 'Status',
+      colSlides: 'Slides',
+      colSource: 'Source',
+      colActions: 'Actions',
     },
     gamma: {
       dialogTitle: 'Generate presentation with Gamma',
