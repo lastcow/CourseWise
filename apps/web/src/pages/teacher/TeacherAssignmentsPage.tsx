@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Archive,
@@ -7,8 +7,8 @@ import {
   CircleCheck,
   FolderInput,
   Lock,
-  Pencil,
   RefreshCw,
+  SquarePen,
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -74,6 +74,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId } = useParams();
   const id = courseId ?? '';
+  const navigate = useNavigate();
   const list = useAssignmentsList(id);
   const transition = useTransitionAssignment(id);
   const del = useDeleteAssignment(id);
@@ -178,13 +179,11 @@ export function TeacherAssignmentsPage(): JSX.Element {
                   <TableCell>
                     <div className="flex items-center justify-end gap-1.5">
                       <ActionIconButton
-                        asChild
-                        icon={Pencil}
+                        icon={SquarePen}
                         label={t('common.edit')}
                         color="yellow"
-                      >
-                        <Link to={`/teacher/courses/${id}/assignments/${a.id}`} />
-                      </ActionIconButton>
+                        onClick={() => navigate(`/teacher/courses/${id}/assignments/${a.id}`)}
+                      />
                       {a.status === 'draft' ? (
                         <ActionIconButton
                           icon={CircleCheck}
