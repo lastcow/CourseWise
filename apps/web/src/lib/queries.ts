@@ -663,6 +663,21 @@ export function useGammaJob(jobId: string | null, enabled: boolean) {
   });
 }
 
+/**
+ * Fetch in-flight Gamma jobs for a course so the presentations page can
+ * resume polling them after navigation/refresh. Without this, a job that
+ * was created in one session and never finished polling stays frozen at
+ * `pending` because pollAndFinalize only runs when the GET endpoint is hit.
+ */
+export function useCourseGammaPendingJobs(courseId: string | null) {
+  return useQuery({
+    queryKey: ['gamma', 'pendingJobs', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<{ jobs: GammaGenerationJob[] }>(`/api/courses/${courseId}/gamma-jobs/pending`),
+  });
+}
+
 // Slides
 export function useSlidesList(presentationId: string | null) {
   return useQuery({
