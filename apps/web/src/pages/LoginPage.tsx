@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
@@ -9,11 +9,21 @@ import { useAuth } from '@/lib/authContext';
 import { ApiClientError } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 
+// Only honor redirectTo values that point to same-origin paths. Reject anything
+// that could escape the app (full URLs, protocol-relative `//evil.com`, etc.).
+function isSafeRedirect(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith('/')) return null;
+  if (raw.startsWith('//')) return null;
+  return raw;
+}
+
 export function LoginPage(): JSX.Element {
   const { t } = useTranslation();
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -24,12 +34,14 @@ export function LoginPage(): JSX.Element {
     try {
       const next = await login(email, password);
       toast.push({ title: t('auth.welcomeBack'), description: next.user.email, tone: 'success' });
+      const redirectTo = isSafeRedirect(searchParams.get('redirectTo'));
       const home =
-        next.user.role === 'admin'
+        redirectTo ??
+        (next.user.role === 'admin'
           ? '/admin/courses'
           : next.user.role === 'teacher'
             ? '/teacher/courses'
-            : '/student/courses';
+            : '/student/courses');
       navigate(home);
     } catch (err) {
       const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';

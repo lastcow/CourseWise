@@ -253,6 +253,42 @@ export const zhCN = {
     studentModules: {
       emptyModule: '该章节暂无内容。',
     },
+    student: {
+      joinCourse: {
+        button: '加入课程',
+        title: '加入课程',
+        description: '粘贴你的教师分享的邀请码。',
+        codeLabel: '邀请码',
+        codePlaceholder: 'INV-XXXX-YYYY',
+        join: '加入',
+        joining: '加入中…',
+        cancel: '取消',
+        toast: {
+          joined: '已加入 {{course}}',
+          alreadyEnrolled: '你已在 {{course}} 中',
+        },
+      },
+    },
+    invite: {
+      loading: '加载中…',
+      invalid: {
+        title: '邀请无效',
+        body: '此邀请码无效、已过期或已被使用。请与你的教师联系。',
+      },
+      notStudent: {
+        title: '请切换账号以加入',
+        body: '邀请码仅限学生账号使用。请切换到学生账号后再尝试。',
+        back: '返回',
+      },
+      fallbackCourseLabel: '该课程',
+      join: {
+        title: '加入 {{course}}？',
+        body: '加入后即可立即开始学习。',
+        cta: '加入课程',
+        joining: '加入中…',
+        cancel: '取消',
+      },
+    },
     materials: {
       title: '阅读资料',
       empty: '暂无资料。',

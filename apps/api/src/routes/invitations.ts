@@ -1,17 +1,20 @@
 import { Hono } from 'hono';
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import {
   createInvitationCodeSchema,
   invitationCodeStringSchema,
+  redeemInvitationCodeSchema,
   updateInvitationCodeSchema,
   validateInvitationCodeSchema,
   type CreateInvitationCodeInput,
   type InvitationCodeSummary,
+  type RedeemInvitationCodeInput,
+  type RedeemInvitationCodeResponse,
   type UpdateInvitationCodeInput,
   type ValidateInvitationCodeInput,
   type ValidateInvitationCodeResponse,
 } from '@coursewise/shared';
-import { courses, invitationCodes } from '../db/schema';
+import { courses, enrollments, invitationCodes } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -71,7 +74,130 @@ r.post('/invitation-codes/validate', validateJson(validateInvitationCodeSchema),
   if (code.status !== 'active') return respond({ valid: false });
   if (code.expiresAt && new Date(code.expiresAt) <= new Date()) return respond({ valid: false });
   if (code.maxUses !== null && code.usedCount >= code.maxUses) return respond({ valid: false });
-  return respond({ valid: true, courseTitle: row.course?.title ?? null });
+  return respond({
+    valid: true,
+    courseId: row.course?.id ?? null,
+    courseTitle: row.course?.title ?? null,
+  });
+});
+
+// Redeem an invitation code as an authenticated student. Idempotent: if the
+// student is already enrolled, returns success without incrementing used_count.
+// The CTE atomically increments used_count (with race-guard predicates) and
+// upserts the enrollment row in a single statement, since the neon-http driver
+// does not support db.transaction().
+r.post('/invitation-codes/redeem', validateJson(redeemInvitationCodeSchema), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const input = c.get('validated') as RedeemInvitationCodeInput;
+
+  if (auth.user.role !== 'student') {
+    throw new ApiException(
+      403,
+      ERROR_CODES.FORBIDDEN,
+      'Invitation codes are for student accounts',
+    );
+  }
+
+  const rows = await db
+    .select({ ic: invitationCodes, course: courses })
+    .from(invitationCodes)
+    .leftJoin(courses, eq(invitationCodes.courseId, courses.id))
+    .where(sql`lower(${invitationCodes.code}) = lower(${input.code})`)
+    .limit(1);
+  const row = rows[0];
+  if (!row) {
+    throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Invitation code not found');
+  }
+
+  const code = row.ic;
+  if (code.status !== 'active') {
+    throw new ApiException(400, ERROR_CODES.INVALID_INVITATION, 'Invitation code is not active');
+  }
+  if (code.expiresAt && new Date(code.expiresAt) <= new Date()) {
+    throw new ApiException(400, ERROR_CODES.INVALID_INVITATION, 'Invitation code expired');
+  }
+  if (code.maxUses !== null && code.usedCount >= code.maxUses) {
+    throw new ApiException(400, ERROR_CODES.INVALID_INVITATION, 'Invitation code is exhausted');
+  }
+  if (!code.courseId || !row.course) {
+    throw new ApiException(
+      400,
+      ERROR_CODES.INVALID_INVITATION,
+      'This code is not tied to a specific course',
+    );
+  }
+
+  // Idempotency: already enrolled → no-op success, do NOT increment used_count.
+  const [existing] = await db
+    .select({ id: enrollments.id, status: enrollments.status })
+    .from(enrollments)
+    .where(and(eq(enrollments.courseId, code.courseId), eq(enrollments.studentId, auth.user.id)))
+    .limit(1);
+  // 'enrolled' and 'completed' are both terminal states from the user's perspective —
+  // redeeming again should be a no-op rather than overwriting the completion. Only
+  // 'dropped' rows fall through to be flipped back to 'enrolled'.
+  if (existing?.status === 'enrolled' || existing?.status === 'completed') {
+    return success(c, {
+      courseId: row.course.id,
+      courseCode: row.course.code,
+      courseTitle: row.course.title,
+      alreadyEnrolled: true,
+    } satisfies RedeemInvitationCodeResponse);
+  }
+
+  // Atomic CTE: guarded increment of used_count + upsert of enrollment.
+  // If the increment touches 0 rows, the slot was lost between read and write.
+  const result = await db.execute(sql`
+    WITH claimed AS (
+      UPDATE invitation_codes
+        SET used_count = used_count + 1,
+            updated_at = now()
+        WHERE id = ${code.id}
+          AND status = 'active'
+          AND (expires_at IS NULL OR expires_at > now())
+          AND (max_uses IS NULL OR used_count < max_uses)
+        RETURNING id
+    ),
+    upserted AS (
+      INSERT INTO enrollments (course_id, student_id, status)
+      SELECT ${code.courseId}::uuid, ${auth.user.id}::uuid, 'enrolled'
+      FROM claimed
+      ON CONFLICT (course_id, student_id) DO UPDATE
+        SET status = 'enrolled',
+            updated_at = now()
+      RETURNING id
+    )
+    SELECT
+      (SELECT id FROM claimed)  AS claimed_id,
+      (SELECT id FROM upserted) AS enrollment_id
+  `);
+  const claimedId = result.rows[0]?.claimed_id as string | undefined;
+  const enrollmentId = result.rows[0]?.enrollment_id as string | undefined;
+  if (!claimedId || !enrollmentId) {
+    throw new ApiException(
+      400,
+      ERROR_CODES.INVALID_INVITATION,
+      'Invitation code is no longer redeemable',
+    );
+  }
+
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'enrollment.create.via-code',
+    target: enrollmentId,
+    metadata: { courseId: row.course.id, codeId: code.id },
+  });
+
+  return success(c, {
+    courseId: row.course.id,
+    courseCode: row.course.code,
+    courseTitle: row.course.title,
+    alreadyEnrolled: false,
+    enrollmentId,
+  } satisfies RedeemInvitationCodeResponse);
 });
 
 // List invitation codes — admin only (creators may also see via scope).

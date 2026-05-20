@@ -189,6 +189,11 @@ export const validateInvitationCodeSchema = z.object({
 });
 export type ValidateInvitationCodeInput = z.infer<typeof validateInvitationCodeSchema>;
 
+export const redeemInvitationCodeSchema = z.object({
+  code: invitationCodeStringSchema,
+});
+export type RedeemInvitationCodeInput = z.infer<typeof redeemInvitationCodeSchema>;
+
 const baseMaterialFields = {
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(5_000).optional().nullable(),
