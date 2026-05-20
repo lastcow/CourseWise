@@ -157,7 +157,10 @@ function studentCourseSections(courseId: string): NavSection[] {
   return [
     {
       id: 'top',
-      items: [{ to: prefix, labelKey: 'nav.overview', icon: Home, end: true }],
+      items: [
+        { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
+        { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
+      ],
     },
     {
       id: 'learn',
