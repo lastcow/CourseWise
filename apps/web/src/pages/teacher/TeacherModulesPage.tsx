@@ -17,6 +17,7 @@ import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { stripMarkdown } from '@/components/ui/markdown';
 import { EmptyState } from '@/components/ui/empty';
 import {
+  useAssignmentsList,
   useCreateModule,
   useDeleteModule,
   useDeleteMaterial,
@@ -29,7 +30,7 @@ import {
 } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
-import type { MaterialSummary, PresentationSummary } from '@coursewise/shared';
+import type { AssignmentSummary, MaterialSummary, PresentationSummary } from '@coursewise/shared';
 
 export function TeacherModulesPage(): JSX.Element {
   const { t } = useTranslation();
@@ -39,6 +40,7 @@ export function TeacherModulesPage(): JSX.Element {
   const list = useModulesList(id);
   const materialsQ = useMaterialsList(id);
   const presentationsQ = usePresentationsList(id);
+  const assignmentsQ = useAssignmentsList(id);
   const create = useCreateModule(id);
   const update = useUpdateModule(id);
   const del = useDeleteModule(id);
@@ -71,6 +73,17 @@ export function TeacherModulesPage(): JSX.Element {
     }
     return map;
   }, [presentationsQ.data]);
+
+  const moduleAssignments = useMemo(() => {
+    const map = new Map<string, AssignmentSummary[]>();
+    for (const a of assignmentsQ.data ?? []) {
+      if (!a.moduleId) continue;
+      const arr = map.get(a.moduleId) ?? [];
+      arr.push(a);
+      map.set(a.moduleId, arr);
+    }
+    return map;
+  }, [assignmentsQ.data]);
 
   const onMove = async (index: number, dir: -1 | 1) => {
     if (!list.data) return;
@@ -105,6 +118,7 @@ export function TeacherModulesPage(): JSX.Element {
           {list.data.map((m, idx) => {
             const mats = moduleMaterials.get(m.id) ?? [];
             const pres = modulePresentations.get(m.id) ?? [];
+            const asgs = moduleAssignments.get(m.id) ?? [];
             return (
               <AccordionItem key={m.id} value={m.id}>
                 <AccordionTrigger
@@ -303,6 +317,50 @@ export function TeacherModulesPage(): JSX.Element {
                               <span className="text-xs text-muted-foreground">
                                 {t('presentations.slidesCount', { count: p.slideCount })}
                               </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {asgs.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {t('assignments.title')}
+                      </div>
+                      <ul className="space-y-1.5">
+                        {asgs.map((a) => (
+                          <li
+                            key={a.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded border bg-background px-2.5 py-1.5"
+                          >
+                            <Link
+                              to={`/teacher/courses/${id}/assignments/${a.id}`}
+                              className="flex flex-1 items-center gap-2 rounded-sm hover:text-foreground"
+                            >
+                              <span className="text-sm font-medium underline-offset-4 hover:underline">
+                                {a.title}
+                              </span>
+                              <Badge
+                                variant={
+                                  a.status === 'published'
+                                    ? 'success'
+                                    : a.status === 'draft'
+                                      ? 'outline'
+                                      : 'secondary'
+                                }
+                              >
+                                {t(
+                                  `assignments.status${a.status[0]!.toUpperCase()}${a.status.slice(1)}`,
+                                )}
+                              </Badge>
+                              {a.dueDate ? (
+                                <span className="text-xs text-muted-foreground">
+                                  {t('assignments.dueLabel')}:{' '}
+                                  {new Date(a.dueDate).toLocaleDateString()}
+                                </span>
+                              ) : null}
                             </Link>
                           </li>
                         ))}
