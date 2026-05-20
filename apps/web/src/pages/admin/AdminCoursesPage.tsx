@@ -8,14 +8,23 @@ import { EmptyState } from '@/components/ui/empty';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useCoursesList, useCreateCourse } from '@/lib/queries';
+import {
+  useCourseDeletionLog,
+  useCoursesList,
+  useCreateCourse,
+  useDeletionPreview,
+  useRetryR2Cleanup,
+} from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
+import { DeleteCourseDialog } from '@/components/course/DeleteCourseDialog';
 
 export function AdminCoursesPage(): JSX.Element {
   const { t } = useTranslation();
   const courses = useCoursesList();
   const [open, setOpen] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | undefined>(undefined);
+  const preview = useDeletionPreview(selectedCourseId);
   return (
     <div className="space-y-4">
       <header className="flex items-center justify-between">
@@ -36,6 +45,7 @@ export function AdminCoursesPage(): JSX.Element {
                   <TableHead>{t('courses.name')}</TableHead>
                   <TableHead>{t('courses.term')}</TableHead>
                   <TableHead>{t('courses.status')}</TableHead>
+                  <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -57,6 +67,15 @@ export function AdminCoursesPage(): JSX.Element {
                         {t(`courses.status${c.status[0]!.toUpperCase()}${c.status.slice(1)}`)}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setSelectedCourseId(c.id)}
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -64,8 +83,101 @@ export function AdminCoursesPage(): JSX.Element {
           </CardContent>
         </Card>
       )}
+
+      <RecentDeletionsPanel />
+
       <CreateCourseDialog open={open} onClose={() => setOpen(false)} />
+
+      {preview.data ? (
+        <DeleteCourseDialog
+          open={!!selectedCourseId}
+          onOpenChange={(o) => {
+            if (!o) setSelectedCourseId(undefined);
+          }}
+          courseId={preview.data.courseId}
+          courseCode={preview.data.courseCode}
+          courseTitle={preview.data.courseTitle}
+          counts={preview.data.counts}
+          onDeleted={() => setSelectedCourseId(undefined)}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function RecentDeletionsPanel(): JSX.Element | null {
+  const deletionLog = useCourseDeletionLog();
+  const retry = useRetryR2Cleanup();
+  const toast = useToast();
+
+  if (!deletionLog.data || deletionLog.data.length === 0) return null;
+
+  const handleRetry = async (jobId: string): Promise<void> => {
+    try {
+      await retry.mutateAsync(jobId);
+      toast.push({ title: 'Retry queued', tone: 'success' });
+    } catch (err) {
+      const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: i18n, tone: 'error' });
+    }
+  };
+
+  return (
+    <Card className="mt-10">
+      <CardHeader>
+        <CardTitle>Recent deletions</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Course</TableHead>
+              <TableHead>Deleted by</TableHead>
+              <TableHead>When</TableHead>
+              <TableHead>Cleanup</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {deletionLog.data.map((row) => (
+              <TableRow key={row.id}>
+                <TableCell>
+                  <span className="font-mono">{row.courseCode}</span>
+                  <span className="text-muted-foreground"> — </span>
+                  {row.courseTitle}
+                </TableCell>
+                <TableCell>{row.deletedByName ?? row.deletedBy ?? '—'}</TableCell>
+                <TableCell>{new Date(row.deletedAt).toLocaleString()}</TableCell>
+                <TableCell>
+                  {row.cleanup === null ? (
+                    <span className="text-muted-foreground">—</span>
+                  ) : row.cleanup.status === 'done' ? (
+                    <Badge variant="success">Done</Badge>
+                  ) : row.cleanup.status === 'pending' ? (
+                    <Badge variant="secondary">Pending</Badge>
+                  ) : row.cleanup.status === 'running' ? (
+                    <Badge variant="outline">Running</Badge>
+                  ) : (
+                    <span className="inline-flex items-center gap-2">
+                      <Badge variant="destructive">Failed</Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={retry.isPending}
+                        onClick={() => {
+                          void handleRetry(row.cleanup!.id);
+                        }}
+                      >
+                        {retry.isPending ? 'Retrying…' : 'Retry'}
+                      </Button>
+                    </span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }
 
