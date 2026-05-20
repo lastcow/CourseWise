@@ -74,7 +74,8 @@ export function TeacherCourseSettings(): JSX.Element {
   const onDelete = async () => {
     if (!window.confirm(t('courses.deleteConfirm'))) return;
     try {
-      await del.mutateAsync(id);
+      // Placeholder confirmCode; Task 14 replaces this with the DeleteCourseDialog flow.
+      await del.mutateAsync({ courseId: id, confirmCode: '' });
       toast.push({ title: t('courses.deleted'), tone: 'success' });
       navigate('/teacher/courses');
     } catch (err) {
