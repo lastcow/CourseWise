@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,15 +6,24 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
 import { Badge } from '@/components/ui/badge';
 import { stripMarkdown } from '@/components/ui/markdown';
+import { JoinCourseDialog } from '@/components/course/JoinCourseDialog';
 import { useCoursesList } from '@/lib/queries';
 
 export function StudentCoursesPage(): JSX.Element {
   const { t } = useTranslation();
   const courses = useCoursesList();
+  const [joinOpen, setJoinOpen] = useState(false);
+  const courseCount = courses.data?.length ?? 0;
   return (
     <div className="space-y-4">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{t('courses.title')}</h1>
+        <Button
+          variant={courseCount === 0 ? 'default' : 'outline'}
+          onClick={() => setJoinOpen(true)}
+        >
+          Join a course
+        </Button>
       </header>
       {courses.isLoading ? (
         <p>{t('common.loading')}</p>
@@ -44,6 +54,7 @@ export function StudentCoursesPage(): JSX.Element {
           ))}
         </div>
       )}
+      <JoinCourseDialog open={joinOpen} onOpenChange={setJoinOpen} />
     </div>
   );
 }
