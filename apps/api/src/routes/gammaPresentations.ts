@@ -27,7 +27,7 @@ import type { AppBindings, AppEnv } from '../types';
 const r = new Hono<AppEnv>();
 r.use('*', requireAuth);
 
-const THEMES_CACHE_KEY = 'gamma:themes:v1';
+const THEMES_CACHE_KEY = 'gamma:themes:v2';
 const THEMES_CACHE_TTL_SECONDS = 60 * 60;
 
 function clientOr500(env: AppBindings): GammaClient {

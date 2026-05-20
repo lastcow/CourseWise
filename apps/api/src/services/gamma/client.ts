@@ -85,12 +85,19 @@ export class GammaClient {
   }
 
   async listThemes(): Promise<GammaTheme[]> {
-    const raw = await this.request<{ themes?: unknown[] } | unknown[]>('GET', '/themes');
+    // Gamma's documented response shape is `{ data: ThemeItem[], hasMore, nextCursor }`
+    // (see https://developers.gamma.app/workspace/list-themes). We also accept
+    // `{ themes: [...] }` and a bare array as defensive fallbacks.
+    const raw = await this.request<
+      { data?: unknown[]; themes?: unknown[] } | unknown[]
+    >('GET', '/themes?limit=50');
     const arr = Array.isArray(raw)
       ? raw
-      : Array.isArray(raw.themes)
-        ? raw.themes
-        : [];
+      : Array.isArray(raw.data)
+        ? raw.data
+        : Array.isArray(raw.themes)
+          ? raw.themes
+          : [];
     const out: GammaTheme[] = [];
     for (const t of arr) {
       const o = t as Record<string, unknown>;

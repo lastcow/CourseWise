@@ -78,15 +78,17 @@ describe('GammaClient', () => {
   });
 
   describe('listThemes', () => {
-    it('normalises both `{themes:[]}` and bare-array responses and drops malformed entries', async () => {
+    it('parses the documented `{data:[]}` Gamma shape and drops malformed entries', async () => {
       fetchMock.mockResolvedValueOnce(
         jsonResponse(200, {
-          themes: [
+          data: [
             { id: 't1', name: 'Theme One', previewUrl: 'https://img/1.png' },
             { id: 't2', name: 'Theme Two' },
             { id: 42 }, // malformed: dropped
             { name: 'no-id' }, // malformed: dropped
           ],
+          hasMore: false,
+          nextCursor: null,
         }),
       );
       const client = new GammaClient('sk-test');
@@ -94,6 +96,19 @@ describe('GammaClient', () => {
       expect(themes).toEqual([
         { id: 't1', name: 'Theme One', previewUrl: 'https://img/1.png' },
         { id: 't2', name: 'Theme Two', previewUrl: null },
+      ]);
+    });
+
+    it('falls back to `{themes:[]}` when present', async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse(200, {
+          themes: [{ id: 't1', name: 'Theme One' }],
+        }),
+      );
+      const client = new GammaClient('sk-test');
+      const themes = await client.listThemes();
+      expect(themes).toEqual([
+        { id: 't1', name: 'Theme One', previewUrl: null },
       ]);
     });
 
@@ -106,6 +121,14 @@ describe('GammaClient', () => {
       expect(themes).toEqual([
         { id: 't1', name: 'Theme One', previewUrl: null },
       ]);
+    });
+
+    it('requests up to 50 themes per page', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse(200, { data: [] }));
+      const client = new GammaClient('sk-test');
+      await client.listThemes();
+      const [url] = fetchMock.mock.calls[0]!;
+      expect(url).toBe(`${BASE_URL}/themes?limit=50`);
     });
   });
 
@@ -177,7 +200,7 @@ describe('GammaClient', () => {
       await client.listThemes();
       const [url] = fetchMock.mock.calls[0]!;
       // Trailing slash should be stripped from the option.
-      expect(url).toBe('https://gamma.local/v1.0/themes');
+      expect(url).toBe('https://gamma.local/v1.0/themes?limit=50');
     });
   });
 });
