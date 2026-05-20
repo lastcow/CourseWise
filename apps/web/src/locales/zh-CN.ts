@@ -915,6 +915,7 @@ export const zhCN = {
       tokenExpired: '登录已过期。',
       missingScope: 'API 令牌缺少必要的权限。',
       internal: '出现未知错误,请稍后再试。',
+      upstreamUnavailable: '服务暂时不可用,请稍后重试。',
       field: {
         invalid_type: '无效的值',
         too_small: '过短',
