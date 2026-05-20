@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
   Archive,
+  Circle,
   CircleCheck,
   Download,
   ExternalLink,
@@ -107,6 +108,23 @@ function DownloadPptxButton({
   );
 }
 
+function StatusIcon({ status }: { status: PresentationSummary['status'] }): JSX.Element {
+  const { t } = useTranslation();
+  const label = t(`presentations.status${status[0]!.toUpperCase()}${status.slice(1)}`);
+  const Icon = status === 'published' ? CircleCheck : status === 'archived' ? Archive : Circle;
+  const tone =
+    status === 'published'
+      ? 'text-emerald-500'
+      : status === 'archived'
+        ? 'text-amber-500'
+        : 'text-slate-400';
+  return (
+    <Badge variant="outline" className="px-1.5 py-0.5" aria-label={label} title={label}>
+      <Icon className={`h-3.5 w-3.5 ${tone}`} aria-hidden />
+    </Badge>
+  );
+}
+
 export function TeacherPresentationsPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId } = useParams();
@@ -171,6 +189,8 @@ export function TeacherPresentationsPage(): JSX.Element {
     }
   }
 
+  const moduleTitleById = new Map((modulesQ.data ?? []).map((m) => [m.id, m.title]));
+
   return (
     <div className="space-y-4">
       <header>
@@ -219,7 +239,7 @@ export function TeacherPresentationsPage(): JSX.Element {
               <TableRow>
                 <TableHead>{t('presentations.colTitle')}</TableHead>
                 <TableHead>{t('presentations.colDescription')}</TableHead>
-                <TableHead>{t('presentations.colStatus')}</TableHead>
+                <TableHead>{t('presentations.colModule')}</TableHead>
                 <TableHead className="text-right">{t('presentations.colSlides')}</TableHead>
                 <TableHead>{t('presentations.colSource')}</TableHead>
                 <TableHead className="text-right">{t('presentations.colActions')}</TableHead>
@@ -234,22 +254,35 @@ export function TeacherPresentationsPage(): JSX.Element {
                   <Fragment key={p.id}>
                     <TableRow>
                       <TableCell className="font-medium">
-                        <Link
-                          to={`/teacher/courses/${id}/presentations/${p.id}`}
-                          className="hover:underline"
-                        >
-                          {p.title}
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <StatusIcon status={p.status} />
+                          <Link
+                            to={`/teacher/courses/${id}/presentations/${p.id}`}
+                            className="hover:underline"
+                          >
+                            {p.title}
+                          </Link>
+                        </div>
                       </TableCell>
                       <TableCell className="max-w-[24ch] text-muted-foreground">
                         <span className="line-clamp-1">{p.description ?? '—'}</span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={p.status === 'published' ? 'success' : 'secondary'}>
-                          {t(
-                            `presentations.status${p.status[0]!.toUpperCase()}${p.status.slice(1)}`,
-                          )}
-                        </Badge>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={p.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
+                            {p.moduleId ? (moduleTitleById.get(p.moduleId) ?? '—') : '—'}
+                          </span>
+                          <ActionIconButton
+                            icon={FolderInput}
+                            label={t('presentations.linkModuleAction')}
+                            color="sky"
+                            size="sm"
+                            onClick={() => {
+                              setMoveModuleId(p.moduleId ?? '');
+                              setMoveTarget(p);
+                            }}
+                          />
+                        </div>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{p.slideCount}</TableCell>
                       <TableCell>
@@ -276,15 +309,6 @@ export function TeacherPresentationsPage(): JSX.Element {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1.5">
-                          <ActionIconButton
-                            icon={FolderInput}
-                            label={t('presentations.linkModuleAction')}
-                            color="sky"
-                            onClick={() => {
-                              setMoveModuleId(p.moduleId ?? '');
-                              setMoveTarget(p);
-                            }}
-                          />
                           {p.status !== 'published' ? (
                             <ActionIconButton
                               icon={CircleCheck}
