@@ -13,6 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/input';
 import { Markdown } from '@/components/ui/markdown';
+import { ModuleContentSummary } from '@/components/ModuleContentSummary';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/authContext';
 import { ApiClientError } from '@/lib/api';
@@ -567,11 +568,17 @@ export function StudentModulesPage(): JSX.Element {
             return (
               <AccordionItem key={m.id} value={m.id}>
                 <AccordionTrigger>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-col items-start gap-1">
                     <span className="font-medium">{m.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {t('studentModules.itemCount', { count: total })}
-                    </span>
+                    <ModuleContentSummary
+                      counts={{
+                        materials: mats.length,
+                        presentations: pres.length,
+                        assignments: asgs.length,
+                        quizzes: qzs.length,
+                        discussions: dscs.length,
+                      }}
+                    />
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="space-y-4">
