@@ -96,6 +96,12 @@ export const aiJobStatusEnum = pgEnum('ai_job_status', [
   'partial',
   'canceled',
 ]);
+export const r2CleanupJobStatusEnum = pgEnum('r2_cleanup_job_status', [
+  'pending',
+  'running',
+  'done',
+  'failed',
+]);
 export const aiArtifactKindEnum = pgEnum('ai_artifact_kind', [
   'material',
   'presentation',
@@ -1017,6 +1023,36 @@ export const aiPromptTemplates = pgTable(
 
 export type AiPromptTemplateRow = typeof aiPromptTemplates.$inferSelect;
 
+export const courseDeletionLog = pgTable('course_deletion_log', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  courseId: uuid('course_id').notNull(),
+  courseCode: text('course_code').notNull(),
+  courseTitle: text('course_title').notNull(),
+  deletedBy: uuid('deleted_by')
+    .notNull()
+    .references(() => users.id),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  childCounts: jsonb('child_counts').notNull(),
+});
+
+export const r2CleanupJobs = pgTable(
+  'r2_cleanup_jobs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id').notNull(),
+    status: r2CleanupJobStatusEnum('status').notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
+  },
+  (t) => ({
+    statusCreatedIdx: index('r2_cleanup_jobs_status_created_idx')
+      .on(t.status, t.createdAt)
+      .where(sql`${t.status} in ('pending', 'running', 'failed')`),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type ApiTokenRow = typeof apiTokens.$inferSelect;
@@ -1027,3 +1063,5 @@ export type AiProviderRow = typeof aiProviders.$inferSelect;
 export type AiModelRow = typeof aiModels.$inferSelect;
 export type AiGenerationJobRow = typeof aiGenerationJobs.$inferSelect;
 export type AiGenerationArtifactRow = typeof aiGenerationArtifacts.$inferSelect;
+export type CourseDeletionLogRow = typeof courseDeletionLog.$inferSelect;
+export type R2CleanupJobRow = typeof r2CleanupJobs.$inferSelect;
