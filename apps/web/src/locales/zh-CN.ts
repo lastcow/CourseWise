@@ -339,6 +339,7 @@ export const zhCN = {
       colTitle: '标题',
       colDescription: '描述',
       colStatus: '状态',
+      colModule: '模块',
       colSlides: '幻灯片',
       colSource: '来源',
       colActions: '操作',

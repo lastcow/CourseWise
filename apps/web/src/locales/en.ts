@@ -345,6 +345,7 @@ export const en = {
       colTitle: 'Title',
       colDescription: 'Description',
       colStatus: 'Status',
+      colModule: 'Module',
       colSlides: 'Slides',
       colSource: 'Source',
       colActions: 'Actions',
