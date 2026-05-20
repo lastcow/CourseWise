@@ -73,7 +73,7 @@ export function AdminCoursesPage(): JSX.Element {
                         size="sm"
                         onClick={() => setSelectedCourseId(c.id)}
                       >
-                        Delete
+                        {t('common.delete')}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -106,6 +106,7 @@ export function AdminCoursesPage(): JSX.Element {
 }
 
 function RecentDeletionsPanel(): JSX.Element | null {
+  const { t } = useTranslation();
   const deletionLog = useCourseDeletionLog();
   const retry = useRetryR2Cleanup();
   const toast = useToast();
@@ -115,26 +116,26 @@ function RecentDeletionsPanel(): JSX.Element | null {
   const handleRetry = async (jobId: string): Promise<void> => {
     try {
       await retry.mutateAsync(jobId);
-      toast.push({ title: 'Retry queued', tone: 'success' });
+      toast.push({ title: t('admin.deletionLog.retryQueued'), tone: 'success' });
     } catch (err) {
       const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-      toast.push({ title: i18n, tone: 'error' });
+      toast.push({ title: t(i18n), tone: 'error' });
     }
   };
 
   return (
     <Card className="mt-10">
       <CardHeader>
-        <CardTitle>Recent deletions</CardTitle>
+        <CardTitle>{t('admin.deletionLog.title')}</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Course</TableHead>
-              <TableHead>Deleted by</TableHead>
-              <TableHead>When</TableHead>
-              <TableHead>Cleanup</TableHead>
+              <TableHead>{t('admin.deletionLog.colCourse')}</TableHead>
+              <TableHead>{t('admin.deletionLog.colDeletedBy')}</TableHead>
+              <TableHead>{t('admin.deletionLog.colWhen')}</TableHead>
+              <TableHead>{t('admin.deletionLog.colCleanup')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -151,14 +152,14 @@ function RecentDeletionsPanel(): JSX.Element | null {
                   {row.cleanup === null ? (
                     <span className="text-muted-foreground">—</span>
                   ) : row.cleanup.status === 'done' ? (
-                    <Badge variant="success">Done</Badge>
+                    <Badge variant="success">{t('admin.deletionLog.statusDone')}</Badge>
                   ) : row.cleanup.status === 'pending' ? (
-                    <Badge variant="secondary">Pending</Badge>
+                    <Badge variant="secondary">{t('admin.deletionLog.statusPending')}</Badge>
                   ) : row.cleanup.status === 'running' ? (
-                    <Badge variant="outline">Running</Badge>
+                    <Badge variant="outline">{t('admin.deletionLog.statusRunning')}</Badge>
                   ) : (
                     <span className="inline-flex items-center gap-2">
-                      <Badge variant="destructive">Failed</Badge>
+                      <Badge variant="destructive">{t('admin.deletionLog.statusFailed')}</Badge>
                       <Button
                         size="sm"
                         variant="outline"
@@ -167,7 +168,9 @@ function RecentDeletionsPanel(): JSX.Element | null {
                           void handleRetry(row.cleanup!.id);
                         }}
                       >
-                        {retry.isPending ? 'Retrying…' : 'Retry'}
+                        {retry.isPending
+                          ? t('admin.deletionLog.retrying')
+                          : t('admin.deletionLog.retry')}
                       </Button>
                     </span>
                   )}

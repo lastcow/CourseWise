@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
@@ -10,10 +11,6 @@ function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
-
-function plural(n: number, singular: string, pluralForm?: string): string {
-  return n === 1 ? singular : (pluralForm ?? `${singular}s`);
 }
 
 type Props = {
@@ -35,6 +32,7 @@ export function DeleteCourseDialog({
   counts,
   onDeleted,
 }: Props): JSX.Element {
+  const { t } = useTranslation();
   const [typed, setTyped] = useState('');
   const del = useDeleteCourse();
   const matches = typed === courseCode;
@@ -57,55 +55,61 @@ export function DeleteCourseDialog({
       open={open}
       onClose={handleClose}
       dismissOnBackdropClick={false}
-      title={`Delete "${courseTitle}" (${courseCode})?`}
+      title={t('course.dangerZone.dialog.title', { title: courseTitle, code: courseCode })}
       className="max-w-lg"
     >
       <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          This permanently removes the course and all its content. It cannot be undone.
-        </p>
+        <p className="text-sm text-muted-foreground">{t('course.dangerZone.dialog.body')}</p>
 
         <ul className="list-disc space-y-1 pl-6 text-sm text-muted-foreground">
           <li>
-            {counts.enrollments} enrolled {plural(counts.enrollments, 'student')}
+            {t('course.dangerZone.dialog.enrolledStudents', { count: counts.enrollments })}
           </li>
           <li>
-            {counts.modules} {plural(counts.modules, 'module')}, {counts.readingMaterials}{' '}
-            {plural(counts.readingMaterials, 'reading material')}
+            {t('course.dangerZone.dialog.modulesMaterials', {
+              modules: counts.modules,
+              materials: counts.readingMaterials,
+            })}
           </li>
           <li>
-            {counts.assignments} {plural(counts.assignments, 'assignment')}, {counts.submissions}{' '}
-            {plural(counts.submissions, 'submission')}
+            {t('course.dangerZone.dialog.assignmentsSubmissions', {
+              assignments: counts.assignments,
+              submissions: counts.submissions,
+            })}
           </li>
           <li>
-            {counts.quizzes} {plural(counts.quizzes, 'quiz', 'quizzes')}, {counts.quizAttempts}{' '}
-            {plural(counts.quizAttempts, 'quiz attempt')}
+            {t('course.dangerZone.dialog.quizzesAttempts', {
+              quizzes: counts.quizzes,
+              attempts: counts.quizAttempts,
+            })}
           </li>
           <li>
-            {counts.discussionTopics} {plural(counts.discussionTopics, 'discussion topic')},{' '}
-            {counts.discussionPosts} {plural(counts.discussionPosts, 'discussion post')}
+            {t('course.dangerZone.dialog.discussionTopicsPosts', {
+              topics: counts.discussionTopics,
+              posts: counts.discussionPosts,
+            })}
           </li>
           <li>
-            {counts.attendanceSessions}{' '}
-            {plural(counts.attendanceSessions, 'attendance session')}
+            {t('course.dangerZone.dialog.attendanceSessions', { count: counts.attendanceSessions })}
           </li>
           <li>
-            {counts.fileCount} uploaded {plural(counts.fileCount, 'file')} (
-            {formatBytes(counts.fileBytes)})
+            {t('course.dangerZone.dialog.uploadedFiles', {
+              count: counts.fileCount,
+              size: formatBytes(counts.fileBytes),
+            })}
           </li>
         </ul>
 
         <div className="space-y-2">
           <Label htmlFor="delete-course-confirm-code">
-            Type the course code <span className="font-mono font-semibold">{courseCode}</span> to
-            confirm
+            {t('course.dangerZone.dialog.confirmLabel', { code: courseCode })}
           </Label>
           <Input
             id="delete-course-confirm-code"
             autoFocus
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            aria-label="course code"
+            aria-label={t('course.dangerZone.dialog.codeInputAriaLabel')}
             placeholder={courseCode}
             autoComplete="off"
           />
@@ -113,13 +117,13 @@ export function DeleteCourseDialog({
 
         {del.isError ? (
           <p role="alert" className="text-sm text-destructive">
-            Failed to delete course. Please try again.
+            {t('course.dangerZone.dialog.failed')}
           </p>
         ) : null}
 
         <div className="flex items-center justify-end gap-2 border-t pt-4">
           <Button type="button" variant="outline" onClick={handleClose} disabled={del.isPending}>
-            Cancel
+            {t('course.dangerZone.dialog.cancel')}
           </Button>
           <Button
             type="button"
@@ -127,7 +131,9 @@ export function DeleteCourseDialog({
             disabled={!matches || del.isPending}
             onClick={onConfirm}
           >
-            {del.isPending ? 'Deleting…' : 'Delete forever'}
+            {del.isPending
+              ? t('course.dangerZone.dialog.deleting')
+              : t('course.dangerZone.dialog.confirm')}
           </Button>
         </div>
       </div>

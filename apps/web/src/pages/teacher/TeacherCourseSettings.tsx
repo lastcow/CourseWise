@@ -120,18 +120,16 @@ export function TeacherCourseSettings(): JSX.Element {
 
       {/* Danger zone */}
       <section className="mt-12 rounded-md border border-red-300 bg-red-50/50 p-4">
-        <h2 className="text-lg font-semibold text-red-800">Danger zone</h2>
-        <p className="mt-1 text-sm text-red-900/80">
-          Permanently delete this course and all its content. Cannot be undone.
-        </p>
+        <h2 className="text-lg font-semibold text-red-800">{t('course.dangerZone.title')}</h2>
+        <p className="mt-1 text-sm text-red-900/80">{t('course.dangerZone.description')}</p>
         <Button
           variant="destructive"
           className="mt-3"
           disabled={!canDelete}
-          title={canDelete ? undefined : 'Only the primary teacher or an admin can delete this course.'}
+          title={canDelete ? undefined : t('course.dangerZone.notAllowed')}
           onClick={() => setDialogOpen(true)}
         >
-          Delete this course
+          {t('course.dangerZone.deleteCta')}
         </Button>
       </section>
 
