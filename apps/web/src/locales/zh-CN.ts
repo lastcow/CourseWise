@@ -347,6 +347,8 @@ export const zhCN = {
         instructions: '附加说明',
         instructionsHint: '可选。例如:"先介绍议程,最后给出讨论问题。"',
         theme: '主题',
+        format: '文档类型',
+        formatHint: 'Gamma 输出的形式。默认是「演示文稿」,也可以选择长文、社交贴文或单页网页。',
         imageSource: '图片来源',
         imageStyle: '图片风格',
         imageStyleHint: '可选。例如:"写实风格,柔和自然光"。',
@@ -355,6 +357,12 @@ export const zhCN = {
         numCards: '页数',
         numCardsPlaceholder: '自动',
         numCardsHint: '留空则由 Gamma 自动决定。',
+      },
+      format: {
+        presentation: '演示文稿',
+        document: '长文档',
+        social: '社交贴文',
+        webpage: '网页',
       },
       textMode: {
         generate: '生成(从提示词创建新内容)',

@@ -516,6 +516,23 @@ export type GammaJobStatus = (typeof GAMMA_JOB_STATUSES)[number];
 export const GAMMA_EXPORT_FORMATS = ['pptx', 'pdf'] as const;
 export type GammaExportFormat = (typeof GAMMA_EXPORT_FORMATS)[number];
 
+// Gamma's top-level `format` field — what artifact to produce. Default is
+// `presentation`; the other three render different layouts (long-form doc,
+// social-post graphic, single-page website).
+// See https://developers.gamma.app/guides/generate-api-parameters-explained
+export const GAMMA_FORMATS = ['presentation', 'document', 'social', 'webpage'] as const;
+export type GammaFormat = (typeof GAMMA_FORMATS)[number];
+export const DEFAULT_GAMMA_FORMAT: GammaFormat = 'presentation';
+
+// Built-in Gamma themes that may not appear in `GET /v1.0/themes` (the API
+// only returns workspace themes on some plans). Surfaced in the dropdown as a
+// fallback so teachers always have at least one option to pick.
+export const GAMMA_BUILTIN_THEMES: ReadonlyArray<{
+  id: string;
+  name: string;
+  previewUrl: null;
+}> = [{ id: 'Pearl', name: 'Pearl', previewUrl: null }];
+
 // Soft caps; mirror Gamma's hard limits but lower so we keep headroom.
 export const GAMMA_MAX_INPUT_TEXT_CHARS = 380_000; // Gamma's hard cap is 400_000.
 export const GAMMA_MAX_INSTRUCTIONS_CHARS = 5_000;

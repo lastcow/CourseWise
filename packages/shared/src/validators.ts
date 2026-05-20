@@ -7,6 +7,7 @@ import {
   ATTENDANCE_STATUSES,
   COURSE_STATUSES,
   GAMMA_EXPORT_FORMATS,
+  GAMMA_FORMATS,
   GAMMA_IMAGE_SOURCES,
   GAMMA_MAX_IMAGE_STYLE_CHARS,
   GAMMA_MAX_INSTRUCTIONS_CHARS,
@@ -852,6 +853,9 @@ export const generateGammaPresentationSchema = z.object({
     .optional()
     .nullable(),
   exportAs: z.enum(GAMMA_EXPORT_FORMATS).default('pptx'),
+  // The Gamma artifact format. Defaults to `presentation` to preserve prior
+  // behaviour; teachers can pick `document`, `social`, or `webpage` instead.
+  format: z.enum(GAMMA_FORMATS).default('presentation'),
 });
 export type GenerateGammaPresentationInput = z.infer<typeof generateGammaPresentationSchema>;
 

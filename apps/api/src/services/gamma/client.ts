@@ -1,5 +1,6 @@
 import type {
   GammaExportFormat,
+  GammaFormat,
   GammaImageSource,
   GammaTextAmount,
   GammaTextMode,
@@ -15,7 +16,7 @@ export interface GammaClientOptions {
 
 export interface GammaCreateGenerationInput {
   inputText: string;
-  format: 'presentation';
+  format: GammaFormat;
   exportAs: GammaExportFormat;
   // Required by Gamma's public API: how the inputText is transformed into the
   // deck. See GAMMA_TEXT_MODES in shared/constants for the semantics.
