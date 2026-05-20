@@ -25,16 +25,20 @@ import {
   toInvitationSummary,
 } from '../services/teacherInvitations';
 import { renderTeacherInvitationEmail } from '../services/teacherInvitationEmail';
-import { sendEmailViaResend } from '../services/email';
+import { sendEmailViaCloudflare } from '../services/email';
 import type { AppEnv, AppBindings } from '../types';
 
 const DEFAULT_EMAIL_FROM = 'CourseWise <noreply@fsuac.com>';
 
 /**
- * Best-effort: send the invitation email. Returns whether the dispatch
- * succeeded. Never throws — email send failures must NOT block the underlying
- * mutation (the invite is still valid and the inviteUrl is still in the
- * response for the admin to share manually).
+ * Best-effort: send the invitation email via the Cloudflare `send_email`
+ * binding. Returns whether the dispatch succeeded. Never throws — email send
+ * failures must NOT block the underlying mutation (the invite is still valid
+ * and the inviteUrl is still in the response for the admin to share manually).
+ *
+ * Common failure case to expect: the recipient is not on the binding's
+ * `allowed_destination_addresses` list. The binding throws and we log + return
+ * false. The admin UI then falls back to the copy-link toast.
  */
 async function trySendInvitationEmail(
   env: AppBindings,
@@ -46,26 +50,21 @@ async function trySendInvitationEmail(
     inviteUrl: string;
   },
 ): Promise<boolean> {
-  if (!env.RESEND_API_KEY) return false;
+  if (!env.SEND_EMAIL) return false;
   const tmpl = renderTeacherInvitationEmail({
     inviterName: args.inviterName,
     inviteUrl: args.inviteUrl,
     expiresDays: TEACHER_INVITATION_TTL_DAYS,
   });
   try {
-    await sendEmailViaResend(
-      {
-        to: args.to,
-        subject: tmpl.subject,
-        html: tmpl.html,
-        text: tmpl.text,
-        replyTo: args.replyTo ?? undefined,
-      },
-      {
-        apiKey: env.RESEND_API_KEY,
-        from: env.EMAIL_FROM ?? DEFAULT_EMAIL_FROM,
-      },
-    );
+    await sendEmailViaCloudflare(env.SEND_EMAIL, {
+      to: args.to,
+      from: env.EMAIL_FROM ?? DEFAULT_EMAIL_FROM,
+      subject: tmpl.subject,
+      html: tmpl.html,
+      text: tmpl.text,
+      replyTo: args.replyTo ?? undefined,
+    });
     return true;
   } catch (err) {
     console.error('teacher-invitation: email send failed', {

@@ -1,69 +1,61 @@
-import { ApiException, ERROR_CODES } from '../lib/errors';
+import { EmailMessage } from 'cloudflare:email';
+import { createMimeMessage } from 'mimetext';
 
 export interface SendEmailInput {
   to: string;
   subject: string;
   html: string;
   text: string;
+  /** Either "Name <addr@domain>" or a bare "addr@domain". */
+  from: string;
   replyTo?: string | null;
 }
 
-export interface ResendOptions {
-  apiKey: string;
-  from: string;
-  /** Override the endpoint for tests. */
-  baseUrl?: string;
-  /** Injectable fetch for tests. */
-  fetcher?: typeof fetch;
+/**
+ * Parse a From header value (e.g. `"CourseWise <noreply@fsuac.com>"`) into
+ * separate name + addr parts. Falls back to addr-only when there is no name.
+ */
+function parseAddress(raw: string): { name: string; addr: string } {
+  const m = raw.match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
+  if (m) return { name: m[1] ?? '', addr: (m[2] ?? '').trim() };
+  return { name: '', addr: raw.trim() };
 }
 
-const DEFAULT_BASE_URL = 'https://api.resend.com';
-
 /**
- * Thin Resend client. We hand-roll the request rather than depend on the
- * official SDK so the Worker bundle stays small. Throws an ApiException on
- * non-2xx so callers can decide whether the send is fatal (block the user
- * flow) or best-effort (log + continue).
+ * Send an email via the Cloudflare Worker `send_email` binding.
+ *
+ * IMPORTANT CONSTRAINT: this binding only delivers to addresses listed in the
+ * binding's `allowed_destination_addresses` (configured in wrangler.toml).
+ * `.send()` throws for non-allowlisted recipients, which the caller can catch
+ * and treat as a best-effort failure (e.g. fall back to copy-link UX).
+ *
+ * The MIME body is assembled with `mimetext` — that's the same package the
+ * official Cloudflare docs recommend for this binding.
  */
-export async function sendEmailViaResend(
+export async function sendEmailViaCloudflare(
+  binding: SendEmail,
   input: SendEmailInput,
-  opts: ResendOptions,
-): Promise<{ id: string }> {
-  const fetcher = opts.fetcher ?? fetch;
-  const baseUrl = (opts.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '');
-  const res = await fetcher(`${baseUrl}/emails`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${opts.apiKey}`,
-      'content-type': 'application/json',
-      accept: 'application/json',
-    },
-    body: JSON.stringify({
-      from: opts.from,
-      to: [input.to],
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-      ...(input.replyTo ? { reply_to: input.replyTo } : {}),
-    }),
-  });
-  const body = await res.text();
-  if (!res.ok) {
-    throw new ApiException(
-      502,
-      ERROR_CODES.INTERNAL_ERROR,
-      `Resend POST /emails → ${res.status}: ${body.slice(0, 500)}`,
-    );
+): Promise<void> {
+  const sender = parseAddress(input.from);
+  const recipient = parseAddress(input.to);
+
+  const msg = createMimeMessage();
+  if (sender.name) {
+    msg.setSender({ name: sender.name, addr: sender.addr });
+  } else {
+    msg.setSender(sender.addr);
   }
-  if (!body) return { id: '' };
-  try {
-    const parsed = JSON.parse(body) as { id?: string };
-    return { id: parsed.id ?? '' };
-  } catch {
-    throw new ApiException(
-      502,
-      ERROR_CODES.INTERNAL_ERROR,
-      `Resend returned non-JSON body: ${body.slice(0, 200)}`,
-    );
+  msg.setRecipient(recipient.addr);
+  msg.setSubject(input.subject);
+  if (input.replyTo) {
+    msg.setHeader('Reply-To', input.replyTo);
   }
+  // Multipart/alternative: clients pick the LAST matching part as the
+  // preferred view. Add text first so HTML-capable clients render the HTML
+  // version while plaintext-only clients still get a readable body.
+  msg.addMessage({ contentType: 'text/plain', data: input.text });
+  msg.addMessage({ contentType: 'text/html', data: input.html });
+
+  const email = new EmailMessage(sender.addr, recipient.addr, msg.asRaw());
+  await binding.send(email);
 }

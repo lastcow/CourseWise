@@ -30,14 +30,9 @@ OPENAI_API_KEY=
 # clear error until this is set. Create one at https://gamma.app/account-settings/api-keys
 GAMMA_API_KEY=
 
-# Outbound email via Resend (https://resend.com). Optional in dev — when unset,
-# teacher invitation responses come back with emailSent=false and the admin UI
-# falls back to "copy invite link" only. To send for real:
-#   1. Sign in at resend.com, add domain fsuac.com, paste the DKIM/SPF records
-#      Resend gives you into Cloudflare DNS for fsuac.com.
-#   2. Create an API key with permission to send from that domain.
-#   3. Set RESEND_API_KEY below.
-RESEND_API_KEY=
-# Optional. Friendly name + address used as the From: header. Defaults to
-# "CourseWise <noreply@fsuac.com>".
+# Outbound email uses the Cloudflare Worker `send_email` binding (configured
+# in wrangler.toml under [[send_email]]). The binding only exists inside the
+# Workers runtime — `wrangler dev` will surface it, but local Node-based
+# scripts cannot send. The binding has no API key; bindings are not env vars.
+# Optional: override the From: header (defaults to "CourseWise <noreply@fsuac.com>").
 EMAIL_FROM=
