@@ -342,6 +342,12 @@ export const zhCN = {
       colSlides: '幻灯片',
       colSource: '来源',
       colActions: '操作',
+      deleteDialogTitle: '确认删除演示文稿?',
+      linkModuleTitle: '移动到模块',
+      linkModuleAction: '移动到模块',
+      moduleLabel: '模块',
+      unassignedModule: '未分配模块',
+      moduleUpdated: '模块已更新',
     },
     gamma: {
       dialogTitle: '使用 Gamma 生成演示文稿',
