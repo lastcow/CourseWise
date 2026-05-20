@@ -40,12 +40,14 @@ export interface AppBindings {
   // env.MATERIAL_GEN_WORKFLOW.create({ params }) and .get(id). Optional so
   // dev/test envs without a Workflows plan can still run.
   MATERIAL_GEN_WORKFLOW?: Workflow;
-  // Outbound email. Resend is the primary provider — set RESEND_API_KEY via
-  // `wrangler secret put` once the domain has been verified. EMAIL_FROM is a
-  // non-secret default (e.g. `CourseWise <noreply@fsuac.com>`); when unset the
-  // Worker uses a hardcoded fallback so dev environments can still render
-  // emails for testing without sending them.
-  RESEND_API_KEY?: string;
+  // Outbound email via the Cloudflare Worker `send_email` binding. Configured
+  // in wrangler.toml via [[send_email]] with an `allowed_destination_addresses`
+  // list — sends to addresses NOT on that list will throw, which we catch and
+  // treat as a best-effort failure (caller falls back to copy-link UX).
+  SEND_EMAIL?: SendEmail;
+  // Non-secret default for the From: header (e.g.
+  // `CourseWise <noreply@fsuac.com>`). When unset the Worker uses a hardcoded
+  // fallback so dev environments can still render emails for testing.
   EMAIL_FROM?: string;
 }
 
