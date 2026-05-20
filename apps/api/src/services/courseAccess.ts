@@ -49,3 +49,32 @@ export async function canWriteCourse(
   if (user.role === 'teacher') return isCourseTeacher(db, courseId, user.id);
   return false;
 }
+
+export type CourseTeacherRoleRow = { teacherId: string; role: 'primary' | 'co_teacher' };
+export type CourseTeacherLookup = (
+  courseId: string,
+  teacherId: string,
+) => Promise<CourseTeacherRoleRow | null>;
+
+function lookupFromDb(db: Db): CourseTeacherLookup {
+  return async (courseId, teacherId) => {
+    const rows = await db
+      .select({ teacherId: courseTeachers.teacherId, role: courseTeachers.role })
+      .from(courseTeachers)
+      .where(and(eq(courseTeachers.courseId, courseId), eq(courseTeachers.teacherId, teacherId)))
+      .limit(1);
+    return rows[0] ?? null;
+  };
+}
+
+export async function canDeleteCourse(
+  lookupOrDb: CourseTeacherLookup | Db,
+  user: Pick<AuthenticatedUser, 'id' | 'role'>,
+  courseId: string,
+): Promise<boolean> {
+  if (user.role === 'admin') return true;
+  if (user.role !== 'teacher') return false;
+  const lookup = typeof lookupOrDb === 'function' ? lookupOrDb : lookupFromDb(lookupOrDb);
+  const row = await lookup(courseId, user.id);
+  return row?.role === 'primary';
+}
