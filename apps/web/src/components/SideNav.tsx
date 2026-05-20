@@ -106,13 +106,15 @@ function teacherCourseSections(courseId: string): NavSection[] {
   return [
     {
       id: 'top',
-      items: [{ to: prefix, labelKey: 'nav.overview', icon: Home, end: true }],
+      items: [
+        { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
+        { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
+      ],
     },
     {
       id: 'learn',
       titleKey: 'course.nav.section.learn',
       items: [
-        { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
         { to: `${prefix}/materials`, labelKey: 'materials.title', icon: FileText },
         { to: `${prefix}/presentations`, labelKey: 'presentations.title', icon: Presentation },
       ],
