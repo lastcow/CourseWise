@@ -15,6 +15,7 @@ import { PricingPage } from '@/pages/public/PricingPage';
 import { AboutPage } from '@/pages/public/AboutPage';
 import { ContactPage } from '@/pages/public/ContactPage';
 import { PublicPresentationPage } from '@/pages/public/PublicPresentationPage';
+import { InviteRedeemPage } from '@/pages/public/InviteRedeemPage';
 import { LegalRoutes } from '@/pages/legal/LegalRoutes';
 import { SettingsApiTokensPage } from '@/pages/SettingsApiTokensPage';
 import { AdminAiPage } from '@/pages/admin/AdminAiPage';
@@ -79,6 +80,7 @@ export default function App(): JSX.Element {
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/invite/:code" element={<InviteRedeemPage />} />
               <Route path="/teacher/accept-invite" element={<TeacherAcceptInvitePage />} />
               <Route path="/legal/*" element={<LegalRoutes />} />
             </Route>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
@@ -14,11 +14,16 @@ export function RegisterPage(): JSX.Element {
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const [params] = useSearchParams();
+  const initialInvitationCode = params.get('invitationCode') ?? '';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [invitationCode, setInvitationCode] = useState('');
+  const [invitationCode, setInvitationCode] = useState(initialInvitationCode);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const signInHref = invitationCode
+    ? `/login?redirectTo=${encodeURIComponent(`/invite/${invitationCode}`)}`
+    : '/login';
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +75,7 @@ export function RegisterPage(): JSX.Element {
               {isLoading ? t('common.loading') : t('auth.registerCta')}
             </Button>
             <Link
-              to="/login"
+              to={signInHref}
               className="block text-center text-sm text-muted-foreground hover:underline"
             >
               {t('auth.switchToLogin')}
