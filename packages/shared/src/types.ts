@@ -254,8 +254,31 @@ export interface PresentationSummary {
   externalUrl: string | null;
   provider: PresentationProvider | null;
   fileAssetId: string | null;
+  // Public share. shareToken is null until the teacher has enabled sharing at
+  // least once; shareEnabled controls whether the public viewer is live.
+  shareToken: string | null;
+  shareEnabled: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// Returned by PATCH /courses/:cid/presentations/:pid/share so the teacher UI
+// can show the freshly-minted share URL without a follow-up GET.
+export interface PresentationShareState {
+  shareToken: string | null;
+  shareEnabled: boolean;
+  shareEnabledAt: string | null;
+}
+
+// Returned by the public GET /share/presentations/:token endpoint. Stripped to
+// the minimum needed to render the viewer — no internal IDs leak.
+export interface PublicPresentationView {
+  title: string;
+  description: string | null;
+  courseTitle: string;
+  externalUrl: string | null;
+  // Whether a downloadable .pptx is available via the public download route.
+  hasDownload: boolean;
 }
 
 export interface SlideSummary {

@@ -153,6 +153,11 @@ export const zhCN = {
         quickLinks: '快捷入口',
       },
     },
+    share: {
+      notFoundTitle: '分享链接无效',
+      notFoundBody: '该链接可能已被教师关闭,或地址有误。',
+      noEmbed: '该演示文稿无法直接嵌入。请使用上方的「在 Gamma 中打开」或下载 .pptx。',
+    },
     courses: {
       title: '课程',
       newCta: '+ 新建课程',
@@ -381,6 +386,23 @@ export const zhCN = {
       downloadPptx: '下载 .pptx',
       failed: '生成失败',
       externalDeckBanner: '该演示文稿托管在 Gamma 中。可前往 Gamma 编辑,或下载 .pptx。',
+      progress: {
+        generating: '正在通过 Gamma 生成…',
+        stillWorking: '仍在处理 —— Gamma 正在完成最后的渲染。',
+        takingLong: '比平时耗时更长。Gamma 在高负载时可能较慢。',
+      },
+      share: {
+        button: '分享',
+        dialogTitle: '分享演示文稿',
+        enable: '启用公开分享链接',
+        enabledHint: '任何人通过该链接都可查看,无需登录。',
+        disabledHint: '分享已关闭。开启后将生成一个公开链接。',
+        copy: '复制链接',
+        copied: '链接已复制',
+        openViewer: '打开查看器',
+        enabledToast: '公开分享链接已启用',
+        disabledToast: '公开分享链接已关闭',
+      },
     },
     slides: {
       list: '幻灯片',

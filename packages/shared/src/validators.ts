@@ -293,6 +293,11 @@ export const updatePresentationSchema = z.object({
 });
 export type UpdatePresentationInput = z.infer<typeof updatePresentationSchema>;
 
+export const togglePresentationShareSchema = z.object({
+  enabled: z.boolean(),
+});
+export type TogglePresentationShareInput = z.infer<typeof togglePresentationShareSchema>;
+
 export const createSlideSchema = z.object({
   title: z.string().trim().max(200).optional().nullable(),
   content: z.string().trim().max(100_000).optional().nullable(),

@@ -349,6 +349,12 @@ export const presentations = pgTable(
     externalUrl: text('external_url'),
     provider: text('provider'),
     fileAssetId: uuid('file_asset_id').references(() => fileAssets.id, { onDelete: 'set null' }),
+    // Public share. shareToken is minted on first enable and re-used on
+    // toggle so the URL stays stable; shareEnabled gates whether the public
+    // viewer renders.
+    shareToken: text('share_token'),
+    shareEnabled: boolean('share_enabled').notNull().default(false),
+    shareEnabledAt: timestamp('share_enabled_at', { withTimezone: true, mode: 'string' }),
     ...timestamps,
   },
   (t) => ({

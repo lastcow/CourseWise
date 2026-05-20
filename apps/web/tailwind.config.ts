@@ -48,6 +48,14 @@ const config: Config = {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      keyframes: {
+        // Used by Gamma's indeterminate progress bar.
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '50%': { transform: 'translateX(200%)' },
+          '100%': { transform: 'translateX(-100%)' },
+        },
+      },
     },
   },
   plugins: [animate, typography],

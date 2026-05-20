@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Archive, CircleCheck, Download, ExternalLink, Pencil, Trash2 } from 'lucide-react';
+import { Archive, CircleCheck, Download, ExternalLink, Pencil, Share2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,12 +21,17 @@ import {
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
 import { GenerateGammaDialog } from '@/components/gamma/GenerateGammaDialog';
+import { ShareLinkDialog } from '@/components/gamma/ShareLinkDialog';
+import { GammaProgressBar } from '@/components/ai/GammaProgressBar';
+import type { PresentationSummary } from '@coursewise/shared';
+
+type ActiveJobState = { presentationId: string | null; jobCreatedAt: string | null };
 
 type GammaJobWatcherProps = {
   jobId: string;
   courseId: string;
   onResolved: (jobId: string, status: 'completed' | 'failed', errorMessage?: string | null) => void;
-  onPresentationKnown: (jobId: string, presentationId: string | null) => void;
+  onJobUpdate: (jobId: string, state: ActiveJobState) => void;
 };
 
 /**
@@ -37,16 +42,17 @@ type GammaJobWatcherProps = {
 function GammaJobWatcher({
   jobId,
   onResolved,
-  onPresentationKnown,
+  onJobUpdate,
 }: GammaJobWatcherProps): null {
   const q = useGammaJob(jobId, true);
   const status = q.data?.status;
   const presentationId = q.data?.presentationId ?? null;
+  const jobCreatedAt = q.data?.createdAt ?? null;
   const errorMessage = q.data?.errorMessage ?? null;
 
   useEffect(() => {
-    onPresentationKnown(jobId, presentationId);
-  }, [jobId, presentationId, onPresentationKnown]);
+    onJobUpdate(jobId, { presentationId, jobCreatedAt });
+  }, [jobId, presentationId, jobCreatedAt, onJobUpdate]);
 
   useEffect(() => {
     if (status === 'completed' || status === 'failed') {
@@ -100,15 +106,16 @@ export function TeacherPresentationsPage(): JSX.Element {
   const [desc, setDesc] = useState('');
 
   const [gammaOpen, setGammaOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<PresentationSummary | null>(null);
   const [activeJobIds, setActiveJobIds] = useState<string[]>([]);
-  // Map jobId → presentationId once we know it, so rows can render the
-  // "Generating" badge while we're still polling.
-  const [jobPresentations, setJobPresentations] = useState<Record<string, string | null>>({});
+  // Map jobId → { presentationId, jobCreatedAt } so rows can render the live
+  // progress bar while we're still polling.
+  const [jobStates, setJobStates] = useState<Record<string, ActiveJobState>>({});
 
   const onJobResolved = useCallback(
     (jobId: string, status: 'completed' | 'failed', errorMessage?: string | null) => {
       setActiveJobIds((prev) => prev.filter((x) => x !== jobId));
-      setJobPresentations((prev) => {
+      setJobStates((prev) => {
         if (!(jobId in prev)) return prev;
         const next = { ...prev };
         delete next[jobId];
@@ -126,16 +133,27 @@ export function TeacherPresentationsPage(): JSX.Element {
     [id, qc, t, toast],
   );
 
-  const onPresentationKnown = useCallback((jobId: string, presentationId: string | null) => {
-    setJobPresentations((prev) => {
-      if (prev[jobId] === presentationId) return prev;
-      return { ...prev, [jobId]: presentationId };
+  const onJobUpdate = useCallback((jobId: string, state: ActiveJobState) => {
+    setJobStates((prev) => {
+      const existing = prev[jobId];
+      if (
+        existing &&
+        existing.presentationId === state.presentationId &&
+        existing.jobCreatedAt === state.jobCreatedAt
+      ) {
+        return prev;
+      }
+      return { ...prev, [jobId]: state };
     });
   }, []);
 
-  const pendingPresentationIds = new Set(
-    Object.values(jobPresentations).filter((x): x is string => !!x),
-  );
+  // presentationId → its job's createdAt, so cards can find their progress.
+  const pendingByPresentation = new Map<string, string | null>();
+  for (const state of Object.values(jobStates)) {
+    if (state.presentationId) {
+      pendingByPresentation.set(state.presentationId, state.jobCreatedAt);
+    }
+  }
 
   const onSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
@@ -171,7 +189,7 @@ export function TeacherPresentationsPage(): JSX.Element {
           jobId={jobId}
           courseId={id}
           onResolved={onJobResolved}
-          onPresentationKnown={onPresentationKnown}
+          onJobUpdate={onJobUpdate}
         />
       ))}
 
@@ -183,7 +201,8 @@ export function TeacherPresentationsPage(): JSX.Element {
         <div className="grid gap-3 md:grid-cols-2">
           {list.data.map((p) => {
             const isGamma = p.provider === 'gamma';
-            const isGenerating = isGamma && pendingPresentationIds.has(p.id);
+            const jobCreatedAt = isGamma ? pendingByPresentation.get(p.id) ?? null : null;
+            const isGenerating = isGamma && pendingByPresentation.has(p.id);
             return (
               <Card key={p.id}>
                 <CardHeader>
@@ -197,12 +216,6 @@ export function TeacherPresentationsPage(): JSX.Element {
                       </Link>
                     </CardTitle>
                     <div className="flex items-center gap-1.5">
-                      {isGenerating ? (
-                        <Badge variant="info">
-                          <span className="mr-1 inline-block h-2 w-2 animate-pulse rounded-full bg-sky-500" />
-                          {t('gamma.generating')}
-                        </Badge>
-                      ) : null}
                       <Badge variant={p.status === 'published' ? 'success' : 'secondary'}>
                         {t(`presentations.status${p.status[0]!.toUpperCase()}${p.status.slice(1)}`)}
                       </Badge>
@@ -210,6 +223,9 @@ export function TeacherPresentationsPage(): JSX.Element {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted-foreground">
+                  {isGenerating && jobCreatedAt ? (
+                    <GammaProgressBar createdAt={jobCreatedAt} />
+                  ) : null}
                   <p className="line-clamp-2">{p.description ?? '—'}</p>
                   <p>{t('presentations.slidesCount', { count: p.slideCount })}</p>
                   {isGamma && (p.externalUrl || p.fileAssetId) ? (
@@ -232,6 +248,13 @@ export function TeacherPresentationsPage(): JSX.Element {
                           label={t('gamma.downloadPptx')}
                         />
                       ) : null}
+                      <Button size="sm" variant="outline" onClick={() => setShareTarget(p)}>
+                        <Share2 className="h-4 w-4" />
+                        {t('gamma.share.button')}
+                        {p.shareEnabled ? (
+                          <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        ) : null}
+                      </Button>
                     </div>
                   ) : null}
                   <div className="flex flex-wrap items-center gap-1.5 pt-2">
@@ -310,10 +333,24 @@ export function TeacherPresentationsPage(): JSX.Element {
         courseId={id}
         onStarted={(jobId, presentationId) => {
           setActiveJobIds((prev) => [...prev, jobId]);
-          setJobPresentations((prev) => ({ ...prev, [jobId]: presentationId }));
+          setJobStates((prev) => ({
+            ...prev,
+            [jobId]: { presentationId, jobCreatedAt: null },
+          }));
           void qc.invalidateQueries({ queryKey: ['presentations', id] });
         }}
       />
+
+      {shareTarget ? (
+        <ShareLinkDialog
+          open
+          onClose={() => setShareTarget(null)}
+          courseId={id}
+          presentationId={shareTarget.id}
+          initialEnabled={shareTarget.shareEnabled}
+          initialToken={shareTarget.shareToken}
+        />
+      ) : null}
     </div>
   );
 }
