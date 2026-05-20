@@ -21,6 +21,7 @@ import {
   useCreateModule,
   useDeleteModule,
   useDeleteMaterial,
+  useDiscussionTopicsList,
   useMaterialsList,
   useModulesList,
   usePresentationsList,
@@ -33,6 +34,7 @@ import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
 import type {
   AssignmentSummary,
+  DiscussionTopicSummary,
   MaterialSummary,
   PresentationSummary,
   QuizSummary,
@@ -48,6 +50,7 @@ export function TeacherModulesPage(): JSX.Element {
   const presentationsQ = usePresentationsList(id);
   const assignmentsQ = useAssignmentsList(id);
   const quizzesQ = useQuizzesList(id);
+  const discussionTopicsQ = useDiscussionTopicsList(id);
   const create = useCreateModule(id);
   const update = useUpdateModule(id);
   const del = useDeleteModule(id);
@@ -103,6 +106,17 @@ export function TeacherModulesPage(): JSX.Element {
     return map;
   }, [quizzesQ.data]);
 
+  const moduleDiscussions = useMemo(() => {
+    const map = new Map<string, DiscussionTopicSummary[]>();
+    for (const d of discussionTopicsQ.data ?? []) {
+      if (!d.moduleId) continue;
+      const arr = map.get(d.moduleId) ?? [];
+      arr.push(d);
+      map.set(d.moduleId, arr);
+    }
+    return map;
+  }, [discussionTopicsQ.data]);
+
   const onMove = async (index: number, dir: -1 | 1) => {
     if (!list.data) return;
     const next = list.data.slice();
@@ -138,6 +152,7 @@ export function TeacherModulesPage(): JSX.Element {
             const pres = modulePresentations.get(m.id) ?? [];
             const asgs = moduleAssignments.get(m.id) ?? [];
             const qzs = moduleQuizzes.get(m.id) ?? [];
+            const dscs = moduleDiscussions.get(m.id) ?? [];
             return (
               <AccordionItem key={m.id} value={m.id}>
                 <AccordionTrigger
@@ -420,6 +435,47 @@ export function TeacherModulesPage(): JSX.Element {
                               </Badge>
                               <span className="text-xs text-muted-foreground">
                                 {t('quizzes.questionsCount', { count: q.questionCount ?? 0 })}
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {dscs.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {t('discussion.title')}
+                      </div>
+                      <ul className="space-y-1.5">
+                        {dscs.map((d) => (
+                          <li
+                            key={d.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded border bg-background px-2.5 py-1.5"
+                          >
+                            <Link
+                              to={`/teacher/courses/${id}/discussion/${d.id}`}
+                              className="flex flex-1 items-center gap-2 rounded-sm hover:text-foreground"
+                            >
+                              <span className="text-sm font-medium underline-offset-4 hover:underline">
+                                {d.title}
+                              </span>
+                              <Badge
+                                variant={
+                                  d.status === 'published'
+                                    ? 'success'
+                                    : d.status === 'draft'
+                                      ? 'outline'
+                                      : 'secondary'
+                                }
+                              >
+                                {t(
+                                  `discussion.status${d.status[0]!.toUpperCase()}${d.status.slice(1)}`,
+                                )}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {t('discussion.postCount', { count: d.postCount ?? 0 })}
                               </span>
                             </Link>
                           </li>
