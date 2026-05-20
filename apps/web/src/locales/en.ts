@@ -928,6 +928,7 @@ export const en = {
       tokenExpired: 'Your session expired.',
       missingScope: 'Your API token is missing a required scope.',
       internal: 'Unexpected error. Please try again.',
+      upstreamUnavailable: 'Service is temporarily unavailable. Please try again in a moment.',
       field: {
         invalid_type: 'Invalid value',
         too_small: 'Too short',

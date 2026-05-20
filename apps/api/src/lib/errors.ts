@@ -18,6 +18,7 @@ export const ERROR_CODES = {
   TOKEN_EXPIRED: 'TOKEN_EXPIRED',
   MISSING_SCOPE: 'MISSING_SCOPE',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
+  UPSTREAM_UNAVAILABLE: 'UPSTREAM_UNAVAILABLE',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -42,6 +43,7 @@ export const ERROR_I18N: Record<ErrorCode, string> = {
   TOKEN_EXPIRED: 'errors.tokenExpired',
   MISSING_SCOPE: 'errors.missingScope',
   INTERNAL_ERROR: 'errors.internal',
+  UPSTREAM_UNAVAILABLE: 'errors.upstreamUnavailable',
 };
 
 export class ApiException extends Error {

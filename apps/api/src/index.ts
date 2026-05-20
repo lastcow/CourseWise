@@ -109,9 +109,31 @@ app.notFound((c) =>
   ),
 );
 
+// Recognise upstream-edge blocks (e.g. Cloudflare denying our Neon HTTP fetch
+// with "error code: 1006" / 1020 / 1015). Surfacing these as a generic 500
+// hides the actual cause from operators and gives the client a confusing
+// "Internal error" instead of "try again in a moment".
+function isUpstreamEdgeBlock(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message ?? '';
+  if (!msg.startsWith('Server error (HTTP status ')) return false;
+  return /error code:\s*\d{3,4}/i.test(msg);
+}
+
 app.onError((err, c) => {
   if (err instanceof ApiException) {
     return failure(c, err);
+  }
+  if (isUpstreamEdgeBlock(err)) {
+    console.error('upstream edge block', err);
+    return failure(
+      c,
+      new ApiException(
+        503,
+        ERROR_CODES.UPSTREAM_UNAVAILABLE,
+        'Database temporarily unavailable',
+      ),
+    );
   }
   console.error('unhandled error', err);
   return unhandledFailure(c, err);
