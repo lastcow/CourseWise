@@ -21,9 +21,60 @@ import {
   buildInviteUrl,
   expiresAtFromNow,
   generateInvitationToken,
+  TEACHER_INVITATION_TTL_DAYS,
   toInvitationSummary,
 } from '../services/teacherInvitations';
-import type { AppEnv } from '../types';
+import { renderTeacherInvitationEmail } from '../services/teacherInvitationEmail';
+import { sendEmailViaResend } from '../services/email';
+import type { AppEnv, AppBindings } from '../types';
+
+const DEFAULT_EMAIL_FROM = 'CourseWise <noreply@fsuac.com>';
+
+/**
+ * Best-effort: send the invitation email. Returns whether the dispatch
+ * succeeded. Never throws — email send failures must NOT block the underlying
+ * mutation (the invite is still valid and the inviteUrl is still in the
+ * response for the admin to share manually).
+ */
+async function trySendInvitationEmail(
+  env: AppBindings,
+  args: {
+    invitationId: string;
+    to: string;
+    inviterName: string;
+    replyTo: string | null;
+    inviteUrl: string;
+  },
+): Promise<boolean> {
+  if (!env.RESEND_API_KEY) return false;
+  const tmpl = renderTeacherInvitationEmail({
+    inviterName: args.inviterName,
+    inviteUrl: args.inviteUrl,
+    expiresDays: TEACHER_INVITATION_TTL_DAYS,
+  });
+  try {
+    await sendEmailViaResend(
+      {
+        to: args.to,
+        subject: tmpl.subject,
+        html: tmpl.html,
+        text: tmpl.text,
+        replyTo: args.replyTo ?? undefined,
+      },
+      {
+        apiKey: env.RESEND_API_KEY,
+        from: env.EMAIL_FROM ?? DEFAULT_EMAIL_FROM,
+      },
+    );
+    return true;
+  } catch (err) {
+    console.error('teacher-invitation: email send failed', {
+      invitationId: args.invitationId,
+      err,
+    });
+    return false;
+  }
+}
 
 const r = new Hono<AppEnv>();
 
@@ -235,11 +286,19 @@ r.post('/teacher-invitations', validateJson(createTeacherInvitationSchema), asyn
   if (c.env.ENVIRONMENT !== 'production') {
     console.log(`[teacher-invitation] ${input.email} → ${inviteUrl}`);
   }
+  const emailSent = await trySendInvitationEmail(c.env, {
+    invitationId: inserted.id,
+    to: input.email,
+    inviterName: auth.user.name,
+    replyTo: auth.user.email,
+    inviteUrl,
+  });
   const summary = toInvitationSummary(inserted, auth.user.name);
   const body: CreatedTeacherInvitation = {
     ...summary,
     token: plaintext,
     inviteUrl,
+    emailSent,
   };
   return success(c, body, 201);
 });
@@ -321,11 +380,19 @@ r.post('/teacher-invitations/:id/resend', async (c) => {
     console.log(`[teacher-invitation] resend ${updated.email} → ${inviteUrl}`);
   }
   const inviterName = await loadInviterName(db, updated.invitedByUserId);
+  const emailSent = await trySendInvitationEmail(c.env, {
+    invitationId: updated.id,
+    to: updated.email,
+    inviterName,
+    replyTo: auth.user.email,
+    inviteUrl,
+  });
   const summary = toInvitationSummary(updated, inviterName);
   const body: CreatedTeacherInvitation = {
     ...summary,
     token: plaintext,
     inviteUrl,
+    emailSent,
   };
   return success(c, body);
 });

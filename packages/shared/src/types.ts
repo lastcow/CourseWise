@@ -163,6 +163,13 @@ export interface CreatedTeacherInvitation extends TeacherInvitationSummary {
   token: string;
   /** Pre-built sign-up URL. Falls back to a path when an origin is unknown. */
   inviteUrl: string;
+  /**
+   * True iff the backend successfully dispatched an invitation email to the
+   * recipient. False means the admin still has to share the `inviteUrl`
+   * out-of-band (either because no email provider is configured, or the send
+   * failed and we treated it as best-effort).
+   */
+  emailSent: boolean;
 }
 
 export interface TeacherInvitationLookup {
