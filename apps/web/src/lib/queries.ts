@@ -15,6 +15,7 @@ import type {
   AssignmentSummary,
   AttendanceRecordRow,
   AttendanceSessionSummary,
+  AttendanceStatus,
   BulkMarkAttendanceInput,
   CourseDetail,
   CourseSummary,
@@ -1205,7 +1206,7 @@ export function useSignAttendance(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (sessionId: string) =>
-      apiCall<{ ok: true; ipAddress: string | null }>(
+      apiCall<{ ok: true; ipAddress: string | null; status: AttendanceStatus }>(
         `/api/me/attendance-sessions/${sessionId}/sign`,
         { method: 'POST' },
       ),

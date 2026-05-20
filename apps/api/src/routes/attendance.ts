@@ -52,9 +52,30 @@ function toSessionSummary(
     status: row.status,
     closedAt: row.closedAt ?? null,
     recordCount,
+    lateAfterMinutes: row.lateAfterMinutes ?? null,
+    absentAfterMinutes: row.absentAfterMinutes ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+function computeWindow(
+  row: typeof attendanceSessions.$inferSelect,
+  now: Date = new Date(),
+): {
+  windowState: 'open' | 'late' | 'closed';
+  minutesSinceStart: number;
+  status: 'present' | 'late';
+} {
+  const startMs = new Date(row.sessionDate).getTime();
+  const minutes = Math.max(0, Math.floor((now.getTime() - startMs) / 60_000));
+  if (row.absentAfterMinutes != null && minutes >= row.absentAfterMinutes) {
+    return { windowState: 'closed', minutesSinceStart: minutes, status: 'late' };
+  }
+  if (row.lateAfterMinutes != null && minutes >= row.lateAfterMinutes) {
+    return { windowState: 'late', minutesSinceStart: minutes, status: 'late' };
+  }
+  return { windowState: 'open', minutesSinceStart: minutes, status: 'present' };
 }
 
 async function loadSession(c: Context<AppEnv>, id: string) {
@@ -119,6 +140,8 @@ r.post(
         sessionDate: input.sessionDate,
         status: 'open',
         createdById: auth.user.id,
+        lateAfterMinutes: input.lateAfterMinutes ?? null,
+        absentAfterMinutes: input.absentAfterMinutes ?? null,
       })
       .returning();
     if (!created)
@@ -177,6 +200,9 @@ r.patch(
     if (input.title !== undefined) patch.title = input.title;
     if (input.description !== undefined) patch.description = input.description;
     if (input.sessionDate !== undefined) patch.sessionDate = input.sessionDate;
+    if (input.lateAfterMinutes !== undefined) patch.lateAfterMinutes = input.lateAfterMinutes;
+    if (input.absentAfterMinutes !== undefined)
+      patch.absentAfterMinutes = input.absentAfterMinutes;
     const [updated] = await db
       .update(attendanceSessions)
       .set(patch)
@@ -496,9 +522,12 @@ r.get(
         ),
       )
       .limit(1);
+    const win = computeWindow(row);
     const out: TodayAttendanceSession = {
       session: toSessionSummary(row),
       alreadySigned: !!existing,
+      windowState: win.windowState,
+      minutesSinceStart: win.minutesSinceStart,
     };
     return success(c, out);
   },
@@ -541,6 +570,15 @@ r.post(
         'This session is not scheduled for today',
       );
     }
+    const win = computeWindow(session);
+    if (win.windowState === 'closed') {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'The self-sign window for this session has closed',
+      );
+    }
+    const recordedStatus = win.status; // 'present' or 'late' based on thresholds
     const now = new Date().toISOString();
     const ip = readRequestIp(c);
     const [rec] = await db
@@ -548,7 +586,7 @@ r.post(
       .values({
         sessionId: id,
         studentId: auth.user.id,
-        status: 'present',
+        status: recordedStatus,
         recordedById: auth.user.id,
         recordedAt: now,
         ipAddress: ip,
@@ -570,9 +608,9 @@ r.post(
       actorUserId: auth.user.id,
       action: 'attendance.self_sign',
       target: id,
-      metadata: { sessionId: id, ip },
+      metadata: { sessionId: id, ip, status: recordedStatus, minutesLate: win.minutesSinceStart },
     });
-    return success(c, { ok: true, ipAddress: ip });
+    return success(c, { ok: true, ipAddress: ip, status: recordedStatus });
   },
 );
 

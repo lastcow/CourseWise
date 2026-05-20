@@ -485,9 +485,15 @@ export interface AttendanceSessionSummary {
   status: AttendanceSessionStatus;
   closedAt: string | null;
   recordCount?: number;
+  /** Minutes past `sessionDate` at which a self-sign is recorded as `late`. */
+  lateAfterMinutes: number | null;
+  /** Minutes past `sessionDate` at which self-sign is rejected entirely. */
+  absentAfterMinutes: number | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export type AttendanceWindowState = 'open' | 'late' | 'closed';
 
 export interface AttendanceRecordRow {
   id: string;
@@ -514,6 +520,10 @@ export interface StudentAttendanceRow {
 export interface TodayAttendanceSession {
   session: AttendanceSessionSummary;
   alreadySigned: boolean;
+  /** Whether self-sign is currently 'open' (counts present), 'late', or 'closed' (rejected). */
+  windowState: AttendanceWindowState;
+  /** Whole minutes elapsed since `session.sessionDate` (clamped to >= 0). */
+  minutesSinceStart: number;
 }
 
 // ---------- M5: Grading Policy ----------
