@@ -1,13 +1,14 @@
 import { Hono } from 'hono';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import {
   createApiTokenSchema,
   type ApiTokenScope,
   type ApiTokenSummary,
+  type CourseDeletionLogEntry,
   type CreatedApiToken,
   type CreateApiTokenInput,
 } from '@coursewise/shared';
-import { apiTokens, r2CleanupJobs } from '../db/schema';
+import { apiTokens, courseDeletionLog, r2CleanupJobs, users } from '../db/schema';
 import { generateApiToken } from '../services/apiTokens';
 import { recordAudit } from '../services/audit';
 import { ApiException, ERROR_CODES } from '../lib/errors';
@@ -145,6 +146,57 @@ admin.post('/r2-cleanup-jobs/:jobId/retry', async (c) => {
     metadata: { courseId: job.courseId },
   });
   return c.body(null, 202);
+});
+
+admin.get('/course-deletion-log', async (c) => {
+  const db = c.get('db');
+  const rows = await db
+    .select({
+      id: courseDeletionLog.id,
+      courseId: courseDeletionLog.courseId,
+      courseCode: courseDeletionLog.courseCode,
+      courseTitle: courseDeletionLog.courseTitle,
+      deletedBy: courseDeletionLog.deletedBy,
+      deletedByName: users.name,
+      deletedAt: courseDeletionLog.deletedAt,
+      childCounts: courseDeletionLog.childCounts,
+      cleanupId: r2CleanupJobs.id,
+      cleanupCourseId: r2CleanupJobs.courseId,
+      cleanupStatus: r2CleanupJobs.status,
+      cleanupAttempts: r2CleanupJobs.attempts,
+      cleanupLastError: r2CleanupJobs.lastError,
+      cleanupCreatedAt: r2CleanupJobs.createdAt,
+      cleanupCompletedAt: r2CleanupJobs.completedAt,
+    })
+    .from(courseDeletionLog)
+    .leftJoin(users, eq(users.id, courseDeletionLog.deletedBy))
+    .leftJoin(r2CleanupJobs, eq(r2CleanupJobs.courseId, courseDeletionLog.courseId))
+    .orderBy(desc(courseDeletionLog.deletedAt))
+    .limit(100);
+
+  const entries: CourseDeletionLogEntry[] = rows.map((row) => ({
+    id: row.id,
+    courseId: row.courseId,
+    courseCode: row.courseCode,
+    courseTitle: row.courseTitle,
+    deletedBy: row.deletedBy,
+    deletedByName: row.deletedByName,
+    deletedAt: row.deletedAt,
+    childCounts: row.childCounts as CourseDeletionLogEntry['childCounts'],
+    cleanup: row.cleanupId
+      ? {
+          id: row.cleanupId,
+          courseId: row.cleanupCourseId!,
+          status: row.cleanupStatus!,
+          attempts: row.cleanupAttempts!,
+          lastError: row.cleanupLastError,
+          createdAt: row.cleanupCreatedAt!,
+          completedAt: row.cleanupCompletedAt,
+        }
+      : null,
+  }));
+
+  return success(c, entries);
 });
 
 export default admin;

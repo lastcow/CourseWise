@@ -47,4 +47,9 @@ describe('Course hard-delete route wiring', () => {
     );
     expect(res.status).toBe(401);
   });
+
+  it('GET /api/admin/course-deletion-log without auth → 401', async () => {
+    const res = await app.request('/api/admin/course-deletion-log', {}, env);
+    expect(res.status).toBe(401);
+  });
 });
