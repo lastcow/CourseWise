@@ -524,14 +524,30 @@ export const GAMMA_FORMATS = ['presentation', 'document', 'social', 'webpage'] a
 export type GammaFormat = (typeof GAMMA_FORMATS)[number];
 export const DEFAULT_GAMMA_FORMAT: GammaFormat = 'presentation';
 
-// Built-in Gamma themes that may not appear in `GET /v1.0/themes` (the API
-// only returns workspace themes on some plans). Surfaced in the dropdown as a
-// fallback so teachers always have at least one option to pick.
+// Themes pinned into the dropdown even when not returned by GET /v1.0/themes.
+// Currently empty — see git history for prior entries (e.g. Pearl) and the
+// reasoning around hardcoded fallbacks.
 export const GAMMA_BUILTIN_THEMES: ReadonlyArray<{
   id: string;
   name: string;
   previewUrl: null;
-}> = [{ id: 'Pearl', name: 'Pearl', previewUrl: null }];
+}> = [];
+
+// Curated image-style options for the dialog. Gamma's `imageOptions.style` is
+// free-form text — `value` is the literal string sent to Gamma; `slug` is the
+// i18n key suffix (must be a valid JS identifier). Empty value = let Gamma
+// decide.
+export const GAMMA_IMAGE_STYLES = [
+  { slug: 'auto', value: '' },
+  { slug: 'photorealistic', value: 'photorealistic' },
+  { slug: 'illustrated', value: 'illustrated' },
+  { slug: 'watercolor', value: 'watercolor' },
+  { slug: 'lineArt', value: 'minimal, line art' },
+  { slug: 'rendered3d', value: '3d rendered' },
+  { slug: 'cinematic', value: 'cinematic' },
+  { slug: 'vintage', value: 'vintage' },
+] as const;
+export type GammaImageStyleSlug = (typeof GAMMA_IMAGE_STYLES)[number]['slug'];
 
 // Soft caps; mirror Gamma's hard limits but lower so we keep headroom.
 export const GAMMA_MAX_INPUT_TEXT_CHARS = 380_000; // Gamma's hard cap is 400_000.
