@@ -140,7 +140,16 @@ export interface InvitationCodeSummary {
 
 export interface ValidateInvitationCodeResponse {
   valid: boolean;
+  courseId?: string | null;
   courseTitle?: string | null;
+}
+
+export interface RedeemInvitationCodeResponse {
+  courseId: string;
+  courseCode: string;
+  courseTitle: string;
+  alreadyEnrolled: boolean;
+  enrollmentId?: string;
 }
 
 export type TeacherInvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
