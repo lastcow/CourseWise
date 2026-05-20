@@ -1,5 +1,5 @@
+import { type ChildCounts } from '@coursewise/shared';
 import { describe, expect, it } from 'vitest';
-import { type ChildCounts } from './courseDeletion';
 
 describe('courseChildCounts (shape)', () => {
   it('serializes the expected keys', () => {

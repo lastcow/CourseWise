@@ -1,3 +1,4 @@
+import type { ChildCounts } from '@coursewise/shared';
 import { sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import {
@@ -13,21 +14,6 @@ import {
   quizzes,
   readingMaterials,
 } from '../db/schema';
-
-export type ChildCounts = {
-  enrollments: number;
-  modules: number;
-  readingMaterials: number;
-  assignments: number;
-  submissions: number;
-  quizzes: number;
-  quizAttempts: number;
-  discussionTopics: number;
-  discussionPosts: number;
-  attendanceSessions: number;
-  fileCount: number;
-  fileBytes: number;
-};
 
 /**
  * Returns row counts for every course-scoped child table.
