@@ -9,6 +9,7 @@ import {
   type BulkMarkAttendanceInput,
   type CreateAttendanceSessionInput,
   type StudentAttendanceRow,
+  type TodayAttendanceSession,
   type UpdateAttendanceSessionInput,
 } from '@coursewise/shared';
 import {
@@ -264,6 +265,7 @@ r.get(
         recordedById: r.recordedById ?? null,
         recordedAt: r.recordedAt,
         updatedAt: r.updatedAt,
+        ipAddress: r.ipAddress ?? null,
       }));
       return success(c, out);
     }
@@ -292,6 +294,7 @@ r.get(
       recordedById: r.recordedById ?? null,
       recordedAt: r.recordedAt,
       updatedAt: r.updatedAt,
+      ipAddress: r.ipAddress ?? null,
     }));
     return success(c, out);
   },
@@ -385,6 +388,7 @@ r.post(
       recordedById: r.recordedById ?? null,
       recordedAt: r.recordedAt,
       updatedAt: r.updatedAt,
+      ipAddress: r.ipAddress ?? null,
     }));
     return success(c, out);
   },
@@ -442,6 +446,133 @@ r.get(
       };
     });
     return success(c, out);
+  },
+);
+
+// =================== Student self-sign ===================
+
+function readRequestIp(c: Context<AppEnv>): string | null {
+  return (
+    c.req.header('cf-connecting-ip') ??
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+    c.req.header('x-real-ip') ??
+    null
+  );
+}
+
+r.get(
+  '/me/courses/:courseId/attendance-sessions/today',
+  requireScopeGroup('attendanceRead'),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    if (auth.user.role !== 'student') {
+      return success(c, null);
+    }
+    if (!(await isCourseEnrolled(db, courseId, auth.user.id))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
+    }
+    const [row] = await db
+      .select()
+      .from(attendanceSessions)
+      .where(
+        and(
+          eq(attendanceSessions.courseId, courseId),
+          eq(attendanceSessions.status, 'open'),
+          sql`date_trunc('day', ${attendanceSessions.sessionDate} AT TIME ZONE 'UTC') = date_trunc('day', now() AT TIME ZONE 'UTC')`,
+        ),
+      )
+      .orderBy(desc(attendanceSessions.sessionDate))
+      .limit(1);
+    if (!row) return success(c, null);
+    const [existing] = await db
+      .select({ id: attendanceRecords.id })
+      .from(attendanceRecords)
+      .where(
+        and(
+          eq(attendanceRecords.sessionId, row.id),
+          eq(attendanceRecords.studentId, auth.user.id),
+        ),
+      )
+      .limit(1);
+    const out: TodayAttendanceSession = {
+      session: toSessionSummary(row),
+      alreadySigned: !!existing,
+    };
+    return success(c, out);
+  },
+);
+
+r.post(
+  '/me/attendance-sessions/:sessionId/sign',
+  requireScopeGroup('attendanceWrite'),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const id = requireParam(c, 'sessionId');
+    if (auth.user.role !== 'student') {
+      throw new ApiException(
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'Only students can self-sign attendance',
+      );
+    }
+    const session = await loadSession(c, id);
+    if (session.status === 'closed') {
+      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Session is closed');
+    }
+    if (!(await isCourseEnrolled(db, session.courseId, auth.user.id))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
+    }
+    // Reject self-sign for sessions not scheduled today (UTC) — guards against
+    // students replaying yesterday's open session if a teacher forgot to close it.
+    const [{ ok } = { ok: false }] = await db
+      .select({
+        ok: sql<boolean>`date_trunc('day', ${attendanceSessions.sessionDate} AT TIME ZONE 'UTC') = date_trunc('day', now() AT TIME ZONE 'UTC')`,
+      })
+      .from(attendanceSessions)
+      .where(eq(attendanceSessions.id, id))
+      .limit(1);
+    if (!ok) {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'This session is not scheduled for today',
+      );
+    }
+    const now = new Date().toISOString();
+    const ip = readRequestIp(c);
+    const [rec] = await db
+      .insert(attendanceRecords)
+      .values({
+        sessionId: id,
+        studentId: auth.user.id,
+        status: 'present',
+        recordedById: auth.user.id,
+        recordedAt: now,
+        ipAddress: ip,
+      })
+      .onConflictDoUpdate({
+        target: [attendanceRecords.sessionId, attendanceRecords.studentId],
+        // Self-sign never downgrades an existing teacher mark; we only fill in
+        // the IP if a row already exists from the student's own earlier sign.
+        set: {
+          ipAddress: sql`coalesce(${attendanceRecords.ipAddress}, ${ip ?? null})`,
+          updatedAt: now,
+        },
+      })
+      .returning();
+    if (!rec)
+      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to record attendance');
+    await recordAudit(db, {
+      actorType: 'user',
+      actorUserId: auth.user.id,
+      action: 'attendance.self_sign',
+      target: id,
+      metadata: { sessionId: id, ip },
+    });
+    return success(c, { ok: true, ipAddress: ip });
   },
 );
 

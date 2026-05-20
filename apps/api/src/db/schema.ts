@@ -738,6 +738,7 @@ export const attendanceRecords = pgTable(
     recordedAt: timestamp('recorded_at', { withTimezone: true, mode: 'string' })
       .defaultNow()
       .notNull(),
+    ipAddress: text('ip_address'),
     ...timestamps,
   },
   (t) => ({

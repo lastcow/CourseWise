@@ -1,12 +1,22 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MarkdownView, stripMarkdown } from '@/components/ui/markdown';
-import { useCourse, useMaterialsList, useModulesList } from '@/lib/queries';
+import { AttendanceSignInDialog } from '@/components/AttendanceSignInDialog';
+import {
+  useCourse,
+  useMaterialsList,
+  useModulesList,
+  useTodayAttendanceSession,
+} from '@/lib/queries';
 import type { MaterialSummary } from '@coursewise/shared';
+
+function dismissKey(sessionId: string): string {
+  return `attendance-dismissed:${sessionId}`;
+}
 
 export function StudentCourseOverviewPage(): JSX.Element {
   const { t } = useTranslation();
@@ -15,6 +25,30 @@ export function StudentCourseOverviewPage(): JSX.Element {
   const course = useCourse(id);
   const modules = useModulesList(id);
   const materials = useMaterialsList(id);
+  const todayQ = useTodayAttendanceSession(id);
+  const [signOpen, setSignOpen] = useState(false);
+
+  useEffect(() => {
+    const today = todayQ.data;
+    if (!today) return;
+    try {
+      if (sessionStorage.getItem(dismissKey(today.session.id)) === '1') return;
+    } catch {
+      // sessionStorage unavailable (private mode, etc.) — fall through and open.
+    }
+    setSignOpen(true);
+  }, [todayQ.data]);
+
+  const onCloseSign = (): void => {
+    setSignOpen(false);
+    const today = todayQ.data;
+    if (!today) return;
+    try {
+      sessionStorage.setItem(dismissKey(today.session.id), '1');
+    } catch {
+      // best-effort
+    }
+  };
 
   const byModule = useMemo(() => {
     const map = new Map<string, MaterialSummary[]>();
@@ -32,6 +66,15 @@ export function StudentCourseOverviewPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
+      {todayQ.data ? (
+        <AttendanceSignInDialog
+          open={signOpen}
+          onClose={onCloseSign}
+          courseId={id}
+          session={todayQ.data.session}
+          alreadySigned={todayQ.data.alreadySigned}
+        />
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>{course.data.title}</CardTitle>

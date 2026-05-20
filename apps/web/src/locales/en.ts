@@ -747,6 +747,20 @@ export const en = {
         open: 'Open',
         closed: 'Closed',
       },
+      signIn: {
+        dialogTitle: 'Sign in to today’s class',
+        scheduledFor: 'Scheduled for',
+        ipNoticeHeading: 'IP address will be recorded',
+        ipNoticeBody:
+          'Your network IP address is captured at the moment you submit and stored alongside your attendance record. For in-person classes this serves as proof you were physically present in the classroom; signing in from off-campus may be flagged.',
+        alreadySigned: 'You’re already signed in for this session.',
+        submitCta: 'Sign me in',
+        submitting: 'Signing in…',
+        closeCta: 'Close',
+        success: 'Attendance recorded',
+        successDetail: 'Recorded from IP {{ip}}.',
+        successDetailNoIp: 'Your attendance has been recorded.',
+      },
     },
     grading: {
       policyTabTitle: 'Policy',

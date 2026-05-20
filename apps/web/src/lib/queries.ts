@@ -79,6 +79,7 @@ import type {
   SaveQuizAttemptAnswersInput,
   SlideSummary,
   StudentAttendanceRow,
+  TodayAttendanceSession,
   StudentDashboardResponse,
   SubmissionSummary,
   SubmissionWithStudent,
@@ -1186,6 +1187,32 @@ export function useMyAttendance(courseId: string | null) {
     queryKey: ['my-attendance', courseId],
     enabled: !!courseId,
     queryFn: () => apiCall<StudentAttendanceRow[]>(`/api/me/courses/${courseId}/attendance`),
+  });
+}
+
+export function useTodayAttendanceSession(courseId: string | null) {
+  return useQuery({
+    queryKey: ['attendance-today', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<TodayAttendanceSession | null>(
+        `/api/me/courses/${courseId}/attendance-sessions/today`,
+      ),
+  });
+}
+
+export function useSignAttendance(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      apiCall<{ ok: true; ipAddress: string | null }>(
+        `/api/me/attendance-sessions/${sessionId}/sign`,
+        { method: 'POST' },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['attendance-today', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-attendance', courseId] });
+    },
   });
 }
 

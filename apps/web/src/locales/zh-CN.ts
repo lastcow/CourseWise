@@ -737,6 +737,20 @@ export const zhCN = {
         open: '进行中',
         closed: '已关闭',
       },
+      signIn: {
+        dialogTitle: '今日课程签到',
+        scheduledFor: '上课时间',
+        ipNoticeHeading: '将记录您的 IP 地址',
+        ipNoticeBody:
+          '提交签到的瞬间,系统会捕获您当前的网络 IP 地址,并与考勤记录一同保存。对线下课程而言,该地址作为您当时身处教室的电子凭证;若从校外网络签到,可能会被标记为异常。',
+        alreadySigned: '您已完成本次签到。',
+        submitCta: '立即签到',
+        submitting: '正在签到…',
+        closeCta: '关闭',
+        success: '签到成功',
+        successDetail: '已从 IP {{ip}} 记录。',
+        successDetailNoIp: '考勤已记录。',
+      },
     },
     grading: {
       policyTabTitle: '评分策略',

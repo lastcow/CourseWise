@@ -791,6 +791,20 @@ export const ROUTES: readonly RouteSpec[] = [
     'attendance',
     { scopeGroup: 'attendanceRead', pathParams: idParams('courseId') },
   ),
+  r(
+    'get',
+    '/api/me/courses/{courseId}/attendance-sessions/today',
+    "Today's open attendance session for a course (if any), with whether the caller already signed",
+    'attendance',
+    { scopeGroup: 'attendanceRead', pathParams: idParams('courseId') },
+  ),
+  r(
+    'post',
+    '/api/me/attendance-sessions/{sessionId}/sign',
+    'Self-sign attendance for a session scheduled today; records the requestor IP',
+    'attendance',
+    { scopeGroup: 'attendanceWrite', pathParams: idParams('sessionId') },
+  ),
 
   // ---------- Grading policy & final grades ----------
   r('get', '/api/courses/{courseId}/grading-policy', 'Get the grading policy', 'grading', {

@@ -500,6 +500,7 @@ export interface AttendanceRecordRow {
   recordedById: string | null;
   recordedAt: string;
   updatedAt: string;
+  ipAddress: string | null;
 }
 
 export interface StudentAttendanceRow {
@@ -508,6 +509,11 @@ export interface StudentAttendanceRow {
   sessionDate: string;
   status: AttendanceStatus | null;
   notes: string | null;
+}
+
+export interface TodayAttendanceSession {
+  session: AttendanceSessionSummary;
+  alreadySigned: boolean;
 }
 
 // ---------- M5: Grading Policy ----------
