@@ -102,13 +102,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Capture build metadata
+        id: build_meta
+        run: echo "builtAt=$(date -u +%FT%TZ)" >> "$GITHUB_OUTPUT"
+
       - name: Deploy Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/api
-          command: deploy
+          # Inject GIT_SHA + BUILT_AT so /api/version reports real values
+          # instead of the local-dev placeholders "dev" / null.
+          command: deploy --var GIT_SHA:${{ github.sha }} --var BUILT_AT:${{ steps.build_meta.outputs.builtAt }}
           packageManager: pnpm
 
   deploy_web:
