@@ -4,13 +4,16 @@ import {
   createPresentationSchema,
   createSlideSchema,
   reorderSlidesSchema,
+  togglePresentationShareSchema,
   updatePresentationSchema,
   updateSlideSchema,
   type CreatePresentationInput,
   type CreateSlideInput,
+  type PresentationShareState,
   type PresentationSummary,
   type ReorderSlidesInput,
   type SlideSummary,
+  type TogglePresentationShareInput,
   type UpdatePresentationInput,
   type UpdateSlideInput,
 } from '@coursewise/shared';
@@ -32,6 +35,15 @@ import type { AppEnv } from '../types';
 const r = new Hono<AppEnv>();
 r.use('*', requireAuth);
 
+// 16 random bytes → 22-char base64url. Worker runtime supplies crypto.getRandomValues.
+function randomShareToken(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 function toSummary(
   row: typeof presentations.$inferSelect,
   slideCount = 0,
@@ -50,6 +62,8 @@ function toSummary(
     externalUrl: row.externalUrl ?? null,
     provider: row.provider === 'gamma' ? 'gamma' : null,
     fileAssetId: row.fileAssetId ?? null,
+    shareToken: row.shareToken ?? null,
+    shareEnabled: row.shareEnabled,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -254,6 +268,55 @@ r.patch(
       metadata: { fields: Object.keys(patch) },
     });
     return success(c, toSummary(updated, await getSlideCount(c, id)));
+  },
+);
+
+// Toggle the public share. On first enable we mint a 16-byte URL-safe token
+// (~22 chars base64url) and persist it; subsequent toggles flip the boolean
+// only so the share URL stays stable for anyone who has it.
+r.patch(
+  '/presentations/:presentationId/share',
+  requireScopeGroup('presentationsWrite'),
+  validateJson(togglePresentationShareSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const id = requireParam(c, 'presentationId');
+    const row = await loadPresentation(c, id);
+    if (!(await canWriteCourse(db, auth.user, row.courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+    }
+    const { enabled } = c.get('validated') as TogglePresentationShareInput;
+    const nowIso = new Date().toISOString();
+    const patch: Record<string, unknown> = {
+      shareEnabled: enabled,
+      updatedAt: nowIso,
+    };
+    if (enabled) {
+      patch.shareEnabledAt = nowIso;
+      if (!row.shareToken) {
+        patch.shareToken = randomShareToken();
+      }
+    }
+    const [updated] = await db
+      .update(presentations)
+      .set(patch)
+      .where(eq(presentations.id, id))
+      .returning();
+    if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Presentation not found');
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: enabled ? 'presentation.share.enable' : 'presentation.share.disable',
+      target: id,
+    });
+    const body: PresentationShareState = {
+      shareToken: updated.shareToken ?? null,
+      shareEnabled: updated.shareEnabled,
+      shareEnabledAt: updated.shareEnabledAt ?? null,
+    };
+    return success(c, body);
   },
 );
 

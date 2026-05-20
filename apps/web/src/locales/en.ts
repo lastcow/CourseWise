@@ -155,6 +155,13 @@ export const en = {
         quickLinks: 'Quick links',
       },
     },
+    share: {
+      notFoundTitle: 'Share link not found',
+      notFoundBody:
+        'This link may have been disabled by the teacher, or the URL is incorrect.',
+      noEmbed:
+        'This deck can’t be embedded directly. Use “Open in Gamma” or download the .pptx above.',
+    },
     courses: {
       title: 'Courses',
       newCta: '+ New course',
@@ -387,6 +394,23 @@ export const en = {
       failed: 'Generation failed',
       externalDeckBanner:
         'This deck lives in Gamma. Open it there to edit, or download the .pptx.',
+      progress: {
+        generating: 'Generating with Gamma…',
+        stillWorking: 'Still working — Gamma is finalising the deck.',
+        takingLong: 'Taking longer than usual. Gamma can be slow under load.',
+      },
+      share: {
+        button: 'Share',
+        dialogTitle: 'Share presentation',
+        enable: 'Enable public share link',
+        enabledHint: 'Anyone with this link can view the deck. No sign-in required.',
+        disabledHint: 'Sharing is off. Turn it on to mint a public link.',
+        copy: 'Copy link',
+        copied: 'Link copied',
+        openViewer: 'Open viewer',
+        enabledToast: 'Public share link enabled',
+        disabledToast: 'Public share link disabled',
+      },
     },
     slides: {
       list: 'Slides',

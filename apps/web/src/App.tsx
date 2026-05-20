@@ -14,6 +14,7 @@ import { FeaturesPage } from '@/pages/public/FeaturesPage';
 import { PricingPage } from '@/pages/public/PricingPage';
 import { AboutPage } from '@/pages/public/AboutPage';
 import { ContactPage } from '@/pages/public/ContactPage';
+import { PublicPresentationPage } from '@/pages/public/PublicPresentationPage';
 import { LegalRoutes } from '@/pages/legal/LegalRoutes';
 import { SettingsApiTokensPage } from '@/pages/SettingsApiTokensPage';
 import { AdminAiPage } from '@/pages/admin/AdminAiPage';
@@ -63,6 +64,8 @@ export default function App(): JSX.Element {
       <ToastProvider>
         <AuthProvider>
           <Routes>
+            {/* Public presentation viewer — bare layout, no marketing chrome. */}
+            <Route path="/p/:token" element={<PublicPresentationPage />} />
             <Route element={<PublicLayout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/features" element={<FeaturesPage />} />

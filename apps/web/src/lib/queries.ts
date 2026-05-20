@@ -61,6 +61,7 @@ import type {
   MaterialSummary,
   ModuleSummary,
   OverrideFinalGradeInput,
+  PresentationShareState,
   PresentationSummary,
   QuizAttemptDetail,
   QuizAttemptSummary,
@@ -502,6 +503,21 @@ export function useDeletePresentation(courseId: string) {
     mutationFn: (id: string) =>
       apiCall<{ id: string }>(`/api/presentations/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['presentations', courseId] }),
+  });
+}
+
+export function useTogglePresentationShare(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      apiCall<PresentationShareState>(`/api/presentations/${id}/share`, {
+        method: 'PATCH',
+        body: { enabled },
+      }),
+    onSuccess: (_data, v) => {
+      void qc.invalidateQueries({ queryKey: ['presentations', courseId] });
+      void qc.invalidateQueries({ queryKey: ['presentation', v.id] });
+    },
   });
 }
 

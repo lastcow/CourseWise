@@ -26,6 +26,7 @@ import alertsRoutes from './routes/alerts';
 import dashboardsRoutes from './routes/dashboards';
 import courseAiRoutes from './routes/courseAi';
 import contactRoutes from './routes/contact';
+import publicShareRoutes from './routes/publicShare';
 import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
 export { MaterialGenerationWorkflow } from './workflows/materialGeneration';
@@ -92,6 +93,7 @@ app.route('/api', alertsRoutes);
 app.route('/api', dashboardsRoutes);
 app.route('/api', courseAiRoutes);
 app.route('/api', contactRoutes);
+app.route('/api', publicShareRoutes);
 
 app.notFound((c) =>
   c.json(
