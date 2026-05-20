@@ -348,6 +348,12 @@ export const en = {
       colSlides: 'Slides',
       colSource: 'Source',
       colActions: 'Actions',
+      deleteDialogTitle: 'Delete presentation?',
+      linkModuleTitle: 'Move to module',
+      linkModuleAction: 'Move to module',
+      moduleLabel: 'Module',
+      unassignedModule: 'No module',
+      moduleUpdated: 'Module updated',
     },
     gamma: {
       dialogTitle: 'Generate presentation with Gamma',

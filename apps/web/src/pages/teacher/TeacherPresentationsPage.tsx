@@ -7,13 +7,15 @@ import {
   CircleCheck,
   Download,
   ExternalLink,
-  Pencil,
+  FolderInput,
   RefreshCw,
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -27,12 +29,15 @@ import {
   getDownloadUrl,
   useDeletePresentation,
   useGammaJob,
+  useModulesList,
   usePresentationsList,
   useTransitionPresentation,
+  useUpdatePresentation,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
 import { GenerateGammaDialog } from '@/components/gamma/GenerateGammaDialog';
 import { GammaProgressBar } from '@/components/ai/GammaProgressBar';
+import type { PresentationSummary } from '@coursewise/shared';
 
 type ActiveJobState = { presentationId: string | null; jobCreatedAt: string | null };
 
@@ -109,10 +114,15 @@ export function TeacherPresentationsPage(): JSX.Element {
   const list = usePresentationsList(id);
   const transition = useTransitionPresentation(id);
   const del = useDeletePresentation(id);
+  const update = useUpdatePresentation(id);
+  const modulesQ = useModulesList(id || null);
   const toast = useToast();
   const qc = useQueryClient();
 
   const [gammaOpen, setGammaOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<PresentationSummary | null>(null);
+  const [moveTarget, setMoveTarget] = useState<PresentationSummary | null>(null);
+  const [moveModuleId, setMoveModuleId] = useState<string>('');
   const [activeJobIds, setActiveJobIds] = useState<string[]>([]);
   // Map jobId → { presentationId, jobCreatedAt } so rows can render the live
   // progress bar while we're still polling.
@@ -267,13 +277,14 @@ export function TeacherPresentationsPage(): JSX.Element {
                       <TableCell>
                         <div className="flex items-center justify-end gap-1.5">
                           <ActionIconButton
-                            asChild
-                            icon={Pencil}
-                            label={t('common.edit')}
-                            color="yellow"
-                          >
-                            <Link to={`/teacher/courses/${id}/presentations/${p.id}`} />
-                          </ActionIconButton>
+                            icon={FolderInput}
+                            label={t('presentations.linkModuleAction')}
+                            color="sky"
+                            onClick={() => {
+                              setMoveModuleId(p.moduleId ?? '');
+                              setMoveTarget(p);
+                            }}
+                          />
                           {p.status !== 'published' ? (
                             <ActionIconButton
                               icon={CircleCheck}
@@ -303,11 +314,7 @@ export function TeacherPresentationsPage(): JSX.Element {
                             icon={Trash2}
                             label={t('common.delete')}
                             color="red"
-                            onClick={async () => {
-                              if (!confirm(t('presentations.deleteConfirm'))) return;
-                              await del.mutateAsync(p.id);
-                              toast.push({ title: t('presentations.deleted'), tone: 'success' });
-                            }}
+                            onClick={() => setDeleteTarget(p)}
                           />
                         </div>
                       </TableCell>
@@ -340,6 +347,87 @@ export function TeacherPresentationsPage(): JSX.Element {
           void qc.invalidateQueries({ queryKey: ['presentations', id] });
         }}
       />
+
+      <Dialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        title={t('presentations.deleteDialogTitle')}
+        dismissOnBackdropClick={false}
+      >
+        <p className="text-sm text-muted-foreground">{t('presentations.deleteConfirm')}</p>
+        {deleteTarget ? <p className="mt-2 text-sm font-medium">{deleteTarget.title}</p> : null}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={del.isPending}
+            onClick={async () => {
+              if (!deleteTarget) return;
+              try {
+                await del.mutateAsync(deleteTarget.id);
+                toast.push({ title: t('presentations.deleted'), tone: 'success' });
+                setDeleteTarget(null);
+              } catch (err) {
+                const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                toast.push({ title: t(key), tone: 'error' });
+              }
+            }}
+          >
+            {t('common.delete')}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={moveTarget !== null}
+        onClose={() => setMoveTarget(null)}
+        title={t('presentations.linkModuleTitle')}
+        dismissOnBackdropClick={false}
+      >
+        <div className="space-y-2">
+          <Label htmlFor="move-module">{t('presentations.moduleLabel')}</Label>
+          <select
+            id="move-module"
+            value={moveModuleId}
+            onChange={(e) => setMoveModuleId(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={modulesQ.isLoading}
+          >
+            <option value="">{t('presentations.unassignedModule')}</option>
+            {(modulesQ.data ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setMoveTarget(null)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            disabled={update.isPending}
+            onClick={async () => {
+              if (!moveTarget) return;
+              try {
+                await update.mutateAsync({
+                  id: moveTarget.id,
+                  input: { moduleId: moveModuleId || null },
+                });
+                toast.push({ title: t('presentations.moduleUpdated'), tone: 'success' });
+                setMoveTarget(null);
+              } catch (err) {
+                const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                toast.push({ title: t(key), tone: 'error' });
+              }
+            }}
+          >
+            {t('common.save')}
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }
