@@ -48,6 +48,7 @@ import type {
   GenerateAlertsResult,
   GenerateGammaPresentationInput,
   GenerateMaterialsInput,
+  GradebookStudentDetail,
   GradeDiscussionInput,
   GradeQuizAnswerInput,
   GradeSubmissionInput,
@@ -1308,6 +1309,20 @@ export function useOverrideFinalGrade(courseId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
     },
+  });
+}
+
+export function useGradebookStudentDetail(
+  courseId: string | null,
+  studentId: string | null,
+) {
+  return useQuery({
+    queryKey: ['gradebook-student-detail', courseId, studentId],
+    enabled: !!courseId && !!studentId,
+    queryFn: () =>
+      apiCall<GradebookStudentDetail>(
+        `/api/courses/${courseId}/students/${studentId}/gradebook-detail`,
+      ),
   });
 }
 

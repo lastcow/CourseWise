@@ -42,6 +42,7 @@ import { TeacherQuizEditorPage } from '@/pages/teacher/TeacherQuizEditorPage';
 import { TeacherQuizAttemptsPage } from '@/pages/teacher/TeacherQuizAttemptsPage';
 import { TeacherAttendancePage } from '@/pages/teacher/TeacherAttendancePage';
 import { TeacherGradebookPage } from '@/pages/teacher/TeacherGradebookPage';
+import { TeacherGradebookStudentPage } from '@/pages/teacher/TeacherGradebookStudentPage';
 import { TeacherGradingPolicyPage } from '@/pages/teacher/TeacherGradingPolicyPage';
 import { TeacherAlertsPage } from '@/pages/teacher/TeacherAlertsPage';
 import { AdminAlertsPage } from '@/pages/admin/AdminAlertsPage';
@@ -204,6 +205,10 @@ export default function App(): JSX.Element {
                 <Route path="quizzes/:quizId/attempts" element={<TeacherQuizAttemptsPage />} />
                 <Route path="attendance" element={<TeacherAttendancePage />} />
                 <Route path="gradebook" element={<TeacherGradebookPage />} />
+                <Route
+                  path="gradebook/:studentId"
+                  element={<TeacherGradebookStudentPage />}
+                />
                 <Route path="grading-policy" element={<TeacherGradingPolicyPage />} />
                 <Route path="alerts" element={<TeacherAlertsPage />} />
               </Route>
