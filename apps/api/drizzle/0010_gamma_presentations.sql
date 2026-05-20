@@ -1,9 +1,12 @@
 ALTER TABLE "presentations"
   ADD COLUMN IF NOT EXISTS "external_url" text;
+--> statement-breakpoint
 ALTER TABLE "presentations"
   ADD COLUMN IF NOT EXISTS "provider" text;
+--> statement-breakpoint
 ALTER TABLE "presentations"
   ADD COLUMN IF NOT EXISTS "file_asset_id" uuid;
+--> statement-breakpoint
 
 DO $$ BEGIN
   ALTER TABLE "presentations"
@@ -69,7 +72,9 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS "gamma_generation_jobs_course_idx"
   ON "gamma_generation_jobs" ("course_id");
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "gamma_generation_jobs_status_idx"
   ON "gamma_generation_jobs" ("status");
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "gamma_generation_jobs_presentation_idx"
   ON "gamma_generation_jobs" ("presentation_id");
