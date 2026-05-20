@@ -2,6 +2,7 @@ import { Hono, type Context } from 'hono';
 import { and, asc, eq } from 'drizzle-orm';
 import {
   DEFAULT_GRADING_POLICY,
+  courseDeleteBodySchema,
   createCourseSchema,
   enrollStudentSchema,
   updateCourseSchema,
@@ -14,9 +15,11 @@ import {
   type UpdateCourseInput,
 } from '@coursewise/shared';
 import {
+  courseDeletionLog,
   courseTeachers,
   courses,
   enrollments,
+  r2CleanupJobs,
   studentProfiles,
   users,
 } from '../db/schema';
@@ -29,6 +32,7 @@ import { validateJson } from '../middleware/validate';
 import { canDeleteCourse, canWriteCourse } from '../services/courseAccess';
 import { courseChildCounts } from '../services/courseDeletion';
 import { recordAudit } from '../services/audit';
+import { runR2Cleanup } from '../jobs/r2Cleanup';
 import type { AppEnv } from '../types';
 
 const r = new Hono<AppEnv>();
@@ -263,24 +267,57 @@ r.get(
   },
 );
 
-// Delete a course (only when no enrollments).
+// Hard delete a course (admin or primary teacher only).
+//
+// Wipes every cascaded child row in one transaction, queues the R2 prefix
+// cleanup for ctx.waitUntil execution, and writes a metadata-only audit row
+// to course_deletion_log. The user must type the course code into the request
+// body's `confirmCode` field, matching course.code exactly.
 r.delete('/courses/:courseId', requireScopeGroup('coursesWrite'), requireTokenCourseAccess(), async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
   const courseId = requireParam(c, 'courseId');
-  if (!(await canWriteCourse(db, auth.user, courseId))) {
-    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+
+  if (!(await canDeleteCourse(db, auth.user, courseId))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No delete access to this course');
   }
-  const enrolledRows = await db
-    .select({ id: enrollments.id })
-    .from(enrollments)
-    .where(eq(enrollments.courseId, courseId))
+
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = courseDeleteBodySchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'confirmCode required');
+  }
+
+  const [course] = await db
+    .select({ id: courses.id, code: courses.code, title: courses.title })
+    .from(courses)
+    .where(eq(courses.id, courseId))
     .limit(1);
-  if (enrolledRows.length > 0) {
-    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Course has enrollments; drop them first');
+  if (!course) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+  if (parsed.data.confirmCode !== course.code) {
+    throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'Confirmation code does not match course code');
   }
-  const result = await db.delete(courses).where(eq(courses.id, courseId)).returning({ id: courses.id });
-  if (result.length === 0) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+
+  const counts = await courseChildCounts(db, courseId);
+  const jobId = crypto.randomUUID();
+
+  await db.transaction(async (tx) => {
+    await tx.insert(courseDeletionLog).values({
+      courseId: course.id,
+      courseCode: course.code,
+      courseTitle: course.title,
+      deletedBy: auth.user.id,
+      childCounts: counts,
+    });
+    const deleted = await tx
+      .delete(courses)
+      .where(eq(courses.id, courseId))
+      .returning({ id: courses.id });
+    if (deleted.length === 0) {
+      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+    }
+    await tx.insert(r2CleanupJobs).values({ id: jobId, courseId, status: 'pending' });
+  });
 
   await recordAudit(db, {
     actorType: auth.method === 'jwt' ? 'user' : 'api_token',
@@ -289,6 +326,10 @@ r.delete('/courses/:courseId', requireScopeGroup('coursesWrite'), requireTokenCo
     action: 'course.delete',
     target: courseId,
   });
+
+  if (c.env.COURSE_FILES) {
+    c.executionCtx.waitUntil(runR2Cleanup(db, c.env.COURSE_FILES, jobId, courseId));
+  }
 
   return success(c, { id: courseId });
 });
