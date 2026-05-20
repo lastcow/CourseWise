@@ -40,6 +40,13 @@ export interface AppBindings {
   // env.MATERIAL_GEN_WORKFLOW.create({ params }) and .get(id). Optional so
   // dev/test envs without a Workflows plan can still run.
   MATERIAL_GEN_WORKFLOW?: Workflow;
+  // Outbound email. Resend is the primary provider — set RESEND_API_KEY via
+  // `wrangler secret put` once the domain has been verified. EMAIL_FROM is a
+  // non-secret default (e.g. `CourseWise <noreply@fsuac.com>`); when unset the
+  // Worker uses a hardcoded fallback so dev environments can still render
+  // emails for testing without sending them.
+  RESEND_API_KEY?: string;
+  EMAIL_FROM?: string;
 }
 
 export interface AppVariables {

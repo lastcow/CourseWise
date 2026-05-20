@@ -10,6 +10,7 @@ JWT_ISSUER = "coursewise"
 JWT_AUDIENCE = "coursewise-web"
 CORS_ORIGIN = "https://fsuac.com"
 R2_BUCKET = "coursewise-files"
+EMAIL_FROM = "CourseWise <noreply@fsuac.com>"
 
 # Required production secrets (uploaded with `wrangler secret put`):
 #   DATABASE_URL         — Neon pooled connection string
@@ -34,6 +35,15 @@ R2_BUCKET = "coursewise-files"
 #   OPENAI_API_KEY        — OpenAI API key (referenced by ai_providers.api_key_secret_ref)
 #   GAMMA_API_KEY        — Gamma Generate API key (https://developers.gamma.app),
 #                          required for POST /api/courses/{id}/presentations/gamma
+# Outbound email (teacher invitations + future notifications). Provider is
+# Resend (https://resend.com). If unset, sends are skipped and the response's
+# `emailSent` flag is false — the admin UI still shows the invite URL for
+# manual sharing. Once you add fsuac.com in the Resend dashboard and pass DKIM
+# verification, set:
+#   RESEND_API_KEY       — secret, uploaded via `wrangler secret put`.
+# Optional non-secret default lives in [vars] below:
+#   EMAIL_FROM           — friendly name + address, e.g.
+#                          "CourseWise <noreply@fsuac.com>" (the default).
 
 [observability]
 enabled = true

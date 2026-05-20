@@ -29,3 +29,15 @@ OPENAI_API_KEY=
 # Gamma Generate API key. Optional in dev — gamma routes return 500 with a
 # clear error until this is set. Create one at https://gamma.app/account-settings/api-keys
 GAMMA_API_KEY=
+
+# Outbound email via Resend (https://resend.com). Optional in dev — when unset,
+# teacher invitation responses come back with emailSent=false and the admin UI
+# falls back to "copy invite link" only. To send for real:
+#   1. Sign in at resend.com, add domain fsuac.com, paste the DKIM/SPF records
+#      Resend gives you into Cloudflare DNS for fsuac.com.
+#   2. Create an API key with permission to send from that domain.
+#   3. Set RESEND_API_KEY below.
+RESEND_API_KEY=
+# Optional. Friendly name + address used as the From: header. Defaults to
+# "CourseWise <noreply@fsuac.com>".
+EMAIL_FROM=

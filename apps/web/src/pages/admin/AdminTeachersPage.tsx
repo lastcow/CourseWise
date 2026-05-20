@@ -62,7 +62,12 @@ export function AdminTeachersPage(): JSX.Element {
     try {
       const created = await resend.mutateAsync(id);
       setLastInviteUrl(created.inviteUrl);
-      toast.push({ title: t('teachers.invitationResent'), tone: 'success' });
+      toast.push({
+        title: created.emailSent
+          ? t('teachers.invitationEmailed', { email: created.email })
+          : t('teachers.invitationResent'),
+        tone: 'success',
+      });
     } catch (err) {
       toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
     }
@@ -241,7 +246,12 @@ function InviteTeacherDialog({ open, onClose, onCreated }: InviteTeacherDialogPr
         email: email.trim(),
         name: name.trim() ? name.trim() : undefined,
       });
-      toast.push({ title: t('teachers.invitationSent'), tone: 'success' });
+      toast.push({
+        title: created.emailSent
+          ? t('teachers.invitationEmailed', { email: created.email })
+          : t('teachers.invitationSent'),
+        tone: 'success',
+      });
       onCreated(created.inviteUrl);
       reset();
       onClose();
