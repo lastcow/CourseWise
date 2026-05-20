@@ -8,11 +8,13 @@ import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import {
   useArchiveCourse,
   useCourse,
-  useDeleteCourse,
+  useDeletionPreview,
   useUpdateCourse,
 } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
+import { useAuth } from '@/lib/authContext';
+import { DeleteCourseDialog } from '@/components/course/DeleteCourseDialog';
 
 export function TeacherCourseSettings(): JSX.Element {
   const { t } = useTranslation();
@@ -21,14 +23,21 @@ export function TeacherCourseSettings(): JSX.Element {
   const course = useCourse(id);
   const update = useUpdateCourse();
   const archive = useArchiveCourse();
-  const del = useDeleteCourse();
   const toast = useToast();
   const navigate = useNavigate();
+  const { auth } = useAuth();
 
   const [title, setTitle] = useState('');
   const [code, setCode] = useState('');
   const [termLabel, setTermLabel] = useState('');
   const [description, setDescription] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const preview = useDeletionPreview(dialogOpen ? id : undefined);
+
+  const isPrimaryTeacher = course.data?.teachers?.some(
+    (teacher) => teacher.id === auth?.user.id && teacher.role === 'primary',
+  );
+  const canDelete = auth?.user.role === 'admin' || !!isPrimaryTeacher;
 
   useEffect(() => {
     if (course.data) {
@@ -71,59 +80,74 @@ export function TeacherCourseSettings(): JSX.Element {
     }
   };
 
-  const onDelete = async () => {
-    if (!window.confirm(t('courses.deleteConfirm'))) return;
-    try {
-      // Placeholder confirmCode; Task 14 replaces this with the DeleteCourseDialog flow.
-      await del.mutateAsync({ courseId: id, confirmCode: '' });
-      toast.push({ title: t('courses.deleted'), tone: 'success' });
-      navigate('/teacher/courses');
-    } catch (err) {
-      const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-      toast.push({ title: t(i18n), tone: 'error' });
-    }
-  };
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('courses.editTitle')}</CardTitle>
-      </CardHeader>
-      <form onSubmit={onSubmit}>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="title">{t('courses.name')}</Label>
-              <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('courses.editTitle')}</CardTitle>
+        </CardHeader>
+        <form onSubmit={onSubmit}>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="title">{t('courses.name')}</Label>
+                <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="code">{t('courses.code')}</Label>
+                <Input id="code" required value={code} onChange={(e) => setCode(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="term">{t('courses.term')}</Label>
+                <Input id="term" value={termLabel} onChange={(e) => setTermLabel(e.target.value)} />
+              </div>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="code">{t('courses.code')}</Label>
-              <Input id="code" required value={code} onChange={(e) => setCode(e.target.value)} />
+              <Label htmlFor="description">{t('courses.descriptionLabel')}</Label>
+              <MarkdownEditor id="description" value={description} onChange={setDescription} />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="term">{t('courses.term')}</Label>
-              <Input id="term" value={termLabel} onChange={(e) => setTermLabel(e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="description">{t('courses.descriptionLabel')}</Label>
-            <MarkdownEditor id="description" value={description} onChange={setDescription} />
-          </div>
-        </CardContent>
-        <CardFooter className="justify-between">
-          <div className="flex gap-2">
+          </CardContent>
+          <CardFooter className="justify-between">
             <Button type="button" variant="outline" onClick={onToggleArchive} disabled={archive.isPending}>
               {course.data.status === 'active' ? t('courses.archive') : t('courses.activate')}
             </Button>
-            <Button type="button" variant="destructive" onClick={onDelete} disabled={del.isPending}>
-              {t('common.delete')}
+            <Button type="submit" disabled={update.isPending}>
+              {update.isPending ? t('common.loading') : t('common.save')}
             </Button>
-          </div>
-          <Button type="submit" disabled={update.isPending}>
-            {update.isPending ? t('common.loading') : t('common.save')}
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+          </CardFooter>
+        </form>
+      </Card>
+
+      {/* Danger zone */}
+      <section className="mt-12 rounded-md border border-red-300 bg-red-50/50 p-4">
+        <h2 className="text-lg font-semibold text-red-800">Danger zone</h2>
+        <p className="mt-1 text-sm text-red-900/80">
+          Permanently delete this course and all its content. Cannot be undone.
+        </p>
+        <Button
+          variant="destructive"
+          className="mt-3"
+          disabled={!canDelete}
+          title={canDelete ? undefined : 'Only the primary teacher or an admin can delete this course.'}
+          onClick={() => setDialogOpen(true)}
+        >
+          Delete this course
+        </Button>
+      </section>
+
+      {preview.data ? (
+        <DeleteCourseDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          courseId={preview.data.courseId}
+          courseCode={preview.data.courseCode}
+          courseTitle={preview.data.courseTitle}
+          counts={preview.data.counts}
+          onDeleted={() =>
+            navigate(auth?.user.role === 'admin' ? '/admin/courses' : '/teacher/courses')
+          }
+        />
+      ) : null}
+    </div>
   );
 }
