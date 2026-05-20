@@ -213,9 +213,6 @@ export const zhCN = {
     },
     studentModules: {
       emptyModule: '该章节暂无内容。',
-      openFull: '打开完整视图',
-      openFullForFiles: '需要附件提交?请打开完整作业视图。',
-      startQuiz: '开始测验',
     },
     materials: {
       title: '阅读资料',
