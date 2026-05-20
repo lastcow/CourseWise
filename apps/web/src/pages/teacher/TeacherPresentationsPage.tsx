@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Archive, CircleCheck, Download, ExternalLink, Pencil, Share2, Trash2 } from 'lucide-react';
+import { Archive, CircleCheck, Download, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,9 +21,7 @@ import {
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
 import { GenerateGammaDialog } from '@/components/gamma/GenerateGammaDialog';
-import { ShareLinkDialog } from '@/components/gamma/ShareLinkDialog';
 import { GammaProgressBar } from '@/components/ai/GammaProgressBar';
-import type { PresentationSummary } from '@coursewise/shared';
 
 type ActiveJobState = { presentationId: string | null; jobCreatedAt: string | null };
 
@@ -106,7 +104,6 @@ export function TeacherPresentationsPage(): JSX.Element {
   const [desc, setDesc] = useState('');
 
   const [gammaOpen, setGammaOpen] = useState(false);
-  const [shareTarget, setShareTarget] = useState<PresentationSummary | null>(null);
   const [activeJobIds, setActiveJobIds] = useState<string[]>([]);
   // Map jobId → { presentationId, jobCreatedAt } so rows can render the live
   // progress bar while we're still polling.
@@ -248,13 +245,6 @@ export function TeacherPresentationsPage(): JSX.Element {
                           label={t('gamma.downloadPptx')}
                         />
                       ) : null}
-                      <Button size="sm" variant="outline" onClick={() => setShareTarget(p)}>
-                        <Share2 className="h-4 w-4" />
-                        {t('gamma.share.button')}
-                        {p.shareEnabled ? (
-                          <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        ) : null}
-                      </Button>
                     </div>
                   ) : null}
                   <div className="flex flex-wrap items-center gap-1.5 pt-2">
@@ -341,16 +331,6 @@ export function TeacherPresentationsPage(): JSX.Element {
         }}
       />
 
-      {shareTarget ? (
-        <ShareLinkDialog
-          open
-          onClose={() => setShareTarget(null)}
-          courseId={id}
-          presentationId={shareTarget.id}
-          initialEnabled={shareTarget.shareEnabled}
-          initialToken={shareTarget.shareToken}
-        />
-      ) : null}
     </div>
   );
 }
