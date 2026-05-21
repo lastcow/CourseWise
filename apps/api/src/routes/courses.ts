@@ -413,6 +413,13 @@ r.get(
         enrolledAt: enrollments.enrolledAt,
         status: enrollments.status,
         studentNumber: studentProfiles.studentNumber,
+        // Total active enrollments this student has across the school. Per-
+        // row correlated subquery; rosters are small in practice so the
+        // extra cost is negligible and we avoid a second round-trip.
+        enrolledCourseCount: sql<number>`(
+          SELECT count(*)::int FROM enrollments e2
+          WHERE e2.student_id = ${users.id} AND e2.status = 'enrolled'
+        )`,
       })
       .from(enrollments)
       .innerJoin(users, eq(enrollments.studentId, users.id))
