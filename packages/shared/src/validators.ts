@@ -362,12 +362,32 @@ export type SubmissionMode = (typeof SUBMISSION_MODES)[number];
 // Group-mode assignments must also send groupSetId. Enforced at the API
 // layer (we let Zod accept the loose shape and validate the cross-field
 // rule with a refine so error messages stay legible).
+// Cross-field check shared by create + update: start ≤ end ≤ until. Skips
+// any pair that's missing so a PATCH that only touches one field doesn't
+// trip the rule.
+function schedulingOrderOk(v: {
+  startDate?: string | null;
+  endDate?: string | null;
+  untilDate?: string | null;
+}): boolean {
+  const start = v.startDate ? Date.parse(v.startDate) : null;
+  const end = v.endDate ? Date.parse(v.endDate) : null;
+  const until = v.untilDate ? Date.parse(v.untilDate) : null;
+  if (start !== null && end !== null && start > end) return false;
+  if (end !== null && until !== null && end > until) return false;
+  if (start !== null && until !== null && start > until) return false;
+  return true;
+}
+
 export const createAssignmentSchema = z
   .object({
     title: z.string().trim().min(1).max(200),
     description: z.string().trim().max(20_000).optional().nullable(),
     moduleId: z.string().uuid().optional().nullable(),
     dueDate: isoDateString.optional().nullable(),
+    startDate: isoDateString.optional().nullable(),
+    endDate: isoDateString.optional().nullable(),
+    untilDate: isoDateString.optional().nullable(),
     maxScore: z.number().min(0).max(1000).optional().nullable(),
     rubric: z.unknown().optional(),
     allowLateSubmission: z.boolean().optional(),
@@ -379,6 +399,10 @@ export const createAssignmentSchema = z
   .refine((v) => v.submissionMode !== 'group' || !!v.groupSetId, {
     message: 'groupSetId is required when submissionMode is "group"',
     path: ['groupSetId'],
+  })
+  .refine(schedulingOrderOk, {
+    message: 'Dates must satisfy startDate ≤ endDate ≤ untilDate',
+    path: ['endDate'],
   });
 export type CreateAssignmentInput = z.infer<typeof createAssignmentSchema>;
 
@@ -389,6 +413,9 @@ export const updateAssignmentSchema = z
     moduleId: z.string().uuid().optional().nullable(),
     groupId: z.string().uuid().nullable().optional(),
     dueDate: isoDateString.optional().nullable(),
+    startDate: isoDateString.optional().nullable(),
+    endDate: isoDateString.optional().nullable(),
+    untilDate: isoDateString.optional().nullable(),
     maxScore: z.number().min(0).max(1000).optional().nullable(),
     rubric: z.unknown().optional(),
     allowLateSubmission: z.boolean().optional(),
@@ -409,7 +436,11 @@ export const updateAssignmentSchema = z
       message: 'groupSetId cannot be null when submissionMode is "group"',
       path: ['groupSetId'],
     },
-  );
+  )
+  .refine(schedulingOrderOk, {
+    message: 'Dates must satisfy startDate ≤ endDate ≤ untilDate',
+    path: ['endDate'],
+  });
 export type UpdateAssignmentInput = z.infer<typeof updateAssignmentSchema>;
 
 // ---------- M3: Submissions ----------
@@ -475,41 +506,71 @@ export const gradeDiscussionSchema = z.object({
 export type GradeDiscussionInput = z.infer<typeof gradeDiscussionSchema>;
 
 // ---------- M4: Quizzes ----------
-export const createQuizSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(20_000).optional().nullable(),
-  moduleId: z.string().uuid().optional().nullable(),
-  startTime: isoDateString.optional().nullable(),
-  endTime: isoDateString.optional().nullable(),
-  timeLimitMinutes: z
-    .number()
-    .int()
-    .positive()
-    .max(24 * 60)
-    .optional()
-    .nullable(),
-  maxAttempts: z.number().int().positive().max(100).optional(),
-  passingScore: z.number().min(0).max(1000).optional().nullable(),
-});
+// For quizzes, startTime / endTime double as the "start_date" / "end_date"
+// from the scheduling design — they already gate when an attempt can be
+// opened. untilDate is a hard absolute cutoff that caps in-progress
+// attempts' expiresAt to min(startedAt + timeLimit, untilDate).
+function quizSchedulingOrderOk(v: {
+  startTime?: string | null;
+  endTime?: string | null;
+  untilDate?: string | null;
+}): boolean {
+  const start = v.startTime ? Date.parse(v.startTime) : null;
+  const end = v.endTime ? Date.parse(v.endTime) : null;
+  const until = v.untilDate ? Date.parse(v.untilDate) : null;
+  if (start !== null && end !== null && start > end) return false;
+  if (end !== null && until !== null && end > until) return false;
+  if (start !== null && until !== null && start > until) return false;
+  return true;
+}
+
+export const createQuizSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(20_000).optional().nullable(),
+    moduleId: z.string().uuid().optional().nullable(),
+    startTime: isoDateString.optional().nullable(),
+    endTime: isoDateString.optional().nullable(),
+    untilDate: isoDateString.optional().nullable(),
+    timeLimitMinutes: z
+      .number()
+      .int()
+      .positive()
+      .max(24 * 60)
+      .optional()
+      .nullable(),
+    maxAttempts: z.number().int().positive().max(100).optional(),
+    passingScore: z.number().min(0).max(1000).optional().nullable(),
+  })
+  .refine(quizSchedulingOrderOk, {
+    message: 'Dates must satisfy startTime ≤ endTime ≤ untilDate',
+    path: ['endTime'],
+  });
 export type CreateQuizInput = z.infer<typeof createQuizSchema>;
 
-export const updateQuizSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
-  description: z.string().trim().max(20_000).optional().nullable(),
-  moduleId: z.string().uuid().optional().nullable(),
-  groupId: z.string().uuid().nullable().optional(),
-  startTime: isoDateString.optional().nullable(),
-  endTime: isoDateString.optional().nullable(),
-  timeLimitMinutes: z
-    .number()
-    .int()
-    .positive()
-    .max(24 * 60)
-    .optional()
-    .nullable(),
-  maxAttempts: z.number().int().positive().max(100).optional(),
-  passingScore: z.number().min(0).max(1000).optional().nullable(),
-});
+export const updateQuizSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(20_000).optional().nullable(),
+    moduleId: z.string().uuid().optional().nullable(),
+    groupId: z.string().uuid().nullable().optional(),
+    startTime: isoDateString.optional().nullable(),
+    endTime: isoDateString.optional().nullable(),
+    untilDate: isoDateString.optional().nullable(),
+    timeLimitMinutes: z
+      .number()
+      .int()
+      .positive()
+      .max(24 * 60)
+      .optional()
+      .nullable(),
+    maxAttempts: z.number().int().positive().max(100).optional(),
+    passingScore: z.number().min(0).max(1000).optional().nullable(),
+  })
+  .refine(quizSchedulingOrderOk, {
+    message: 'Dates must satisfy startTime ≤ endTime ≤ untilDate',
+    path: ['endTime'],
+  });
 export type UpdateQuizInput = z.infer<typeof updateQuizSchema>;
 
 const choiceOptionsSchema = z.array(z.string().trim().min(1).max(2000)).min(2).max(20);

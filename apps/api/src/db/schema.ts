@@ -521,6 +521,14 @@ export const assignments = pgTable(
     title: text('title').notNull(),
     description: text('description'),
     dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
+    // Scheduling window (migration 0021). `startDate` and `endDate` gate
+    // whether a student can open / start work on this assignment;
+    // `untilDate` is the hard cutoff for actually submitting drafts that
+    // were started inside the window. Order is application-enforced:
+    // startDate ≤ endDate ≤ untilDate.
+    startDate: timestamp('start_date', { withTimezone: true, mode: 'string' }),
+    endDate: timestamp('end_date', { withTimezone: true, mode: 'string' }),
+    untilDate: timestamp('until_date', { withTimezone: true, mode: 'string' }),
     maxScore: numeric('max_score', { precision: 6, scale: 2 }),
     rubric: jsonb('rubric'),
     allowLateSubmission: boolean('allow_late_submission').notNull().default(false),
@@ -711,6 +719,10 @@ export const quizzes = pgTable(
     status: quizStatusEnum('status').notNull().default('draft'),
     startTime: timestamp('start_time', { withTimezone: true, mode: 'string' }),
     endTime: timestamp('end_time', { withTimezone: true, mode: 'string' }),
+    // Hard cutoff for any in-progress attempt (migration 0021). When set,
+    // attempt expiresAt is capped to min(startedAt + timeLimit, untilDate)
+    // — whichever comes first.
+    untilDate: timestamp('until_date', { withTimezone: true, mode: 'string' }),
     timeLimitMinutes: integer('time_limit_minutes'),
     maxAttempts: integer('max_attempts').notNull().default(1),
     maxScore: numeric('max_score', { precision: 6, scale: 2 }),

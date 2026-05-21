@@ -129,6 +129,33 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                 : '—'}{' '}
               · {t('assignments.maxScore')}: {assignment.data.maxScore ?? '—'}
             </p>
+            {assignment.data.startDate ||
+            assignment.data.endDate ||
+            assignment.data.untilDate ? (
+              <p className="text-xs text-muted-foreground">
+                {assignment.data.startDate ? (
+                  <span className="mr-3">
+                    {t('assignments.opensOn', {
+                      date: new Date(assignment.data.startDate).toLocaleString(),
+                    })}
+                  </span>
+                ) : null}
+                {assignment.data.endDate ? (
+                  <span className="mr-3">
+                    {t('assignments.closesOn', {
+                      date: new Date(assignment.data.endDate).toLocaleString(),
+                    })}
+                  </span>
+                ) : null}
+                {assignment.data.untilDate ? (
+                  <span>
+                    {t('assignments.submitByLabel', {
+                      date: new Date(assignment.data.untilDate).toLocaleString(),
+                    })}
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
             <Markdown source={assignment.data.description ?? ''} />
             {assignment.data.attachmentFileId ? (
               <ActionIconButton

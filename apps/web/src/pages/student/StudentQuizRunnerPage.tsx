@@ -156,6 +156,32 @@ export function StudentQuizRunnerPage(): JSX.Element {
                 ? t('quizzes.timeLimitDisplay', { minutes: quiz.data.timeLimitMinutes })
                 : t('quizzes.noTimeLimit')}
             </p>
+            {quiz.data &&
+            (quiz.data.startTime || quiz.data.endTime || quiz.data.untilDate) ? (
+              <p className="text-xs text-muted-foreground">
+                {quiz.data.startTime ? (
+                  <span className="mr-3">
+                    {t('assignments.opensOn', {
+                      date: new Date(quiz.data.startTime).toLocaleString(),
+                    })}
+                  </span>
+                ) : null}
+                {quiz.data.endTime ? (
+                  <span className="mr-3">
+                    {t('assignments.closesOn', {
+                      date: new Date(quiz.data.endTime).toLocaleString(),
+                    })}
+                  </span>
+                ) : null}
+                {quiz.data.untilDate ? (
+                  <span>
+                    {t('assignments.submitByLabel', {
+                      date: new Date(quiz.data.untilDate).toLocaleString(),
+                    })}
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
             <Button onClick={handleStart}>{t('quizzes.startCta')}</Button>
           </CardContent>
         </Card>

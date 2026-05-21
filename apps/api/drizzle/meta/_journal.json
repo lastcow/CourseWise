@@ -148,6 +148,13 @@
       "when": 1780684800000,
       "tag": "0020_group_submissions",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1780771200000,
+      "tag": "0021_assignment_quiz_scheduling",
+      "breakpoints": true
     }
   ]
 }

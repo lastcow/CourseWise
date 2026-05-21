@@ -328,6 +328,13 @@ export interface AssignmentSummary {
   title: string;
   description: string | null;
   dueDate: string | null;
+  // Scheduling window. start/end gate when students can open or submit
+  // (both new starts and submit actions are blocked outside this window);
+  // until is the absolute deadline for in-progress drafts that were
+  // started inside the window.
+  startDate: string | null;
+  endDate: string | null;
+  untilDate: string | null;
   maxScore: number | null;
   rubric: unknown;
   allowLateSubmission: boolean;
@@ -477,6 +484,8 @@ export interface QuizSummary {
   status: QuizStatus;
   startTime: string | null;
   endTime: string | null;
+  /** Hard absolute cutoff. In-progress attempts auto-finalize here. */
+  untilDate: string | null;
   timeLimitMinutes: number | null;
   maxAttempts: number;
   maxScore: number | null;

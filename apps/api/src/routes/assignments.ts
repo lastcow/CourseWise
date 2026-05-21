@@ -75,6 +75,9 @@ function toAssignmentSummary(
     title: row.title,
     description: row.description ?? null,
     dueDate: row.dueDate ?? null,
+    startDate: row.startDate ?? null,
+    endDate: row.endDate ?? null,
+    untilDate: row.untilDate ?? null,
     maxScore: num(row.maxScore),
     rubric: row.rubric ?? null,
     allowLateSubmission: row.allowLateSubmission,
@@ -311,6 +314,9 @@ r.post(
         title: input.title,
         description: input.description ?? null,
         dueDate: input.dueDate ?? null,
+        startDate: input.startDate ?? null,
+        endDate: input.endDate ?? null,
+        untilDate: input.untilDate ?? null,
         maxScore: input.maxScore != null ? input.maxScore.toString() : null,
         rubric: (input.rubric as Record<string, unknown> | undefined) ?? null,
         allowLateSubmission: input.allowLateSubmission ?? false,
@@ -373,6 +379,9 @@ r.patch(
     if (input.moduleId !== undefined) patch.moduleId = input.moduleId;
     if (input.groupId !== undefined) patch.groupId = input.groupId;
     if (input.dueDate !== undefined) patch.dueDate = input.dueDate;
+    if (input.startDate !== undefined) patch.startDate = input.startDate;
+    if (input.endDate !== undefined) patch.endDate = input.endDate;
+    if (input.untilDate !== undefined) patch.untilDate = input.untilDate;
     if (input.maxScore !== undefined) {
       patch.maxScore = input.maxScore === null ? null : input.maxScore.toString();
     }
@@ -682,6 +691,24 @@ r.post(
     if (!(await isCourseEnrolled(db, assignment.courseId, auth.user.id))) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
     }
+    // Scheduling gate: students cannot open / start an assignment outside
+    // its [startDate, endDate] window. Per the design call, end_date hard-
+    // blocks new starts (and submit actions further down).
+    const now = Date.now();
+    if (assignment.startDate && Date.parse(assignment.startDate) > now) {
+      throw new ApiException(
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'Assignment is not open yet',
+      );
+    }
+    if (assignment.endDate && Date.parse(assignment.endDate) < now) {
+      throw new ApiException(
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'Assignment window has closed',
+      );
+    }
 
     if (assignment.submissionMode === 'group') {
       if (!assignment.groupSetId) {
@@ -924,7 +951,32 @@ r.post(
     if (assignment.status === 'archived') {
       throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is archived');
     }
-    const submittedAt = new Date().toISOString();
+    // Scheduling gate (mirrors the POST /submissions check): refuse submit
+    // before start_date or after end_date. until_date is the absolute
+    // backstop for in-progress drafts started inside the window.
+    const submittedAtMs = Date.now();
+    if (assignment.startDate && Date.parse(assignment.startDate) > submittedAtMs) {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'Assignment is not open yet',
+      );
+    }
+    if (assignment.endDate && Date.parse(assignment.endDate) < submittedAtMs) {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'Assignment window has closed',
+      );
+    }
+    if (assignment.untilDate && Date.parse(assignment.untilDate) < submittedAtMs) {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'Assignment deadline has passed',
+      );
+    }
+    const submittedAt = new Date(submittedAtMs).toISOString();
     const status = determineSubmissionStatus({
       submittedAt,
       dueDate: assignment.dueDate,
