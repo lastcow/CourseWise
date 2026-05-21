@@ -314,6 +314,7 @@ export interface AssignmentSummary {
   id: string;
   courseId: string;
   moduleId: string | null;
+  groupId: string | null;
   title: string;
   description: string | null;
   dueDate: string | null;
@@ -359,6 +360,7 @@ export interface DiscussionTopicSummary {
   id: string;
   courseId: string;
   moduleId: string | null;
+  groupId: string | null;
   title: string;
   description: string | null;
   status: DiscussionTopicStatus;
@@ -402,6 +404,7 @@ export interface QuizSummary {
   id: string;
   courseId: string;
   moduleId: string | null;
+  groupId: string | null;
   title: string;
   description: string | null;
   status: QuizStatus;
