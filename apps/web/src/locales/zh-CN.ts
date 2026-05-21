@@ -358,6 +358,11 @@ export const zhCN = {
         quizzes: '{{count}} 份测验',
         discussions: '{{count}} 个讨论',
         empty: '暂无内容',
+        materialsLabel: '阅读资料',
+        presentationsLabel: '演示文稿',
+        assignmentsLabel: '作业',
+        quizzesLabel: '测验',
+        discussionsLabel: '讨论',
       },
     },
     studentModules: {

@@ -375,6 +375,14 @@ export const en = {
         quizzes: '{{count}} quizzes',
         discussions: '{{count}} discussions',
         empty: 'No content yet',
+        // Label-only variants — the inline accordion-header badges render
+        // the count as a separate mini badge, so the textual label drops
+        // the {{count}} interpolation.
+        materialsLabel: 'Reading materials',
+        presentationsLabel: 'Presentations',
+        assignmentsLabel: 'Assignments',
+        quizzesLabel: 'Quizzes',
+        discussionsLabel: 'Discussions',
       },
     },
     studentModules: {

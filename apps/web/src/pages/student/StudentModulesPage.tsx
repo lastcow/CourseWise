@@ -224,7 +224,7 @@ export function StudentModulesPage(): JSX.Element {
             return (
               <AccordionItem key={m.id} value={m.id}>
                 <AccordionTrigger>
-                  <div className="flex flex-col items-start gap-1">
+                  <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
                     <span className="font-medium">{m.title}</span>
                     <ModuleContentSummary
                       counts={{

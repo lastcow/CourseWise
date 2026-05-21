@@ -9,14 +9,24 @@ export interface ModuleContentCounts {
   discussions: number;
 }
 
+/**
+ * Per-module content tally surfaced in the accordion header.
+ * Each entry is a flat outlined rectangle (border + bg-background, no fill,
+ * no rounded-full pill) holding the label and a tiny secondary outlined
+ * badge with the numeric count.
+ */
 export function ModuleContentSummary({ counts }: { counts: ModuleContentCounts }): JSX.Element {
   const { t } = useTranslation();
-  const entries: Array<{ key: keyof ModuleContentCounts; icon: typeof BookOpen; label: string }> = [
-    { key: 'materials', icon: BookOpen, label: t('modules.summary.materials', { count: counts.materials }) },
-    { key: 'presentations', icon: Presentation, label: t('modules.summary.presentations', { count: counts.presentations }) },
-    { key: 'assignments', icon: ClipboardList, label: t('modules.summary.assignments', { count: counts.assignments }) },
-    { key: 'quizzes', icon: FileText, label: t('modules.summary.quizzes', { count: counts.quizzes }) },
-    { key: 'discussions', icon: MessagesSquare, label: t('modules.summary.discussions', { count: counts.discussions }) },
+  const entries: Array<{
+    key: keyof ModuleContentCounts;
+    icon: typeof BookOpen;
+    label: string;
+  }> = [
+    { key: 'materials', icon: BookOpen, label: t('modules.summary.materialsLabel') },
+    { key: 'presentations', icon: Presentation, label: t('modules.summary.presentationsLabel') },
+    { key: 'assignments', icon: ClipboardList, label: t('modules.summary.assignmentsLabel') },
+    { key: 'quizzes', icon: FileText, label: t('modules.summary.quizzesLabel') },
+    { key: 'discussions', icon: MessagesSquare, label: t('modules.summary.discussionsLabel') },
   ];
   const visible = entries.filter((e) => counts[e.key] > 0);
   if (visible.length === 0) {
@@ -25,14 +35,17 @@ export function ModuleContentSummary({ counts }: { counts: ModuleContentCounts }
     );
   }
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
       {visible.map(({ key, icon: Icon, label }) => (
         <span
           key={key}
-          className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5"
+          className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2 py-0.5 text-xs text-muted-foreground"
         >
-          <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <Icon className="h-3 w-3 shrink-0" aria-hidden />
           <span>{label}</span>
+          <span className="ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-sm border border-input px-1 text-[10px] font-medium leading-none tabular-nums text-foreground">
+            {counts[key]}
+          </span>
         </span>
       ))}
     </div>
