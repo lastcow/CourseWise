@@ -791,10 +791,6 @@ export const gradingPolicies = pgTable(
       .notNull()
       .references(() => courses.id, { onDelete: 'cascade' }),
     weightAttendance: integer('weight_attendance').notNull().default(10),
-    weightAssignments: integer('weight_assignments').notNull().default(35),
-    weightQuizzes: integer('weight_quizzes').notNull().default(30),
-    weightDiscussion: integer('weight_discussion').notNull().default(10),
-    weightFinalProject: integer('weight_final_project').notNull().default(15),
     lettersJson: jsonb('letters_json'),
     version: integer('version').notNull().default(1),
     updatedById: uuid('updated_by_id').references(() => users.id, { onDelete: 'set null' }),

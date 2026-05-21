@@ -35,34 +35,22 @@ describe('computeLetterGrade', () => {
 });
 
 describe('updateGradingPolicySchema', () => {
-  it('rejects weights that do not sum to 100', () => {
-    const r = updateGradingPolicySchema.safeParse({
-      weightAttendance: 10,
-      weightAssignments: 35,
-      weightQuizzes: 30,
-      weightDiscussion: 10,
-      weightFinalProject: 10,
-    });
-    expect(r.success).toBe(false);
-  });
-  it('accepts the default policy', () => {
-    const r = updateGradingPolicySchema.safeParse({
-      weightAttendance: 10,
-      weightAssignments: 35,
-      weightQuizzes: 30,
-      weightDiscussion: 10,
-      weightFinalProject: 15,
-    });
+  it('accepts an attendance weight in range', () => {
+    const r = updateGradingPolicySchema.safeParse({ weightAttendance: 10 });
     expect(r.success).toBe(true);
   });
-  it('rejects negative weights', () => {
-    const r = updateGradingPolicySchema.safeParse({
-      weightAttendance: -1,
-      weightAssignments: 36,
-      weightQuizzes: 30,
-      weightDiscussion: 20,
-      weightFinalProject: 15,
-    });
+  it('rejects a negative attendance weight', () => {
+    const r = updateGradingPolicySchema.safeParse({ weightAttendance: -1 });
     expect(r.success).toBe(false);
+  });
+  it('accepts custom letters', () => {
+    const r = updateGradingPolicySchema.safeParse({
+      weightAttendance: 0,
+      letters: [
+        { letter: 'A', minScore: 90 },
+        { letter: 'F', minScore: 0 },
+      ],
+    });
+    expect(r.success).toBe(true);
   });
 });

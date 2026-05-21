@@ -10,7 +10,6 @@ import type {
   DiscussionTopicStatus,
   FileAssetStatus,
   GammaJobStatus,
-  GradingPolicyCategory,
   InvitationStatus,
   LetterGradeThreshold,
   Locale,
@@ -541,10 +540,6 @@ export interface GradingPolicySummary {
   id: string;
   courseId: string;
   weightAttendance: number;
-  weightAssignments: number;
-  weightQuizzes: number;
-  weightDiscussion: number;
-  weightFinalProject: number;
   letters: LetterGradeThreshold[];
   version: number;
   updatedById: string | null;
@@ -553,16 +548,6 @@ export interface GradingPolicySummary {
 }
 
 // ---------- M5: Final Grades ----------
-export type CategoryScoreBreakdown = Record<
-  GradingPolicyCategory,
-  {
-    raw: number | null;
-    weight: number;
-    weighted: number;
-    detail?: Record<string, number | string | null>;
-  }
->;
-
 export interface FinalGradeSummary {
   id: string;
   courseId: string;
@@ -571,8 +556,13 @@ export interface FinalGradeSummary {
   studentEmail?: string;
   score: number | null;
   letterGrade: string | null;
-  categoryScores: CategoryScoreBreakdown | null;
-  gradingPolicySnapshot: GradingPolicy | null;
+  groups: GroupScoreBreakdown[];
+  attendance: { rate: number; weight: number; weighted: number } | null;
+  gradingPolicySnapshot: {
+    attendanceWeight: number;
+    groups: Array<{ id: string; name: string; weight: number }>;
+    letters: LetterGradeThreshold[];
+  } | null;
   isOutdated: boolean;
   teacherOverrideScore: number | null;
   teacherOverrideReason: string | null;

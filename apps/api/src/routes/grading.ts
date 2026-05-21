@@ -81,10 +81,6 @@ r.put(
         version: updated.version,
         weights: {
           attendance: updated.weightAttendance,
-          assignments: updated.weightAssignments,
-          quizzes: updated.weightQuizzes,
-          discussion: updated.weightDiscussion,
-          finalProject: updated.weightFinalProject,
         },
       },
     });

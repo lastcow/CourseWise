@@ -595,25 +595,10 @@ export const letterGradeThresholdSchema = z.object({
 });
 export type LetterGradeThresholdInput = z.infer<typeof letterGradeThresholdSchema>;
 
-export const updateGradingPolicySchema = z
-  .object({
-    weightAttendance: z.number().int().min(0).max(100),
-    weightAssignments: z.number().int().min(0).max(100),
-    weightQuizzes: z.number().int().min(0).max(100),
-    weightDiscussion: z.number().int().min(0).max(100),
-    weightFinalProject: z.number().int().min(0).max(100),
-    letters: z.array(letterGradeThresholdSchema).min(1).max(10).optional().nullable(),
-  })
-  .refine(
-    (v) =>
-      v.weightAttendance +
-        v.weightAssignments +
-        v.weightQuizzes +
-        v.weightDiscussion +
-        v.weightFinalProject ===
-      100,
-    { message: 'Grading policy weights must sum to 100', path: ['weights'] },
-  );
+export const updateGradingPolicySchema = z.object({
+  weightAttendance: z.number().int().min(0).max(100),
+  letters: z.array(letterGradeThresholdSchema).min(1).max(10).optional().nullable(),
+});
 export type UpdateGradingPolicyInput = z.infer<typeof updateGradingPolicySchema>;
 
 // ---------- M5: Final Grades ----------

@@ -308,20 +308,7 @@ export type InvitationStatus = (typeof INVITATION_STATUSES)[number];
 
 export const DEFAULT_GRADING_POLICY = {
   attendance: 10,
-  assignments: 35,
-  quizzes: 30,
-  discussion: 10,
-  finalProject: 15,
 } as const;
-
-export const GRADING_POLICY_CATEGORIES = [
-  'attendance',
-  'assignments',
-  'quizzes',
-  'discussion',
-  'finalProject',
-] as const;
-export type GradingPolicyCategory = (typeof GRADING_POLICY_CATEGORIES)[number];
 
 export const DEFAULT_ASSIGNMENT_GROUPS = [
   { name: 'Assignments', weight: 35, position: 0 },
