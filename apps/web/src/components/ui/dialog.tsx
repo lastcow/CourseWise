@@ -13,6 +13,13 @@ export interface DialogProps {
    * make a deliberate Save / Close choice. Default true.
    */
   dismissOnBackdropClick?: boolean;
+  /**
+   * Suppresses the corner "×" close button. Pair with
+   * dismissOnBackdropClick={false} for truly unskippable dialogs
+   * (FERPA acknowledgment, session-expired, etc.) where the user
+   * MUST pick one of the in-content actions.
+   */
+  hideCloseButton?: boolean;
 }
 
 export function Dialog({
@@ -22,6 +29,7 @@ export function Dialog({
   children,
   className,
   dismissOnBackdropClick = true,
+  hideCloseButton = false,
 }: DialogProps): JSX.Element | null {
   if (!open) return null;
   return (
@@ -40,14 +48,16 @@ export function Dialog({
         )}
       >
         {title ? <h2 className="mb-4 text-lg font-semibold">{title}</h2> : null}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-4 top-4 rounded-full p-1 text-muted-foreground hover:bg-accent"
-          aria-label="Close"
-        >
-          ×
-        </button>
+        {hideCloseButton ? null : (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-full p-1 text-muted-foreground hover:bg-accent"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        )}
         {children}
       </div>
     </div>
