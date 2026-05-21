@@ -258,6 +258,12 @@ export interface EnrollmentRow {
   status: 'enrolled' | 'dropped' | 'completed';
   // Only populated when the caller has full-roster access (teacher/admin).
   studentNumber?: string | null;
+  /**
+   * Total active enrollments this student has across the school (not just
+   * this course). Lets the UI surface "Enrolled in N courses" without a
+   * second round-trip. Returned by the full-roster path only.
+   */
+  enrolledCourseCount?: number;
 }
 
 export interface PresentationSummary {

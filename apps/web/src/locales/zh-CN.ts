@@ -492,6 +492,7 @@ export const zhCN = {
       colNumber: '学号',
       colStatus: '状态',
       statusEnrolled: '已注册',
+      statusEnrolledCount_other: '已注册 {{count}} 门课',
       statusDropped: '已退选',
       statusCompleted: '已完成',
       emptyRoster: '暂无学生。',

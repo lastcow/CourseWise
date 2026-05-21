@@ -515,6 +515,8 @@ export const en = {
       colNumber: 'Student #',
       colStatus: 'Status',
       statusEnrolled: 'Enrolled',
+      statusEnrolledCount_one: 'Enrolled in {{count}} course',
+      statusEnrolledCount_other: 'Enrolled in {{count}} courses',
       statusDropped: 'Dropped',
       statusCompleted: 'Completed',
       emptyRoster: 'No students enrolled yet.',

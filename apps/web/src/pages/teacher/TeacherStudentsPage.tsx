@@ -1,7 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Lock, Pencil, Plus, RefreshCw, Trash2, Unlock, UserMinus, Users } from 'lucide-react';
+import {
+  Lock,
+  Pencil,
+  RefreshCw,
+  Trash2,
+  Unlock,
+  UserMinus,
+  UserRoundPlus,
+  Users,
+} from 'lucide-react';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -254,7 +263,7 @@ export function TeacherStudentsPage(): JSX.Element {
               </button>
             ))}
             <ActionIconButton
-              icon={Plus}
+              icon={UserRoundPlus}
               label={t('groups.newSetCta')}
               color="emerald"
               size="sm"
@@ -500,18 +509,26 @@ function FlatRosterTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((r) => (
-          <TableRow key={r.id}>
-            <TableCell className="font-medium">{r.studentName}</TableCell>
-            <TableCell className="text-muted-foreground">{r.studentEmail}</TableCell>
-            <TableCell className="text-muted-foreground">{r.studentNumber ?? '—'}</TableCell>
-            <TableCell>
-              <Badge variant="secondary">
-                {t(`students.status${r.status[0]!.toUpperCase()}${r.status.slice(1)}`)}
-              </Badge>
-            </TableCell>
-          </TableRow>
-        ))}
+        {rows.map((r) => {
+          // For enrolled students, surface their TOTAL active enrollments
+          // (across all courses) so teachers see who's juggling more than
+          // this one course at a glance. Dropped/completed keep the simple
+          // label — the count isn't actionable for them.
+          const label =
+            r.status === 'enrolled' && r.enrolledCourseCount != null
+              ? t('students.statusEnrolledCount', { count: r.enrolledCourseCount })
+              : t(`students.status${r.status[0]!.toUpperCase()}${r.status.slice(1)}`);
+          return (
+            <TableRow key={r.id}>
+              <TableCell className="font-medium">{r.studentName}</TableCell>
+              <TableCell className="text-muted-foreground">{r.studentEmail}</TableCell>
+              <TableCell className="text-muted-foreground">{r.studentNumber ?? '—'}</TableCell>
+              <TableCell>
+                <Badge variant="secondary">{label}</Badge>
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
