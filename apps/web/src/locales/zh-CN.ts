@@ -125,6 +125,8 @@ export const zhCN = {
         unknownActor: '(未知)',
         viaApiToken: '通过 API 令牌',
         showingRange: '显示 {{from}}–{{to}} / 共 {{total}}',
+        exportCta: '下载我的记录',
+        exportToast: '已下载 JSON 格式的记录文件。',
       },
       apiTokens: {
         title: 'API 令牌',

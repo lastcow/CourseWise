@@ -126,6 +126,8 @@ export const en = {
         unknownActor: '(unknown)',
         viaApiToken: 'via API token',
         showingRange: 'Showing {{from}}–{{to}} of {{total}}',
+        exportCta: 'Download my records',
+        exportToast: 'Your records were downloaded as a JSON file.',
       },
       apiTokens: {
         title: 'API tokens',

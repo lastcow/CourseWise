@@ -14,6 +14,7 @@ import {
 import { apiTokens, auditLogs, users } from '../db/schema';
 import { defaultScopesForRole, generateApiToken } from '../services/apiTokens';
 import { recordAudit } from '../services/audit';
+import { buildMyRecordsExport } from '../services/recordsExport';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { validateJson } from '../middleware/validate';
@@ -227,6 +228,51 @@ me.get('/records/disclosures', async (c) => {
     nextOffset: offset + items.length < total ? offset + items.length : null,
   };
   return success(c, body);
+});
+
+/**
+ * FERPA §99.10(a): on request, the school must let a student inspect/review
+ * their education records. This endpoint returns a single JSON document with
+ * everything the database holds where the calling user is the subject.
+ *
+ * Served as a download (Content-Disposition: attachment) so a browser save-
+ * dialog pops up. The audit row records that the student inspected their own
+ * records — not a §99.32 disclosure (a student is allowed to inspect their
+ * own data), so `disclosedStudentIds` is left unset.
+ *
+ * File contents (uploads, generated .pptx) are NOT inlined — the JSON
+ * references each `fileAssetId` and the student can pull them through the
+ * existing presigned-URL flow. Keeps the export response bounded.
+ */
+me.get('/records/export', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+
+  const data = await buildMyRecordsExport(db, auth.user.id);
+
+  await recordAudit(db, {
+    actorType: 'user',
+    actorUserId: auth.user.id,
+    action: 'records.export.self',
+    metadata: {
+      submissions: data.submissions.length,
+      quizAttempts: data.quizAttempts.length,
+      attendance: data.attendance.length,
+      discussionPosts: data.discussionPosts.length,
+      finalGrades: data.finalGrades.length,
+      disclosures: data.disclosures.length,
+    },
+  });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const filename = `coursewise-records-${today}.json`;
+  return new Response(JSON.stringify(data, null, 2), {
+    status: 200,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'content-disposition': `attachment; filename="${filename}"`,
+    },
+  });
 });
 
 export default me;
