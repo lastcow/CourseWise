@@ -269,6 +269,7 @@ r.patch(
     if (input.title !== undefined) patch.title = input.title;
     if (input.description !== undefined) patch.description = input.description;
     if (input.moduleId !== undefined) patch.moduleId = input.moduleId;
+    if (input.groupId !== undefined) patch.groupId = input.groupId;
     if (input.dueDate !== undefined) patch.dueDate = input.dueDate;
     if (input.maxScore !== undefined) {
       patch.maxScore = input.maxScore === null ? null : input.maxScore.toString();

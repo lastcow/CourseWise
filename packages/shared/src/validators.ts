@@ -345,6 +345,7 @@ export const updateAssignmentSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(20_000).optional().nullable(),
   moduleId: z.string().uuid().optional().nullable(),
+  groupId: z.string().uuid().nullable().optional(),
   dueDate: isoDateString.optional().nullable(),
   maxScore: z.number().min(0).max(1000).optional().nullable(),
   rubric: z.unknown().optional(),
@@ -387,6 +388,7 @@ export const updateDiscussionTopicSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(20_000).optional().nullable(),
   moduleId: z.string().uuid().optional().nullable(),
+  groupId: z.string().uuid().nullable().optional(),
   isGraded: z.boolean().optional(),
   maxScore: z.number().min(0).max(1000).optional().nullable(),
   isPinned: z.boolean().optional(),
@@ -438,6 +440,7 @@ export const updateQuizSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(20_000).optional().nullable(),
   moduleId: z.string().uuid().optional().nullable(),
+  groupId: z.string().uuid().nullable().optional(),
   startTime: isoDateString.optional().nullable(),
   endTime: isoDateString.optional().nullable(),
   timeLimitMinutes: z

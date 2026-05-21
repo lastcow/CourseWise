@@ -339,6 +339,7 @@ r.patch(
     if (input.title !== undefined) patch.title = input.title;
     if (input.description !== undefined) patch.description = input.description;
     if (input.moduleId !== undefined) patch.moduleId = input.moduleId;
+    if (input.groupId !== undefined) patch.groupId = input.groupId;
     if (input.startTime !== undefined) patch.startTime = input.startTime;
     if (input.endTime !== undefined) patch.endTime = input.endTime;
     if (input.timeLimitMinutes !== undefined) patch.timeLimitMinutes = input.timeLimitMinutes;
