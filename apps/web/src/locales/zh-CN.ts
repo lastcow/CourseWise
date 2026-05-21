@@ -781,6 +781,8 @@ export const zhCN = {
       colMaxScore: '满分',
       colSubmissions: '提交数',
       colActions: '操作',
+      colMyStatus: '我的状态',
+      colMyGrade: '我的成绩',
       linkModuleTitle: '移动到模块',
       linkModuleAction: '移动到模块',
       moduleLabel: '模块',

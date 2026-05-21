@@ -815,6 +815,8 @@ export const en = {
       colMaxScore: 'Max score',
       colSubmissions: 'Submissions',
       colActions: 'Actions',
+      colMyStatus: 'My status',
+      colMyGrade: 'My grade',
       linkModuleTitle: 'Move to module',
       linkModuleAction: 'Move to module',
       moduleLabel: 'Module',
