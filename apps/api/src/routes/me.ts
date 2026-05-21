@@ -1,15 +1,17 @@
 import { Hono } from 'hono';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq } from 'drizzle-orm';
 import {
   createSelfApiTokenSchema,
   type ApiTokenScope,
   type ApiTokenSummary,
   type CreatedApiToken,
   type CreateSelfApiTokenInput,
+  type DisclosureLogEntry,
+  type DisclosureLogResponse,
   type UpdatePreferencesInput,
   updatePreferencesSchema,
 } from '@coursewise/shared';
-import { apiTokens, users } from '../db/schema';
+import { apiTokens, auditLogs, users } from '../db/schema';
 import { defaultScopesForRole, generateApiToken } from '../services/apiTokens';
 import { recordAudit } from '../services/audit';
 import { ApiException, ERROR_CODES } from '../lib/errors';
@@ -150,6 +152,81 @@ me.post('/api-tokens/:id/revoke', async (c) => {
     target: id,
   });
   return success(c, { ok: true });
+});
+
+/**
+ * FERPA §99.32(c) — the student has the right to inspect the disclosure log
+ * of their own education records. Returns audit_logs rows where the calling
+ * user is the `disclosed_student_id`, ordered most-recent-first, joined to
+ * the actor's display name. Bulk exports show up as one row per student in
+ * the recipient's slice — by design (see PR #92).
+ *
+ * JWT-only (via the parent `me.use('*', requireJwtAuth)`): an API token
+ * shouldn't be able to pull its own user's disclosure log unless we add a
+ * dedicated scope for it. Today no such scope exists.
+ */
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 200;
+
+me.get('/records/disclosures', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+
+  const limitRaw = Number.parseInt(c.req.query('limit') ?? '', 10);
+  const offsetRaw = Number.parseInt(c.req.query('offset') ?? '', 10);
+  const limit = Number.isFinite(limitRaw)
+    ? Math.min(Math.max(limitRaw, 1), MAX_LIMIT)
+    : DEFAULT_LIMIT;
+  const offset = Number.isFinite(offsetRaw) ? Math.max(offsetRaw, 0) : 0;
+
+  const rows = await db
+    .select({
+      id: auditLogs.id,
+      action: auditLogs.action,
+      target: auditLogs.target,
+      metadata: auditLogs.metadataJson,
+      occurredAt: auditLogs.createdAt,
+      actorType: auditLogs.actorType,
+      actorName: users.name,
+      actorRole: users.role,
+      actorTokenName: apiTokens.name,
+    })
+    .from(auditLogs)
+    .leftJoin(users, eq(users.id, auditLogs.actorUserId))
+    .leftJoin(apiTokens, eq(apiTokens.id, auditLogs.actorTokenId))
+    .where(eq(auditLogs.disclosedStudentId, auth.user.id))
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const [totalRow] = await db
+    .select({ value: count() })
+    .from(auditLogs)
+    .where(eq(auditLogs.disclosedStudentId, auth.user.id));
+  const total = Number(totalRow?.value ?? 0);
+
+  const items: DisclosureLogEntry[] = rows.map((r) => ({
+    id: r.id,
+    occurredAt: r.occurredAt,
+    action: r.action,
+    actor: {
+      type: r.actorType,
+      name: r.actorType === 'api_token' ? r.actorTokenName : r.actorName,
+      role:
+        r.actorType === 'user' && (r.actorRole === 'admin' || r.actorRole === 'teacher' || r.actorRole === 'student')
+          ? r.actorRole
+          : null,
+    },
+    target: r.target,
+    metadata: (r.metadata as Record<string, unknown> | null) ?? null,
+  }));
+
+  const body: DisclosureLogResponse = {
+    items,
+    total,
+    nextOffset: offset + items.length < total ? offset + items.length : null,
+  };
+  return success(c, body);
 });
 
 export default me;

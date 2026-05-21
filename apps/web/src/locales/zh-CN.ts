@@ -11,6 +11,7 @@ export const zhCN = {
       logout: '退出登录',
       profile: '个人资料',
       apiTokens: 'API 令牌',
+      disclosures: '记录披露',
       sideMenu: '侧边导航',
       openMenu: '打开导航菜单',
       closeMenu: '关闭导航菜单',
@@ -70,6 +71,7 @@ export const zhCN = {
       edit: '编辑',
       submit: '提交',
       back: '返回',
+      next: '下一页',
       retry: '重试',
       refresh: '刷新',
       loading: '加载中…',
@@ -97,7 +99,33 @@ export const zhCN = {
       unpin: '取消置顶',
       deactivate: '停用',
     },
+    roles: {
+      admin: '管理员',
+      teacher: '教师',
+      student: '学生',
+    },
     settings: {
+      disclosures: {
+        title: '记录披露',
+        description:
+          '此处记录了具有课程访问权限的人员查看或导出您教育记录的每一次操作。如需书面副本,请联系学校教务处。',
+        emptyTitle: '尚无披露记录',
+        emptyBody: '当教师或管理员查看或导出您的成绩、考勤或作业提交时,披露记录会显示在此处。',
+        col: {
+          when: '时间',
+          what: '披露内容',
+          who: '操作者',
+        },
+        action: {
+          gradesExport: '成绩 CSV 导出',
+          attendanceExport: '考勤 CSV 导出',
+          gradebookView: '成绩册详情查看',
+          submissionView: '作业提交查看',
+        },
+        unknownActor: '(未知)',
+        viaApiToken: '通过 API 令牌',
+        showingRange: '显示 {{from}}–{{to}} / 共 {{total}}',
+      },
       apiTokens: {
         title: 'API 令牌',
         description:

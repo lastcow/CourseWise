@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Presentation,
   Settings,
+  ShieldAlert,
   Sliders,
   Sparkles,
   Ticket,
@@ -55,7 +56,10 @@ type NavGroup = {
 const SETTINGS_GROUP: NavGroup = {
   id: 'settings',
   titleKey: 'nav.settingsSection',
-  items: [{ to: '/settings/api-tokens', labelKey: 'nav.apiTokens', icon: KeyRound }],
+  items: [
+    { to: '/settings/api-tokens', labelKey: 'nav.apiTokens', icon: KeyRound },
+    { to: '/settings/disclosures', labelKey: 'nav.disclosures', icon: ShieldAlert },
+  ],
 };
 
 const ADMIN_GROUPS: NavGroup[] = [

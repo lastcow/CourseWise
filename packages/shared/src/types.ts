@@ -780,6 +780,39 @@ export interface CreateGammaPresentationResponse {
   jobId: string;
 }
 
+// ---------- FERPA §99.32 disclosure log ----------
+//
+// A single recorded disclosure of the calling student's education records.
+// One row per `audit_logs.disclosed_student_id` matching the student.
+export interface DisclosureLogEntry {
+  id: string;
+  occurredAt: string;
+  // Raw action key (e.g. "grades.export.csv"). The frontend maps known keys
+  // to friendly labels and falls back to the raw key for anything new.
+  action: string;
+  actor: {
+    type: 'user' | 'api_token' | 'system';
+    // Human-readable identifier of who performed the disclosure. For a
+    // logged-in user this is their name; for an API token this is the
+    // token's display name; for system events this may be null.
+    name: string | null;
+    role: 'admin' | 'teacher' | 'student' | null;
+  };
+  // The audit row's target field, raw. Usually a course id or sub-resource
+  // id depending on the action.
+  target: string | null;
+  // Whatever metadata the disclosing route attached (assignment id, course
+  // id, session count, etc.). Free-form by design.
+  metadata: Record<string, unknown> | null;
+}
+
+export interface DisclosureLogResponse {
+  items: DisclosureLogEntry[];
+  total: number;
+  // Offset of the next page, or null when there are no more rows.
+  nextOffset: number | null;
+}
+
 // ---------- Course hard-delete ----------
 export type ChildCounts = {
   enrollments: number;

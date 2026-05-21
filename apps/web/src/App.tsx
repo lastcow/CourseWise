@@ -18,6 +18,7 @@ import { PublicPresentationPage } from '@/pages/public/PublicPresentationPage';
 import { InviteRedeemPage } from '@/pages/public/InviteRedeemPage';
 import { LegalRoutes } from '@/pages/legal/LegalRoutes';
 import { SettingsApiTokensPage } from '@/pages/SettingsApiTokensPage';
+import { SettingsDisclosuresPage } from '@/pages/SettingsDisclosuresPage';
 import { AdminAiPage } from '@/pages/admin/AdminAiPage';
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
 import { AdminInvitationCodesPage } from '@/pages/admin/AdminInvitationCodesPage';
@@ -89,6 +90,7 @@ export default function App(): JSX.Element {
             <Route element={<RoleAwareBackOfficeLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/settings/api-tokens" element={<SettingsApiTokensPage />} />
+              <Route path="/settings/disclosures" element={<SettingsDisclosuresPage />} />
             </Route>
             <Route element={<BackOfficeLayout role="student" />}>
               <Route
