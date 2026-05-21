@@ -194,18 +194,54 @@ r.get(
       )
       .orderBy(asc(assignments.position), asc(assignments.createdAt));
 
-    // batch submission counts
     const ids = rows.map((r) => r.id);
+
+    // Teachers/admins get the per-assignment submission count badge; students
+    // get back their own submission row stitched into AssignmentSummary so
+    // list views (Modules → Assignments, Assignments page) can render status
+    // + submittedAt without one query per card.
     const counts = new Map<string, number>();
-    if (ids.length > 0 && auth.user.role !== 'student') {
-      const subs = await db
-        .select({ assignmentId: assignmentSubmissions.assignmentId, c: sql<number>`count(*)::int` })
-        .from(assignmentSubmissions)
-        .where(inArray(assignmentSubmissions.assignmentId, ids))
-        .groupBy(assignmentSubmissions.assignmentId);
-      for (const s of subs) counts.set(s.assignmentId, s.c);
+    const mine = new Map<string, typeof assignmentSubmissions.$inferSelect>();
+    if (ids.length > 0) {
+      if (auth.user.role === 'student') {
+        const myRows = await db
+          .select()
+          .from(assignmentSubmissions)
+          .where(
+            and(
+              inArray(assignmentSubmissions.assignmentId, ids),
+              eq(assignmentSubmissions.studentId, auth.user.id),
+            ),
+          );
+        for (const s of myRows) mine.set(s.assignmentId, s);
+      } else {
+        const subs = await db
+          .select({
+            assignmentId: assignmentSubmissions.assignmentId,
+            c: sql<number>`count(*)::int`,
+          })
+          .from(assignmentSubmissions)
+          .where(inArray(assignmentSubmissions.assignmentId, ids))
+          .groupBy(assignmentSubmissions.assignmentId);
+        for (const s of subs) counts.set(s.assignmentId, s.c);
+      }
     }
-    return success(c, rows.map((row) => toAssignmentSummary(row, counts.get(row.id))));
+    return success(
+      c,
+      rows.map((row) => {
+        const summary = toAssignmentSummary(row, counts.get(row.id));
+        const my = mine.get(row.id);
+        if (my) {
+          summary.mySubmission = {
+            id: my.id,
+            status: my.status,
+            submittedAt: my.submittedAt ?? null,
+            score: num(my.score),
+          };
+        }
+        return summary;
+      }),
+    );
   },
 );
 

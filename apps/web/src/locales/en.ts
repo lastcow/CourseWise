@@ -852,6 +852,7 @@ export const en = {
       statusLate: 'Late',
       statusGraded: 'Graded',
       statusReturned: 'Returned',
+      submittedAtLabel: 'Submitted on {{date}}',
       teamSubmission: 'Your team submission',
       groupBannerTitle: 'Submitting as {{groupName}}',
       groupBannerHelp:

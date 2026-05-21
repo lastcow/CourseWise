@@ -340,6 +340,17 @@ export interface AssignmentSummary {
   submissionCount?: number;
   submissionMode: 'individual' | 'group';
   groupSetId: string | null;
+  /**
+   * Populated when the caller is a student and has interacted with this
+   * assignment (draft created or submitted). Lets list views show the
+   * student's current state without fanning out per-row queries.
+   */
+  mySubmission?: {
+    id: string;
+    status: SubmissionStatus;
+    submittedAt: string | null;
+    score: number | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
