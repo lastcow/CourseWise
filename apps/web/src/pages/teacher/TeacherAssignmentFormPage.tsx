@@ -33,6 +33,9 @@ export function TeacherAssignmentFormPage(): JSX.Element {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [untilDate, setUntilDate] = useState('');
   const [maxScore, setMaxScore] = useState<number | ''>('');
   const [allowLate, setAllowLate] = useState(false);
   const [attachmentFileId, setAttachmentFileId] = useState<string | null>(null);
@@ -51,6 +54,9 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       setTitle(existing.data.title);
       setDescription(existing.data.description ?? '');
       setDueDate(existing.data.dueDate ? new Date(existing.data.dueDate).toISOString().slice(0, 16) : '');
+      setStartDate(existing.data.startDate ? new Date(existing.data.startDate).toISOString().slice(0, 16) : '');
+      setEndDate(existing.data.endDate ? new Date(existing.data.endDate).toISOString().slice(0, 16) : '');
+      setUntilDate(existing.data.untilDate ? new Date(existing.data.untilDate).toISOString().slice(0, 16) : '');
       setMaxScore(existing.data.maxScore ?? '');
       setAllowLate(existing.data.allowLateSubmission);
       setAttachmentFileId(existing.data.attachmentFileId);
@@ -90,10 +96,29 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       toast.push({ title: t('assignments.groupSetRequired'), tone: 'error' });
       return;
     }
+    const startIso = startDate ? new Date(startDate).toISOString() : null;
+    const endIso = endDate ? new Date(endDate).toISOString() : null;
+    const untilIso = untilDate ? new Date(untilDate).toISOString() : null;
+    // Quick client-side guard so the user gets a friendly toast before the
+    // server's same refinement rejects the request.
+    const startMs = startIso ? Date.parse(startIso) : null;
+    const endMs = endIso ? Date.parse(endIso) : null;
+    const untilMs = untilIso ? Date.parse(untilIso) : null;
+    if (
+      (startMs !== null && endMs !== null && startMs > endMs) ||
+      (endMs !== null && untilMs !== null && endMs > untilMs) ||
+      (startMs !== null && untilMs !== null && startMs > untilMs)
+    ) {
+      toast.push({ title: t('assignments.schedulingOrderError'), tone: 'error' });
+      return;
+    }
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+      startDate: startIso,
+      endDate: endIso,
+      untilDate: untilIso,
       maxScore: maxScore === '' ? null : Number(maxScore),
       allowLateSubmission: allowLate,
       attachmentFileId: attachmentFileId ?? null,
@@ -166,6 +191,47 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                 />
               </div>
             </div>
+            <fieldset className="grid gap-3 rounded-md border p-3 md:grid-cols-3">
+              <legend className="px-1 text-sm font-medium">
+                {t('assignments.schedulingLegend')}
+              </legend>
+              <div>
+                <Label htmlFor="a-start">{t('assignments.startDateLabel')}</Label>
+                <Input
+                  id="a-start"
+                  type="datetime-local"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('assignments.startDateHint')}
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="a-end">{t('assignments.endDateLabel')}</Label>
+                <Input
+                  id="a-end"
+                  type="datetime-local"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('assignments.endDateHint')}
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="a-until">{t('assignments.untilDateLabel')}</Label>
+                <Input
+                  id="a-until"
+                  type="datetime-local"
+                  value={untilDate}
+                  onChange={(e) => setUntilDate(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('assignments.untilDateHint')}
+                </p>
+              </div>
+            </fieldset>
             <div>
               <Label htmlFor="a-group">{t('assignments.groupLabel')}</Label>
               <select

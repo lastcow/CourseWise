@@ -834,6 +834,18 @@ export const en = {
       groupSetRequired: 'Choose a group set for this group assignment.',
       modeLockedHint:
         'Cannot change submission mode after students have submitted.',
+      schedulingLegend: 'Scheduling',
+      startDateLabel: 'Start date',
+      startDateHint: 'Earliest moment students can open / start.',
+      endDateLabel: 'End date',
+      endDateHint: 'Latest moment students can open / submit. Hard block after.',
+      untilDateLabel: 'Submit-by deadline',
+      untilDateHint:
+        'Absolute cutoff. In-progress drafts must be sent before this; for quizzes, the attempt timer is capped here.',
+      schedulingOrderError: 'Dates must satisfy Start ≤ End ≤ Submit-by.',
+      opensOn: 'Opens on {{date}}',
+      closesOn: 'Closes on {{date}}',
+      submitByLabel: 'Submit by {{date}}',
     },
     submissions: {
       title: 'Submissions',
@@ -932,6 +944,8 @@ export const en = {
       timeLimit: 'Time limit (minutes)',
       timeLimitDisplay: '{{minutes}} min limit',
       noTimeLimit: 'No time limit',
+      untilDateHint:
+        'Absolute cutoff. Attempts in progress auto-finalize here (the per-attempt timer is capped to whichever comes first).',
       questionsCount: '{{count}} questions',
       pointsValue: '{{points}} pts',
       pointsLabel: 'Points',

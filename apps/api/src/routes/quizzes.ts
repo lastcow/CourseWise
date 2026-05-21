@@ -77,6 +77,7 @@ function toQuizSummary(
     status: row.status,
     startTime: row.startTime ?? null,
     endTime: row.endTime ?? null,
+    untilDate: row.untilDate ?? null,
     timeLimitMinutes: row.timeLimitMinutes ?? null,
     maxAttempts: row.maxAttempts,
     maxScore: num(row.maxScore),
@@ -291,6 +292,7 @@ r.post(
         description: input.description ?? null,
         startTime: input.startTime ?? null,
         endTime: input.endTime ?? null,
+        untilDate: input.untilDate ?? null,
         timeLimitMinutes: input.timeLimitMinutes ?? null,
         maxAttempts: input.maxAttempts ?? 1,
         passingScore: input.passingScore != null ? input.passingScore.toString() : null,
@@ -343,6 +345,7 @@ r.patch(
     if (input.groupId !== undefined) patch.groupId = input.groupId;
     if (input.startTime !== undefined) patch.startTime = input.startTime;
     if (input.endTime !== undefined) patch.endTime = input.endTime;
+    if (input.untilDate !== undefined) patch.untilDate = input.untilDate;
     if (input.timeLimitMinutes !== undefined) patch.timeLimitMinutes = input.timeLimitMinutes;
     if (input.maxAttempts !== undefined) patch.maxAttempts = input.maxAttempts;
     if (input.passingScore !== undefined) {
@@ -737,6 +740,7 @@ r.post(
       startedAt: now,
       timeLimitMinutes: quiz.timeLimitMinutes ?? null,
       endTime: quiz.endTime ?? null,
+      untilDate: quiz.untilDate ?? null,
     });
     const [created] = await db
       .insert(quizAttempts)

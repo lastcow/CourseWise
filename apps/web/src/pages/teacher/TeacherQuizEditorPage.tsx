@@ -75,6 +75,12 @@ export function TeacherQuizEditorPage(): JSX.Element {
     description: '',
     timeLimitMinutes: '',
     groupId: null as string | null,
+    // Scheduling window (datetime-local strings). startTime + endTime
+    // gate when students can open an attempt; untilDate caps an
+    // in-progress attempt to min(startedAt + timeLimit, untilDate).
+    startTime: '',
+    endTime: '',
+    untilDate: '',
   });
   const [draft, setDraft] = useState<QuestionDraft>(emptyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -87,6 +93,15 @@ export function TeacherQuizEditorPage(): JSX.Element {
         timeLimitMinutes:
           quiz.data.timeLimitMinutes != null ? String(quiz.data.timeLimitMinutes) : '',
         groupId: quiz.data.groupId ?? null,
+        startTime: quiz.data.startTime
+          ? new Date(quiz.data.startTime).toISOString().slice(0, 16)
+          : '',
+        endTime: quiz.data.endTime
+          ? new Date(quiz.data.endTime).toISOString().slice(0, 16)
+          : '',
+        untilDate: quiz.data.untilDate
+          ? new Date(quiz.data.untilDate).toISOString().slice(0, 16)
+          : '',
       });
     }
   }, [quiz.data]);
@@ -208,9 +223,67 @@ export function TeacherQuizEditorPage(): JSX.Element {
               ))}
             </select>
           </div>
+          <fieldset className="grid gap-3 rounded-md border p-3 md:grid-cols-3">
+            <legend className="px-1 text-sm font-medium">
+              {t('assignments.schedulingLegend')}
+            </legend>
+            <div>
+              <Label htmlFor="q-start">{t('assignments.startDateLabel')}</Label>
+              <Input
+                id="q-start"
+                type="datetime-local"
+                value={meta.startTime}
+                onChange={(e) => setMeta({ ...meta, startTime: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('assignments.startDateHint')}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="q-end">{t('assignments.endDateLabel')}</Label>
+              <Input
+                id="q-end"
+                type="datetime-local"
+                value={meta.endTime}
+                onChange={(e) => setMeta({ ...meta, endTime: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('assignments.endDateHint')}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="q-until">{t('assignments.untilDateLabel')}</Label>
+              <Input
+                id="q-until"
+                type="datetime-local"
+                value={meta.untilDate}
+                onChange={(e) => setMeta({ ...meta, untilDate: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('quizzes.untilDateHint')}
+              </p>
+            </div>
+          </fieldset>
           <div>
             <Button
               onClick={async () => {
+                const startIso = meta.startTime ? new Date(meta.startTime).toISOString() : null;
+                const endIso = meta.endTime ? new Date(meta.endTime).toISOString() : null;
+                const untilIso = meta.untilDate ? new Date(meta.untilDate).toISOString() : null;
+                const sMs = startIso ? Date.parse(startIso) : null;
+                const eMs = endIso ? Date.parse(endIso) : null;
+                const uMs = untilIso ? Date.parse(untilIso) : null;
+                if (
+                  (sMs !== null && eMs !== null && sMs > eMs) ||
+                  (eMs !== null && uMs !== null && eMs > uMs) ||
+                  (sMs !== null && uMs !== null && sMs > uMs)
+                ) {
+                  toast.push({
+                    title: t('assignments.schedulingOrderError'),
+                    tone: 'error',
+                  });
+                  return;
+                }
                 await updateQuiz.mutateAsync({
                   id,
                   input: {
@@ -220,6 +293,9 @@ export function TeacherQuizEditorPage(): JSX.Element {
                       ? Number.parseInt(meta.timeLimitMinutes, 10)
                       : null,
                     groupId: meta.groupId,
+                    startTime: startIso,
+                    endTime: endIso,
+                    untilDate: untilIso,
                   },
                 });
                 toast.push({ title: t('quizzes.settingsSaved'), tone: 'success' });

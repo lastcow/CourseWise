@@ -105,6 +105,11 @@ export function computeAttemptExpiry(args: {
   startedAt: Date;
   timeLimitMinutes: number | null | undefined;
   endTime: string | null | undefined;
+  // Absolute submit-by deadline. When set the attempt's effective expiry
+  // is min(startedAt + timeLimit, endTime, untilDate) — whichever comes
+  // first. Matches the "for quiz, if the time left is after until date,
+  // take which one come first" rule.
+  untilDate?: string | null | undefined;
 }): Date | null {
   const limits: number[] = [];
   if (args.timeLimitMinutes && args.timeLimitMinutes > 0) {
@@ -112,6 +117,9 @@ export function computeAttemptExpiry(args: {
   }
   if (args.endTime) {
     limits.push(new Date(args.endTime).getTime());
+  }
+  if (args.untilDate) {
+    limits.push(new Date(args.untilDate).getTime());
   }
   if (limits.length === 0) return null;
   return new Date(Math.min(...limits));
