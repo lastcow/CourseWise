@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Lock, Pencil, Plus, RefreshCw, Trash2, Unlock, UserMinus, Users } from 'lucide-react';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -209,7 +210,11 @@ export function TeacherStudentsPage(): JSX.Element {
       </header>
 
       <div className="overflow-hidden rounded-md border">
-        {/* Toolbar */}
+        {/* Toolbar
+            Layout: [search] ………………… [All] [Group A] [Group B] [+] | [refresh]
+            Group filter chips sit at the right, immediately before the
+            "+ New group set" icon button; refresh is the very last item,
+            divided from the rest by a vertical separator. */}
         <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
           <Input
             type="search"
@@ -218,57 +223,56 @@ export function TeacherStudentsPage(): JSX.Element {
             placeholder={t('students.searchPlaceholder')}
             className="h-8 w-56"
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={refresh}
-            disabled={studentsQ.isFetching || groupSetsQ.isFetching}
-            aria-label={t('common.refresh')}
-            title={t('common.refresh')}
-          >
-            <RefreshCw
-              className={cn(
-                'h-4 w-4',
-                (studentsQ.isFetching || groupSetsQ.isFetching) && 'animate-spin',
-              )}
-              aria-hidden
-            />
-          </Button>
-          <div className="mx-2 h-5 w-px bg-border" aria-hidden />
-          <button
-            type="button"
-            onClick={() => setActiveSetId(null)}
-            className={cn(
-              'rounded-full px-3 py-1 text-xs font-medium',
-              activeSetId === null
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-background hover:bg-accent',
-            )}
-          >
-            {t('students.filterAll')}
-          </button>
-          {(groupSetsQ.data ?? []).map((gs) => (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <button
-              key={gs.id}
               type="button"
-              onClick={() => setActiveSetId(gs.id)}
+              onClick={() => setActiveSetId(null)}
               className={cn(
-                'inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium',
-                activeSetId === gs.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-background hover:bg-accent',
+                'inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors',
+                activeSetId === null
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-input bg-background text-foreground hover:bg-accent',
               )}
-              title={t('students.filterByGroupSet', { name: gs.name })}
             >
-              <Users className="h-3 w-3" aria-hidden />
-              {gs.name}
+              {t('students.filterAll')}
             </button>
-          ))}
-          <div className="ml-auto" />
-          <Button variant="outline" size="sm" onClick={() => setOpenCreate(true)}>
-            <Plus className="h-4 w-4" aria-hidden />
-            {t('groups.newSetCta')}
-          </Button>
+            {(groupSetsQ.data ?? []).map((gs) => (
+              <button
+                key={gs.id}
+                type="button"
+                onClick={() => setActiveSetId(gs.id)}
+                className={cn(
+                  'inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium transition-colors',
+                  activeSetId === gs.id
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-input bg-background text-foreground hover:bg-accent',
+                )}
+                title={t('students.filterByGroupSet', { name: gs.name })}
+              >
+                <Users className="h-3 w-3" aria-hidden />
+                {gs.name}
+              </button>
+            ))}
+            <ActionIconButton
+              icon={Plus}
+              label={t('groups.newSetCta')}
+              color="emerald"
+              size="sm"
+              onClick={() => setOpenCreate(true)}
+            />
+            <div className="mx-1 h-5 w-px bg-border" aria-hidden />
+            <ActionIconButton
+              icon={RefreshCw}
+              label={t('common.refresh')}
+              color="sky"
+              size="sm"
+              onClick={refresh}
+              disabled={studentsQ.isFetching || groupSetsQ.isFetching}
+              className={cn(
+                (studentsQ.isFetching || groupSetsQ.isFetching) && '[&_svg]:animate-spin',
+              )}
+            />
+          </div>
         </div>
 
         {/* Per-set action bar (only when a filter is active) */}
