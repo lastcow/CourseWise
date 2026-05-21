@@ -86,6 +86,7 @@ export const groupSetSignupStatusEnum = pgEnum('group_set_signup_status', [
   'open',
   'locked',
 ]);
+export const submissionModeEnum = pgEnum('submission_mode', ['individual', 'group']);
 export const alertTypeEnum = pgEnum('alert_type', [
   'attendance_low',
   'consecutive_absences',
@@ -532,6 +533,10 @@ export const assignments = pgTable(
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
     position: integer('position').notNull().default(0),
     createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
+    // Group-mode submission: when 'group', groupSetId must point at a set
+    // in the same course (enforced by API + DB CHECK in migration 0020).
+    submissionMode: submissionModeEnum('submission_mode').notNull().default('individual'),
+    groupSetId: uuid('group_set_id').references(() => groupSets.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => ({
@@ -540,6 +545,40 @@ export const assignments = pgTable(
     statusIdx: index('assignments_status_idx').on(t.status),
   }),
 );
+
+// Shared content for one group's submission to a group-mode assignment.
+// Each row is the team's "work product" (text + optional file). Per-member
+// rows in assignment_submissions link via group_submission_id so the grade
+// can still differ per member (e.g. unequal contribution).
+export const groupSubmissions = pgTable(
+  'group_submissions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    assignmentId: uuid('assignment_id')
+      .notNull()
+      .references(() => assignments.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    content: text('content'),
+    fileAssetId: uuid('file_asset_id').references(() => fileAssets.id, {
+      onDelete: 'set null',
+    }),
+    submittedAt: timestamp('submitted_at', { withTimezone: true, mode: 'string' }),
+    submittedById: uuid('submitted_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (t) => ({
+    assignmentGroupUnique: uniqueIndex('group_submissions_assignment_group_idx').on(
+      t.assignmentId,
+      t.groupId,
+    ),
+  }),
+);
+
+export type GroupSubmissionRow = typeof groupSubmissions.$inferSelect;
 
 export const assignmentSubmissions = pgTable(
   'assignment_submissions',
@@ -557,6 +596,12 @@ export const assignmentSubmissions = pgTable(
     fileAssetId: uuid('file_asset_id').references(() => fileAssets.id, {
       onDelete: 'set null',
     }),
+    // For group-mode assignments, content/fileAssetId/submittedAt on this
+    // row are unused — the canonical values live on group_submissions. The
+    // grading fields stay per-row so per-member adjustments work.
+    groupSubmissionId: uuid('group_submission_id').references(() => groupSubmissions.id, {
+      onDelete: 'set null',
+    }),
     score: numeric('score', { precision: 6, scale: 2 }),
     feedback: text('feedback'),
     gradedAt: timestamp('graded_at', { withTimezone: true, mode: 'string' }),
@@ -569,6 +614,9 @@ export const assignmentSubmissions = pgTable(
     assignmentStudentUnique: uniqueIndex('assignment_submissions_assignment_student_idx').on(
       t.assignmentId,
       t.studentId,
+    ),
+    groupSubmissionIdx: index('assignment_submissions_group_submission_idx').on(
+      t.groupSubmissionId,
     ),
   }),
 );

@@ -11,10 +11,11 @@ import {
   useAssignment,
   useAssignmentGroups,
   useCreateAssignment,
+  useGroupSets,
   useUpdateAssignment,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
-import { ALLOWED_UPLOAD_MIME_TYPES, MAX_UPLOAD_BYTES } from '@coursewise/shared';
+import { ALLOWED_UPLOAD_MIME_TYPES, MAX_UPLOAD_BYTES, type SubmissionMode } from '@coursewise/shared';
 
 export function TeacherAssignmentFormPage(): JSX.Element {
   const { t } = useTranslation();
@@ -26,6 +27,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
   const create = useCreateAssignment(cId);
   const update = useUpdateAssignment(cId);
   const groups = useAssignmentGroups(cId);
+  const groupSets = useGroupSets(cId);
   const toast = useToast();
 
   const [title, setTitle] = useState('');
@@ -35,8 +37,14 @@ export function TeacherAssignmentFormPage(): JSX.Element {
   const [allowLate, setAllowLate] = useState(false);
   const [attachmentFileId, setAttachmentFileId] = useState<string | null>(null);
   const [groupId, setGroupId] = useState<string | null>(null);
+  const [submissionMode, setSubmissionMode] = useState<SubmissionMode>('individual');
+  const [groupSetId, setGroupSetId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Submissions exist → freeze the mode toggle. API would reject the change
+  // anyway; surfacing it in the UI saves a round-trip.
+  const modeLocked = !isNew && (existing.data?.submissionCount ?? 0) > 0;
 
   useEffect(() => {
     if (!isNew && existing.data) {
@@ -47,6 +55,8 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       setAllowLate(existing.data.allowLateSubmission);
       setAttachmentFileId(existing.data.attachmentFileId);
       setGroupId(existing.data.groupId ?? null);
+      setSubmissionMode(existing.data.submissionMode);
+      setGroupSetId(existing.data.groupSetId ?? null);
     }
   }, [isNew, existing.data]);
 
@@ -76,6 +86,10 @@ export function TeacherAssignmentFormPage(): JSX.Element {
 
   const onSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
+    if (submissionMode === 'group' && !groupSetId) {
+      toast.push({ title: t('assignments.groupSetRequired'), tone: 'error' });
+      return;
+    }
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
@@ -84,6 +98,8 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       allowLateSubmission: allowLate,
       attachmentFileId: attachmentFileId ?? null,
       groupId,
+      submissionMode,
+      groupSetId: submissionMode === 'group' ? groupSetId : null,
     };
     try {
       if (isNew) {
@@ -167,6 +183,69 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                 ))}
               </select>
             </div>
+            <fieldset className="space-y-2 rounded-md border p-3">
+              <legend className="px-1 text-sm font-medium">
+                {t('assignments.submissionModeLabel')}
+              </legend>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="submission-mode"
+                    value="individual"
+                    checked={submissionMode === 'individual'}
+                    onChange={() => setSubmissionMode('individual')}
+                    disabled={modeLocked}
+                  />
+                  {t('assignments.submissionModeIndividual')}
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="submission-mode"
+                    value="group"
+                    checked={submissionMode === 'group'}
+                    onChange={() => setSubmissionMode('group')}
+                    disabled={modeLocked}
+                  />
+                  {t('assignments.submissionModeGroup')}
+                </label>
+              </div>
+              {modeLocked ? (
+                <p className="text-xs text-muted-foreground">
+                  {t('assignments.modeLockedHint')}
+                </p>
+              ) : null}
+              {submissionMode === 'group' ? (
+                <div>
+                  <Label htmlFor="a-group-set">{t('assignments.groupSetLabel')}</Label>
+                  <select
+                    id="a-group-set"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={groupSetId ?? ''}
+                    onChange={(e) => setGroupSetId(e.target.value || null)}
+                    disabled={groupSets.isLoading || modeLocked}
+                    required
+                  >
+                    <option value="">
+                      {groupSets.data && groupSets.data.length === 0
+                        ? t('assignments.noGroupSets')
+                        : '—'}
+                    </option>
+                    {(groupSets.data ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.groupCount} × {s.maxMembersPerGroup})
+                      </option>
+                    ))}
+                  </select>
+                  {groupSets.data && groupSets.data.length === 0 ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t('assignments.noGroupSetsHint')}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </fieldset>
             <div className="flex items-center gap-2">
               <input
                 id="a-late"

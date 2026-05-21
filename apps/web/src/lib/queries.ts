@@ -67,6 +67,8 @@ import type {
   GradingPolicySummary,
   GroupSetSummary,
   GroupSetWithGroups,
+  AssignmentSubmissionsByGroup,
+  MyAssignmentSubmissionResponse,
   InvitationCodeSummary,
   LoginResponse,
   RegisterTeacherInput,
@@ -936,9 +938,20 @@ export function useMySubmission(assignmentId: string | null) {
     queryKey: ['my-submission', assignmentId],
     enabled: !!assignmentId,
     queryFn: () =>
-      apiCall<SubmissionSummary>(`/api/assignments/${assignmentId}/submissions`, {
+      apiCall<MyAssignmentSubmissionResponse>(`/api/assignments/${assignmentId}/submissions`, {
         method: 'POST',
       }),
+  });
+}
+
+export function useAssignmentSubmissionsByGroup(assignmentId: string | null) {
+  return useQuery({
+    queryKey: ['submissions-grouped', assignmentId],
+    enabled: !!assignmentId,
+    queryFn: () =>
+      apiCall<AssignmentSubmissionsByGroup>(
+        `/api/assignments/${assignmentId}/submissions/grouped`,
+      ),
   });
 }
 
@@ -971,7 +984,10 @@ export function useGradeSubmission(assignmentId: string) {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: GradeSubmissionInput }) =>
       apiCall<SubmissionSummary>(`/api/submissions/${id}/grade`, { method: 'PATCH', body: input }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['submissions', assignmentId] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['submissions', assignmentId] });
+      void qc.invalidateQueries({ queryKey: ['submissions-grouped', assignmentId] });
+    },
   });
 }
 
@@ -980,7 +996,10 @@ export function useReturnSubmission(assignmentId: string) {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: ReturnSubmissionInput }) =>
       apiCall<SubmissionSummary>(`/api/submissions/${id}/return`, { method: 'POST', body: input }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['submissions', assignmentId] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['submissions', assignmentId] });
+      void qc.invalidateQueries({ queryKey: ['submissions-grouped', assignmentId] });
+    },
   });
 }
 

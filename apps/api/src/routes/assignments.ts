@@ -6,9 +6,12 @@ import {
   returnSubmissionSchema,
   updateAssignmentSchema,
   updateSubmissionSchema,
+  type AssignmentSubmissionsByGroup,
   type AssignmentSummary,
   type CreateAssignmentInput,
   type GradeSubmissionInput,
+  type GroupSubmissionWithMembers,
+  type MyAssignmentSubmissionResponse,
   type ReturnSubmissionInput,
   type SubmissionSummary,
   type SubmissionWithStudent,
@@ -18,7 +21,12 @@ import {
 import {
   assignmentSubmissions,
   assignments,
+  enrollments,
   fileAssets,
+  groupMemberships,
+  groupSets,
+  groupSubmissions,
+  groups,
   modules,
   users,
 } from '../db/schema';
@@ -37,6 +45,10 @@ import {
   isCourseEnrolled,
   isCourseTeacher,
 } from '../services/courseAccess';
+import {
+  ensureGroupSubmissionFannedOut,
+  findStudentGroupForAssignment,
+} from '../services/groupSubmissions';
 import { clampScore, determineSubmissionStatus } from '../services/submissions';
 import { recordAudit } from '../services/audit';
 import type { AppEnv } from '../types';
@@ -73,24 +85,33 @@ function toAssignmentSummary(
     archivedAt: row.archivedAt ?? null,
     position: row.position,
     submissionCount,
+    submissionMode: row.submissionMode,
+    groupSetId: row.groupSetId ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
 }
 
-function toSubmissionSummary(row: typeof assignmentSubmissions.$inferSelect): SubmissionSummary {
+function toSubmissionSummary(
+  row: typeof assignmentSubmissions.$inferSelect,
+  groupOverride?: { content: string | null; fileAssetId: string | null; submittedAt: string | null },
+): SubmissionSummary {
+  // For group-mode rows, the canonical content / fileAssetId / submittedAt
+  // live on group_submissions; we materialize them here so clients can keep
+  // using SubmissionSummary uniformly.
   return {
     id: row.id,
     assignmentId: row.assignmentId,
     studentId: row.studentId,
     status: row.status,
-    textAnswer: row.content ?? null,
-    fileAssetId: row.fileAssetId ?? null,
-    submittedAt: row.submittedAt ?? null,
+    textAnswer: groupOverride ? groupOverride.content : row.content ?? null,
+    fileAssetId: groupOverride ? groupOverride.fileAssetId : row.fileAssetId ?? null,
+    submittedAt: groupOverride ? groupOverride.submittedAt : row.submittedAt ?? null,
     score: num(row.score),
     feedback: row.feedback ?? null,
     gradedAt: row.gradedAt ?? null,
     gradedById: row.gradedById ?? null,
+    groupSubmissionId: row.groupSubmissionId ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -101,6 +122,25 @@ async function loadAssignment(c: Context<AppEnv>, id: string) {
   const [row] = await db.select().from(assignments).where(eq(assignments.id, id)).limit(1);
   if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Assignment not found');
   return row;
+}
+
+/**
+ * For a submission row that's part of a group submission, fetch the shared
+ * group_submissions row so callers can materialize content into the
+ * SubmissionSummary response. Returns null for individual submissions.
+ */
+async function loadGroupSubmissionForRow(
+  c: Context<AppEnv>,
+  row: typeof assignmentSubmissions.$inferSelect,
+) {
+  if (!row.groupSubmissionId) return null;
+  const db = c.get('db');
+  const [gs] = await db
+    .select()
+    .from(groupSubmissions)
+    .where(eq(groupSubmissions.id, row.groupSubmissionId))
+    .limit(1);
+  return gs ?? null;
 }
 
 async function ensureAssignmentViewable(
@@ -203,6 +243,29 @@ r.post(
         throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'attachment belongs to a different course');
       }
     }
+    if (input.submissionMode === 'group') {
+      if (!input.groupSetId) {
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'groupSetId is required when submissionMode is "group"',
+        );
+      }
+      const setRow = (
+        await db
+          .select({ courseId: groupSets.courseId })
+          .from(groupSets)
+          .where(eq(groupSets.id, input.groupSetId))
+          .limit(1)
+      )[0];
+      if (!setRow || setRow.courseId !== courseId) {
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'groupSetId must belong to this course',
+        );
+      }
+    }
 
     const [created] = await db
       .insert(assignments)
@@ -219,6 +282,8 @@ r.post(
         position: input.position ?? 0,
         status: 'draft',
         createdById: auth.user.id,
+        submissionMode: input.submissionMode ?? 'individual',
+        groupSetId: input.submissionMode === 'group' ? input.groupSetId ?? null : null,
       })
       .returning();
     if (!created) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create assignment');
@@ -279,6 +344,55 @@ r.patch(
     if (input.allowLateSubmission !== undefined) patch.allowLateSubmission = input.allowLateSubmission;
     if (input.attachmentFileId !== undefined) patch.attachmentFileId = input.attachmentFileId;
     if (input.position !== undefined) patch.position = input.position;
+
+    // Switching submissionMode after any submissions exist would orphan or
+    // confuse those rows. Refuse instead of silently mutating state.
+    const nextMode = input.submissionMode ?? row.submissionMode;
+    const nextSetId =
+      input.groupSetId !== undefined ? input.groupSetId : row.groupSetId ?? null;
+    if (input.submissionMode !== undefined && input.submissionMode !== row.submissionMode) {
+      const countRows = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(assignmentSubmissions)
+        .where(eq(assignmentSubmissions.assignmentId, id));
+      const subCount = countRows[0]?.count ?? 0;
+      if (subCount > 0) {
+        throw new ApiException(
+          409,
+          ERROR_CODES.CONFLICT,
+          'Cannot change submission mode after submissions exist',
+        );
+      }
+    }
+    if (nextMode === 'group') {
+      if (!nextSetId) {
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'groupSetId is required when submissionMode is "group"',
+        );
+      }
+      const setRow = (
+        await db
+          .select({ courseId: groupSets.courseId })
+          .from(groupSets)
+          .where(eq(groupSets.id, nextSetId))
+          .limit(1)
+      )[0];
+      if (!setRow || setRow.courseId !== row.courseId) {
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'groupSetId must belong to this course',
+        );
+      }
+    }
+    if (input.submissionMode !== undefined) patch.submissionMode = input.submissionMode;
+    if (input.groupSetId !== undefined) {
+      patch.groupSetId = nextMode === 'group' ? input.groupSetId : null;
+    } else if (input.submissionMode === 'individual') {
+      patch.groupSetId = null;
+    }
 
     const [updated] = await db
       .update(assignments)
@@ -386,16 +500,132 @@ r.get(
       .select({
         s: assignmentSubmissions,
         student: { id: users.id, name: users.name, email: users.email },
+        gsContent: groupSubmissions.content,
+        gsFileAssetId: groupSubmissions.fileAssetId,
+        gsSubmittedAt: groupSubmissions.submittedAt,
       })
       .from(assignmentSubmissions)
       .innerJoin(users, eq(assignmentSubmissions.studentId, users.id))
+      .leftJoin(
+        groupSubmissions,
+        eq(groupSubmissions.id, assignmentSubmissions.groupSubmissionId),
+      )
       .where(eq(assignmentSubmissions.assignmentId, id))
       .orderBy(asc(users.name));
-    const out: SubmissionWithStudent[] = rows.map(({ s, student }) => ({
-      ...toSubmissionSummary(s),
+    const out: SubmissionWithStudent[] = rows.map(({ s, student, gsContent, gsFileAssetId, gsSubmittedAt }) => ({
+      ...toSubmissionSummary(
+        s,
+        s.groupSubmissionId
+          ? {
+              content: gsContent ?? null,
+              fileAssetId: gsFileAssetId ?? null,
+              submittedAt: gsSubmittedAt ?? null,
+            }
+          : undefined,
+      ),
       student,
     }));
     return success(c, out);
+  },
+);
+
+// Grouped view for teacher inbox on a group-mode assignment. Returns one
+// entry per group (with the shared content + each member's per-row grade
+// state) plus a bucket of ungrouped enrolled students (no submission yet).
+r.get(
+  '/assignments/:assignmentId/submissions/grouped',
+  requireScopeGroup('submissionsRead'),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const id = requireParam(c, 'assignmentId');
+    const assignment = await loadAssignment(c, id);
+    if (auth.user.role === 'student') {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot list all submissions');
+    }
+    if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, assignment.courseId, auth.user.id))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
+    }
+    if (assignment.submissionMode !== 'group' || !assignment.groupSetId) {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'Assignment is not in group submission mode',
+      );
+    }
+
+    const submissionRows = await db
+      .select({
+        s: assignmentSubmissions,
+        student: { id: users.id, name: users.name, email: users.email },
+        gs: groupSubmissions,
+        group: { id: groups.id, name: groups.name },
+      })
+      .from(assignmentSubmissions)
+      .innerJoin(users, eq(assignmentSubmissions.studentId, users.id))
+      .innerJoin(groupSubmissions, eq(groupSubmissions.id, assignmentSubmissions.groupSubmissionId))
+      .innerJoin(groups, eq(groups.id, groupSubmissions.groupId))
+      .where(eq(assignmentSubmissions.assignmentId, id))
+      .orderBy(asc(groups.position), asc(groups.name), asc(users.name));
+
+    const byGroup = new Map<string, GroupSubmissionWithMembers>();
+    const studentsWithSubmission = new Set<string>();
+    for (const { s, student, gs, group } of submissionRows) {
+      studentsWithSubmission.add(student.id);
+      let entry = byGroup.get(gs.id);
+      if (!entry) {
+        entry = {
+          groupSubmissionId: gs.id,
+          groupId: group.id,
+          groupName: group.name,
+          sharedContent: gs.content ?? null,
+          sharedFileAssetId: gs.fileAssetId ?? null,
+          sharedSubmittedAt: gs.submittedAt ?? null,
+          sharedSubmittedById: gs.submittedById ?? null,
+          members: [],
+        };
+        byGroup.set(gs.id, entry);
+      }
+      entry.members.push({
+        ...toSubmissionSummary(s, {
+          content: gs.content ?? null,
+          fileAssetId: gs.fileAssetId ?? null,
+          submittedAt: gs.submittedAt ?? null,
+        }),
+        student,
+      });
+    }
+
+    // Enrolled students whose group hasn't submitted yet (or who aren't in
+    // any group of this set). Surfaced so the teacher can chase them.
+    const ungroupedRows = await db
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(enrollments)
+      .innerJoin(users, eq(users.id, enrollments.studentId))
+      .where(eq(enrollments.courseId, assignment.courseId))
+      .orderBy(asc(users.name));
+    const ungroupedStudents = ungroupedRows.filter((u) => !studentsWithSubmission.has(u.id));
+
+    // FERPA §99.32(a) — surfacing every member's record is a disclosure
+    // (the student-role caller is already rejected above).
+    const disclosedIds = Array.from(studentsWithSubmission);
+    if (disclosedIds.length > 0) {
+      await recordAudit(db, {
+        actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+        actorUserId: auth.user.id,
+        actorTokenId: auth.tokenId ?? null,
+        action: 'submission.list-grouped',
+        target: id,
+        metadata: { courseId: assignment.courseId, count: disclosedIds.length },
+        disclosedStudentIds: disclosedIds,
+      });
+    }
+
+    const body: AssignmentSubmissionsByGroup = {
+      groups: Array.from(byGroup.values()),
+      ungroupedStudents,
+    };
+    return success(c, body);
   },
 );
 
@@ -416,6 +646,74 @@ r.post(
     if (!(await isCourseEnrolled(db, assignment.courseId, auth.user.id))) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
     }
+
+    if (assignment.submissionMode === 'group') {
+      if (!assignment.groupSetId) {
+        throw new ApiException(
+          500,
+          ERROR_CODES.INTERNAL_ERROR,
+          'Group-mode assignment is missing groupSetId',
+        );
+      }
+      const myGroup = await findStudentGroupForAssignment(
+        db,
+        assignment.groupSetId,
+        auth.user.id,
+      );
+      if (!myGroup) {
+        throw new ApiException(
+          409,
+          ERROR_CODES.CONFLICT,
+          'You are not in a group for this assignment',
+        );
+      }
+      const groupSubId = await ensureGroupSubmissionFannedOut(
+        db,
+        id,
+        myGroup.groupId,
+        auth.user.id,
+      );
+
+      const [myRow] = await db
+        .select()
+        .from(assignmentSubmissions)
+        .where(
+          and(
+            eq(assignmentSubmissions.assignmentId, id),
+            eq(assignmentSubmissions.studentId, auth.user.id),
+          ),
+        )
+        .limit(1);
+      if (!myRow) {
+        throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Submission row not created');
+      }
+      const [gs] = await db
+        .select()
+        .from(groupSubmissions)
+        .where(eq(groupSubmissions.id, groupSubId))
+        .limit(1);
+      const memberRows = await db
+        .select({ studentId: groupMemberships.studentId, name: users.name })
+        .from(groupMemberships)
+        .innerJoin(users, eq(users.id, groupMemberships.studentId))
+        .where(eq(groupMemberships.groupId, myGroup.groupId));
+
+      const body: MyAssignmentSubmissionResponse = {
+        submission: toSubmissionSummary(myRow, gs ?? undefined),
+        group: {
+          groupId: myGroup.groupId,
+          groupName: myGroup.groupName,
+          members: memberRows,
+          sharedContent: gs?.content ?? null,
+          sharedFileAssetId: gs?.fileAssetId ?? null,
+          sharedSubmittedAt: gs?.submittedAt ?? null,
+          sharedSubmittedById: gs?.submittedById ?? null,
+        },
+      };
+      return success(c, body);
+    }
+
+    // Individual mode (unchanged behaviour).
     const existing = (
       await db
         .select()
@@ -429,7 +727,10 @@ r.post(
         .limit(1)
     )[0];
     if (existing) {
-      return success(c, toSubmissionSummary(existing));
+      const body: MyAssignmentSubmissionResponse = {
+        submission: toSubmissionSummary(existing),
+      };
+      return success(c, body);
     }
     const [created] = await db
       .insert(assignmentSubmissions)
@@ -440,7 +741,10 @@ r.post(
       })
       .returning();
     if (!created) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create submission');
-    return success(c, toSubmissionSummary(created), 201);
+    const body: MyAssignmentSubmissionResponse = {
+      submission: toSubmissionSummary(created),
+    };
+    return success(c, body, 201);
   },
 );
 
@@ -487,7 +791,8 @@ r.get('/submissions/:submissionId', requireScopeGroup('submissionsRead'), async 
     });
   }
 
-  return success(c, toSubmissionSummary(submission));
+  const gs = await loadGroupSubmissionForRow(c, submission);
+  return success(c, toSubmissionSummary(submission, gs ?? undefined));
 });
 
 r.patch(
@@ -506,6 +811,39 @@ r.patch(
       throw new ApiException(409, ERROR_CODES.CONFLICT, 'Submission can only be edited while DRAFT or RETURNED');
     }
     const input = c.get('validated') as UpdateSubmissionInput;
+
+    // Group submission: write content/file to the SHARED group_submissions
+    // row so every teammate sees the same edit. The individual row's
+    // content/fileAssetId stay null/unused for group rows.
+    if (submission.groupSubmissionId) {
+      const groupPatch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+      if (input.textAnswer !== undefined) groupPatch.content = input.textAnswer;
+      if (input.fileAssetId !== undefined) groupPatch.fileAssetId = input.fileAssetId;
+      const [gs] = await db
+        .update(groupSubmissions)
+        .set(groupPatch)
+        .where(eq(groupSubmissions.id, submission.groupSubmissionId))
+        .returning();
+      if (input.fileAssetId) {
+        await db
+          .update(fileAssets)
+          .set({
+            relatedType: 'submission',
+            relatedId: submission.id,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(fileAssets.id, input.fileAssetId));
+      }
+      // Touch the per-member row's updatedAt so client caches refresh.
+      const [updated] = await db
+        .update(assignmentSubmissions)
+        .set({ updatedAt: new Date().toISOString() })
+        .where(eq(assignmentSubmissions.id, id))
+        .returning();
+      if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
+      return success(c, toSubmissionSummary(updated, gs ?? undefined));
+    }
+
     const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
     if (input.textAnswer !== undefined) patch.content = input.textAnswer;
     if (input.fileAssetId !== undefined) patch.fileAssetId = input.fileAssetId;
@@ -563,6 +901,51 @@ r.post(
         'Assignment is closed and does not accept late submissions',
       );
     }
+
+    // Group submission: mark the shared row submitted and fan the status
+    // out to every linked per-member row so all teammates flip to
+    // submitted/late together. Returned rows that have since been graded
+    // stay in their current status (we only flip draft/returned rows).
+    if (submission.groupSubmissionId) {
+      await db
+        .update(groupSubmissions)
+        .set({ submittedAt, submittedById: auth.user.id, updatedAt: submittedAt })
+        .where(eq(groupSubmissions.id, submission.groupSubmissionId));
+      await db
+        .update(assignmentSubmissions)
+        .set({ status, submittedAt, updatedAt: submittedAt })
+        .where(
+          and(
+            eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId),
+            inArray(assignmentSubmissions.status, ['draft', 'returned']),
+          ),
+        );
+      const [updated] = await db
+        .select()
+        .from(assignmentSubmissions)
+        .where(eq(assignmentSubmissions.id, id))
+        .limit(1);
+      if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
+      const [gs] = await db
+        .select()
+        .from(groupSubmissions)
+        .where(eq(groupSubmissions.id, submission.groupSubmissionId))
+        .limit(1);
+      await recordAudit(db, {
+        actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+        actorUserId: auth.user.id,
+        actorTokenId: auth.tokenId ?? null,
+        action: 'submission.submit',
+        target: id,
+        metadata: {
+          status,
+          dueDate: assignment.dueDate,
+          groupSubmissionId: submission.groupSubmissionId,
+        },
+      });
+      return success(c, toSubmissionSummary(updated, gs ?? undefined));
+    }
+
     const [updated] = await db
       .update(assignmentSubmissions)
       .set({
