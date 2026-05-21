@@ -356,31 +356,60 @@ export const reorderSlidesSchema = z.object({
 export type ReorderSlidesInput = z.infer<typeof reorderSlidesSchema>;
 
 // ---------- M3: Assignments ----------
-export const createAssignmentSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(20_000).optional().nullable(),
-  moduleId: z.string().uuid().optional().nullable(),
-  dueDate: isoDateString.optional().nullable(),
-  maxScore: z.number().min(0).max(1000).optional().nullable(),
-  rubric: z.unknown().optional(),
-  allowLateSubmission: z.boolean().optional(),
-  attachmentFileId: z.string().uuid().optional().nullable(),
-  position: z.number().int().min(0).optional(),
-});
+export const SUBMISSION_MODES = ['individual', 'group'] as const;
+export type SubmissionMode = (typeof SUBMISSION_MODES)[number];
+
+// Group-mode assignments must also send groupSetId. Enforced at the API
+// layer (we let Zod accept the loose shape and validate the cross-field
+// rule with a refine so error messages stay legible).
+export const createAssignmentSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(20_000).optional().nullable(),
+    moduleId: z.string().uuid().optional().nullable(),
+    dueDate: isoDateString.optional().nullable(),
+    maxScore: z.number().min(0).max(1000).optional().nullable(),
+    rubric: z.unknown().optional(),
+    allowLateSubmission: z.boolean().optional(),
+    attachmentFileId: z.string().uuid().optional().nullable(),
+    position: z.number().int().min(0).optional(),
+    submissionMode: z.enum(SUBMISSION_MODES).optional(),
+    groupSetId: z.string().uuid().nullable().optional(),
+  })
+  .refine((v) => v.submissionMode !== 'group' || !!v.groupSetId, {
+    message: 'groupSetId is required when submissionMode is "group"',
+    path: ['groupSetId'],
+  });
 export type CreateAssignmentInput = z.infer<typeof createAssignmentSchema>;
 
-export const updateAssignmentSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
-  description: z.string().trim().max(20_000).optional().nullable(),
-  moduleId: z.string().uuid().optional().nullable(),
-  groupId: z.string().uuid().nullable().optional(),
-  dueDate: isoDateString.optional().nullable(),
-  maxScore: z.number().min(0).max(1000).optional().nullable(),
-  rubric: z.unknown().optional(),
-  allowLateSubmission: z.boolean().optional(),
-  attachmentFileId: z.string().uuid().optional().nullable(),
-  position: z.number().int().min(0).optional(),
-});
+export const updateAssignmentSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(20_000).optional().nullable(),
+    moduleId: z.string().uuid().optional().nullable(),
+    groupId: z.string().uuid().nullable().optional(),
+    dueDate: isoDateString.optional().nullable(),
+    maxScore: z.number().min(0).max(1000).optional().nullable(),
+    rubric: z.unknown().optional(),
+    allowLateSubmission: z.boolean().optional(),
+    attachmentFileId: z.string().uuid().optional().nullable(),
+    position: z.number().int().min(0).optional(),
+    submissionMode: z.enum(SUBMISSION_MODES).optional(),
+    groupSetId: z.string().uuid().nullable().optional(),
+  })
+  .refine(
+    (v) => {
+      // If caller is switching TO group mode, groupSetId must also be set
+      // (either in this PATCH or already on the row — the API does the
+      // post-merge check).
+      if (v.submissionMode === 'group' && v.groupSetId === null) return false;
+      return true;
+    },
+    {
+      message: 'groupSetId cannot be null when submissionMode is "group"',
+      path: ['groupSetId'],
+    },
+  );
 export type UpdateAssignmentInput = z.infer<typeof updateAssignmentSchema>;
 
 // ---------- M3: Submissions ----------

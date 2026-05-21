@@ -41,14 +41,17 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   const [fileAssetId, setFileAssetId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (submission.data) {
-      setText(submission.data.textAnswer ?? '');
-      setFileAssetId(submission.data.fileAssetId);
-    }
-  }, [submission.data]);
+  const mySub = submission.data?.submission ?? null;
+  const myGroup = submission.data?.group ?? null;
 
-  const editable = submission.data?.status === 'draft' || submission.data?.status === 'returned';
+  useEffect(() => {
+    if (mySub) {
+      setText(mySub.textAnswer ?? '');
+      setFileAssetId(mySub.fileAssetId);
+    }
+  }, [mySub]);
+
+  const editable = mySub?.status === 'draft' || mySub?.status === 'returned';
 
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
@@ -75,19 +78,19 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   };
 
   const onSave = async () => {
-    if (!submission.data) return;
+    if (!mySub) return;
     await update.mutateAsync({
-      id: submission.data.id,
+      id: mySub.id,
       input: { textAnswer: text || null, fileAssetId: fileAssetId ?? null },
     });
     toast.push({ title: t('submissions.draftSaved'), tone: 'success' });
   };
 
   const onSubmit = async () => {
-    if (!submission.data) return;
+    if (!mySub) return;
     await onSave();
     try {
-      await submit.mutateAsync(submission.data.id);
+      await submit.mutateAsync(mySub.id);
       toast.push({ title: t('submissions.submitted'), tone: 'success' });
     } catch (err) {
       const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
@@ -139,31 +142,54 @@ export function StudentAssignmentDetailPage(): JSX.Element {
         </Card>
       ) : null}
 
-      {submission.data ? (
+      {mySub ? (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">{t('submissions.yourSubmission')}</CardTitle>
-            <Badge variant={statusVariant(submission.data.status)}>
-              {t(`submissions.status${submission.data.status[0]!.toUpperCase()}${submission.data.status.slice(1)}`)}
+            <CardTitle className="text-base">
+              {myGroup ? t('submissions.teamSubmission') : t('submissions.yourSubmission')}
+            </CardTitle>
+            <Badge variant={statusVariant(mySub.status)}>
+              {t(`submissions.status${mySub.status[0]!.toUpperCase()}${mySub.status.slice(1)}`)}
             </Badge>
           </CardHeader>
           <CardContent className="space-y-3">
-            {submission.data.status === 'returned' ? (
-              <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
-                <p className="font-medium">{t('submissions.returnedNotice')}</p>
-                {submission.data.feedback ? (
-                  <p className="mt-1 whitespace-pre-wrap">{submission.data.feedback}</p>
+            {myGroup ? (
+              <div className="rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
+                <p className="font-medium">
+                  {t('submissions.groupBannerTitle', { groupName: myGroup.groupName })}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('submissions.groupBannerHelp')}
+                </p>
+                <p className="mt-2 text-xs">
+                  <strong>{t('submissions.teamMembers')}:</strong>{' '}
+                  {myGroup.members.map((m) => m.name).join(', ')}
+                </p>
+                {myGroup.sharedSubmittedAt ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t('submissions.lastSubmittedAt', {
+                      date: new Date(myGroup.sharedSubmittedAt).toLocaleString(),
+                    })}
+                  </p>
                 ) : null}
               </div>
             ) : null}
-            {submission.data.status === 'graded' ? (
+            {mySub.status === 'returned' ? (
+              <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+                <p className="font-medium">{t('submissions.returnedNotice')}</p>
+                {mySub.feedback ? (
+                  <p className="mt-1 whitespace-pre-wrap">{mySub.feedback}</p>
+                ) : null}
+              </div>
+            ) : null}
+            {mySub.status === 'graded' ? (
               <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm">
                 <p className="font-medium">
-                  {t('submissions.scoreLabel')}: {submission.data.score} /{' '}
+                  {t('submissions.scoreLabel')}: {mySub.score} /{' '}
                   {assignment.data?.maxScore ?? '—'}
                 </p>
-                {submission.data.feedback ? (
-                  <p className="mt-1 whitespace-pre-wrap">{submission.data.feedback}</p>
+                {mySub.feedback ? (
+                  <p className="mt-1 whitespace-pre-wrap">{mySub.feedback}</p>
                 ) : null}
               </div>
             ) : null}

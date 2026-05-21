@@ -330,6 +330,8 @@ export interface AssignmentSummary {
   archivedAt: string | null;
   position: number;
   submissionCount?: number;
+  submissionMode: 'individual' | 'group';
+  groupSetId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -346,6 +348,8 @@ export interface SubmissionSummary {
   feedback: string | null;
   gradedAt: string | null;
   gradedById: string | null;
+  // Group-mode only: id of the shared group_submissions row.
+  groupSubmissionId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -356,6 +360,48 @@ export interface SubmissionWithStudent extends SubmissionSummary {
     name: string;
     email: string;
   };
+}
+
+// ---------- Group submissions (PR2) ----------
+
+export interface MyAssignmentSubmissionResponse {
+  /** The caller's individual submission row. */
+  submission: SubmissionSummary;
+  /**
+   * Present when the assignment is in group mode. Lets the student see
+   * the shared content + teammate names without a second round-trip.
+   */
+  group?: {
+    groupId: string;
+    groupName: string;
+    members: { studentId: string; name: string }[];
+    sharedContent: string | null;
+    sharedFileAssetId: string | null;
+    sharedSubmittedAt: string | null;
+    sharedSubmittedById: string | null;
+  };
+}
+
+export interface GroupSubmissionWithMembers {
+  groupSubmissionId: string;
+  groupId: string;
+  groupName: string;
+  sharedContent: string | null;
+  sharedFileAssetId: string | null;
+  sharedSubmittedAt: string | null;
+  sharedSubmittedById: string | null;
+  members: SubmissionWithStudent[];
+}
+
+/** Returned by the grouped grading endpoint. */
+export interface AssignmentSubmissionsByGroup {
+  groups: GroupSubmissionWithMembers[];
+  /**
+   * Members who haven't been part of any submission yet (e.g. assignment
+   * is group mode but no one in their group has touched it). Rendered in
+   * the inbox as a "no submission yet" bucket.
+   */
+  ungroupedStudents: { id: string; name: string; email: string }[];
 }
 
 export interface DiscussionTopicSummary {

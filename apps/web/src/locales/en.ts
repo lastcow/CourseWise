@@ -786,6 +786,16 @@ export const en = {
       moduleUpdated: 'Module updated',
       groupLabel: 'Group',
       unassignedGroup: 'Unassigned',
+      submissionModeLabel: 'Submission mode',
+      submissionModeIndividual: 'Individual',
+      submissionModeGroup: 'Group',
+      groupSetLabel: 'Group set',
+      noGroupSets: 'No group sets yet',
+      noGroupSetsHint:
+        'Create a group set in this course first (Engagement → Groups), then come back to switch this assignment to group mode.',
+      groupSetRequired: 'Choose a group set for this group assignment.',
+      modeLockedHint:
+        'Cannot change submission mode after students have submitted.',
     },
     submissions: {
       title: 'Submissions',
@@ -814,6 +824,14 @@ export const en = {
       statusLate: 'Late',
       statusGraded: 'Graded',
       statusReturned: 'Returned',
+      teamSubmission: 'Your team submission',
+      groupBannerTitle: 'Submitting as {{groupName}}',
+      groupBannerHelp:
+        'Anyone in your team can edit or submit. Whatever you save is shared with all members; the teacher can still adjust each member’s grade.',
+      teamMembers: 'Team members',
+      lastSubmittedAt: 'Last submitted at {{date}}',
+      submittedShort: 'submitted',
+      notSubmittedYet: 'Not submitted yet',
     },
     discussion: {
       title: 'Discussion',

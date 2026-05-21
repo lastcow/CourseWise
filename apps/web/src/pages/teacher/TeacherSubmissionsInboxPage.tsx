@@ -13,6 +13,7 @@ import {
   getDownloadUrl,
   useAssignment,
   useAssignmentSubmissions,
+  useAssignmentSubmissionsByGroup,
   useGradeSubmission,
   useReturnSubmission,
 } from '@/lib/queries';
@@ -32,7 +33,9 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const cId = courseId ?? '';
   const aId = assignmentId ?? '';
   const assignment = useAssignment(aId);
-  const submissions = useAssignmentSubmissions(aId);
+  const isGroupMode = assignment.data?.submissionMode === 'group';
+  const submissions = useAssignmentSubmissions(isGroupMode ? null : aId);
+  const grouped = useAssignmentSubmissionsByGroup(isGroupMode ? aId : null);
   const grade = useGradeSubmission(aId);
   const returnSub = useReturnSubmission(aId);
   const toast = useToast();
@@ -40,10 +43,15 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const [score, setScore] = useState<number | ''>('');
   const [feedback, setFeedback] = useState('');
 
-  const selected = submissions.data?.find((s) => s.id === selectedId) ?? null;
+  // Flatten member rows so the existing selected-row UI keeps working in
+  // both individual and group modes.
+  const flatRows = isGroupMode
+    ? (grouped.data?.groups ?? []).flatMap((g) => g.members)
+    : submissions.data ?? [];
+  const selected = flatRows.find((s) => s.id === selectedId) ?? null;
 
   const openSelected = (id: string) => {
-    const s = submissions.data?.find((x) => x.id === id);
+    const s = flatRows.find((x) => x.id === id);
     setSelectedId(id);
     if (s) {
       setScore(s.score ?? '');
@@ -97,14 +105,66 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
         </h2>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="grid gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
         <Card>
           <CardHeader className="px-3 py-2">
             <CardTitle className="text-sm">{t('submissions.inbox')}</CardTitle>
           </CardHeader>
           <CardContent className="p-1">
-            {submissions.isLoading ? (
+            {(isGroupMode ? grouped.isLoading : submissions.isLoading) ? (
               <p className="px-2 py-1 text-sm">{t('common.loading')}</p>
+            ) : isGroupMode ? (
+              !grouped.data || grouped.data.groups.length === 0 ? (
+                <EmptyState title={t('submissions.empty')} />
+              ) : (
+                <div className="space-y-2">
+                  {grouped.data.groups.map((g) => (
+                    <div key={g.groupSubmissionId} className="rounded border">
+                      <div className="border-b bg-muted/30 px-2 py-1 text-xs font-medium">
+                        {g.groupName}
+                        {g.sharedSubmittedAt ? (
+                          <span className="ml-1 text-muted-foreground">
+                            · {t('submissions.submittedShort')}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="space-y-0.5 p-1">
+                        {g.members.map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => openSelected(s.id)}
+                            className={cn(
+                              'flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left text-sm hover:bg-muted',
+                              selectedId === s.id ? 'bg-muted' : '',
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate font-medium">{s.student.name}</span>
+                              <Badge variant={statusVariant(s.status)} className="shrink-0">
+                                {t(`submissions.status${s.status[0]!.toUpperCase()}${s.status.slice(1)}`)}
+                              </Badge>
+                            </div>
+                            <p className="font-mono text-xs text-muted-foreground">
+                              {s.score != null
+                                ? `${s.score} / ${assignment.data?.maxScore ?? '—'}`
+                                : '—'}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {grouped.data.ungroupedStudents.length > 0 ? (
+                    <div className="rounded border border-dashed p-2 text-xs text-muted-foreground">
+                      <p className="font-medium">{t('submissions.notSubmittedYet')}</p>
+                      <p className="mt-1">
+                        {grouped.data.ungroupedStudents.map((u) => u.name).join(', ')}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              )
             ) : !submissions.data || submissions.data.length === 0 ? (
               <EmptyState title={t('submissions.empty')} />
             ) : (
