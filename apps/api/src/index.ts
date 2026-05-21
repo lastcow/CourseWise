@@ -28,6 +28,7 @@ import dashboardsRoutes from './routes/dashboards';
 import courseAiRoutes from './routes/courseAi';
 import contactRoutes from './routes/contact';
 import publicShareRoutes from './routes/publicShare';
+import { runRetentionSweep } from './services/retentionSweep';
 import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
 export { MaterialGenerationWorkflow } from './workflows/materialGeneration';
@@ -171,4 +172,39 @@ app.onError((err, c) => {
   return unhandledFailure(c, err);
 });
 
-export default app;
+// Cloudflare Workers entrypoint. We export both `fetch` (HTTP requests
+// routed through Hono) and `scheduled` (cron triggers, see wrangler.toml
+// `[triggers]`). The retention sweep is intentionally the only scheduled
+// job today; future cron work should branch on `controller.cron`.
+//
+// `request` is re-exposed so the existing integration tests (which call
+// `app.request(...)` — a Hono test helper) keep working unchanged.
+export default {
+  fetch: app.fetch,
+  request: app.request.bind(app),
+  // Expose Hono's introspection so the auth-coverage test can scan registered
+  // routes without grabbing a named export.
+  get routes() {
+    return app.routes;
+  },
+  async scheduled(
+    controller: ScheduledController,
+    env: AppBindings,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    ctx.waitUntil(
+      (async () => {
+        const db = createDb(env.DATABASE_URL);
+        try {
+          const summary = await runRetentionSweep(db);
+          console.log('retention.sweep.ok', { cron: controller.cron, ...summary });
+        } catch (err) {
+          // Don't rethrow — a failed sweep should retry on the next tick
+          // rather than fail the Worker invocation entirely. The audit row
+          // is only written on success.
+          console.error('retention.sweep.failed', { cron: controller.cron, err });
+        }
+      })(),
+    );
+  },
+};
