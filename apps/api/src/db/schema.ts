@@ -460,6 +460,29 @@ export const readingMaterials = pgTable(
   }),
 );
 
+export const assignmentGroups = pgTable(
+  'assignment_groups',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    weight: integer('weight').notNull(),
+    position: integer('position').notNull(),
+    ...timestamps,
+  },
+  (t) => ({
+    courseIdx: index('assignment_groups_course_idx').on(t.courseId),
+    nameUnique: uniqueIndex('assignment_groups_course_name_idx').on(
+      t.courseId,
+      sql`lower(${t.name})`,
+    ),
+  }),
+);
+
+export type AssignmentGroupRow = typeof assignmentGroups.$inferSelect;
+
 export const assignments = pgTable(
   'assignments',
   {
@@ -468,6 +491,7 @@ export const assignments = pgTable(
       .notNull()
       .references(() => courses.id, { onDelete: 'cascade' }),
     moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
+    groupId: uuid('group_id').references(() => assignmentGroups.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     description: text('description'),
     dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
@@ -532,6 +556,7 @@ export const discussionTopics = pgTable(
       .notNull()
       .references(() => courses.id, { onDelete: 'cascade' }),
     moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
+    groupId: uuid('group_id').references(() => assignmentGroups.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     description: text('description'),
     prompt: text('prompt'),
@@ -607,6 +632,7 @@ export const quizzes = pgTable(
       .notNull()
       .references(() => courses.id, { onDelete: 'cascade' }),
     moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
+    groupId: uuid('group_id').references(() => assignmentGroups.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     description: text('description'),
     status: quizStatusEnum('status').notNull().default('draft'),
