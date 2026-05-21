@@ -289,11 +289,11 @@ export function TeacherStudentsPage(): JSX.Element {
                   aria-label={copied ? t('common.copied') : t('common.copy')}
                   title={copied ? t('common.copied') : t('common.copy')}
                   className={cn(
-                    'inline-flex h-7 w-7 items-center justify-center rounded-md border transition-all duration-200',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    'inline-flex items-center justify-center rounded p-0.5 transition-all duration-200',
+                    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current',
                     copied
-                      ? 'scale-110 border-emerald-500/60 text-emerald-500 focus-visible:ring-emerald-500/40'
-                      : 'border-sky-500/60 text-sky-500 hover:bg-sky-500/10 focus-visible:ring-sky-500/40',
+                      ? 'scale-125 text-emerald-500'
+                      : 'text-sky-500 hover:text-sky-600',
                   )}
                 >
                   {/* `key` re-mounts the icon on state flip so tailwindcss-animate
@@ -302,11 +302,11 @@ export function TeacherStudentsPage(): JSX.Element {
                   {copied ? (
                     <Check
                       key="check"
-                      className="h-3.5 w-3.5 animate-in zoom-in-50 duration-200"
+                      className="h-3 w-3 animate-in zoom-in-50 duration-200"
                       aria-hidden
                     />
                   ) : (
-                    <Copy key="copy" className="h-3.5 w-3.5" aria-hidden />
+                    <Copy key="copy" className="h-3 w-3" aria-hidden />
                   )}
                 </button>
                 <span>·</span>
