@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, Users } from 'lucide-react';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
@@ -16,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import {
+  useCourseStudents,
   useGroupSet,
   useGroupSets,
   useJoinOrAssignGroupMember,
@@ -23,13 +25,17 @@ import {
 } from '@/lib/queries';
 import { ApiClientError, getStoredAuth } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import type { EnrollmentRow } from '@coursewise/shared';
 
 /**
- * Student-side roster view. Toolbar hosts a group-set filter; selecting a
- * set switches the table to a grouped layout showing every group, their
- * members, capacity, and self-signup buttons. Join is disabled when the
- * student is already in another group, the set is locked, or the group is
- * full.
+ * Student-side roster view. Toolbar mirrors the teacher Students page:
+ * search on the left, right-aligned outlined filter chips (All + one per
+ * group set), refresh as the trailing icon button.
+ *
+ * "All" shows the flat enrolled-students roster (name + email — no
+ * studentNumber for student callers). Picking a group-set chip pivots
+ * the table into a grouped layout with capacity badges and self-join /
+ * leave buttons on each group header row.
  */
 export function StudentStudentsPage(): JSX.Element {
   const { t } = useTranslation();
@@ -38,6 +44,7 @@ export function StudentStudentsPage(): JSX.Element {
   const toast = useToast();
   const myUserId = getStoredAuth()?.user.id ?? '';
 
+  const studentsQ = useCourseStudents(cId || undefined);
   const groupSetsQ = useGroupSets(cId || undefined);
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -45,15 +52,8 @@ export function StudentStudentsPage(): JSX.Element {
   const join = useJoinOrAssignGroupMember(cId, activeSetId ?? '');
   const leave = useRemoveGroupMember(cId, activeSetId ?? '');
 
-  // Auto-pick the first available group set so the student lands in a
-  // meaningful view; otherwise the page shows just an empty state.
-  useEffect(() => {
-    if (activeSetId === null && groupSetsQ.data && groupSetsQ.data.length > 0) {
-      setActiveSetId(groupSetsQ.data[0]!.id);
-    }
-  }, [groupSetsQ.data, activeSetId]);
-
   const refresh = () => {
+    void studentsQ.refetch();
     void groupSetsQ.refetch();
     if (activeSetId) void activeSetQ.refetch();
   };
@@ -95,6 +95,16 @@ export function StudentStudentsPage(): JSX.Element {
     [sets, activeSetId],
   );
 
+  const flatStudents = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return (studentsQ.data ?? []).filter((row) => {
+      if (s && !`${row.studentName} ${row.studentEmail}`.toLowerCase().includes(s)) return false;
+      return row.status === 'enrolled';
+    });
+  }, [studentsQ.data, search]);
+
+  const fetching = studentsQ.isFetching || groupSetsQ.isFetching || activeSetQ.isFetching;
+
   return (
     <div className="space-y-4">
       <header>
@@ -102,177 +112,222 @@ export function StudentStudentsPage(): JSX.Element {
         <p className="mt-1 text-sm text-muted-foreground">{t('students.helpStudent')}</p>
       </header>
 
-      {sets.length === 0 ? (
-        <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
-          {t('groups.emptySetsStudent')}
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-md border">
-          <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
-            <Input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('students.searchPlaceholder')}
-              className="h-8 w-56"
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={refresh}
-              disabled={groupSetsQ.isFetching || activeSetQ.isFetching}
-              aria-label={t('common.refresh')}
-              title={t('common.refresh')}
+      <div className="overflow-hidden rounded-md border">
+        {/* Toolbar — layout mirrors the teacher Students page so the two
+            views feel like the same screen with a permission delta. */}
+        <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('students.searchPlaceholder')}
+            className="h-8 w-56"
+          />
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveSetId(null)}
+              className={cn(
+                'inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors',
+                activeSetId === null
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-input bg-background text-foreground hover:bg-accent',
+              )}
             >
-              <RefreshCw
-                className={cn(
-                  'h-4 w-4',
-                  (groupSetsQ.isFetching || activeSetQ.isFetching) && 'animate-spin',
-                )}
-                aria-hidden
-              />
-            </Button>
-            <div className="mx-2 h-5 w-px bg-border" aria-hidden />
+              {t('students.filterAll')}
+            </button>
             {sets.map((gs) => (
               <button
                 key={gs.id}
                 type="button"
                 onClick={() => setActiveSetId(gs.id)}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium',
+                  'inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium transition-colors',
                   activeSetId === gs.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background hover:bg-accent',
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-input bg-background text-foreground hover:bg-accent',
                 )}
+                title={t('students.filterByGroupSet', { name: gs.name })}
               >
                 <Users className="h-3 w-3" aria-hidden />
                 {gs.name}
               </button>
             ))}
+            <div className="mx-1 h-5 w-px bg-border" aria-hidden />
+            <ActionIconButton
+              icon={RefreshCw}
+              label={t('common.refresh')}
+              color="sky"
+              size="sm"
+              onClick={refresh}
+              disabled={fetching}
+              className={cn(fetching && '[&_svg]:animate-spin')}
+            />
           </div>
+        </div>
 
-          {summary ? (
-            <div className="flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2 text-sm">
-              <span className="font-medium">{summary.name}</span>
-              <Badge variant={summary.signupStatus === 'open' ? 'success' : 'secondary'}>
-                {summary.signupStatus === 'open'
-                  ? t('groups.signupOpen')
-                  : t('groups.signupLocked')}
-              </Badge>
-              {set?.myGroupId ? (
-                <span className="text-xs text-muted-foreground">
-                  {t('groups.currentlyInGroup', {
-                    groupName:
-                      set.groups.find((g) => g.id === set.myGroupId)?.name ?? '—',
-                  })}
-                </span>
-              ) : isLocked ? (
-                <span className="text-xs text-muted-foreground">
-                  {t('groups.signupLockedNotice')}
-                </span>
-              ) : isTeacherAssigned ? (
-                <span className="text-xs text-muted-foreground">
-                  {t('groups.teacherAssignedNotice')}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+        {/* Per-set status bar (only when a filter is active) */}
+        {summary ? (
+          <div className="flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2 text-sm">
+            <span className="font-medium">{summary.name}</span>
+            <Badge variant={summary.signupStatus === 'open' ? 'success' : 'secondary'}>
+              {summary.signupStatus === 'open'
+                ? t('groups.signupOpen')
+                : t('groups.signupLocked')}
+            </Badge>
+            {set?.myGroupId ? (
+              <span className="text-xs text-muted-foreground">
+                {t('groups.currentlyInGroup', {
+                  groupName:
+                    set.groups.find((g) => g.id === set.myGroupId)?.name ?? '—',
+                })}
+              </span>
+            ) : isLocked ? (
+              <span className="text-xs text-muted-foreground">
+                {t('groups.signupLockedNotice')}
+              </span>
+            ) : isTeacherAssigned ? (
+              <span className="text-xs text-muted-foreground">
+                {t('groups.teacherAssignedNotice')}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
-          {!set ? (
-            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-              {t('common.loading')}
-            </p>
-          ) : set.groups.length === 0 ? (
-            <EmptyState title={t('groups.emptySetsStudent')} />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40%]">{t('students.colName')}</TableHead>
-                  <TableHead>{t('students.colEmail')}</TableHead>
-                  <TableHead className="text-right">{t('common.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {set.groups.map((g) => {
-                  const remaining = set.maxMembersPerGroup - g.members.length;
-                  const full = remaining <= 0;
-                  const isMine = myGroupId === g.id;
-                  const canJoin =
-                    !myGroupId && !full && !isLocked && !isTeacherAssigned;
-                  const visibleMembers = g.members.filter((m) =>
-                    matchesSearch(m.name, m.email),
-                  );
-                  return (
-                    <Block key={g.id}>
-                      <TableRow className="bg-muted/40 hover:bg-muted/40">
-                        <TableCell colSpan={3} className="py-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={isMine ? 'font-semibold text-primary' : 'font-medium'}
-                            >
-                              {set.name} · {g.name}
-                            </span>
-                            <Badge variant={full ? 'destructive' : 'secondary'}>
-                              {full
-                                ? t('groups.groupFull')
-                                : t('groups.slotsLeft', {
-                                    remaining,
-                                    max: set.maxMembersPerGroup,
-                                  })}
-                            </Badge>
+        {/* Body */}
+        {activeSetId === null ? (
+          <FlatRosterTable rows={flatStudents} loading={studentsQ.isLoading} t={t} />
+        ) : !set ? (
+          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+            {t('common.loading')}
+          </p>
+        ) : set.groups.length === 0 ? (
+          <EmptyState title={t('groups.emptySetsStudent')} />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[40%]">{t('students.colName')}</TableHead>
+                <TableHead>{t('students.colEmail')}</TableHead>
+                <TableHead className="text-right">{t('common.actions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {set.groups.map((g) => {
+                const remaining = set.maxMembersPerGroup - g.members.length;
+                const full = remaining <= 0;
+                const isMine = myGroupId === g.id;
+                const canJoin =
+                  !myGroupId && !full && !isLocked && !isTeacherAssigned;
+                const visibleMembers = g.members.filter((m) =>
+                  matchesSearch(m.name, m.email),
+                );
+                return (
+                  <Block key={g.id}>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableCell colSpan={3} className="py-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={isMine ? 'font-semibold text-primary' : 'font-medium'}
+                          >
+                            {set.name} · {g.name}
+                          </span>
+                          <Badge variant={full ? 'destructive' : 'secondary'}>
+                            {full
+                              ? t('groups.groupFull')
+                              : t('groups.slotsLeft', {
+                                  remaining,
+                                  max: set.maxMembersPerGroup,
+                                })}
+                          </Badge>
+                          {isMine ? (
+                            <Badge variant="info">{t('groups.yourGroup')}</Badge>
+                          ) : null}
+                          <div className="ml-auto">
                             {isMine ? (
-                              <Badge variant="info">{t('groups.yourGroup')}</Badge>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isLocked || leave.isPending}
+                                onClick={() => onLeave(g.id)}
+                              >
+                                {t('groups.leaveCta')}
+                              </Button>
+                            ) : canJoin ? (
+                              <Button
+                                size="sm"
+                                disabled={join.isPending}
+                                onClick={() => onJoin(g.id)}
+                              >
+                                {t('groups.joinCta')}
+                              </Button>
                             ) : null}
-                            <div className="ml-auto">
-                              {isMine ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={isLocked || leave.isPending}
-                                  onClick={() => onLeave(g.id)}
-                                >
-                                  {t('groups.leaveCta')}
-                                </Button>
-                              ) : canJoin ? (
-                                <Button
-                                  size="sm"
-                                  disabled={join.isPending}
-                                  onClick={() => onJoin(g.id)}
-                                >
-                                  {t('groups.joinCta')}
-                                </Button>
-                              ) : null}
-                            </div>
                           </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {visibleMembers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="pl-8 text-xs text-muted-foreground">
+                          {g.members.length === 0
+                            ? t('common.none')
+                            : t('students.noSearchMatch')}
                         </TableCell>
                       </TableRow>
-                      {visibleMembers.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={3} className="pl-8 text-xs text-muted-foreground">
-                            {g.members.length === 0
-                              ? t('common.none')
-                              : t('students.noSearchMatch')}
-                          </TableCell>
+                    ) : (
+                      visibleMembers.map((m) => (
+                        <TableRow key={m.studentId}>
+                          <TableCell className="pl-8 font-medium">{m.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{m.email}</TableCell>
+                          <TableCell />
                         </TableRow>
-                      ) : (
-                        visibleMembers.map((m) => (
-                          <TableRow key={m.studentId}>
-                            <TableCell className="pl-8 font-medium">{m.name}</TableCell>
-                            <TableCell className="text-muted-foreground">{m.email}</TableCell>
-                            <TableCell />
-                          </TableRow>
-                        ))
-                      )}
-                    </Block>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      )}
+                      ))
+                    )}
+                  </Block>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </div>
     </div>
+  );
+}
+
+function FlatRosterTable({
+  rows,
+  loading,
+  t,
+}: {
+  rows: EnrollmentRow[];
+  loading: boolean;
+  t: (k: string, v?: Record<string, unknown>) => string;
+}) {
+  if (loading) {
+    return (
+      <p className="px-3 py-6 text-center text-sm text-muted-foreground">{t('common.loading')}</p>
+    );
+  }
+  if (rows.length === 0) {
+    return <EmptyState title={t('students.emptyRoster')} />;
+  }
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[40%]">{t('students.colName')}</TableHead>
+          <TableHead>{t('students.colEmail')}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((r) => (
+          <TableRow key={r.id}>
+            <TableCell className="font-medium">{r.studentName}</TableCell>
+            <TableCell className="text-muted-foreground">{r.studentEmail}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
