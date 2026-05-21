@@ -22,20 +22,39 @@ describe('computeFinalScore', () => {
     expect(r.score).toBe(80);
   });
 
-  it('attendance 10% + group 90% blend', () => {
+  it('attendance + groups share one 100% pool — proportional blend', () => {
     const r = computeFinalScore({
       groups: [
         {
           id: 'g1',
           name: 'HW',
-          weight: 100,
+          weight: 90,
           items: [{ id: 'i1', type: 'assignment', title: 'HW1', score: 80, max: 100 }],
         },
       ],
       attendance: { rate: 100, weight: 10 },
     });
-    // 100*0.1 + 80*0.9 = 82
+    // (100×10 + 80×90) / (10 + 90) = 82
     expect(r.score).toBeCloseTo(82, 2);
+  });
+
+  it('attendance carries its share even when groups would have summed to 100 alone', () => {
+    // Demonstrates the "attendance is part of the total" semantic: a teacher
+    // configures attendance 10% and a single 90% group; attendance contributes
+    // exactly 10% of the final score, not 10% of the residual.
+    const r = computeFinalScore({
+      groups: [
+        {
+          id: 'g1',
+          name: 'HW',
+          weight: 90,
+          items: [{ id: 'i1', type: 'assignment', title: 'HW1', score: 50, max: 100 }],
+        },
+      ],
+      attendance: { rate: 100, weight: 10 },
+    });
+    // (100×10 + 50×90) / 100 = 55
+    expect(r.score).toBe(55);
   });
 
   it('two groups, one fully scored, one with no items → null group skipped, remaining carries full weight', () => {

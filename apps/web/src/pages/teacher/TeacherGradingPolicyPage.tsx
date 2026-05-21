@@ -40,7 +40,8 @@ export function TeacherGradingPolicyPage(): JSX.Element {
 
   const groupList = groups.data ?? [];
   const totalGroupWeight = groupList.reduce((acc, g) => acc + (g.weight || 0), 0);
-  const balanced = totalGroupWeight === 100;
+  const totalWeight = totalGroupWeight + (attendanceWeight || 0);
+  const balanced = totalWeight === 100;
 
   async function onSaveAttendance() {
     const input: UpdateGradingPolicyInput = { weightAttendance: attendanceWeight };
@@ -199,9 +200,9 @@ export function TeacherGradingPolicyPage(): JSX.Element {
                   {t('grading.groupAdd')}
                 </Button>
               </div>
-              {!balanced && groupList.length > 0 ? (
+              {!balanced && (groupList.length > 0 || (attendanceWeight ?? 0) > 0) ? (
                 <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-                  {t('grading.groupsImbalanced', { total: totalGroupWeight })}
+                  {t('grading.groupsImbalanced', { total: totalWeight })}
                 </div>
               ) : null}
             </div>
