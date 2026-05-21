@@ -11,6 +11,7 @@ export const en = {
       logout: 'Sign out',
       profile: 'Profile',
       apiTokens: 'API tokens',
+      disclosures: 'Record disclosures',
       sideMenu: 'Side navigation',
       openMenu: 'Open navigation menu',
       closeMenu: 'Close navigation menu',
@@ -70,6 +71,7 @@ export const en = {
       edit: 'Edit',
       submit: 'Submit',
       back: 'Back',
+      next: 'Next',
       retry: 'Retry',
       refresh: 'Refresh',
       loading: 'Loading…',
@@ -97,7 +99,34 @@ export const en = {
       unpin: 'Unpin',
       deactivate: 'Deactivate',
     },
+    roles: {
+      admin: 'Admin',
+      teacher: 'Teacher',
+      student: 'Student',
+    },
     settings: {
+      disclosures: {
+        title: 'Record disclosures',
+        description:
+          'A log of every time someone with course access viewed or exported your education records. You can request a written copy from your school registrar at any time.',
+        emptyTitle: 'No disclosures recorded',
+        emptyBody:
+          'Nothing has been logged yet. Disclosures show up here when a teacher or administrator views or exports your grades, attendance, or submissions.',
+        col: {
+          when: 'When',
+          what: 'What was disclosed',
+          who: 'Who',
+        },
+        action: {
+          gradesExport: 'Grades exported as CSV',
+          attendanceExport: 'Attendance exported as CSV',
+          gradebookView: 'Gradebook detail viewed',
+          submissionView: 'Assignment submission viewed',
+        },
+        unknownActor: '(unknown)',
+        viaApiToken: 'via API token',
+        showingRange: 'Showing {{from}}–{{to}} of {{total}}',
+      },
       apiTokens: {
         title: 'API tokens',
         description:

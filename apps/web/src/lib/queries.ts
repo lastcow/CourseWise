@@ -44,6 +44,7 @@ import type {
   CreateGammaPresentationResponse,
   CreateSelfApiTokenInput,
   CreateSlideInput,
+  DisclosureLogResponse,
   DiscussionGradeRow,
   DiscussionPostSummary,
   DiscussionTopicSummary,
@@ -418,6 +419,18 @@ export function useMyApiTokens() {
   return useQuery({
     queryKey: ['my-api-tokens'],
     queryFn: () => apiCall<{ tokens: ApiTokenSummary[] }>('/api/me/api-tokens'),
+  });
+}
+
+export function useMyDisclosures(offset: number, limit = 50) {
+  return useQuery({
+    queryKey: ['my-disclosures', offset, limit],
+    queryFn: () =>
+      apiCall<DisclosureLogResponse>(
+        `/api/me/records/disclosures?limit=${limit}&offset=${offset}`,
+      ),
+    // Keep prior page while loading the next so the UI doesn't flash empty.
+    placeholderData: (prev) => prev,
   });
 }
 
