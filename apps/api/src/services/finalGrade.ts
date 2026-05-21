@@ -612,25 +612,15 @@ export async function applyTeacherOverride(
 // ---------------------------------------------------------------------------
 // Gradebook student detail.
 //
-// Returns the legacy `GradebookStudentDetail` shape so existing teacher UI
-// still compiles. Today the five hard-coded category rollups (attendance,
-// assignments, finalProject, quizzes, discussion) are filled in best-effort
-// from the new group-based scoring; the page that consumes them will be
-// rewritten in task 12 to use `groups[]` directly.
+// Returns `GradebookStudentDetail` — the teacher gradebook page consumes
+// `finalGrade.groups[]` for per-group structure and pools the per-item lists
+// here (attendance / assignments / quizzes / discussion items) for inline
+// editing. The legacy 5-category rollup fields are kept on the response shape
+// for compatibility but are now inert (zero-filled); they're no longer
+// rendered by any UI.
 // ---------------------------------------------------------------------------
 
-function findGroupByName(
-  groups: GroupScoreBreakdown[],
-  name: string,
-): GroupScoreBreakdown | null {
-  const target = name.toLowerCase();
-  return groups.find((g) => g.groupName.toLowerCase() === target) ?? null;
-}
-
-function rollupFromGroup(group: GroupScoreBreakdown | null): GradebookCategoryRollup {
-  if (!group) return { raw: null, weight: 0, weighted: 0 };
-  return { raw: group.raw, weight: group.weight, weighted: group.weighted };
-}
+const EMPTY_ROLLUP: GradebookCategoryRollup = { raw: null, weight: 0, weighted: 0 };
 
 export async function buildGradebookStudentDetail(
   db: Db,
@@ -655,12 +645,6 @@ export async function buildGradebookStudentDetail(
     )
     .limit(1);
   if (!enrollment) return null;
-
-  const ctx = await loadCourseGradingContext(db, courseId);
-  const scoresByStudent = await loadStudentItemScores(db, ctx, [studentId]);
-  const studentScores = scoresByStudent.get(studentId)!;
-  const algorithmInput = buildAlgorithmInput(ctx, studentScores, policy.weightAttendance);
-  const computed = computeFinalScore(algorithmInput);
 
   // Attendance items (every session in the course, joined to the student's record).
   const sessions = await db
@@ -706,7 +690,6 @@ export async function buildGradebookStudentDetail(
       id: assignments.id,
       title: assignments.title,
       maxScore: assignments.maxScore,
-      groupId: assignments.groupId,
     })
     .from(assignments)
     .where(eq(assignments.courseId, courseId))
@@ -726,15 +709,10 @@ export async function buildGradebookStudentDetail(
         )
     : [];
   const subByAssignment = new Map(subs.map((s) => [s.assignmentId, s]));
-  const finalProjectGroup = findGroupByName(computed.groups, 'Final Project');
-  const finalProjectGroupId = finalProjectGroup?.groupId ?? null;
   const assignmentItems: GradebookAssignmentItem[] = [];
-  const finalProjectItems: GradebookAssignmentItem[] = [];
   for (const a of courseAssignments) {
     const sub = subByAssignment.get(a.id);
-    const isFinalProject =
-      finalProjectGroupId !== null && a.groupId === finalProjectGroupId;
-    const item: GradebookAssignmentItem = {
+    assignmentItems.push({
       assignmentId: a.id,
       submissionId: sub?.id ?? null,
       title: a.title,
@@ -742,11 +720,9 @@ export async function buildGradebookStudentDetail(
       score: sub?.score !== null && sub?.score !== undefined ? Number(sub.score) : null,
       status: sub?.status ?? null,
       feedback: sub?.feedback ?? null,
-      isFinalProject,
+      isFinalProject: false,
       gradedAt: sub?.gradedAt ?? null,
-    };
-    if (isFinalProject) finalProjectItems.push(item);
-    else assignmentItems.push(item);
+    });
   }
 
   // Quizzes in the course + the student's best (or latest) attempt per quiz.
@@ -843,15 +819,9 @@ export async function buildGradebookStudentDetail(
     .where(and(eq(finalGrades.courseId, courseId), eq(finalGrades.studentId, studentId)))
     .limit(1);
 
-  // Best-effort category rollups by matching group names. The teacher
-  // gradebook still expects 5 rollups; once task 12 rewires the page we drop
-  // this name-based shim and pass `computed.groups` straight through.
-  const attendanceRollup: GradebookCategoryRollup = {
-    raw: computed.attendance ? computed.attendance.rate : null,
-    weight: policy.weightAttendance,
-    weighted: computed.attendance ? computed.attendance.weighted : 0,
-  };
-
+  // Per-group rollups (raw / weight / weighted) live on `finalGrade.groups[]`
+  // now. The 5-category rollup fields below are kept for response-shape
+  // compatibility but are zero-filled — no UI consumes them.
   return {
     courseId,
     studentId,
@@ -859,20 +829,11 @@ export async function buildGradebookStudentDetail(
     studentEmail: enrollment.email,
     finalGrade: finalRow ? toFinalGradeSummary(finalRow) : null,
     gradingPolicy: policy,
-    attendance: { ...attendanceRollup, items: attendanceItems },
-    assignments: {
-      ...rollupFromGroup(findGroupByName(computed.groups, 'Assignments')),
-      items: assignmentItems,
-    },
-    finalProject: { ...rollupFromGroup(finalProjectGroup), items: finalProjectItems },
-    quizzes: {
-      ...rollupFromGroup(findGroupByName(computed.groups, 'Quizzes')),
-      items: quizItems,
-    },
-    discussion: {
-      ...rollupFromGroup(findGroupByName(computed.groups, 'Discussion')),
-      items: discussionItems,
-    },
+    attendance: { ...EMPTY_ROLLUP, items: attendanceItems },
+    assignments: { ...EMPTY_ROLLUP, items: assignmentItems },
+    finalProject: { ...EMPTY_ROLLUP, items: [] },
+    quizzes: { ...EMPTY_ROLLUP, items: quizItems },
+    discussion: { ...EMPTY_ROLLUP, items: discussionItems },
   };
 }
 

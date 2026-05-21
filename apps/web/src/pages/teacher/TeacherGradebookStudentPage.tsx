@@ -6,10 +6,10 @@ import { ATTENDANCE_STATUSES, type AttendanceStatus } from '@coursewise/shared';
 import type {
   GradebookAssignmentItem,
   GradebookAttendanceItem,
-  GradebookCategoryRollup,
   GradebookDiscussionItem,
   GradebookQuizItem,
   GradebookStudentDetail,
+  GroupScoreBreakdown,
 } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,10 +30,37 @@ function formatNum(n: number | null | undefined, digits = 1): string {
   return n === null || n === undefined ? '—' : n.toFixed(digits);
 }
 
-function RollupSummary({
+function GroupSummary({
+  group,
+}: {
+  group: GroupScoreBreakdown;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      <span>
+        {t('grading.raw')}:{' '}
+        <span className="font-mono text-foreground">{formatNum(group.raw)}</span>
+      </span>
+      <span>
+        {t('grading.weight')}:{' '}
+        <span className="font-mono text-foreground">{group.weight}</span>
+      </span>
+      <span>
+        {t('grading.weighted')}:{' '}
+        <span className="font-mono text-foreground">{formatNum(group.weighted)}</span>
+      </span>
+      <span>
+        {group.itemsScored}/{group.itemCount} items scored
+      </span>
+    </div>
+  );
+}
+
+function AttendanceSummary({
   rollup,
 }: {
-  rollup: GradebookCategoryRollup;
+  rollup: { raw: number | null; weight: number; weighted: number };
 }): JSX.Element {
   const { t } = useTranslation();
   return (
@@ -79,6 +106,23 @@ export function TeacherGradebookStudentPage(): JSX.Element {
     }
   }
 
+  // Pool every editable item into lookup maps by item ID. The groups[] array
+  // tells us the per-group structure; the lookup maps carry the editable
+  // metadata (submission ID, status, feedback, etc.) the inline-edit
+  // components need.
+  const lookups = useMemo(() => {
+    const assignments = new Map<string, GradebookAssignmentItem>();
+    const quizzes = new Map<string, GradebookQuizItem>();
+    const discussions = new Map<string, GradebookDiscussionItem>();
+    if (detail.data) {
+      for (const a of detail.data.assignments.items) assignments.set(a.assignmentId, a);
+      for (const a of detail.data.finalProject.items) assignments.set(a.assignmentId, a);
+      for (const q of detail.data.quizzes.items) quizzes.set(q.quizId, q);
+      for (const d of detail.data.discussion.items) discussions.set(d.topicId, d);
+    }
+    return { assignments, quizzes, discussions };
+  }, [detail.data]);
+
   if (detail.isLoading) {
     return <p className="p-4">{t('common.loading')}</p>;
   }
@@ -91,6 +135,8 @@ export function TeacherGradebookStudentPage(): JSX.Element {
     );
   }
   const d = detail.data;
+  const finalGroups = d.finalGrade?.groups ?? [];
+  const attendance = d.finalGrade?.attendance ?? null;
 
   return (
     <div className="space-y-4">
@@ -154,69 +200,120 @@ export function TeacherGradebookStudentPage(): JSX.Element {
         </CardContent>
       </Card>
 
-      <CategoryCard
-        title={t('grading.detailAttendanceTitle')}
-        rollup={d.attendance}
-      >
-        <AttendanceTable courseId={cid} items={d.attendance.items} onSaved={refreshAll} />
-      </CategoryCard>
+      <Card>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-base">{t('grading.detailAttendanceTitle')}</CardTitle>
+          <AttendanceSummary
+            rollup={{
+              raw: attendance?.rate ?? null,
+              weight: attendance?.weight ?? d.gradingPolicy.weightAttendance,
+              weighted: attendance?.weighted ?? 0,
+            }}
+          />
+        </CardHeader>
+        <CardContent>
+          <AttendanceTable courseId={cid} items={d.attendance.items} onSaved={refreshAll} />
+        </CardContent>
+      </Card>
 
-      <CategoryCard
-        title={t('grading.detailAssignmentsTitle')}
-        rollup={d.assignments}
-      >
-        <AssignmentTable
-          studentId={sid}
-          items={d.assignments.items}
-          onSaved={refreshAll}
-        />
-      </CategoryCard>
-
-      <CategoryCard
-        title={t('grading.detailFinalProjectTitle')}
-        rollup={d.finalProject}
-      >
-        <AssignmentTable
-          studentId={sid}
-          items={d.finalProject.items}
-          onSaved={refreshAll}
-        />
-      </CategoryCard>
-
-      <CategoryCard title={t('grading.detailQuizzesTitle')} rollup={d.quizzes}>
-        <QuizTable courseId={cid} items={d.quizzes.items} />
-      </CategoryCard>
-
-      <CategoryCard
-        title={t('grading.detailDiscussionTitle')}
-        rollup={d.discussion}
-      >
-        <DiscussionTable
-          studentId={sid}
-          items={d.discussion.items}
-          onSaved={refreshAll}
-        />
-      </CategoryCard>
+      {finalGroups.length === 0 ? (
+        <Card>
+          <CardContent className="py-6 text-sm text-muted-foreground">
+            {t('grading.detailNoItems')}
+          </CardContent>
+        </Card>
+      ) : (
+        finalGroups.map((g) => (
+          <GroupCard
+            key={g.groupId}
+            group={g}
+            studentId={sid}
+            courseId={cid}
+            lookups={lookups}
+            onSaved={refreshAll}
+          />
+        ))
+      )}
     </div>
   );
 }
 
-function CategoryCard({
-  title,
-  rollup,
-  children,
+function GroupCard({
+  group,
+  studentId,
+  courseId,
+  lookups,
+  onSaved,
 }: {
-  title: string;
-  rollup: GradebookCategoryRollup;
-  children: React.ReactNode;
+  group: GroupScoreBreakdown;
+  studentId: string;
+  courseId: string;
+  lookups: {
+    assignments: Map<string, GradebookAssignmentItem>;
+    quizzes: Map<string, GradebookQuizItem>;
+    discussions: Map<string, GradebookDiscussionItem>;
+  };
+  onSaved: () => Promise<void>;
 }): JSX.Element {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-base">{title}</CardTitle>
-        <RollupSummary rollup={rollup} />
+        <CardTitle className="text-base">{group.groupName}</CardTitle>
+        <GroupSummary group={group} />
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent>
+        {group.detail.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('grading.detailNoItems')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="py-2 pr-3">{group.groupName}</th>
+                  <th className="py-2 pr-3">{t('grading.score')}</th>
+                  <th className="py-2 pr-3">{t('grading.detailMax')}</th>
+                  <th className="py-2 pr-3">{t('grading.status')}</th>
+                  <th className="py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.detail.map((item) => {
+                  if (item.itemType === 'assignment') {
+                    const a = lookups.assignments.get(item.itemId);
+                    if (!a) return null;
+                    return (
+                      <AssignmentRow
+                        key={`a-${item.itemId}`}
+                        studentId={studentId}
+                        item={a}
+                        onSaved={onSaved}
+                      />
+                    );
+                  }
+                  if (item.itemType === 'quiz') {
+                    const q = lookups.quizzes.get(item.itemId);
+                    if (!q) return null;
+                    return (
+                      <QuizRow key={`q-${item.itemId}`} courseId={courseId} item={q} />
+                    );
+                  }
+                  const dItem = lookups.discussions.get(item.itemId);
+                  if (!dItem) return null;
+                  return (
+                    <DiscussionRow
+                      key={`d-${item.itemId}`}
+                      studentId={studentId}
+                      item={dItem}
+                      onSaved={onSaved}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
     </Card>
   );
 }
@@ -319,47 +416,7 @@ function AttendanceRow({
   );
 }
 
-// ------------------- Assignment / Final project -------------------
-
-function AssignmentTable({
-  studentId,
-  items,
-  onSaved,
-}: {
-  studentId: string;
-  items: GradebookAssignmentItem[];
-  onSaved: () => Promise<void>;
-}): JSX.Element {
-  const { t } = useTranslation();
-  if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t('grading.detailNoItems')}</p>;
-  }
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left text-xs text-muted-foreground">
-            <th className="py-2 pr-3">{t('grading.detailAssignmentsTitle')}</th>
-            <th className="py-2 pr-3">{t('grading.score')}</th>
-            <th className="py-2 pr-3">{t('grading.detailMax')}</th>
-            <th className="py-2 pr-3">{t('grading.status')}</th>
-            <th className="py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((it) => (
-            <AssignmentRow
-              key={it.assignmentId}
-              studentId={studentId}
-              item={it}
-              onSaved={onSaved}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// ------------------- Assignment row -------------------
 
 function AssignmentRow({
   item,
@@ -441,102 +498,38 @@ function AssignmentRow({
   );
 }
 
-// ------------------- Quizzes -------------------
+// ------------------- Quiz row -------------------
 
-function QuizTable({
+function QuizRow({
   courseId,
-  items,
+  item,
 }: {
   courseId: string;
-  items: GradebookQuizItem[];
+  item: GradebookQuizItem;
 }): JSX.Element {
   const { t } = useTranslation();
-  if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t('grading.detailNoItems')}</p>;
-  }
   return (
-    <div className="space-y-1">
-      <p className="text-xs text-muted-foreground">{t('grading.detailGradeQuizHint')}</p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-xs text-muted-foreground">
-              <th className="py-2 pr-3">{t('grading.detailQuizzesTitle')}</th>
-              <th className="py-2 pr-3">{t('grading.score')}</th>
-              <th className="py-2 pr-3">{t('grading.detailMax')}</th>
-              <th className="py-2 pr-3">{t('grading.status')}</th>
-              <th className="py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((it) => (
-              <tr key={it.quizId} className="border-b last:border-0">
-                <td className="py-2 pr-3">{it.title}</td>
-                <td className="py-2 pr-3 font-mono">{formatNum(it.score)}</td>
-                <td className="py-2 pr-3 font-mono text-muted-foreground">
-                  {it.maxScore ?? '—'}
-                </td>
-                <td className="py-2 pr-3 text-xs text-muted-foreground">
-                  {it.attemptId ? it.status ?? '—' : t('grading.detailNoAttempt')}
-                </td>
-                <td className="py-2 text-right">
-                  {it.attemptId ? (
-                    <Link to={`/teacher/courses/${courseId}/quizzes/${it.quizId}/attempts`}>
-                      <Button size="sm" variant="outline">
-                        {t('grading.detailReviewQuiz')}
-                      </Button>
-                    </Link>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <tr className="border-b last:border-0">
+      <td className="py-2 pr-3">{item.title}</td>
+      <td className="py-2 pr-3 font-mono">{formatNum(item.score)}</td>
+      <td className="py-2 pr-3 font-mono text-muted-foreground">{item.maxScore ?? '—'}</td>
+      <td className="py-2 pr-3 text-xs text-muted-foreground">
+        {item.attemptId ? item.status ?? '—' : t('grading.detailNoAttempt')}
+      </td>
+      <td className="py-2 text-right">
+        {item.attemptId ? (
+          <Link to={`/teacher/courses/${courseId}/quizzes/${item.quizId}/attempts`}>
+            <Button size="sm" variant="outline">
+              {t('grading.detailReviewQuiz')}
+            </Button>
+          </Link>
+        ) : null}
+      </td>
+    </tr>
   );
 }
 
-// ------------------- Discussion -------------------
-
-function DiscussionTable({
-  studentId,
-  items,
-  onSaved,
-}: {
-  studentId: string;
-  items: GradebookDiscussionItem[];
-  onSaved: () => Promise<void>;
-}): JSX.Element {
-  const { t } = useTranslation();
-  if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t('grading.detailNoItems')}</p>;
-  }
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left text-xs text-muted-foreground">
-            <th className="py-2 pr-3">{t('grading.detailDiscussionTitle')}</th>
-            <th className="py-2 pr-3">{t('grading.score')}</th>
-            <th className="py-2 pr-3">{t('grading.detailMax')}</th>
-            <th className="py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((it) => (
-            <DiscussionRow
-              key={it.topicId}
-              studentId={studentId}
-              item={it}
-              onSaved={onSaved}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// ------------------- Discussion row -------------------
 
 function DiscussionRow({
   studentId,
@@ -602,6 +595,7 @@ function DiscussionRow({
         />
       </td>
       <td className="py-2 pr-3 font-mono text-muted-foreground">{item.maxScore}</td>
+      <td className="py-2 pr-3 text-xs text-muted-foreground">—</td>
       <td className="py-2 text-right">
         <Button size="sm" onClick={onSave} disabled={!dirty || grade.isPending}>
           {t('grading.detailSaveScore')}

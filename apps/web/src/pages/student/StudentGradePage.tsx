@@ -2,15 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useGradingPolicy, useMyFinalGrade } from '@/lib/queries';
-
-const CATEGORY_LABELS = {
-  attendance: 'grading.weightAttendance',
-  assignments: 'grading.weightAssignments',
-  quizzes: 'grading.weightQuizzes',
-  discussion: 'grading.weightDiscussion',
-  finalProject: 'grading.weightFinalProject',
-} as const;
+import { useAssignmentGroups, useGradingPolicy, useMyFinalGrade } from '@/lib/queries';
 
 export function StudentGradePage(): JSX.Element {
   const { t } = useTranslation();
@@ -18,6 +10,7 @@ export function StudentGradePage(): JSX.Element {
   const cid = courseId ?? null;
   const grade = useMyFinalGrade(cid);
   const policy = useGradingPolicy(cid);
+  const groups = useAssignmentGroups(cid ?? undefined);
 
   return (
     <div className="space-y-4">
@@ -67,26 +60,33 @@ export function StudentGradePage(): JSX.Element {
                     </tr>
                   </thead>
                   <tbody>
-                    {(Object.entries(CATEGORY_LABELS) as [
-                      keyof typeof CATEGORY_LABELS,
-                      string,
-                    ][]).map(([cat, label]) => {
-                      const breakdown = grade.data?.categoryScores?.[cat];
-                      return (
-                        <tr key={cat} className="border-b last:border-0">
-                          <td className="py-2 pr-3">{t(label)}</td>
-                          <td className="py-2 pr-3 font-mono">
-                            {breakdown?.raw !== null && breakdown?.raw !== undefined
-                              ? breakdown.raw.toFixed(1)
-                              : '—'}
-                          </td>
-                          <td className="py-2 pr-3 font-mono">{breakdown?.weight ?? '—'}</td>
-                          <td className="py-2 pr-3 font-mono">
-                            {breakdown !== undefined ? breakdown.weighted.toFixed(2) : '—'}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {grade.data.attendance ? (
+                      <tr className="border-b last:border-0">
+                        <td className="py-2 pr-3">{t('grading.weightAttendance')}</td>
+                        <td className="py-2 pr-3 font-mono">
+                          {grade.data.attendance.rate.toFixed(1)}
+                        </td>
+                        <td className="py-2 pr-3 font-mono">{grade.data.attendance.weight}</td>
+                        <td className="py-2 pr-3 font-mono">
+                          {grade.data.attendance.weighted.toFixed(2)}
+                        </td>
+                      </tr>
+                    ) : null}
+                    {grade.data.groups.map((g) => (
+                      <tr key={g.groupId} className="border-b last:border-0">
+                        <td className="py-2 pr-3">
+                          <div>{g.groupName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {g.itemsScored}/{g.itemCount} items scored
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3 font-mono">
+                          {g.raw !== null ? g.raw.toFixed(1) : '—'}
+                        </td>
+                        <td className="py-2 pr-3 font-mono">{g.weight}</td>
+                        <td className="py-2 pr-3 font-mono">{g.weighted.toFixed(2)}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -105,22 +105,11 @@ export function StudentGradePage(): JSX.Element {
                 {t('grading.weightAttendance')}:{' '}
                 <span className="font-mono">{policy.data.weightAttendance}%</span>
               </li>
-              <li>
-                {t('grading.weightAssignments')}:{' '}
-                <span className="font-mono">{policy.data.weightAssignments}%</span>
-              </li>
-              <li>
-                {t('grading.weightQuizzes')}:{' '}
-                <span className="font-mono">{policy.data.weightQuizzes}%</span>
-              </li>
-              <li>
-                {t('grading.weightDiscussion')}:{' '}
-                <span className="font-mono">{policy.data.weightDiscussion}%</span>
-              </li>
-              <li>
-                {t('grading.weightFinalProject')}:{' '}
-                <span className="font-mono">{policy.data.weightFinalProject}%</span>
-              </li>
+              {(groups.data ?? []).map((g) => (
+                <li key={g.id}>
+                  {g.name}: <span className="font-mono">{g.weight}%</span>
+                </li>
+              ))}
             </ul>
           </CardContent>
         </Card>
