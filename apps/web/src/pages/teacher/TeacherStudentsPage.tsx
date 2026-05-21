@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  Check,
+  Copy,
   Lock,
   Pencil,
   RefreshCw,
@@ -79,6 +81,7 @@ export function TeacherStudentsPage(): JSX.Element {
   const [renameTarget, setRenameTarget] = useState<GroupSetSummary | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<GroupSetSummary | null>(null);
+  const [copied, setCopied] = useState(false);
   // Create-set form state
   const [newName, setNewName] = useState('');
   const [newCount, setNewCount] = useState('4');
@@ -185,6 +188,20 @@ export function TeacherStudentsPage(): JSX.Element {
     }
   };
 
+  const onCopyInvite = async () => {
+    if (!activeInvite) return;
+    try {
+      await navigator.clipboard.writeText(activeInvite.code);
+      setCopied(true);
+      // Brief acknowledgment window. Long enough to register; short enough
+      // that a teacher copying multiple times in a row still sees feedback
+      // on each click (the timer is reset on each successful copy).
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.push({ title: t('common.error'), tone: 'error' });
+    }
+  };
+
   const onRemove = async (groupId: string, studentId: string) => {
     try {
       await removeMember.mutateAsync({ groupId, studentId });
@@ -266,6 +283,32 @@ export function TeacherStudentsPage(): JSX.Element {
                     {activeInvite.code}
                   </span>
                 </span>
+                <button
+                  type="button"
+                  onClick={onCopyInvite}
+                  aria-label={copied ? t('common.copied') : t('common.copy')}
+                  title={copied ? t('common.copied') : t('common.copy')}
+                  className={cn(
+                    'inline-flex h-7 w-7 items-center justify-center rounded-md border transition-all duration-200',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    copied
+                      ? 'scale-110 border-emerald-500/60 text-emerald-500 focus-visible:ring-emerald-500/40'
+                      : 'border-sky-500/60 text-sky-500 hover:bg-sky-500/10 focus-visible:ring-sky-500/40',
+                  )}
+                >
+                  {/* `key` re-mounts the icon on state flip so tailwindcss-animate
+                      gets a fresh zoom-in trigger and the swap reads as a deliberate
+                      acknowledgment rather than a sudden glyph change. */}
+                  {copied ? (
+                    <Check
+                      key="check"
+                      className="h-3.5 w-3.5 animate-in zoom-in-50 duration-200"
+                      aria-hidden
+                    />
+                  ) : (
+                    <Copy key="copy" className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                </button>
                 <span>·</span>
                 <span>
                   {daysUntilExpiry == null
