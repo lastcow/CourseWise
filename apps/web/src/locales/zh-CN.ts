@@ -838,6 +838,10 @@ export const zhCN = {
       statusGraded: '已评分',
       statusReturned: '已退回',
       submittedAtLabel: '提交于 {{date}}',
+      actionRequired: '需要操作',
+      notInGroupTitle: '你必须先加入小组才能提交此作业。',
+      notInGroupHelp: '此作业按小组评分。请到课程的“学生”页面加入小组,然后回来开始小组提交。',
+      notInGroupCta: '前往课程学生页',
       teamSubmission: '小组提交',
       groupBannerTitle: '以 {{groupName}} 名义提交',
       groupBannerHelp:
@@ -1211,6 +1215,7 @@ export const zhCN = {
       forbidden: '你没有访问权限。',
       notFound: '找不到该资源。',
       conflict: '与现有数据冲突。',
+      notInGroup: '必须先加入小组才能提交此作业。',
       rateLimited: '请求过于频繁,请稍后再试。',
       accountLocked: '账号被临时锁定。',
       accountInactive: '账号未激活。',

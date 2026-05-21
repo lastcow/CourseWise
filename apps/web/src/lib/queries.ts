@@ -942,6 +942,10 @@ export function useMySubmission(assignmentId: string | null) {
       apiCall<MyAssignmentSubmissionResponse>(`/api/assignments/${assignmentId}/submissions`, {
         method: 'POST',
       }),
+    // 4xx (e.g. NOT_IN_GROUP for group-mode assignments where the student
+    // hasn't joined a group) is deterministic — retrying just delays the
+    // UI surfacing the warning panel and spams the API.
+    retry: (_count, err) => !(err instanceof ApiClientError && err.status < 500),
   });
 }
 
