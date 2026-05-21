@@ -470,6 +470,23 @@ r.get('/submissions/:submissionId', requireScopeGroup('submissionsRead'), async 
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
     }
   }
+
+  // FERPA §99.32(a): course staff (teacher or admin) viewing another
+  // student's submission is a disclosure of that student's education
+  // record. A student viewing their own submission isn't a disclosure under
+  // FERPA — the student already has access to their own records.
+  if (auth.user.role !== 'student') {
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'submission.view',
+      target: id,
+      metadata: { assignmentId: assignment.id, courseId: assignment.courseId },
+      disclosedStudentIds: submission.studentId,
+    });
+  }
+
   return success(c, toSubmissionSummary(submission));
 });
 

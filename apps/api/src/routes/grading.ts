@@ -225,6 +225,18 @@ r.get(
     if (!detail) {
       throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Student is not enrolled in this course');
     }
+
+    // FERPA §99.32(a): course staff viewing a specific student's gradebook
+    // breakdown is a disclosure of that student's education record.
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'gradebook.student.view',
+      target: courseId,
+      disclosedStudentIds: studentId,
+    });
+
     return success(c, detail);
   },
 );
@@ -334,6 +346,20 @@ r.get(
       lines.push(cells.map((v) => csvEscape(String(v ?? ''))).join(','));
     }
     const body = lines.join('\n');
+
+    // FERPA §99.32(a): bulk grade export is a disclosure of every enrolled
+    // student's education record. One audit row per student so the
+    // disclosure log can answer "who exported student X's grades?".
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'grades.export.csv',
+      target: courseId,
+      metadata: { studentCount: enrolledStudents.length },
+      disclosedStudentIds: enrolledStudents.map((s) => s.id),
+    });
+
     return new Response(body, {
       status: 200,
       headers: {

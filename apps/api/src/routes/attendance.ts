@@ -680,6 +680,19 @@ r.get(
       lines.push(cells.map(csvEscape).join(','));
     }
     const body = lines.join('\n');
+
+    // FERPA §99.32(a): attendance export discloses every enrolled student's
+    // attendance record. One audit row per student.
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'attendance.export.csv',
+      target: courseId,
+      metadata: { studentCount: enrolledStudents.length, sessionCount: sessions.length },
+      disclosedStudentIds: enrolledStudents.map((s) => s.id),
+    });
+
     return new Response(body, {
       status: 200,
       headers: {
