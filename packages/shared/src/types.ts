@@ -812,6 +812,31 @@ export interface DisclosureLogResponse {
   nextOffset: number | null;
 }
 
+// FERPA §99.20 record-correction-request enums live in ./constants.ts so
+// the zod validators can use them.
+import type { RecordCorrectionStatus, RecordCorrectionTarget } from './constants';
+export type { RecordCorrectionStatus, RecordCorrectionTarget } from './constants';
+
+export interface RecordCorrectionRequestSummary {
+  id: string;
+  studentId: string;
+  studentName: string;
+  // Set when the request scopes to a specific course (almost always except
+  // profile-corrections).
+  courseId: string | null;
+  courseCode: string | null;
+  courseTitle: string | null;
+  targetType: RecordCorrectionTarget;
+  targetId: string | null;
+  description: string;
+  status: RecordCorrectionStatus;
+  resolutionNote: string | null;
+  resolvedByName: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // FERPA §99.10(a) — every student can inspect/review their own education
 // records on request. This shape is the JSON payload `/me/records/export`
 // returns: every row in our database where the calling user is the subject.

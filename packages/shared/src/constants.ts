@@ -550,3 +550,22 @@ export type GammaImageStyleSlug = (typeof GAMMA_IMAGE_STYLES)[number]['slug'];
 export const GAMMA_MAX_INPUT_TEXT_CHARS = 380_000; // Gamma's hard cap is 400_000.
 export const GAMMA_MAX_INSTRUCTIONS_CHARS = 5_000;
 export const GAMMA_MAX_IMAGE_STYLE_CHARS = 500;
+
+// FERPA §99.20 — record-correction requests submitted by students.
+export const RECORD_CORRECTION_TARGETS = [
+  'final_grade',
+  'attendance',
+  'submission',
+  'discussion',
+  'profile',
+  'other',
+] as const;
+export type RecordCorrectionTarget = (typeof RECORD_CORRECTION_TARGETS)[number];
+
+export const RECORD_CORRECTION_STATUSES = [
+  'open',
+  'accepted',
+  'declined',
+  'withdrawn',
+] as const;
+export type RecordCorrectionStatus = (typeof RECORD_CORRECTION_STATUSES)[number];

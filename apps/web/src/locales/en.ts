@@ -12,6 +12,7 @@ export const en = {
       profile: 'Profile',
       apiTokens: 'API tokens',
       disclosures: 'Record disclosures',
+      correctionRequests: 'Correction requests',
       sideMenu: 'Side navigation',
       openMenu: 'Open navigation menu',
       closeMenu: 'Close navigation menu',
@@ -103,6 +104,69 @@ export const en = {
       admin: 'Admin',
       teacher: 'Teacher',
       student: 'Student',
+    },
+    correctionRequests: {
+      title: 'Correction requests',
+      description:
+        'If you believe one of your education records is inaccurate or misleading, ask for it to be corrected here. Course staff will review and respond.',
+      emptyTitle: 'No correction requests yet',
+      emptyBody:
+        'You haven’t requested any corrections. Use the button above if you spot something wrong with a grade, attendance entry, or other record.',
+      newCta: 'Request a correction',
+      courseLabel: 'Course (optional)',
+      noCourse: '— Not tied to a course —',
+      targetType: 'What kind of record?',
+      targetTypeOption: {
+        final_grade: 'Final grade',
+        attendance: 'Attendance entry',
+        submission: 'Assignment submission',
+        discussion: 'Discussion post',
+        profile: 'Profile information',
+        other: 'Other',
+      },
+      targetIdLabel: 'Record identifier (optional)',
+      targetIdPlaceholder: 'Anything that helps locate the record — date, assignment name, etc.',
+      descriptionLabel: 'What is wrong, and what should it say?',
+      descriptionPlaceholder:
+        'Describe the record, what you believe is inaccurate, and the change you’re requesting.',
+      descriptionHint:
+        '10–4000 characters. Be specific so a teacher can find and fix the record quickly.',
+      descriptionTooShort: 'Please write at least 10 characters explaining the request.',
+      withdraw: 'Withdraw',
+      statusValue: {
+        open: 'Open',
+        accepted: 'Accepted',
+        declined: 'Declined',
+        withdrawn: 'Withdrawn',
+      },
+      resolutionFrom: 'Resolved by {{name}}',
+      unknownResolver: '(staff)',
+      createdAt: 'Opened {{when}}',
+      resolvedAt: 'closed {{when}}',
+      createdToast: 'Correction request submitted',
+      withdrewToast: 'Correction request withdrawn',
+      // Staff-side
+      staffTitle: 'Correction requests',
+      staffDescription:
+        'Review requests from students to correct their education records under FERPA §99.20.',
+      staffEmptyTitle: 'No correction requests',
+      staffEmptyBody: 'No requests match the current filter.',
+      filterStatus: 'Filter',
+      allStatuses: 'All statuses',
+      accept: 'Accept',
+      decline: 'Decline',
+      acceptTitle: 'Accept correction request',
+      declineTitle: 'Decline correction request',
+      acceptBody:
+        'Accepting acknowledges the request. You’ll need to apply the actual correction separately (e.g. update the grade or attendance entry).',
+      declineBody:
+        'Declining records that you reviewed the request but did not make the requested change. The student will see your note.',
+      resolutionNote: 'Note for the student (optional)',
+      resolutionNotePlaceholder:
+        'Briefly explain what you decided and any next steps.',
+      acceptedToast: 'Request accepted',
+      declinedToast: 'Request declined',
+      targetIdRow: 'Record ID: {{id}}',
     },
     settings: {
       disclosures: {

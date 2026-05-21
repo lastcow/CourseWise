@@ -28,6 +28,7 @@ import dashboardsRoutes from './routes/dashboards';
 import courseAiRoutes from './routes/courseAi';
 import contactRoutes from './routes/contact';
 import publicShareRoutes from './routes/publicShare';
+import recordCorrectionsRoutes from './routes/recordCorrections';
 import { runRetentionSweep } from './services/retentionSweep';
 import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
@@ -127,6 +128,7 @@ app.route('/api', dashboardsRoutes);
 app.route('/api', courseAiRoutes);
 app.route('/api', contactRoutes);
 app.route('/api', publicShareRoutes);
+app.route('/api', recordCorrectionsRoutes);
 
 app.notFound((c) =>
   c.json(
