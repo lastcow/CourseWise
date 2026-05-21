@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ShieldAlert } from 'lucide-react';
+import { Download, ShieldAlert } from 'lucide-react';
 import type { DisclosureLogEntry } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useToast } from '@/components/ui/toast';
+import { apiCall } from '@/lib/api';
 import { useMyDisclosures } from '@/lib/queries';
 
 const PAGE_SIZE = 50;
@@ -44,8 +46,41 @@ function actorRoleBadge(
 
 export function SettingsDisclosuresPage(): JSX.Element {
   const { t } = useTranslation();
+  const toast = useToast();
   const [offset, setOffset] = useState(0);
+  const [downloading, setDownloading] = useState(false);
   const q = useMyDisclosures(offset, PAGE_SIZE);
+
+  const onDownload = async () => {
+    // The export route requires Bearer auth, so a plain <a href> won't work
+    // (browsers don't send Authorization on direct navigation). Fetch as a
+    // raw Response, materialise the body as a Blob, and trigger a download
+    // via a programmatic anchor click.
+    setDownloading(true);
+    try {
+      const res = (await apiCall<Response>('/api/me/records/export', {
+        raw: true,
+      })) as Response;
+      if (!res.ok) {
+        throw new Error(`status ${res.status}`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const today = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = `coursewise-records-${today}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+      toast.push({ title: t('settings.disclosures.exportToast'), tone: 'success' });
+    } catch {
+      toast.push({ title: t('common.error'), tone: 'error' });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const items = q.data?.items ?? [];
   const total = q.data?.total ?? 0;
@@ -56,13 +91,19 @@ export function SettingsDisclosuresPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t('settings.disclosures.title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {t('settings.disclosures.description')}
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t('settings.disclosures.title')}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {t('settings.disclosures.description')}
+          </p>
+        </div>
+        <Button onClick={onDownload} disabled={downloading} variant="outline">
+          <Download className="h-4 w-4" />
+          {downloading ? t('common.loading') : t('settings.disclosures.exportCta')}
+        </Button>
       </header>
 
       {q.isLoading ? (

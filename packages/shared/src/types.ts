@@ -813,6 +813,111 @@ export interface DisclosureLogResponse {
   nextOffset: number | null;
 }
 
+// FERPA §99.10(a) — every student can inspect/review their own education
+// records on request. This shape is the JSON payload `/me/records/export`
+// returns: every row in our database where the calling user is the subject.
+// Cross-referenced contextual fields (course code, quiz title, etc.) are
+// joined inline so the export is readable standalone.
+//
+// Bumping `schemaVersion` is the canary if downstream consumers (e.g. a
+// student importing into another LMS) might break on a shape change.
+export interface MyRecordsExport {
+  schemaVersion: 1;
+  exportedAt: string;
+  profile: {
+    id: string;
+    email: string;
+    name: string;
+    role: 'admin' | 'teacher' | 'student';
+    preferredLanguage: string;
+    createdAt: string;
+    lastLoginAt: string | null;
+    studentNumber: string | null;
+    enrollmentYear: number | null;
+  };
+  enrollments: Array<{
+    courseId: string;
+    courseCode: string;
+    courseTitle: string;
+    termLabel: string | null;
+    status: string;
+    enrolledAt: string;
+  }>;
+  submissions: Array<{
+    id: string;
+    assignmentId: string;
+    assignmentTitle: string;
+    courseId: string;
+    courseCode: string;
+    status: string;
+    content: string | null;
+    fileAssetId: string | null;
+    score: string | null;
+    feedback: string | null;
+    submittedAt: string | null;
+    gradedAt: string | null;
+  }>;
+  quizAttempts: Array<{
+    id: string;
+    quizId: string;
+    quizTitle: string;
+    courseId: string;
+    status: string;
+    score: string | null;
+    startedAt: string;
+    submittedAt: string | null;
+    answers: Array<{
+      questionId: string;
+      answer: unknown;
+      isCorrect: boolean | null;
+      pointsAwarded: string | null;
+    }>;
+  }>;
+  attendance: Array<{
+    sessionId: string;
+    sessionTitle: string;
+    courseId: string;
+    sessionDate: string;
+    status: string;
+    notes: string | null;
+    ipAddress: string | null;
+    recordedAt: string;
+  }>;
+  discussionPosts: Array<{
+    id: string;
+    topicId: string;
+    topicTitle: string;
+    courseId: string;
+    content: string | null;
+    isDeleted: boolean;
+    createdAt: string;
+  }>;
+  discussionGrades: Array<{
+    topicId: string;
+    topicTitle: string;
+    courseId: string;
+    score: string | null;
+    feedback: string | null;
+  }>;
+  finalGrades: Array<{
+    courseId: string;
+    courseCode: string;
+    letterGrade: string | null;
+    score: string | null;
+    teacherOverrideScore: string | null;
+    teacherOverrideReason: string | null;
+  }>;
+  alerts: Array<{
+    id: string;
+    courseId: string | null;
+    type: string;
+    severity: string;
+    body: string | null;
+    createdAt: string;
+  }>;
+  disclosures: DisclosureLogEntry[];
+}
+
 // ---------- Course hard-delete ----------
 export type ChildCounts = {
   enrollments: number;
