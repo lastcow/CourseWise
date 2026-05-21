@@ -280,6 +280,8 @@ r.get(
             eq(attendanceRecords.studentId, auth.user.id),
           ),
         );
+      // Intentionally omitting r.ipAddress — captured for our self-sign audit
+      // trail but not surfaced via the API (FERPA roadmap item #7).
       const out: AttendanceRecordRow[] = rows.map(({ r, student }) => ({
         id: r.id,
         sessionId: r.sessionId,
@@ -291,7 +293,6 @@ r.get(
         recordedById: r.recordedById ?? null,
         recordedAt: r.recordedAt,
         updatedAt: r.updatedAt,
-        ipAddress: r.ipAddress ?? null,
       }));
       return success(c, out);
     }
@@ -309,6 +310,7 @@ r.get(
       .innerJoin(users, eq(attendanceRecords.studentId, users.id))
       .where(eq(attendanceRecords.sessionId, id))
       .orderBy(asc(users.name));
+    // See note above re: not surfacing r.ipAddress to teacher-facing rows.
     const out: AttendanceRecordRow[] = rows.map(({ r, student }) => ({
       id: r.id,
       sessionId: r.sessionId,
@@ -320,7 +322,6 @@ r.get(
       recordedById: r.recordedById ?? null,
       recordedAt: r.recordedAt,
       updatedAt: r.updatedAt,
-      ipAddress: r.ipAddress ?? null,
     }));
     return success(c, out);
   },
@@ -403,6 +404,7 @@ r.post(
       .innerJoin(users, eq(attendanceRecords.studentId, users.id))
       .where(eq(attendanceRecords.sessionId, id))
       .orderBy(asc(users.name));
+    // See note above re: not surfacing r.ipAddress to teacher-facing rows.
     const out: AttendanceRecordRow[] = rows.map(({ r, student }) => ({
       id: r.id,
       sessionId: r.sessionId,
@@ -414,7 +416,6 @@ r.post(
       recordedById: r.recordedById ?? null,
       recordedAt: r.recordedAt,
       updatedAt: r.updatedAt,
-      ipAddress: r.ipAddress ?? null,
     }));
     return success(c, out);
   },
