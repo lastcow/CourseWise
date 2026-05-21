@@ -198,6 +198,17 @@ export const zhCN = {
       notFoundBody: '该链接可能已被教师关闭,或地址有误。',
       noEmbed: '该演示文稿无法直接嵌入。请使用上方的「在 Gamma 中打开」或下载 .pptx。',
     },
+    session: {
+      warningTitle: '会话即将结束',
+      warningBody: '出于安全考虑,会话到期后会自动登出。可点击「保持登录」继续使用,或立即登出。',
+      countdownLabel: '剩余时间',
+      signingOut: '正在登出…',
+      staySignedIn: '保持登录',
+      signOutNow: '立即登出',
+      refreshed: '会话已延长',
+      refreshFailed: '会话延长失败,请重新登录。',
+      expiredToast: '会话已过期,已登出。',
+    },
     courses: {
       title: '课程',
       newCta: '+ 新建课程',

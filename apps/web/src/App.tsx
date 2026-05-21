@@ -63,12 +63,14 @@ import { StudentDiscussionTopicPage } from '@/pages/student/StudentDiscussionTop
 import { StudentQuizzesPage } from '@/pages/student/StudentQuizzesPage';
 import { StudentQuizRunnerPage } from '@/pages/student/StudentQuizRunnerPage';
 import { StudentAttendancePage } from '@/pages/student/StudentAttendancePage';
+import { SessionExpiryGuard } from '@/components/SessionExpiryGuard';
 
 export default function App(): JSX.Element {
   return (
     <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
+          <SessionExpiryGuard />
           <Routes>
             {/* Public presentation viewer — bare layout, no marketing chrome. */}
             <Route path="/p/:token" element={<PublicPresentationPage />} />

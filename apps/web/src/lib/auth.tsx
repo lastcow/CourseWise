@@ -80,6 +80,29 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     }
   }, []);
 
+  const refresh = useCallback<AuthContextValue['refresh']>(async () => {
+    const current = getStoredAuth();
+    if (!current?.refreshToken) {
+      throw new Error('no refresh token');
+    }
+    const data = await apiCall<StoredAuth & { expiresIn: number }>('/api/auth/refresh', {
+      method: 'POST',
+      body: { refreshToken: current.refreshToken },
+      // The refresh endpoint validates the body's refreshToken; sending the
+      // (possibly expired) access token would just bounce on the auth
+      // middleware before we even get there.
+      auth: false,
+    });
+    const next: StoredAuth = {
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      user: data.user,
+    };
+    storeAuth(next);
+    setAuth(next);
+    return next;
+  }, []);
+
   const logout = useCallback(async () => {
     const current = getStoredAuth();
     if (current?.accessToken && current.refreshToken) {
@@ -101,8 +124,8 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   }, []);
 
   const value = useMemo(
-    () => ({ auth, login, register, registerTeacher, logout, isLoading }),
-    [auth, login, register, registerTeacher, logout, isLoading],
+    () => ({ auth, login, register, registerTeacher, logout, refresh, isLoading }),
+    [auth, login, register, registerTeacher, logout, refresh, isLoading],
   );
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }
