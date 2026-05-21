@@ -895,3 +895,22 @@ export const generateGammaPresentationSchema = z.object({
 });
 export type GenerateGammaPresentationInput = z.infer<typeof generateGammaPresentationSchema>;
 
+export const createAssignmentGroupSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  weight: z.number().int().min(0).max(100),
+  position: z.number().int().min(0).optional(),
+});
+export type CreateAssignmentGroupInput = z.infer<typeof createAssignmentGroupSchema>;
+
+export const updateAssignmentGroupSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  weight: z.number().int().min(0).max(100).optional(),
+  position: z.number().int().min(0).optional(),
+});
+export type UpdateAssignmentGroupInput = z.infer<typeof updateAssignmentGroupSchema>;
+
+export const reorderAssignmentGroupsSchema = z.object({
+  orderedIds: z.array(z.string().uuid()).min(1),
+});
+export type ReorderAssignmentGroupsInput = z.infer<typeof reorderAssignmentGroupsSchema>;
+

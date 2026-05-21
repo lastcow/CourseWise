@@ -589,6 +589,37 @@ export interface RecalculateFinalGradesResult {
   policyVersion: number;
 }
 
+// ---------- Assignment Groups ----------
+export interface AssignmentGroup {
+  id: string;
+  courseId: string;
+  name: string;
+  weight: number;
+  position: number;
+  itemCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupScoreItem {
+  itemId: string;
+  itemType: 'assignment' | 'quiz' | 'discussion';
+  title: string;
+  score: number | null;
+  max: number;
+}
+
+export interface GroupScoreBreakdown {
+  groupId: string;
+  groupName: string;
+  weight: number;
+  itemCount: number;
+  itemsScored: number;
+  raw: number | null;
+  weighted: number;
+  detail: GroupScoreItem[];
+}
+
 // ---------- M5: Gradebook student detail ----------
 export interface GradebookCategoryRollup {
   raw: number | null;

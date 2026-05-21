@@ -323,6 +323,13 @@ export const GRADING_POLICY_CATEGORIES = [
 ] as const;
 export type GradingPolicyCategory = (typeof GRADING_POLICY_CATEGORIES)[number];
 
+export const DEFAULT_ASSIGNMENT_GROUPS = [
+  { name: 'Assignments', weight: 35, position: 0 },
+  { name: 'Quizzes', weight: 30, position: 1 },
+  { name: 'Discussion', weight: 10, position: 2 },
+  { name: 'Final Project', weight: 15, position: 3 },
+] as const;
+
 export interface LetterGradeThreshold {
   letter: string;
   minScore: number;
