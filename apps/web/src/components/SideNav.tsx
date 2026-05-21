@@ -144,7 +144,7 @@ function teacherCourseSections(courseId: string): NavSection[] {
       items: [
         { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
         { to: `${prefix}/attendance`, labelKey: 'attendance.title', icon: UserCheck },
-        { to: `${prefix}/group-sets`, labelKey: 'groups.title', icon: Users },
+        { to: `${prefix}/students`, labelKey: 'students.title', icon: Users },
       ],
     },
     {
@@ -204,7 +204,7 @@ function studentCourseSections(courseId: string): NavSection[] {
       items: [
         { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
         { to: `${prefix}/attendance`, labelKey: 'attendance.myTitle', icon: UserCheck },
-        { to: `${prefix}/groups`, labelKey: 'groups.title', icon: Users },
+        { to: `${prefix}/students`, labelKey: 'students.title', icon: Users },
       ],
     },
     {

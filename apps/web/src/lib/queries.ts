@@ -54,6 +54,7 @@ import type {
   DiscussionGradeRow,
   DiscussionPostSummary,
   DiscussionTopicSummary,
+  EnrollmentRow,
   FinalGradeSummary,
   GammaGenerationJob,
   GammaTheme,
@@ -1672,6 +1673,14 @@ export function useReorderAssignmentGroups(courseId: string) {
 }
 
 // ---------- Student groups (Canvas-style group sets) ----------
+
+export function useCourseStudents(courseId: string | undefined) {
+  return useQuery({
+    queryKey: ['course-students', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<EnrollmentRow[]>(`/api/courses/${courseId}/students`),
+  });
+}
 
 export function useGroupSets(courseId: string | undefined) {
   return useQuery({

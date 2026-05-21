@@ -501,6 +501,28 @@ export const en = {
       deactivateConfirm:
         'Students will no longer be able to register with this code. This cannot be undone.',
     },
+    students: {
+      title: 'Students',
+      helpTeacher:
+        'Course roster. Use the toolbar filters to pivot by group set; the active set lets you assign, lock signup, rename, or delete.',
+      helpStudent:
+        'Browse the groups your teacher created. Join an open group while signup is open; leave to switch.',
+      searchPlaceholder: 'Search name or email…',
+      filterAll: 'All',
+      filterByGroupSet: 'Filter by {{name}}',
+      colName: 'Name',
+      colEmail: 'Email',
+      colNumber: 'Student #',
+      colStatus: 'Status',
+      statusEnrolled: 'Enrolled',
+      statusDropped: 'Dropped',
+      statusCompleted: 'Completed',
+      emptyRoster: 'No students enrolled yet.',
+      unassignedRow: 'Unassigned',
+      pickStudent: 'Pick a student…',
+      pickGroupAbove: 'Pick a group above to assign',
+      noSearchMatch: 'No match for current search',
+    },
     groups: {
       title: 'Groups',
       helpTeacher:
