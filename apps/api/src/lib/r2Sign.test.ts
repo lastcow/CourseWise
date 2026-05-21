@@ -51,6 +51,15 @@ describe('presignR2Url', () => {
       ),
     ).rejects.toThrow();
   });
+
+  it('refuses a non-https endpoint to avoid plaintext / unsignable presigned URLs', async () => {
+    await expect(
+      presignR2Url(
+        { ...cfg, endpoint: 'http://files.example.com' },
+        { method: 'GET', key: 'foo.pdf', expiresInSeconds: 60 },
+      ),
+    ).rejects.toThrow(/https:\/\//);
+  });
 });
 
 describe('buildR2Key', () => {
