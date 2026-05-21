@@ -518,7 +518,6 @@ export interface AttendanceRecordRow {
   recordedById: string | null;
   recordedAt: string;
   updatedAt: string;
-  ipAddress: string | null;
 }
 
 export interface StudentAttendanceRow {
