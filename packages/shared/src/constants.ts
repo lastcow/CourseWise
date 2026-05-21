@@ -569,3 +569,13 @@ export const RECORD_CORRECTION_STATUSES = [
   'withdrawn',
 ] as const;
 export type RecordCorrectionStatus = (typeof RECORD_CORRECTION_STATUSES)[number];
+
+// ---------- Student groups (Canvas-style group sets) ----------
+export const GROUP_SET_SIGNUP_MODES = ['self_signup', 'teacher_assigned', 'mixed'] as const;
+export type GroupSetSignupMode = (typeof GROUP_SET_SIGNUP_MODES)[number];
+
+export const GROUP_SET_SIGNUP_STATUSES = ['open', 'locked'] as const;
+export type GroupSetSignupStatus = (typeof GROUP_SET_SIGNUP_STATUSES)[number];
+
+export const GROUP_SET_MAX_GROUPS = 100;
+export const GROUP_SET_MAX_MEMBERS_PER_GROUP = 100;

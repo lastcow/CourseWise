@@ -10,6 +10,8 @@ import type {
   DiscussionTopicStatus,
   FileAssetStatus,
   GammaJobStatus,
+  GroupSetSignupMode,
+  GroupSetSignupStatus,
   InvitationStatus,
   LetterGradeThreshold,
   Locale,
@@ -986,3 +988,45 @@ export type CourseDeletionLogEntry = {
   childCounts: ChildCounts;
   cleanup: R2CleanupJob | null;
 };
+
+// ---------- Student groups (Canvas-style group sets) ----------
+
+export interface GroupSetSummary {
+  id: string;
+  courseId: string;
+  name: string;
+  maxMembersPerGroup: number;
+  signupMode: GroupSetSignupMode;
+  signupStatus: GroupSetSignupStatus;
+  groupCount: number;
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupMember {
+  studentId: string;
+  name: string;
+  email: string;
+  joinedAt: string;
+}
+
+export interface GroupWithMembers {
+  id: string;
+  groupSetId: string;
+  name: string;
+  position: number;
+  members: GroupMember[];
+}
+
+export interface UnassignedStudent {
+  studentId: string;
+  name: string;
+  email: string;
+}
+
+export interface GroupSetWithGroups extends GroupSetSummary {
+  groups: GroupWithMembers[];
+  unassignedStudents: UnassignedStudent[];
+  myGroupId: string | null;
+}

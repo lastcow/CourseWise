@@ -77,6 +77,15 @@ export const discussionTopicStatusEnum = pgEnum('discussion_topic_status', [
   'published',
   'archived',
 ]);
+export const groupSetSignupModeEnum = pgEnum('group_set_signup_mode', [
+  'self_signup',
+  'teacher_assigned',
+  'mixed',
+]);
+export const groupSetSignupStatusEnum = pgEnum('group_set_signup_status', [
+  'open',
+  'locked',
+]);
 export const alertTypeEnum = pgEnum('alert_type', [
   'attendance_low',
   'consecutive_absences',
@@ -746,6 +755,77 @@ export const quizAnswers = pgTable(
     ),
   }),
 );
+
+// ---------- Student groups (Canvas-style group sets) ----------
+// A course can have many named groupSets ("Lab Groups", "Project Teams").
+// Each set contains N groups, each with a member cap. Students belong to at
+// most one group per set (enforced by unique(groupSetId, studentId) on
+// memberships — the set id is denormalized onto the membership row so the
+// constraint can be expressed at the DB level).
+export const groupSets = pgTable(
+  'group_sets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    maxMembersPerGroup: integer('max_members_per_group').notNull(),
+    signupMode: groupSetSignupModeEnum('signup_mode').notNull().default('self_signup'),
+    signupStatus: groupSetSignupStatusEnum('signup_status').notNull().default('open'),
+    createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (t) => ({
+    courseIdx: index('group_sets_course_idx').on(t.courseId),
+    nameUnique: uniqueIndex('group_sets_course_name_idx').on(t.courseId, sql`lower(${t.name})`),
+  }),
+);
+
+export const groups = pgTable(
+  'groups',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    groupSetId: uuid('group_set_id')
+      .notNull()
+      .references(() => groupSets.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    position: integer('position').notNull().default(0),
+    ...timestamps,
+  },
+  (t) => ({
+    groupSetIdx: index('groups_group_set_idx').on(t.groupSetId),
+    nameUnique: uniqueIndex('groups_set_name_idx').on(t.groupSetId, sql`lower(${t.name})`),
+  }),
+);
+
+export const groupMemberships = pgTable(
+  'group_memberships',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    groupSetId: uuid('group_set_id')
+      .notNull()
+      .references(() => groupSets.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    joinedAt: timestamp('joined_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    setStudentUnique: uniqueIndex('group_memberships_set_student_idx').on(t.groupSetId, t.studentId),
+    groupIdx: index('group_memberships_group_idx').on(t.groupId),
+    studentIdx: index('group_memberships_student_idx').on(t.studentId),
+  }),
+);
+
+export type GroupSetRow = typeof groupSets.$inferSelect;
+export type GroupRow = typeof groups.$inferSelect;
+export type GroupMembershipRow = typeof groupMemberships.$inferSelect;
 
 export const attendanceSessions = pgTable(
   'attendance_sessions',

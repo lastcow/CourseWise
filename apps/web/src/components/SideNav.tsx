@@ -26,6 +26,7 @@ import {
   Ticket,
   UserCheck,
   UserPlus,
+  Users,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -143,6 +144,7 @@ function teacherCourseSections(courseId: string): NavSection[] {
       items: [
         { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
         { to: `${prefix}/attendance`, labelKey: 'attendance.title', icon: UserCheck },
+        { to: `${prefix}/group-sets`, labelKey: 'groups.title', icon: Users },
       ],
     },
     {
@@ -202,6 +204,7 @@ function studentCourseSections(courseId: string): NavSection[] {
       items: [
         { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
         { to: `${prefix}/attendance`, labelKey: 'attendance.myTitle', icon: UserCheck },
+        { to: `${prefix}/groups`, labelKey: 'groups.title', icon: Users },
       ],
     },
     {

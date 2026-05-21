@@ -15,6 +15,7 @@ import type {
   ApiError,
   ApiResponse,
   ApiTokenSummary,
+  AssignGroupMemberInput,
   AssignmentSummary,
   AttendanceRecordRow,
   AttendanceSessionSummary,
@@ -42,6 +43,7 @@ import type {
   CreateQuizInput,
   CreateQuizQuestionInput,
   CreateGammaPresentationResponse,
+  CreateGroupSetInput,
   CreateSelfApiTokenInput,
   CreateSlideInput,
   CreateRecordCorrectionRequestInput,
@@ -63,6 +65,8 @@ import type {
   GradeQuizAnswerInput,
   GradeSubmissionInput,
   GradingPolicySummary,
+  GroupSetSummary,
+  GroupSetWithGroups,
   InvitationCodeSummary,
   LoginResponse,
   RegisterTeacherInput,
@@ -104,6 +108,8 @@ import type {
   UpdateDiscussionPostInput,
   UpdateDiscussionTopicInput,
   UpdateGradingPolicyInput,
+  UpdateGroupInput,
+  UpdateGroupSetInput,
   UpdateAiModelInput,
   UpdateAiPromptTemplateInput,
   UpdateAiProviderInput,
@@ -1642,6 +1648,136 @@ export function useReorderAssignmentGroups(courseId: string) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['assignment-groups', courseId] });
+    },
+  });
+}
+
+// ---------- Student groups (Canvas-style group sets) ----------
+
+export function useGroupSets(courseId: string | undefined) {
+  return useQuery({
+    queryKey: ['group-sets', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<GroupSetSummary[]>(`/api/courses/${courseId}/group-sets`),
+  });
+}
+
+export function useGroupSet(courseId: string | undefined, setId: string | undefined) {
+  return useQuery({
+    queryKey: ['group-set', courseId, setId],
+    enabled: !!courseId && !!setId,
+    queryFn: () =>
+      apiCall<GroupSetWithGroups>(`/api/courses/${courseId}/group-sets/${setId}`),
+  });
+}
+
+export function useCreateGroupSet(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateGroupSetInput) =>
+      apiCall<GroupSetSummary>(`/api/courses/${courseId}/group-sets`, { body: input }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['group-sets', courseId] });
+    },
+  });
+}
+
+export function useUpdateGroupSet(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ setId, patch }: { setId: string; patch: UpdateGroupSetInput }) =>
+      apiCall(`/api/courses/${courseId}/group-sets/${setId}`, {
+        method: 'PATCH',
+        body: patch,
+      }),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['group-sets', courseId] });
+      void qc.invalidateQueries({ queryKey: ['group-set', courseId, vars.setId] });
+    },
+  });
+}
+
+export function useDeleteGroupSet(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (setId: string) =>
+      apiCall<{ id: string }>(`/api/courses/${courseId}/group-sets/${setId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['group-sets', courseId] });
+    },
+  });
+}
+
+export function useUpdateGroup(courseId: string, setId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, patch }: { groupId: string; patch: UpdateGroupInput }) =>
+      apiCall(`/api/courses/${courseId}/group-sets/${setId}/groups/${groupId}`, {
+        method: 'PATCH',
+        body: patch,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['group-set', courseId, setId] });
+    },
+  });
+}
+
+/**
+ * Student self-joins (no body) OR teacher assigns a student (body =
+ * { studentId }). Server branches on the caller's role.
+ */
+export function useJoinOrAssignGroupMember(courseId: string, setId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      groupId,
+      studentId,
+    }: {
+      groupId: string;
+      studentId?: string;
+    }) => {
+      const body: AssignGroupMemberInput | undefined = studentId ? { studentId } : undefined;
+      return apiCall(
+        `/api/courses/${courseId}/group-sets/${setId}/groups/${groupId}/members`,
+        body ? { method: 'POST', body } : { method: 'POST' },
+      );
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['group-set', courseId, setId] });
+      void qc.invalidateQueries({ queryKey: ['group-sets', courseId] });
+    },
+  });
+}
+
+export function useRemoveGroupMember(courseId: string, setId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ groupId, studentId }: { groupId: string; studentId: string }) => {
+      const res = await apiCall<Response>(
+        `/api/courses/${courseId}/group-sets/${setId}/groups/${groupId}/members/${studentId}`,
+        { method: 'DELETE', raw: true },
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        let err: ApiError = {
+          code: 'UNKNOWN',
+          message: res.statusText,
+          i18nKey: 'errors.internal',
+        };
+        try {
+          const parsed = text ? (JSON.parse(text) as ApiResponse<unknown>) : undefined;
+          if (parsed && parsed.success === false) err = parsed.error;
+        } catch {
+          /* noop */
+        }
+        throw new ApiClientError(res.status, err);
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['group-set', courseId, setId] });
+      void qc.invalidateQueries({ queryKey: ['group-sets', courseId] });
     },
   });
 }
