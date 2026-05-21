@@ -36,9 +36,39 @@ export type Env = AppBindings;
 
 const app = new Hono<AppEnv>();
 
-app.use('*', (c, next) => {
-  const origin = c.env.CORS_ORIGIN || '*';
-  return cors({ origin, credentials: true })(c, next);
+// CORS: refuse to serve anything if CORS_ORIGIN isn't pinned. Wildcard +
+// credentials is a CSRF foot-gun that we never want as a silent default, so we
+// fail loud instead. `CORS_ORIGIN` is set in wrangler.toml ([vars]) for
+// production and .dev.vars for local dev; an unset value indicates a misdeploy
+// and must be visible immediately.
+//
+// The value can be a single origin ("https://fsuac.com") or a comma-separated
+// list. The hono cors middleware accepts either a string or a function; we
+// pass a function so we can answer per-request without rebuilding the list.
+app.use('*', async (c, next) => {
+  const raw = c.env.CORS_ORIGIN?.trim();
+  if (!raw) {
+    console.error('CORS_ORIGIN is not configured; refusing all cross-origin traffic');
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: ERROR_CODES.INTERNAL_ERROR,
+          message: 'CORS is not configured on this Worker.',
+          i18nKey: ERROR_I18N[ERROR_CODES.INTERNAL_ERROR],
+        },
+      },
+      500,
+    );
+  }
+  const allowed = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return cors({
+    origin: (origin) => (origin && allowed.includes(origin) ? origin : null),
+    credentials: true,
+  })(c, next);
 });
 
 app.use('*', async (c, next) => {
