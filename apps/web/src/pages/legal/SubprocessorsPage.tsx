@@ -7,8 +7,8 @@ export function SubprocessorsPage(): JSX.Element {
       <LegalPageHeader
         title="Subprocessors"
         summary="The third-party vendors that [COMPANY LEGAL NAME] uses to deliver CourseWise, and how we change the list."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        lastUpdated="2026-05-21"
+        version="v0.2-draft"
       />
 
       <h2>Current subprocessors</h2>
@@ -77,6 +77,27 @@ export function SubprocessorsPage(): JSX.Element {
               <td className="px-3 py-3">
                 <a
                   href="https://www.anthropic.com/legal/dpa"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-violet-700 underline"
+                >
+                  DPA
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3 py-3 font-medium">Gamma</td>
+              <td className="px-3 py-3">Presentation generation API</td>
+              <td className="px-3 py-3">United States</td>
+              <td className="px-3 py-3">
+                Generating slide decks from teacher-authored reading materials
+                and instructions; storing the resulting deck for download.
+                Receives only the reading-material content and prompts the
+                teacher chooses to include.
+              </td>
+              <td className="px-3 py-3">
+                <a
+                  href="https://gamma.app/legal/dpa"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-violet-700 underline"
