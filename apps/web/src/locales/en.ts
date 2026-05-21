@@ -524,6 +524,10 @@ export const en = {
       pickStudent: 'Pick a student…',
       pickGroupAbove: 'Pick a group above to assign',
       noSearchMatch: 'No match for current search',
+      toolbarInvite: 'Invite',
+      toolbarInviteNoExpiry: 'No expiry',
+      toolbarInviteExpiresInDays_one: 'Expires in {{count}} day',
+      toolbarInviteExpiresInDays_other: 'Expires in {{count}} days',
     },
     groups: {
       title: 'Groups',
