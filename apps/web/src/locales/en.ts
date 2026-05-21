@@ -1087,12 +1087,12 @@ export const en = {
       attendanceCardTitle: 'Attendance',
       attendanceWeightLabel: 'Attendance weight (%)',
       attendanceWeightHint:
-        'Attendance weight is set here. Other categories are configured as assignment groups below.',
+        'Attendance counts toward the 100% total alongside the assignment groups below.',
       attendanceSave: 'Save',
       attendanceSaved: 'Attendance weight saved',
       groupsCardTitle: 'Assignment groups',
       groupsCardHint:
-        'Group assignments, quizzes, and discussions into weighted categories. Group weights should sum to 100%.',
+        'Group assignments, quizzes, and discussions into weighted categories. Attendance + group weights must sum to 100%.',
       groupsEmpty: 'No groups yet. Add one to start grouping items.',
       groupAdd: '+ Add group',
       groupDelete: 'Delete',
@@ -1101,7 +1101,7 @@ export const en = {
       groupWeightAria: 'Group weight',
       groupItems: 'items: {{count}}',
       groupItemsScored: '{{scored}} of {{total}} items scored',
-      groupsImbalanced: 'Group weights total {{total}}% — should be 100%.',
+      groupsImbalanced: 'Attendance + group weights total {{total}}% — should be 100%.',
       groupDeleteConfirm: 'Delete group "{{name}}"?',
       newGroupDefaultName: 'New group',
       weightSum: 'Total: {{sum}}/100',

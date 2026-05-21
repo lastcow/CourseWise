@@ -130,19 +130,20 @@ r.post(
     if (!(await canWriteCourse(db, auth.user, courseId))) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
     }
+    const policy = await ensureGradingPolicy(db, courseId);
     const weightRows = await db
       .select({ weight: assignmentGroups.weight })
       .from(assignmentGroups)
       .where(eq(assignmentGroups.courseId, courseId));
-    const totalGroupWeight = weightRows.reduce((acc, r) => acc + r.weight, 0);
-    if (totalGroupWeight !== 100) {
+    const groupWeight = weightRows.reduce((acc, r) => acc + r.weight, 0);
+    const totalWeight = policy.weightAttendance + groupWeight;
+    if (totalWeight !== 100) {
       throw new ApiException(
         400,
         ERROR_CODES.VALIDATION_ERROR,
-        `Assignment group weights must sum to 100 (currently ${totalGroupWeight})`,
+        `Attendance + assignment-group weights must sum to 100 (currently ${totalWeight})`,
       );
     }
-    const policy = await ensureGradingPolicy(db, courseId);
     const { updated } = await recalculateFinalGrades(db, courseId, policy, auth.user.id);
     const body: RecalculateFinalGradesResult = {
       courseId,

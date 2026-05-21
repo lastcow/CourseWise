@@ -58,7 +58,6 @@ interface ComputeFinalScoreResult {
 
 export function computeFinalScore(input: ComputeFinalScoreInput): ComputeFinalScoreResult {
   const attendanceWeight = input.attendance.weight;
-  const otherWeight = 100 - attendanceWeight;
 
   // Stage 1: build a per-group raw score (mean of item percentages) + breakdown skeleton.
   const groups: GroupScoreBreakdown[] = input.groups.map((g) => {
@@ -85,28 +84,11 @@ export function computeFinalScore(input: ComputeFinalScoreInput): ComputeFinalSc
     };
   });
 
-  // Stage 2: combine groups into a single "groupsScore" using each group's weight
-  // (renormalized over groups that actually have data).
-  const usable = groups.filter((g) => g.raw !== null);
-  const totalUsableWeight = usable.reduce((acc, g) => acc + g.weight, 0);
-  let groupsScore: number | null = null;
-  if (totalUsableWeight > 0) {
-    groupsScore = usable.reduce((acc, g) => acc + (g.raw! * g.weight) / totalUsableWeight, 0);
-  }
-
-  // Stage 3: assign the per-group `weighted` contribution (out of 100) by
-  // scaling each group's percentage by its weight then by the "non-attendance"
-  // share of the final score.
-  for (const g of groups) {
-    if (g.raw === null) {
-      g.weighted = 0;
-    } else {
-      g.weighted = ((g.raw * g.weight) / 100) * (otherWeight / 100);
-    }
-  }
-
-  // Stage 4: blend attendance + groups. Attendance falls out if its weight is
-  // zero or there is no rate; groups fall out if every group is empty.
+  // Stage 2: attendance + groups all live in one weighted pool that sums to 100.
+  // Each bucket's `weighted` contribution is `(raw × weight) / 100` directly.
+  // Empty buckets (no data) drop out and the remaining buckets are renormalized
+  // over the still-usable weight, so a course missing one bucket still produces
+  // a meaningful score from the rest.
   const attendanceUsable = input.attendance.rate !== null && attendanceWeight > 0;
   const attendance = attendanceUsable
     ? {
@@ -116,15 +98,28 @@ export function computeFinalScore(input: ComputeFinalScoreInput): ComputeFinalSc
       }
     : null;
 
+  const usableGroups = groups.filter((g) => g.raw !== null);
+  let totalUsableWeight = usableGroups.reduce((acc, g) => acc + g.weight, 0);
+  if (attendanceUsable) totalUsableWeight += attendanceWeight;
+
   let score: number | null;
-  if (groupsScore === null && !attendanceUsable) {
+  if (totalUsableWeight === 0) {
     score = null;
-  } else if (groupsScore === null) {
-    score = input.attendance.rate!;
-  } else if (!attendanceUsable) {
-    score = groupsScore;
   } else {
-    score = (input.attendance.rate! * attendanceWeight + groupsScore * otherWeight) / 100;
+    const groupsContribution = usableGroups.reduce((acc, g) => acc + g.raw! * g.weight, 0);
+    const attendanceContribution = attendanceUsable
+      ? input.attendance.rate! * attendanceWeight
+      : 0;
+    score = (groupsContribution + attendanceContribution) / totalUsableWeight;
+  }
+
+  // Stage 3: per-group `weighted` is the bucket's nominal contribution to a
+  // 100-summing total (raw × weight / 100). When everything is balanced this
+  // matches the final score; when some buckets are missing, the renormalization
+  // above scales the final score up so the visible per-bucket values still
+  // reflect each bucket's *nominal* share of the gradebook.
+  for (const g of groups) {
+    g.weighted = g.raw === null ? 0 : (g.raw * g.weight) / 100;
   }
 
   return { score, groups, attendance };
