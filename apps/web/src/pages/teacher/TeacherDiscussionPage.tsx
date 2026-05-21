@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import {
+  useAssignmentGroups,
   useCreateDiscussionTopic,
   useDeleteDiscussionTopic,
   useDiscussionTopicsList,
@@ -71,6 +72,7 @@ export function TeacherDiscussionPage(): JSX.Element {
   const del = useDeleteDiscussionTopic(id);
   const update = useUpdateDiscussionTopic(id);
   const modulesQ = useModulesList(id || null);
+  const groupsQ = useAssignmentGroups(id);
   const toast = useToast();
 
   const [openCreate, setOpenCreate] = useState(false);
@@ -82,6 +84,7 @@ export function TeacherDiscussionPage(): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<DiscussionTopicSummary | null>(null);
   const [moveTarget, setMoveTarget] = useState<DiscussionTopicSummary | null>(null);
   const [moveModuleId, setMoveModuleId] = useState<string>('');
+  const [moveGroupId, setMoveGroupId] = useState<string>('');
 
   const moduleTitleById = new Map((modulesQ.data ?? []).map((m) => [m.id, m.title]));
 
@@ -187,6 +190,7 @@ export function TeacherDiscussionPage(): JSX.Element {
                         size="sm"
                         onClick={() => {
                           setMoveModuleId(topic.moduleId ?? '');
+                          setMoveGroupId(topic.groupId ?? '');
                           setMoveTarget(topic);
                         }}
                       />
@@ -332,22 +336,41 @@ export function TeacherDiscussionPage(): JSX.Element {
         title={t('discussion.linkModuleTitle')}
         dismissOnBackdropClick={false}
       >
-        <div className="space-y-2">
-          <Label htmlFor="move-module">{t('discussion.moduleLabel')}</Label>
-          <select
-            id="move-module"
-            value={moveModuleId}
-            onChange={(e) => setMoveModuleId(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={modulesQ.isLoading}
-          >
-            <option value="">{t('discussion.unassignedModule')}</option>
-            {(modulesQ.data ?? []).map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.title}
-              </option>
-            ))}
-          </select>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="move-module">{t('discussion.moduleLabel')}</Label>
+            <select
+              id="move-module"
+              value={moveModuleId}
+              onChange={(e) => setMoveModuleId(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={modulesQ.isLoading}
+            >
+              <option value="">{t('discussion.unassignedModule')}</option>
+              {(modulesQ.data ?? []).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="move-group">{t('discussion.groupLabel')}</Label>
+            <select
+              id="move-group"
+              value={moveGroupId}
+              onChange={(e) => setMoveGroupId(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={groupsQ.isLoading}
+            >
+              <option value="">{t('discussion.unassignedGroup')}</option>
+              {(groupsQ.data ?? []).map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setMoveTarget(null)}>
@@ -360,7 +383,10 @@ export function TeacherDiscussionPage(): JSX.Element {
               try {
                 await update.mutateAsync({
                   id: moveTarget.id,
-                  input: { moduleId: moveModuleId || null },
+                  input: {
+                    moduleId: moveModuleId || null,
+                    groupId: moveGroupId || null,
+                  },
                 });
                 toast.push({ title: t('discussion.moduleUpdated'), tone: 'success' });
                 setMoveTarget(null);

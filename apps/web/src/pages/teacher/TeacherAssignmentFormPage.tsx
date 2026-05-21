@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast';
 import {
   uploadFile,
   useAssignment,
+  useAssignmentGroups,
   useCreateAssignment,
   useUpdateAssignment,
 } from '@/lib/queries';
@@ -24,6 +25,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
   const existing = useAssignment(isNew ? null : (assignmentId ?? null));
   const create = useCreateAssignment(cId);
   const update = useUpdateAssignment(cId);
+  const groups = useAssignmentGroups(cId);
   const toast = useToast();
 
   const [title, setTitle] = useState('');
@@ -32,6 +34,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
   const [maxScore, setMaxScore] = useState<number | ''>('');
   const [allowLate, setAllowLate] = useState(false);
   const [attachmentFileId, setAttachmentFileId] = useState<string | null>(null);
+  const [groupId, setGroupId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,6 +46,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       setMaxScore(existing.data.maxScore ?? '');
       setAllowLate(existing.data.allowLateSubmission);
       setAttachmentFileId(existing.data.attachmentFileId);
+      setGroupId(existing.data.groupId ?? null);
     }
   }, [isNew, existing.data]);
 
@@ -79,6 +83,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       maxScore: maxScore === '' ? null : Number(maxScore),
       allowLateSubmission: allowLate,
       attachmentFileId: attachmentFileId ?? null,
+      groupId,
     };
     try {
       if (isNew) {
@@ -144,6 +149,23 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                   onChange={(e) => setMaxScore(e.target.value === '' ? '' : Number(e.target.value))}
                 />
               </div>
+            </div>
+            <div>
+              <Label htmlFor="a-group">{t('assignments.groupLabel')}</Label>
+              <select
+                id="a-group"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={groupId ?? ''}
+                onChange={(e) => setGroupId(e.target.value || null)}
+                disabled={groups.isLoading}
+              >
+                <option value="">{t('assignments.unassignedGroup')}</option>
+                {(groups.data ?? []).map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex items-center gap-2">
               <input

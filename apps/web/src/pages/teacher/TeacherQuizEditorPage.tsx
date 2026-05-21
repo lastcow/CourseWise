@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import {
+  useAssignmentGroups,
   useCreateQuizQuestion,
   useDeleteQuizQuestion,
   useQuiz,
@@ -66,9 +67,15 @@ export function TeacherQuizEditorPage(): JSX.Element {
   const createQ = useCreateQuizQuestion(id);
   const updateQ = useUpdateQuizQuestion(id);
   const delQ = useDeleteQuizQuestion(id);
+  const groups = useAssignmentGroups(cid);
   const toast = useToast();
 
-  const [meta, setMeta] = useState({ title: '', description: '', timeLimitMinutes: '' });
+  const [meta, setMeta] = useState({
+    title: '',
+    description: '',
+    timeLimitMinutes: '',
+    groupId: null as string | null,
+  });
   const [draft, setDraft] = useState<QuestionDraft>(emptyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -79,6 +86,7 @@ export function TeacherQuizEditorPage(): JSX.Element {
         description: quiz.data.description ?? '',
         timeLimitMinutes:
           quiz.data.timeLimitMinutes != null ? String(quiz.data.timeLimitMinutes) : '',
+        groupId: quiz.data.groupId ?? null,
       });
     }
   }, [quiz.data]);
@@ -184,6 +192,23 @@ export function TeacherQuizEditorPage(): JSX.Element {
             />
           </div>
           <div>
+            <Label htmlFor="quiz-group">{t('quizzes.groupLabel')}</Label>
+            <select
+              id="quiz-group"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              value={meta.groupId ?? ''}
+              onChange={(e) => setMeta({ ...meta, groupId: e.target.value || null })}
+              disabled={groups.isLoading}
+            >
+              <option value="">{t('quizzes.unassignedGroup')}</option>
+              {(groups.data ?? []).map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <Button
               onClick={async () => {
                 await updateQuiz.mutateAsync({
@@ -194,6 +219,7 @@ export function TeacherQuizEditorPage(): JSX.Element {
                     timeLimitMinutes: meta.timeLimitMinutes
                       ? Number.parseInt(meta.timeLimitMinutes, 10)
                       : null,
+                    groupId: meta.groupId,
                   },
                 });
                 toast.push({ title: t('quizzes.settingsSaved'), tone: 'success' });

@@ -63,6 +63,7 @@ function toTopic(
     id: row.id,
     courseId: row.courseId,
     moduleId: row.moduleId ?? null,
+    groupId: row.groupId ?? null,
     title: row.title,
     description: row.description ?? row.prompt ?? null,
     status: row.status,
@@ -258,6 +259,7 @@ r.patch(
       patch.prompt = input.description;
     }
     if (input.moduleId !== undefined) patch.moduleId = input.moduleId;
+    if (input.groupId !== undefined) patch.groupId = input.groupId;
     if (input.isGraded !== undefined) patch.isGraded = input.isGraded;
     if (input.isPinned !== undefined) patch.isPinned = input.isPinned;
     if (input.maxScore !== undefined) {

@@ -345,6 +345,7 @@ export const updateAssignmentSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(20_000).optional().nullable(),
   moduleId: z.string().uuid().optional().nullable(),
+  groupId: z.string().uuid().nullable().optional(),
   dueDate: isoDateString.optional().nullable(),
   maxScore: z.number().min(0).max(1000).optional().nullable(),
   rubric: z.unknown().optional(),
@@ -387,6 +388,7 @@ export const updateDiscussionTopicSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(20_000).optional().nullable(),
   moduleId: z.string().uuid().optional().nullable(),
+  groupId: z.string().uuid().nullable().optional(),
   isGraded: z.boolean().optional(),
   maxScore: z.number().min(0).max(1000).optional().nullable(),
   isPinned: z.boolean().optional(),
@@ -438,6 +440,7 @@ export const updateQuizSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(20_000).optional().nullable(),
   moduleId: z.string().uuid().optional().nullable(),
+  groupId: z.string().uuid().nullable().optional(),
   startTime: isoDateString.optional().nullable(),
   endTime: isoDateString.optional().nullable(),
   timeLimitMinutes: z
@@ -592,25 +595,10 @@ export const letterGradeThresholdSchema = z.object({
 });
 export type LetterGradeThresholdInput = z.infer<typeof letterGradeThresholdSchema>;
 
-export const updateGradingPolicySchema = z
-  .object({
-    weightAttendance: z.number().int().min(0).max(100),
-    weightAssignments: z.number().int().min(0).max(100),
-    weightQuizzes: z.number().int().min(0).max(100),
-    weightDiscussion: z.number().int().min(0).max(100),
-    weightFinalProject: z.number().int().min(0).max(100),
-    letters: z.array(letterGradeThresholdSchema).min(1).max(10).optional().nullable(),
-  })
-  .refine(
-    (v) =>
-      v.weightAttendance +
-        v.weightAssignments +
-        v.weightQuizzes +
-        v.weightDiscussion +
-        v.weightFinalProject ===
-      100,
-    { message: 'Grading policy weights must sum to 100', path: ['weights'] },
-  );
+export const updateGradingPolicySchema = z.object({
+  weightAttendance: z.number().int().min(0).max(100),
+  letters: z.array(letterGradeThresholdSchema).min(1).max(10).optional().nullable(),
+});
 export type UpdateGradingPolicyInput = z.infer<typeof updateGradingPolicySchema>;
 
 // ---------- M5: Final Grades ----------
@@ -894,4 +882,23 @@ export const generateGammaPresentationSchema = z.object({
   format: z.enum(GAMMA_FORMATS).default('presentation'),
 });
 export type GenerateGammaPresentationInput = z.infer<typeof generateGammaPresentationSchema>;
+
+export const createAssignmentGroupSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  weight: z.number().int().min(0).max(100),
+  position: z.number().int().min(0).optional(),
+});
+export type CreateAssignmentGroupInput = z.infer<typeof createAssignmentGroupSchema>;
+
+export const updateAssignmentGroupSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  weight: z.number().int().min(0).max(100).optional(),
+  position: z.number().int().min(0).optional(),
+});
+export type UpdateAssignmentGroupInput = z.infer<typeof updateAssignmentGroupSchema>;
+
+export const reorderAssignmentGroupsSchema = z.object({
+  orderedIds: z.array(z.string().uuid()).min(1),
+});
+export type ReorderAssignmentGroupsInput = z.infer<typeof reorderAssignmentGroupsSchema>;
 

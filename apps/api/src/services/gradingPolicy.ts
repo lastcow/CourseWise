@@ -2,7 +2,6 @@ import { eq, sql } from 'drizzle-orm';
 import {
   DEFAULT_GRADING_POLICY,
   DEFAULT_LETTER_GRADES,
-  type GradingPolicy,
   type GradingPolicySummary,
   type LetterGradeThreshold,
   type UpdateGradingPolicyInput,
@@ -13,10 +12,6 @@ import { finalGrades, gradingPolicies } from '../db/schema';
 export function defaultPolicyValues() {
   return {
     weightAttendance: DEFAULT_GRADING_POLICY.attendance,
-    weightAssignments: DEFAULT_GRADING_POLICY.assignments,
-    weightQuizzes: DEFAULT_GRADING_POLICY.quizzes,
-    weightDiscussion: DEFAULT_GRADING_POLICY.discussion,
-    weightFinalProject: DEFAULT_GRADING_POLICY.finalProject,
   };
 }
 
@@ -30,25 +25,11 @@ export function toGradingPolicySummary(
     id: row.id,
     courseId: row.courseId,
     weightAttendance: row.weightAttendance,
-    weightAssignments: row.weightAssignments,
-    weightQuizzes: row.weightQuizzes,
-    weightDiscussion: row.weightDiscussion,
-    weightFinalProject: row.weightFinalProject,
     letters,
     version: row.version,
     updatedById: row.updatedById ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-  };
-}
-
-export function policyToGradingPolicy(summary: GradingPolicySummary): GradingPolicy {
-  return {
-    attendance: summary.weightAttendance,
-    assignments: summary.weightAssignments,
-    quizzes: summary.weightQuizzes,
-    discussion: summary.weightDiscussion,
-    finalProject: summary.weightFinalProject,
   };
 }
 
@@ -88,10 +69,6 @@ export async function updateGradingPolicy(
     .update(gradingPolicies)
     .set({
       weightAttendance: input.weightAttendance,
-      weightAssignments: input.weightAssignments,
-      weightQuizzes: input.weightQuizzes,
-      weightDiscussion: input.weightDiscussion,
-      weightFinalProject: input.weightFinalProject,
       lettersJson: letters,
       version: sql`${gradingPolicies.version} + 1`,
       updatedById,

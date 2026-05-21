@@ -9,7 +9,7 @@ import {
   type RecalculateFinalGradesResult,
   type UpdateGradingPolicyInput,
 } from '@coursewise/shared';
-import { courses, enrollments, finalGrades, users } from '../db/schema';
+import { assignmentGroups, courses, enrollments, finalGrades, users } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -81,10 +81,6 @@ r.put(
         version: updated.version,
         weights: {
           attendance: updated.weightAttendance,
-          assignments: updated.weightAssignments,
-          quizzes: updated.weightQuizzes,
-          discussion: updated.weightDiscussion,
-          finalProject: updated.weightFinalProject,
         },
       },
     });
@@ -133,6 +129,18 @@ r.post(
     const courseId = requireParam(c, 'courseId');
     if (!(await canWriteCourse(db, auth.user, courseId))) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+    }
+    const weightRows = await db
+      .select({ weight: assignmentGroups.weight })
+      .from(assignmentGroups)
+      .where(eq(assignmentGroups.courseId, courseId));
+    const totalGroupWeight = weightRows.reduce((acc, r) => acc + r.weight, 0);
+    if (totalGroupWeight !== 100) {
+      throw new ApiException(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        `Assignment group weights must sum to 100 (currently ${totalGroupWeight})`,
+      );
     }
     const policy = await ensureGradingPolicy(db, courseId);
     const { updated } = await recalculateFinalGrades(db, courseId, policy, auth.user.id);

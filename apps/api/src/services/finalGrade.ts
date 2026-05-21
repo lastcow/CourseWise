@@ -1,6 +1,5 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
 import {
-  type CategoryScoreBreakdown,
   type FinalGradeSummary,
   type GradebookAssignmentItem,
   type GradebookAttendanceItem,
@@ -8,11 +7,13 @@ import {
   type GradebookDiscussionItem,
   type GradebookQuizItem,
   type GradebookStudentDetail,
-  type GradingPolicy,
   type GradingPolicySummary,
+  type GroupScoreBreakdown,
+  type LetterGradeThreshold,
 } from '@coursewise/shared';
 import type { Db } from '../db/client';
 import {
+  assignmentGroups,
   assignmentSubmissions,
   assignments,
   attendanceRecords,
@@ -25,73 +26,279 @@ import {
   quizzes,
   users,
 } from '../db/schema';
-import { computeLetterGrade, policyToGradingPolicy } from './gradingPolicy';
+import { computeLetterGrade } from './gradingPolicy';
 
-const FINAL_PROJECT_KEYWORDS = ['final project', 'final_project', 'finalproject', '期末', '结业'];
+// ---------------------------------------------------------------------------
+// Pure scoring algorithm. Lives at the top so it can be unit-tested without a
+// database. `summarizeFinalGrade` and the route-facing helpers assemble the
+// input shape from Drizzle and delegate to this function.
+// ---------------------------------------------------------------------------
 
-function isFinalProjectTitle(title: string | null | undefined): boolean {
-  if (!title) return false;
-  const lower = title.toLowerCase();
-  return FINAL_PROJECT_KEYWORDS.some((kw) => lower.includes(kw));
+interface ComputeFinalScoreInput {
+  groups: Array<{
+    id: string;
+    name: string;
+    weight: number;
+    items: Array<{
+      id: string;
+      type: 'assignment' | 'quiz' | 'discussion';
+      title: string;
+      score: number | null;
+      max: number;
+    }>;
+  }>;
+  attendance: { rate: number | null; weight: number };
 }
 
-interface StudentCategoryAggregates {
-  attendance: { sessionsCount: number; presentCount: number; rate: number | null };
-  assignments: {
-    regular: Array<{ score: number; maxScore: number }>;
-    average: number | null;
-  };
-  quizzes: { attempts: Array<{ score: number; maxScore: number }>; average: number | null };
-  discussion: { grades: Array<{ score: number; maxScore: number }>; average: number | null };
-  finalProject: { items: Array<{ score: number; maxScore: number }>; average: number | null };
+interface ComputeFinalScoreResult {
+  score: number | null;
+  groups: GroupScoreBreakdown[];
+  attendance: { rate: number; weight: number; weighted: number } | null;
 }
 
-function emptyAggregates(): StudentCategoryAggregates {
-  return {
-    attendance: { sessionsCount: 0, presentCount: 0, rate: null },
-    assignments: { regular: [], average: null },
-    quizzes: { attempts: [], average: null },
-    discussion: { grades: [], average: null },
-    finalProject: { items: [], average: null },
-  };
+export function computeFinalScore(input: ComputeFinalScoreInput): ComputeFinalScoreResult {
+  const attendanceWeight = input.attendance.weight;
+  const otherWeight = 100 - attendanceWeight;
+
+  // Stage 1: build a per-group raw score (mean of item percentages) + breakdown skeleton.
+  const groups: GroupScoreBreakdown[] = input.groups.map((g) => {
+    const scoredItems = g.items.filter((i) => i.score !== null && i.max > 0);
+    const raw =
+      scoredItems.length > 0
+        ? scoredItems.reduce((acc, i) => acc + (i.score! / i.max) * 100, 0) / scoredItems.length
+        : null;
+    return {
+      groupId: g.id,
+      groupName: g.name,
+      weight: g.weight,
+      itemCount: g.items.length,
+      itemsScored: scoredItems.length,
+      raw,
+      weighted: 0,
+      detail: g.items.map((i) => ({
+        itemId: i.id,
+        itemType: i.type,
+        title: i.title,
+        score: i.score,
+        max: i.max,
+      })),
+    };
+  });
+
+  // Stage 2: combine groups into a single "groupsScore" using each group's weight
+  // (renormalized over groups that actually have data).
+  const usable = groups.filter((g) => g.raw !== null);
+  const totalUsableWeight = usable.reduce((acc, g) => acc + g.weight, 0);
+  let groupsScore: number | null = null;
+  if (totalUsableWeight > 0) {
+    groupsScore = usable.reduce((acc, g) => acc + (g.raw! * g.weight) / totalUsableWeight, 0);
+  }
+
+  // Stage 3: assign the per-group `weighted` contribution (out of 100) by
+  // scaling each group's percentage by its weight then by the "non-attendance"
+  // share of the final score.
+  for (const g of groups) {
+    if (g.raw === null) {
+      g.weighted = 0;
+    } else {
+      g.weighted = ((g.raw * g.weight) / 100) * (otherWeight / 100);
+    }
+  }
+
+  // Stage 4: blend attendance + groups. Attendance falls out if its weight is
+  // zero or there is no rate; groups fall out if every group is empty.
+  const attendanceUsable = input.attendance.rate !== null && attendanceWeight > 0;
+  const attendance = attendanceUsable
+    ? {
+        rate: input.attendance.rate!,
+        weight: attendanceWeight,
+        weighted: (input.attendance.rate! * attendanceWeight) / 100,
+      }
+    : null;
+
+  let score: number | null;
+  if (groupsScore === null && !attendanceUsable) {
+    score = null;
+  } else if (groupsScore === null) {
+    score = input.attendance.rate!;
+  } else if (!attendanceUsable) {
+    score = groupsScore;
+  } else {
+    score = (input.attendance.rate! * attendanceWeight + groupsScore * otherWeight) / 100;
+  }
+
+  return { score, groups, attendance };
 }
 
-function avgPercent(items: Array<{ score: number; maxScore: number }>): number | null {
-  if (items.length === 0) return null;
-  const total = items.reduce((sum, it) => {
-    if (!it.maxScore) return sum;
-    return sum + (it.score / it.maxScore) * 100;
-  }, 0);
-  return total / items.length;
+// ---------------------------------------------------------------------------
+// DB → algorithm input adapters. These walk the assignment_groups table and
+// the per-item tables (assignments, quizzes, discussion_topics) to build the
+// `ComputeFinalScoreInput.groups[]` shape, then merge in the student's scores.
+// ---------------------------------------------------------------------------
+
+interface CourseGroupDef {
+  id: string;
+  name: string;
+  weight: number;
+  position: number;
+  assignmentIds: string[];
+  quizIds: string[];
+  discussionIds: string[];
 }
 
-export async function aggregateCourseCategoryScores(
+interface CourseGradingContext {
+  groups: CourseGroupDef[];
+  assignmentMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
+  quizMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
+  discussionMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
+  attendanceSessionIds: string[];
+}
+
+async function loadCourseGradingContext(
   db: Db,
   courseId: string,
-  studentIds: string[],
-): Promise<Map<string, StudentCategoryAggregates>> {
-  const result = new Map<string, StudentCategoryAggregates>();
-  for (const id of studentIds) result.set(id, emptyAggregates());
+): Promise<CourseGradingContext> {
+  const groupRows = await db
+    .select()
+    .from(assignmentGroups)
+    .where(eq(assignmentGroups.courseId, courseId))
+    .orderBy(asc(assignmentGroups.position));
 
-  if (studentIds.length === 0) return result;
+  const groups: CourseGroupDef[] = groupRows.map((g) => ({
+    id: g.id,
+    name: g.name,
+    weight: g.weight,
+    position: g.position,
+    assignmentIds: [],
+    quizIds: [],
+    discussionIds: [],
+  }));
+  const groupIndex = new Map(groups.map((g) => [g.id, g]));
 
-  // Attendance: count sessions in course + per-student present/late counts.
-  const sessions = await db
+  const assignmentMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
+  const quizMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
+  const discussionMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
+
+  if (groups.length > 0) {
+    const assignRows = await db
+      .select({
+        id: assignments.id,
+        title: assignments.title,
+        maxScore: assignments.maxScore,
+        groupId: assignments.groupId,
+      })
+      .from(assignments)
+      .where(and(eq(assignments.courseId, courseId), isNotNull(assignments.groupId)));
+    for (const a of assignRows) {
+      if (!a.groupId) continue;
+      const g = groupIndex.get(a.groupId);
+      if (!g) continue;
+      g.assignmentIds.push(a.id);
+      assignmentMeta.set(a.id, {
+        groupId: a.groupId,
+        title: a.title,
+        maxScore: a.maxScore !== null ? Number(a.maxScore) : 100,
+      });
+    }
+
+    const quizRows = await db
+      .select({
+        id: quizzes.id,
+        title: quizzes.title,
+        maxScore: quizzes.maxScore,
+        groupId: quizzes.groupId,
+      })
+      .from(quizzes)
+      .where(and(eq(quizzes.courseId, courseId), isNotNull(quizzes.groupId)));
+    for (const q of quizRows) {
+      if (!q.groupId) continue;
+      const g = groupIndex.get(q.groupId);
+      if (!g) continue;
+      g.quizIds.push(q.id);
+      quizMeta.set(q.id, {
+        groupId: q.groupId,
+        title: q.title,
+        maxScore: q.maxScore !== null ? Number(q.maxScore) : 100,
+      });
+    }
+
+    const topicRows = await db
+      .select({
+        id: discussionTopics.id,
+        title: discussionTopics.title,
+        maxScore: discussionTopics.maxScore,
+        groupId: discussionTopics.groupId,
+        isGraded: discussionTopics.isGraded,
+      })
+      .from(discussionTopics)
+      .where(
+        and(
+          eq(discussionTopics.courseId, courseId),
+          eq(discussionTopics.isGraded, true),
+          isNotNull(discussionTopics.groupId),
+        ),
+      );
+    for (const t of topicRows) {
+      if (!t.groupId) continue;
+      const g = groupIndex.get(t.groupId);
+      if (!g) continue;
+      g.discussionIds.push(t.id);
+      discussionMeta.set(t.id, {
+        groupId: t.groupId,
+        title: t.title,
+        maxScore: t.maxScore !== null ? Number(t.maxScore) : 100,
+      });
+    }
+  }
+
+  const sessionRows = await db
     .select({ id: attendanceSessions.id })
     .from(attendanceSessions)
     .where(eq(attendanceSessions.courseId, courseId));
-  const sessionCount = sessions.length;
+
+  return {
+    groups,
+    assignmentMeta,
+    quizMeta,
+    discussionMeta,
+    attendanceSessionIds: sessionRows.map((s) => s.id),
+  };
+}
+
+interface StudentItemScores {
+  assignment: Map<string, number>; // assignmentId → score
+  quiz: Map<string, { score: number; maxScore: number }>; // quizId → best attempt
+  discussion: Map<string, number>; // topicId → score
+  attendance: { sessionsCount: number; presentCount: number; rate: number | null };
+}
+
+function emptyStudentScores(): StudentItemScores {
+  return {
+    assignment: new Map(),
+    quiz: new Map(),
+    discussion: new Map(),
+    attendance: { sessionsCount: 0, presentCount: 0, rate: null },
+  };
+}
+
+async function loadStudentItemScores(
+  db: Db,
+  ctx: CourseGradingContext,
+  studentIds: string[],
+): Promise<Map<string, StudentItemScores>> {
+  const result = new Map<string, StudentItemScores>();
+  for (const id of studentIds) result.set(id, emptyStudentScores());
+  if (studentIds.length === 0) return result;
+
+  // Attendance.
+  const sessionCount = ctx.attendanceSessionIds.length;
   if (sessionCount > 0) {
-    const sessionIds = sessions.map((s) => s.id);
     const recs = await db
-      .select({
-        studentId: attendanceRecords.studentId,
-        status: attendanceRecords.status,
-      })
+      .select({ studentId: attendanceRecords.studentId, status: attendanceRecords.status })
       .from(attendanceRecords)
       .where(
         and(
-          inArray(attendanceRecords.sessionId, sessionIds),
+          inArray(attendanceRecords.sessionId, ctx.attendanceSessionIds),
           inArray(attendanceRecords.studentId, studentIds),
         ),
       );
@@ -102,67 +309,41 @@ export async function aggregateCourseCategoryScores(
       }
     }
     for (const sid of studentIds) {
-      const agg = result.get(sid)!;
+      const s = result.get(sid)!;
       const present = presentByStudent.get(sid) ?? 0;
-      agg.attendance.sessionsCount = sessionCount;
-      agg.attendance.presentCount = present;
-      agg.attendance.rate = present / sessionCount;
+      s.attendance.sessionsCount = sessionCount;
+      s.attendance.presentCount = present;
+      s.attendance.rate = (present / sessionCount) * 100;
     }
   }
 
-  // Assignments: split into regular vs final-project by title keyword.
-  const courseAssignments = await db
-    .select({
-      id: assignments.id,
-      title: assignments.title,
-      maxScore: assignments.maxScore,
-    })
-    .from(assignments)
-    .where(eq(assignments.courseId, courseId));
-  const assignmentMap = new Map<
-    string,
-    { isFinal: boolean; maxScore: number }
-  >();
-  for (const a of courseAssignments) {
-    assignmentMap.set(a.id, {
-      isFinal: isFinalProjectTitle(a.title),
-      maxScore: a.maxScore !== null ? Number(a.maxScore) : 100,
-    });
-  }
-  if (assignmentMap.size > 0) {
+  // Assignment submissions.
+  const assignmentIds = Array.from(ctx.assignmentMeta.keys());
+  if (assignmentIds.length > 0) {
     const subs = await db
       .select({
         assignmentId: assignmentSubmissions.assignmentId,
         studentId: assignmentSubmissions.studentId,
         score: assignmentSubmissions.score,
-        status: assignmentSubmissions.status,
       })
       .from(assignmentSubmissions)
       .where(
         and(
-          inArray(assignmentSubmissions.assignmentId, Array.from(assignmentMap.keys())),
+          inArray(assignmentSubmissions.assignmentId, assignmentIds),
           inArray(assignmentSubmissions.studentId, studentIds),
         ),
       );
     for (const s of subs) {
       if (s.score === null) continue;
-      const meta = assignmentMap.get(s.assignmentId);
-      if (!meta) continue;
-      const score = Number(s.score);
-      const agg = result.get(s.studentId);
-      if (!agg) continue;
-      const bucket = meta.isFinal ? agg.finalProject.items : agg.assignments.regular;
-      bucket.push({ score, maxScore: meta.maxScore || 100 });
+      const bucket = result.get(s.studentId);
+      if (!bucket) continue;
+      bucket.assignment.set(s.assignmentId, Number(s.score));
     }
   }
 
-  // Quizzes: use attempts.score / attempts.maxScore (best attempt per quiz per student).
-  const courseQuizzes = await db
-    .select({ id: quizzes.id })
-    .from(quizzes)
-    .where(eq(quizzes.courseId, courseId));
-  if (courseQuizzes.length > 0) {
-    const quizIds = courseQuizzes.map((q) => q.id);
+  // Quiz attempts — pick best per (quiz, student).
+  const quizIds = Array.from(ctx.quizMeta.keys());
+  if (quizIds.length > 0) {
     const attempts = await db
       .select({
         quizId: quizAttempts.quizId,
@@ -178,40 +359,23 @@ export async function aggregateCourseCategoryScores(
           inArray(quizAttempts.studentId, studentIds),
         ),
       );
-    const bestByQuizStudent = new Map<string, { score: number; maxScore: number }>();
     for (const a of attempts) {
       if (a.status !== 'submitted' && a.status !== 'expired') continue;
       if (a.score === null || a.maxScore === null) continue;
-      const key = `${a.quizId}:${a.studentId}`;
+      const bucket = result.get(a.studentId);
+      if (!bucket) continue;
       const score = Number(a.score);
-      const max = Number(a.maxScore);
-      const prev = bestByQuizStudent.get(key);
+      const maxScore = Number(a.maxScore);
+      const prev = bucket.quiz.get(a.quizId);
       if (!prev || score > prev.score) {
-        bestByQuizStudent.set(key, { score, maxScore: max });
+        bucket.quiz.set(a.quizId, { score, maxScore });
       }
-    }
-    for (const [key, val] of bestByQuizStudent) {
-      const studentId = key.split(':')[1];
-      const agg = result.get(studentId!);
-      if (!agg) continue;
-      if (!val.maxScore) continue;
-      agg.quizzes.attempts.push(val);
     }
   }
 
-  // Discussion: average of graded discussion topic scores.
-  const topics = await db
-    .select({ id: discussionTopics.id, maxScore: discussionTopics.maxScore })
-    .from(discussionTopics)
-    .where(
-      and(eq(discussionTopics.courseId, courseId), eq(discussionTopics.isGraded, true)),
-    );
-  if (topics.length > 0) {
-    const topicIds = topics.map((t) => t.id);
-    const topicMax = new Map<string, number>();
-    for (const t of topics) {
-      topicMax.set(t.id, t.maxScore !== null ? Number(t.maxScore) : 100);
-    }
+  // Discussion grades.
+  const topicIds = Array.from(ctx.discussionMeta.keys());
+  if (topicIds.length > 0) {
     const grades = await db
       .select({
         topicId: discussionGrades.topicId,
@@ -227,94 +391,101 @@ export async function aggregateCourseCategoryScores(
       );
     for (const g of grades) {
       if (g.score === null) continue;
-      const max = topicMax.get(g.topicId) ?? 100;
-      const agg = result.get(g.studentId);
-      if (!agg || !max) continue;
-      agg.discussion.grades.push({ score: Number(g.score), maxScore: max });
+      const bucket = result.get(g.studentId);
+      if (!bucket) continue;
+      bucket.discussion.set(g.topicId, Number(g.score));
     }
   }
 
-  // Finalize averages.
-  for (const sid of studentIds) {
-    const agg = result.get(sid)!;
-    agg.assignments.average = avgPercent(agg.assignments.regular);
-    agg.quizzes.average = avgPercent(agg.quizzes.attempts);
-    agg.discussion.average = avgPercent(agg.discussion.grades);
-    agg.finalProject.average = avgPercent(agg.finalProject.items);
-  }
   return result;
 }
 
-export function computeWeightedScore(
-  agg: StudentCategoryAggregates,
-  policy: GradingPolicy,
-): { score: number; breakdown: CategoryScoreBreakdown } {
-  const cats: Array<{
-    key: keyof CategoryScoreBreakdown;
-    weight: number;
-    raw: number | null;
-    detail?: Record<string, number | string | null>;
-  }> = [
-    {
-      key: 'attendance',
-      weight: policy.attendance,
-      raw: agg.attendance.rate !== null ? agg.attendance.rate * 100 : null,
-      detail: {
-        sessions: agg.attendance.sessionsCount,
-        attended: agg.attendance.presentCount,
-      },
-    },
-    {
-      key: 'assignments',
-      weight: policy.assignments,
-      raw: agg.assignments.average,
-      detail: { graded: agg.assignments.regular.length },
-    },
-    {
-      key: 'quizzes',
-      weight: policy.quizzes,
-      raw: agg.quizzes.average,
-      detail: { attempts: agg.quizzes.attempts.length },
-    },
-    {
-      key: 'discussion',
-      weight: policy.discussion,
-      raw: agg.discussion.average,
-      detail: { graded: agg.discussion.grades.length },
-    },
-    {
-      key: 'finalProject',
-      weight: policy.finalProject,
-      raw: agg.finalProject.average,
-      detail: { graded: agg.finalProject.items.length },
-    },
-  ];
-  // Skip categories whose weight is 0; if they have no raw score either, redistribute
-  // the missing weight proportionally so the score stays comparable for partial terms.
-  const present = cats.filter((c) => c.weight > 0 && c.raw !== null);
-  const presentWeight = present.reduce((sum, c) => sum + c.weight, 0);
-  let score = 0;
-  if (presentWeight > 0) {
-    for (const c of present) {
-      score += (c.raw! * c.weight) / presentWeight;
-    }
-  }
-  const breakdown = {} as CategoryScoreBreakdown;
-  for (const c of cats) {
-    breakdown[c.key] = {
-      raw: c.raw,
-      weight: c.weight,
-      weighted: c.raw !== null ? (c.raw * c.weight) / 100 : 0,
-      detail: c.detail,
-    };
-  }
-  return { score, breakdown };
+function buildAlgorithmInput(
+  ctx: CourseGradingContext,
+  studentScores: StudentItemScores,
+  attendanceWeight: number,
+): ComputeFinalScoreInput {
+  const groups = ctx.groups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    weight: g.weight,
+    items: [
+      ...g.assignmentIds.map((aid) => {
+        const meta = ctx.assignmentMeta.get(aid)!;
+        const score = studentScores.assignment.get(aid);
+        return {
+          id: aid,
+          type: 'assignment' as const,
+          title: meta.title,
+          score: score !== undefined ? score : null,
+          max: meta.maxScore || 100,
+        };
+      }),
+      ...g.quizIds.map((qid) => {
+        const meta = ctx.quizMeta.get(qid)!;
+        const attempt = studentScores.quiz.get(qid);
+        return {
+          id: qid,
+          type: 'quiz' as const,
+          title: meta.title,
+          score: attempt ? attempt.score : null,
+          // Prefer the attempt's maxScore (it's the source of truth for that
+          // attempt's possible points); fall back to the quiz's configured max.
+          max: attempt ? attempt.maxScore || meta.maxScore || 100 : meta.maxScore || 100,
+        };
+      }),
+      ...g.discussionIds.map((did) => {
+        const meta = ctx.discussionMeta.get(did)!;
+        const score = studentScores.discussion.get(did);
+        return {
+          id: did,
+          type: 'discussion' as const,
+          title: meta.title,
+          score: score !== undefined ? score : null,
+          max: meta.maxScore || 100,
+        };
+      }),
+    ],
+  }));
+  return {
+    groups,
+    attendance: { rate: studentScores.attendance.rate, weight: attendanceWeight },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Persistence + serialization
+// ---------------------------------------------------------------------------
+
+function buildPolicySnapshot(
+  policy: GradingPolicySummary,
+  ctx: CourseGradingContext,
+): FinalGradeSummary['gradingPolicySnapshot'] {
+  return {
+    attendanceWeight: policy.weightAttendance,
+    groups: ctx.groups.map((g) => ({ id: g.id, name: g.name, weight: g.weight })),
+    letters: policy.letters,
+  };
 }
 
 export function toFinalGradeSummary(
   row: typeof finalGrades.$inferSelect,
   extra?: { studentName?: string; studentEmail?: string },
 ): FinalGradeSummary {
+  const rawCategory = row.categoryScores;
+  let groups: GroupScoreBreakdown[] = [];
+  let attendance: FinalGradeSummary['attendance'] = null;
+  if (rawCategory && typeof rawCategory === 'object' && !Array.isArray(rawCategory)) {
+    const cs = rawCategory as { groups?: unknown; attendance?: unknown };
+    if (Array.isArray(cs.groups)) groups = cs.groups as GroupScoreBreakdown[];
+    if (
+      cs.attendance &&
+      typeof cs.attendance === 'object' &&
+      cs.attendance !== null
+    ) {
+      attendance = cs.attendance as FinalGradeSummary['attendance'];
+    }
+  }
   return {
     id: row.id,
     courseId: row.courseId,
@@ -323,8 +494,10 @@ export function toFinalGradeSummary(
     studentEmail: extra?.studentEmail,
     score: row.score !== null ? Number(row.score) : null,
     letterGrade: row.letterGrade ?? null,
-    categoryScores: (row.categoryScores ?? null) as CategoryScoreBreakdown | null,
-    gradingPolicySnapshot: (row.gradingPolicySnapshot ?? null) as GradingPolicy | null,
+    groups,
+    attendance,
+    gradingPolicySnapshot:
+      (row.gradingPolicySnapshot as FinalGradeSummary['gradingPolicySnapshot']) ?? null,
     isOutdated: row.isOutdated,
     teacherOverrideScore:
       row.teacherOverrideScore !== null ? Number(row.teacherOverrideScore) : null,
@@ -342,6 +515,7 @@ export async function recalculateFinalGrades(
   policy: GradingPolicySummary,
   finalizedById: string,
 ): Promise<{ updated: number; rows: FinalGradeSummary[] }> {
+  const ctx = await loadCourseGradingContext(db, courseId);
   const enrolled = await db
     .select({
       studentId: enrollments.studentId,
@@ -352,35 +526,34 @@ export async function recalculateFinalGrades(
     .innerJoin(users, eq(enrollments.studentId, users.id))
     .where(and(eq(enrollments.courseId, courseId), eq(enrollments.status, 'enrolled')));
   const studentIds = enrolled.map((e) => e.studentId);
-  const aggregates = await aggregateCourseCategoryScores(db, courseId, studentIds);
-  const gradingPolicy = policyToGradingPolicy(policy);
+  const scoresByStudent = await loadStudentItemScores(db, ctx, studentIds);
+  const snapshot = buildPolicySnapshot(policy, ctx);
   const now = new Date().toISOString();
   const summaries: FinalGradeSummary[] = [];
   for (const e of enrolled) {
-    const agg = aggregates.get(e.studentId)!;
-    const { score, breakdown } = computeWeightedScore(agg, gradingPolicy);
-    const rounded = Math.round(score * 100) / 100;
-    // Look up existing row to preserve teacher override.
+    const studentScores = scoresByStudent.get(e.studentId)!;
+    const input = buildAlgorithmInput(ctx, studentScores, policy.weightAttendance);
+    const computed = computeFinalScore(input);
+    const rounded = computed.score !== null ? Math.round(computed.score * 100) / 100 : null;
+    // Preserve teacher override.
     const [existing] = await db
       .select()
       .from(finalGrades)
-      .where(
-        and(eq(finalGrades.courseId, courseId), eq(finalGrades.studentId, e.studentId)),
-      )
+      .where(and(eq(finalGrades.courseId, courseId), eq(finalGrades.studentId, e.studentId)))
       .limit(1);
     const overrideScore =
       existing?.teacherOverrideScore !== null && existing?.teacherOverrideScore !== undefined
         ? Number(existing.teacherOverrideScore)
         : null;
-    const effective = overrideScore ?? rounded;
+    const effective = overrideScore ?? rounded ?? 0;
     const letter = computeLetterGrade(effective, policy.letters);
     const values = {
       courseId,
       studentId: e.studentId,
-      score: rounded.toFixed(2),
+      score: rounded !== null ? rounded.toFixed(2) : null,
       letterGrade: letter,
-      categoryScores: breakdown,
-      gradingPolicySnapshot: gradingPolicy,
+      categoryScores: { groups: computed.groups, attendance: computed.attendance },
+      gradingPolicySnapshot: snapshot,
       isOutdated: false,
       finalizedAt: now,
       finalizedById,
@@ -396,7 +569,9 @@ export async function recalculateFinalGrades(
     } else {
       [row] = await db.insert(finalGrades).values(values).returning();
     }
-    if (row) summaries.push(toFinalGradeSummary(row, { studentName: e.name, studentEmail: e.email }));
+    if (row) {
+      summaries.push(toFinalGradeSummary(row, { studentName: e.name, studentEmail: e.email }));
+    }
   }
   return { updated: summaries.length, rows: summaries };
 }
@@ -434,13 +609,18 @@ export async function applyTeacherOverride(
   return updated ? toFinalGradeSummary(updated) : null;
 }
 
-function rollupFromBreakdown(
-  breakdown: CategoryScoreBreakdown,
-  key: keyof CategoryScoreBreakdown,
-): GradebookCategoryRollup {
-  const c = breakdown[key];
-  return { raw: c.raw, weight: c.weight, weighted: c.weighted };
-}
+// ---------------------------------------------------------------------------
+// Gradebook student detail.
+//
+// Returns `GradebookStudentDetail` — the teacher gradebook page consumes
+// `finalGrade.groups[]` for per-group structure and pools the per-item lists
+// here (attendance / assignments / quizzes / discussion items) for inline
+// editing. The legacy 5-category rollup fields are kept on the response shape
+// for compatibility but are now inert (zero-filled); they're no longer
+// rendered by any UI.
+// ---------------------------------------------------------------------------
+
+const EMPTY_ROLLUP: GradebookCategoryRollup = { raw: null, weight: 0, weighted: 0 };
 
 export async function buildGradebookStudentDetail(
   db: Db,
@@ -448,7 +628,6 @@ export async function buildGradebookStudentDetail(
   studentId: string,
   policy: GradingPolicySummary,
 ): Promise<GradebookStudentDetail | null> {
-  // Student lookup (must be enrolled).
   const [enrollment] = await db
     .select({
       studentId: enrollments.studentId,
@@ -467,13 +646,7 @@ export async function buildGradebookStudentDetail(
     .limit(1);
   if (!enrollment) return null;
 
-  // Aggregate counters for category rollups (reuses existing aggregator).
-  const aggregates = await aggregateCourseCategoryScores(db, courseId, [studentId]);
-  const agg = aggregates.get(studentId)!;
-  const gradingPolicy = policyToGradingPolicy(policy);
-  const { breakdown } = computeWeightedScore(agg, gradingPolicy);
-
-  // Attendance: list every session in the course; join the student's record (if any).
+  // Attendance items (every session in the course, joined to the student's record).
   const sessions = await db
     .select({
       id: attendanceSessions.id,
@@ -510,7 +683,8 @@ export async function buildGradebookStudentDetail(
     };
   });
 
-  // Assignments (regular + final project): every published assignment, joined to the student's submission.
+  // Every published assignment in the course (incl. those not yet in a group),
+  // joined to the student's submission.
   const courseAssignments = await db
     .select({
       id: assignments.id,
@@ -536,10 +710,9 @@ export async function buildGradebookStudentDetail(
     : [];
   const subByAssignment = new Map(subs.map((s) => [s.assignmentId, s]));
   const assignmentItems: GradebookAssignmentItem[] = [];
-  const finalProjectItems: GradebookAssignmentItem[] = [];
   for (const a of courseAssignments) {
     const sub = subByAssignment.get(a.id);
-    const item: GradebookAssignmentItem = {
+    assignmentItems.push({
       assignmentId: a.id,
       submissionId: sub?.id ?? null,
       title: a.title,
@@ -547,14 +720,12 @@ export async function buildGradebookStudentDetail(
       score: sub?.score !== null && sub?.score !== undefined ? Number(sub.score) : null,
       status: sub?.status ?? null,
       feedback: sub?.feedback ?? null,
-      isFinalProject: isFinalProjectTitle(a.title),
+      isFinalProject: false,
       gradedAt: sub?.gradedAt ?? null,
-    };
-    if (item.isFinalProject) finalProjectItems.push(item);
-    else assignmentItems.push(item);
+    });
   }
 
-  // Quizzes: list every quiz in the course; pick the student's best (or latest) attempt.
+  // Quizzes in the course + the student's best (or latest) attempt per quiz.
   const courseQuizzes = await db
     .select({
       id: quizzes.id,
@@ -605,7 +776,7 @@ export async function buildGradebookStudentDetail(
     });
   }
 
-  // Discussion: every graded topic in the course, joined to the student's grade.
+  // Discussions: every graded topic in the course + the student's grade.
   const topics = await db
     .select({
       id: discussionTopics.id,
@@ -613,9 +784,7 @@ export async function buildGradebookStudentDetail(
       maxScore: discussionTopics.maxScore,
     })
     .from(discussionTopics)
-    .where(
-      and(eq(discussionTopics.courseId, courseId), eq(discussionTopics.isGraded, true)),
-    )
+    .where(and(eq(discussionTopics.courseId, courseId), eq(discussionTopics.isGraded, true)))
     .orderBy(asc(discussionTopics.title));
   const grades = topics.length
     ? await db
@@ -644,15 +813,15 @@ export async function buildGradebookStudentDetail(
     };
   });
 
-  // Current persisted final grade row, if any.
   const [finalRow] = await db
     .select()
     .from(finalGrades)
-    .where(
-      and(eq(finalGrades.courseId, courseId), eq(finalGrades.studentId, studentId)),
-    )
+    .where(and(eq(finalGrades.courseId, courseId), eq(finalGrades.studentId, studentId)))
     .limit(1);
 
+  // Per-group rollups (raw / weight / weighted) live on `finalGrade.groups[]`
+  // now. The 5-category rollup fields below are kept for response-shape
+  // compatibility but are zero-filled — no UI consumes them.
   return {
     courseId,
     studentId,
@@ -660,15 +829,16 @@ export async function buildGradebookStudentDetail(
     studentEmail: enrollment.email,
     finalGrade: finalRow ? toFinalGradeSummary(finalRow) : null,
     gradingPolicy: policy,
-    attendance: { ...rollupFromBreakdown(breakdown, 'attendance'), items: attendanceItems },
-    assignments: { ...rollupFromBreakdown(breakdown, 'assignments'), items: assignmentItems },
-    finalProject: { ...rollupFromBreakdown(breakdown, 'finalProject'), items: finalProjectItems },
-    quizzes: { ...rollupFromBreakdown(breakdown, 'quizzes'), items: quizItems },
-    discussion: { ...rollupFromBreakdown(breakdown, 'discussion'), items: discussionItems },
+    attendance: { ...EMPTY_ROLLUP, items: attendanceItems },
+    assignments: { ...EMPTY_ROLLUP, items: assignmentItems },
+    finalProject: { ...EMPTY_ROLLUP, items: [] },
+    quizzes: { ...EMPTY_ROLLUP, items: quizItems },
+    discussion: { ...EMPTY_ROLLUP, items: discussionItems },
   };
 }
 
 // Lightweight helper used by alerts service: per-student percent attendance.
+// (Unchanged from the previous shape — alerts code consumes the raw rate.)
 export async function attendanceRateByStudent(
   db: Db,
   courseId: string,
@@ -683,10 +853,7 @@ export async function attendanceRateByStudent(
   if (sessions.length === 0) return out;
   const sessionIds = sessions.map((s) => s.id);
   const recs = await db
-    .select({
-      studentId: attendanceRecords.studentId,
-      status: attendanceRecords.status,
-    })
+    .select({ studentId: attendanceRecords.studentId, status: attendanceRecords.status })
     .from(attendanceRecords)
     .where(
       and(
@@ -707,8 +874,6 @@ export async function attendanceRateByStudent(
   return out;
 }
 
-// Sort helper exposed for tests / route filters.
-export { isFinalProjectTitle };
-
-// keep sql import referenced (alerts service uses it).
-void sql;
+// Keep `LetterGradeThreshold` referenced in case downstream consumers re-export
+// from this module.
+void ({} as LetterGradeThreshold | undefined);
