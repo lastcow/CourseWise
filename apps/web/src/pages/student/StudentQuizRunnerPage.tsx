@@ -5,7 +5,7 @@ import type { QuizAttemptDetail, QuizQuestionStudentView, QuizQuestionTeacherVie
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/input';
+import { Label, Textarea } from '@/components/ui/input';
 import { Markdown } from '@/components/ui/markdown';
 import { useToast } from '@/components/ui/toast';
 import {
@@ -280,20 +280,28 @@ export function StudentQuizRunnerPage(): JSX.Element {
                     // replies (lists, examples, formulas). A single-line
                     // <Input> was forcing students to type past the
                     // visible edge with no way to see context.
-                    <Textarea
-                      rows={3}
-                      value={typeof value === 'string' ? value : ''}
-                      disabled={readOnly}
-                      onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-                    />
+                    <div className="space-y-1">
+                      <Label htmlFor={`q-${q.id}`}>{t('quizzes.answerLabel')}</Label>
+                      <Textarea
+                        id={`q-${q.id}`}
+                        rows={3}
+                        value={typeof value === 'string' ? value : ''}
+                        disabled={readOnly}
+                        onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                      />
+                    </div>
                   ) : null}
                   {q.type === 'case_analysis' ? (
-                    <Textarea
-                      rows={6}
-                      value={typeof value === 'string' ? value : ''}
-                      disabled={readOnly}
-                      onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-                    />
+                    <div className="space-y-1">
+                      <Label htmlFor={`q-${q.id}`}>{t('quizzes.answerLabel')}</Label>
+                      <Textarea
+                        id={`q-${q.id}`}
+                        rows={6}
+                        value={typeof value === 'string' ? value : ''}
+                        disabled={readOnly}
+                        onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                      />
+                    </div>
                   ) : null}
 
                   {submittedReview && ans ? (

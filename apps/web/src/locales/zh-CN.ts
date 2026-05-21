@@ -969,6 +969,7 @@ export const zhCN = {
       saveDraft: '保存草稿',
       draftSaved: '草稿已保存',
       timeLeft: '剩余时间:{{time}}',
+      answerLabel: '答案',
       takeQuiz: '参加测验',
       notAvailable: '当前不可参加',
       completedTitle: '你的作答',

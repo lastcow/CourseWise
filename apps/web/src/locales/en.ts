@@ -1005,6 +1005,7 @@ export const en = {
       saveDraft: 'Save draft',
       draftSaved: 'Draft saved',
       timeLeft: 'Time left: {{time}}',
+      answerLabel: 'Answer',
       takeQuiz: 'Take quiz',
       notAvailable: 'Not available right now',
       completedTitle: 'Your attempt',
