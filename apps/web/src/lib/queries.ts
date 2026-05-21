@@ -44,7 +44,11 @@ import type {
   CreateGammaPresentationResponse,
   CreateSelfApiTokenInput,
   CreateSlideInput,
+  CreateRecordCorrectionRequestInput,
   DisclosureLogResponse,
+  RecordCorrectionRequestSummary,
+  RecordCorrectionStatus,
+  ResolveRecordCorrectionRequestInput,
   DiscussionGradeRow,
   DiscussionPostSummary,
   DiscussionTopicSummary,
@@ -431,6 +435,73 @@ export function useMyDisclosures(offset: number, limit = 50) {
       ),
     // Keep prior page while loading the next so the UI doesn't flash empty.
     placeholderData: (prev) => prev,
+  });
+}
+
+// FERPA §99.20 — record correction requests.
+
+export function useMyCorrectionRequests() {
+  return useQuery({
+    queryKey: ['my-correction-requests'],
+    queryFn: () =>
+      apiCall<RecordCorrectionRequestSummary[]>('/api/me/record-correction-requests'),
+  });
+}
+
+export function useCreateCorrectionRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateRecordCorrectionRequestInput) =>
+      apiCall<RecordCorrectionRequestSummary>('/api/me/record-correction-requests', {
+        method: 'POST',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my-correction-requests'] });
+    },
+  });
+}
+
+export function useWithdrawCorrectionRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<RecordCorrectionRequestSummary>(
+        `/api/me/record-correction-requests/${id}/withdraw`,
+        { method: 'POST' },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my-correction-requests'] });
+    },
+  });
+}
+
+export function useCourseCorrectionRequests(
+  courseId: string | null,
+  status?: RecordCorrectionStatus,
+) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return useQuery({
+    queryKey: ['course-correction-requests', courseId, status ?? 'all'],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<RecordCorrectionRequestSummary[]>(
+        `/api/courses/${courseId}/record-correction-requests${query}`,
+      ),
+  });
+}
+
+export function useResolveCorrectionRequest(courseId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ResolveRecordCorrectionRequestInput }) =>
+      apiCall<RecordCorrectionRequestSummary>(
+        `/api/record-correction-requests/${id}/resolve`,
+        { method: 'POST', body: input },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['course-correction-requests', courseId] });
+    },
   });
 }
 

@@ -8,6 +8,7 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  ClipboardEdit,
   ClipboardList,
   FileText,
   GraduationCap,
@@ -59,6 +60,11 @@ const SETTINGS_GROUP: NavGroup = {
   items: [
     { to: '/settings/api-tokens', labelKey: 'nav.apiTokens', icon: KeyRound },
     { to: '/settings/disclosures', labelKey: 'nav.disclosures', icon: ShieldAlert },
+    {
+      to: '/settings/correction-requests',
+      labelKey: 'nav.correctionRequests',
+      icon: ClipboardEdit,
+    },
   ],
 };
 
@@ -153,6 +159,11 @@ function teacherCourseSections(courseId: string): NavSection[] {
       titleKey: 'course.nav.section.manage',
       items: [
         { to: `${prefix}/invitations`, labelKey: 'invitations.title', icon: UserPlus },
+        {
+          to: `${prefix}/correction-requests`,
+          labelKey: 'nav.correctionRequests',
+          icon: ClipboardEdit,
+        },
         { to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings },
       ],
     },

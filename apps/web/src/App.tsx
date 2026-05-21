@@ -18,6 +18,7 @@ import { PublicPresentationPage } from '@/pages/public/PublicPresentationPage';
 import { InviteRedeemPage } from '@/pages/public/InviteRedeemPage';
 import { LegalRoutes } from '@/pages/legal/LegalRoutes';
 import { SettingsApiTokensPage } from '@/pages/SettingsApiTokensPage';
+import { SettingsCorrectionRequestsPage } from '@/pages/SettingsCorrectionRequestsPage';
 import { SettingsDisclosuresPage } from '@/pages/SettingsDisclosuresPage';
 import { AdminAiPage } from '@/pages/admin/AdminAiPage';
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
@@ -48,6 +49,7 @@ import { TeacherGradebookPage } from '@/pages/teacher/TeacherGradebookPage';
 import { TeacherGradebookStudentPage } from '@/pages/teacher/TeacherGradebookStudentPage';
 import { TeacherGradingPolicyPage } from '@/pages/teacher/TeacherGradingPolicyPage';
 import { TeacherAlertsPage } from '@/pages/teacher/TeacherAlertsPage';
+import { TeacherCorrectionRequestsPage } from '@/pages/teacher/TeacherCorrectionRequestsPage';
 import { AdminAlertsPage } from '@/pages/admin/AdminAlertsPage';
 import { StudentGradePage } from '@/pages/student/StudentGradePage';
 import { StudentCoursesPage } from '@/pages/student/StudentCoursesPage';
@@ -91,6 +93,10 @@ export default function App(): JSX.Element {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/settings/api-tokens" element={<SettingsApiTokensPage />} />
               <Route path="/settings/disclosures" element={<SettingsDisclosuresPage />} />
+              <Route
+                path="/settings/correction-requests"
+                element={<SettingsCorrectionRequestsPage />}
+              />
             </Route>
             <Route element={<BackOfficeLayout role="student" />}>
               <Route
@@ -219,6 +225,10 @@ export default function App(): JSX.Element {
                 />
                 <Route path="grading-policy" element={<TeacherGradingPolicyPage />} />
                 <Route path="alerts" element={<TeacherAlertsPage />} />
+                <Route
+                  path="correction-requests"
+                  element={<TeacherCorrectionRequestsPage />}
+                />
               </Route>
               <Route
                 path="/teacher/courses/:courseId/quizzes/:quizId"

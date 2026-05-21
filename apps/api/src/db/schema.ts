@@ -117,6 +117,22 @@ export const aiArtifactStatusEnum = pgEnum('ai_artifact_status', [
 ]);
 export const aiEventLevelEnum = pgEnum('ai_event_level', ['info', 'warn', 'error']);
 
+// FERPA §99.20 — record-correction requests.
+export const recordCorrectionTargetEnum = pgEnum('record_correction_target', [
+  'final_grade',
+  'attendance',
+  'submission',
+  'discussion',
+  'profile',
+  'other',
+]);
+export const recordCorrectionStatusEnum = pgEnum('record_correction_status', [
+  'open',
+  'accepted',
+  'declined',
+  'withdrawn',
+]);
+
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -1081,6 +1097,39 @@ export const r2CleanupJobs = pgTable(
     statusCreatedIdx: index('r2_cleanup_jobs_status_created_idx')
       .on(t.status, t.createdAt)
       .where(sql`${t.status} in ('pending', 'running', 'failed')`),
+  }),
+);
+
+// FERPA §99.20: every student can request a record they believe is
+// inaccurate or misleading be corrected. This table is the queue of those
+// requests with their resolution state. `target_id` is polymorphic by
+// design — could point at a final_grades id, a submission id, etc. — and
+// kept as text rather than a real FK so the schema doesn't fan out across
+// every record-bearing table.
+export const recordCorrectionRequests = pgTable(
+  'record_correction_requests',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id').references(() => courses.id, { onDelete: 'set null' }),
+    targetType: recordCorrectionTargetEnum('target_type').notNull(),
+    targetId: text('target_id'),
+    description: text('description').notNull(),
+    status: recordCorrectionStatusEnum('status').notNull().default('open'),
+    resolutionNote: text('resolution_note'),
+    resolvedById: uuid('resolved_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    studentIdx: index('record_correction_requests_student_idx').on(t.studentId, t.createdAt),
+    courseOpenIdx: index('record_correction_requests_course_open_idx')
+      .on(t.courseId)
+      .where(sql`${t.status} = 'open'`),
   }),
 );
 

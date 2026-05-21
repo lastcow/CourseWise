@@ -18,6 +18,7 @@ import {
   MATERIAL_SOURCE_TYPES,
   MATERIAL_STATUSES,
   QUIZ_QUESTION_TYPES,
+  RECORD_CORRECTION_TARGETS,
   SUPPORTED_LOCALES,
 } from './constants';
 
@@ -303,6 +304,29 @@ export const togglePresentationShareSchema = z.object({
   enabled: z.boolean(),
 });
 export type TogglePresentationShareInput = z.infer<typeof togglePresentationShareSchema>;
+
+// FERPA §99.20 — students submit corrections to records they believe are
+// inaccurate. Description is 10–4000 chars: long enough to explain what's
+// wrong, short enough that operators don't drown in walls of text.
+export const createRecordCorrectionRequestSchema = z.object({
+  courseId: z.string().uuid().optional().nullable(),
+  targetType: z.enum(RECORD_CORRECTION_TARGETS),
+  targetId: z.string().trim().max(120).optional().nullable(),
+  description: z.string().trim().min(10).max(4000),
+});
+export type CreateRecordCorrectionRequestInput = z.infer<
+  typeof createRecordCorrectionRequestSchema
+>;
+
+// Teacher resolution: must move to a terminal state. 'withdrawn' is the
+// student's own action via a separate endpoint, so it's not allowed here.
+export const resolveRecordCorrectionRequestSchema = z.object({
+  status: z.enum(['accepted', 'declined']),
+  resolutionNote: z.string().trim().max(4000).optional().nullable(),
+});
+export type ResolveRecordCorrectionRequestInput = z.infer<
+  typeof resolveRecordCorrectionRequestSchema
+>;
 
 export const createSlideSchema = z.object({
   title: z.string().trim().max(200).optional().nullable(),
