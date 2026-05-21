@@ -15,6 +15,10 @@ import {
   GAMMA_MIN_NUM_CARDS,
   GAMMA_TEXT_AMOUNTS,
   GAMMA_TEXT_MODES,
+  GROUP_SET_MAX_GROUPS,
+  GROUP_SET_MAX_MEMBERS_PER_GROUP,
+  GROUP_SET_SIGNUP_MODES,
+  GROUP_SET_SIGNUP_STATUSES,
   MATERIAL_SOURCE_TYPES,
   MATERIAL_STATUSES,
   QUIZ_QUESTION_TYPES,
@@ -925,4 +929,49 @@ export const reorderAssignmentGroupsSchema = z.object({
   orderedIds: z.array(z.string().uuid()).min(1),
 });
 export type ReorderAssignmentGroupsInput = z.infer<typeof reorderAssignmentGroupsSchema>;
+
+// ---------- Student groups ----------
+
+export const groupSetNameSchema = z.string().trim().min(1).max(100);
+export const groupNameSchema = z.string().trim().min(1).max(100);
+
+export const createGroupSetSchema = z.object({
+  name: groupSetNameSchema,
+  maxMembersPerGroup: z.number().int().min(1).max(GROUP_SET_MAX_MEMBERS_PER_GROUP),
+  numberOfGroups: z.number().int().min(1).max(GROUP_SET_MAX_GROUPS),
+  signupMode: z.enum(GROUP_SET_SIGNUP_MODES).optional(),
+});
+export type CreateGroupSetInput = z.infer<typeof createGroupSetSchema>;
+
+export const updateGroupSetSchema = z
+  .object({
+    name: groupSetNameSchema.optional(),
+    maxMembersPerGroup: z
+      .number()
+      .int()
+      .min(1)
+      .max(GROUP_SET_MAX_MEMBERS_PER_GROUP)
+      .optional(),
+    signupMode: z.enum(GROUP_SET_SIGNUP_MODES).optional(),
+    signupStatus: z.enum(GROUP_SET_SIGNUP_STATUSES).optional(),
+  })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), {
+    message: 'At least one field must be provided',
+  });
+export type UpdateGroupSetInput = z.infer<typeof updateGroupSetSchema>;
+
+export const updateGroupSchema = z
+  .object({
+    name: groupNameSchema.optional(),
+    position: z.number().int().min(0).optional(),
+  })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), {
+    message: 'At least one field must be provided',
+  });
+export type UpdateGroupInput = z.infer<typeof updateGroupSchema>;
+
+export const assignGroupMemberSchema = z.object({
+  studentId: z.string().uuid(),
+});
+export type AssignGroupMemberInput = z.infer<typeof assignGroupMemberSchema>;
 
