@@ -876,6 +876,13 @@ export const auditLogs = pgTable(
     ip: text('ip'),
     userAgent: text('user_agent'),
     metadataJson: jsonb('metadata_json'),
+    // FERPA §99.32(a) — when this row records a disclosure of a specific
+    // student's education records, populate this column so we can produce
+    // "all disclosures of student X" on demand. Bulk disclosures (CSV
+    // exports, multi-student AI sends) write one row per affected student.
+    disclosedStudentId: uuid('disclosed_student_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
       .defaultNow()
       .notNull(),
@@ -884,6 +891,10 @@ export const auditLogs = pgTable(
     actorUserIdx: index('audit_logs_actor_user_idx').on(t.actorUserId),
     actionIdx: index('audit_logs_action_idx').on(t.action),
     createdIdx: index('audit_logs_created_idx').on(t.createdAt),
+    disclosedStudentIdx: index('audit_logs_disclosed_student_idx').on(
+      t.disclosedStudentId,
+      t.createdAt,
+    ),
   }),
 );
 
