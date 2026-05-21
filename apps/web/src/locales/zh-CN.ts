@@ -500,6 +500,9 @@ export const zhCN = {
       pickStudent: '选择学生…',
       pickGroupAbove: '请在上方选择小组进行分配',
       noSearchMatch: '当前搜索无匹配',
+      toolbarInvite: '邀请码',
+      toolbarInviteNoExpiry: '无过期',
+      toolbarInviteExpiresInDays_other: '{{count}} 天后过期',
     },
     groups: {
       title: '小组',

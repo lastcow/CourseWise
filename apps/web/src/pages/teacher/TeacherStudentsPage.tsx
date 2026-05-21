@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import {
+  useCourseInvitationCodes,
   useCourseStudents,
   useCreateGroupSet,
   useDeleteGroupSet,
@@ -60,6 +61,7 @@ export function TeacherStudentsPage(): JSX.Element {
 
   const studentsQ = useCourseStudents(cId || undefined);
   const groupSetsQ = useGroupSets(cId || undefined);
+  const invitesQ = useCourseInvitationCodes(cId || null);
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const activeSetQ = useGroupSet(cId || undefined, activeSetId ?? undefined);
 
@@ -211,6 +213,28 @@ export function TeacherStudentsPage(): JSX.Element {
     return `${name} ${email}`.toLowerCase().includes(s);
   };
 
+  // Pick the most-recently-created active invitation code to surface in the
+  // toolbar. If multiple are active the newest one is what teachers most
+  // commonly share; the full list is still available on /invitations.
+  const activeInvite = useMemo(() => {
+    const list = invitesQ.data ?? [];
+    return (
+      list
+        .filter((i) => i.status === 'active')
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+    );
+  }, [invitesQ.data]);
+
+  // ceil() so "expires in 1 day" still shows when there are hours left,
+  // matching how teachers think about the deadline. Past-due returns 0 but
+  // such codes would normally have status='expired' and be filtered out.
+  const daysUntilExpiry = useMemo(() => {
+    if (!activeInvite?.expiresAt) return null;
+    const diff = new Date(activeInvite.expiresAt).getTime() - Date.now();
+    if (Number.isNaN(diff)) return null;
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [activeInvite]);
+
   return (
     <div className="space-y-4">
       <header>
@@ -232,6 +256,25 @@ export function TeacherStudentsPage(): JSX.Element {
             placeholder={t('students.searchPlaceholder')}
             className="h-8 w-56"
           />
+          {activeInvite ? (
+            <>
+              <div className="mx-1 h-5 w-px bg-border" aria-hidden />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>
+                  {t('students.toolbarInvite')}:{' '}
+                  <span className="font-mono font-medium text-foreground">
+                    {activeInvite.code}
+                  </span>
+                </span>
+                <span>·</span>
+                <span>
+                  {daysUntilExpiry == null
+                    ? t('students.toolbarInviteNoExpiry')
+                    : t('students.toolbarInviteExpiresInDays', { count: daysUntilExpiry })}
+                </span>
+              </div>
+            </>
+          ) : null}
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <button
               type="button"
