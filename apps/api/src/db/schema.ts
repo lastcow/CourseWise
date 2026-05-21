@@ -1133,6 +1133,31 @@ export const recordCorrectionRequests = pgTable(
   }),
 );
 
+// FERPA §99.7(a) — annual acknowledgment of the FERPA rights notice.
+// One row per (user, academic_year). The unique index doubles as the lookup
+// index for "has this user acknowledged the current year yet?".
+export const ferpaAcknowledgments = pgTable(
+  'ferpa_acknowledgments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    academicYear: text('academic_year').notNull(),
+    acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+  },
+  (t) => ({
+    userYearUnique: uniqueIndex('ferpa_acknowledgments_user_year_idx').on(
+      t.userId,
+      t.academicYear,
+    ),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type ApiTokenRow = typeof apiTokens.$inferSelect;

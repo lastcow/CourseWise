@@ -11,9 +11,10 @@ import {
   type UpdatePreferencesInput,
   updatePreferencesSchema,
 } from '@coursewise/shared';
-import { apiTokens, auditLogs, users } from '../db/schema';
+import { apiTokens, auditLogs, ferpaAcknowledgments, users } from '../db/schema';
 import { defaultScopesForRole, generateApiToken } from '../services/apiTokens';
 import { recordAudit } from '../services/audit';
+import { currentAcademicYear } from '../services/ferpaAcknowledgment';
 import { buildMyRecordsExport } from '../services/recordsExport';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
@@ -273,6 +274,68 @@ me.get('/records/export', async (c) => {
       'content-disposition': `attachment; filename="${filename}"`,
     },
   });
+});
+
+/**
+ * FERPA §99.7(a): the school must annually notify students of their FERPA
+ * rights. The frontend renders a first-login modal that calls this pair —
+ * GET to decide whether to show, POST to dismiss for the academic year.
+ */
+me.get('/ferpa-acknowledgment', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const academicYear = currentAcademicYear(new Date());
+  const [row] = await db
+    .select({ id: ferpaAcknowledgments.id })
+    .from(ferpaAcknowledgments)
+    .where(
+      and(
+        eq(ferpaAcknowledgments.userId, auth.user.id),
+        eq(ferpaAcknowledgments.academicYear, academicYear),
+      ),
+    )
+    .limit(1);
+  return success(c, { acknowledged: !!row, academicYear });
+});
+
+me.post('/ferpa-acknowledgment', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const academicYear = currentAcademicYear(new Date());
+
+  // Inline IP/UA capture rather than depending on attendance.ts's local
+  // helper. CF-Connecting-IP is the trusted client IP behind Cloudflare;
+  // X-Forwarded-For is a fallback for non-CF deployments.
+  const ip =
+    c.req.header('cf-connecting-ip') ??
+    c.req.header('x-forwarded-for') ??
+    null;
+  const userAgent = c.req.header('user-agent') ?? null;
+
+  // Idempotent: ON CONFLICT DO NOTHING lets the same user POST twice in a
+  // year without 409s. Drizzle exposes the option via onConflictDoNothing.
+  await db
+    .insert(ferpaAcknowledgments)
+    .values({
+      userId: auth.user.id,
+      academicYear,
+      ip,
+      userAgent,
+    })
+    .onConflictDoNothing({
+      target: [ferpaAcknowledgments.userId, ferpaAcknowledgments.academicYear],
+    });
+
+  await recordAudit(db, {
+    actorType: 'user',
+    actorUserId: auth.user.id,
+    action: 'me.ferpa.acknowledge',
+    metadata: { academicYear },
+    ip,
+    userAgent,
+  });
+
+  return success(c, { acknowledged: true, academicYear });
 });
 
 export default me;

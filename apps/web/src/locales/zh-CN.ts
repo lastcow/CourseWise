@@ -283,6 +283,20 @@ export const zhCN = {
       notFoundBody: '该链接可能已被教师关闭,或地址有误。',
       noEmbed: '该演示文稿无法直接嵌入。请使用上方的「在 Gamma 中打开」或下载 .pptx。',
     },
+    ferpaNotice: {
+      title: '你的 FERPA 权利',
+      intro: '你的教育记录受 FERPA 保护。每个学年({{year}}),请确认你已了解以下权利:',
+      bullet: {
+        inspect: '你可以查阅自己的教育记录。',
+        amend: '如发现记录不准确或具误导性,你可申请更正。',
+        consent: '除法律允许的情况外,你的记录不会在未经同意时向第三方披露。',
+        complaint: '如认为这些权利受到侵犯,你可向美国教育部投诉。',
+      },
+      readMorePrefix: '查看完整声明:',
+      readMoreLink: 'CourseWise 的 FERPA 政策',
+      acknowledgeCta: '我已了解',
+      acknowledgedToast: '感谢确认 —— 已记录你的 FERPA 阅读凭证。',
+    },
     session: {
       warningTitle: '会话即将结束',
       warningBody: '出于安全考虑,会话到期后会自动登出。可点击「保持登录」继续使用,或立即登出。',

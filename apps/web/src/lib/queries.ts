@@ -426,6 +426,36 @@ export function useMyApiTokens() {
   });
 }
 
+// FERPA §99.7(a) annual acknowledgment. GET reads whether the calling user
+// has already acknowledged the current academic year; POST records the
+// acknowledgment. Polled with `enabled=true` is enough — once acknowledged
+// the modal stays hidden until next July.
+export interface FerpaAcknowledgmentState {
+  acknowledged: boolean;
+  academicYear: string;
+}
+
+export function useMyFerpaAcknowledgment() {
+  return useQuery({
+    queryKey: ['my-ferpa-acknowledgment'],
+    queryFn: () =>
+      apiCall<FerpaAcknowledgmentState>('/api/me/ferpa-acknowledgment'),
+  });
+}
+
+export function useAcknowledgeFerpa() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall<FerpaAcknowledgmentState>('/api/me/ferpa-acknowledgment', {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my-ferpa-acknowledgment'] });
+    },
+  });
+}
+
 export function useMyDisclosures(offset: number, limit = 50) {
   return useQuery({
     queryKey: ['my-disclosures', offset, limit],

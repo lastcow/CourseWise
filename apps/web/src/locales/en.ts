@@ -296,6 +296,23 @@ export const en = {
       noEmbed:
         'This deck can’t be embedded directly. Use “Open in Gamma” or download the .pptx above.',
     },
+    ferpaNotice: {
+      title: 'Your FERPA rights',
+      intro:
+        'Your education records are protected under FERPA. Each academic year ({{year}}) we ask you to confirm you have read these rights:',
+      bullet: {
+        inspect: 'You can inspect and review your education records.',
+        amend: 'You can request a correction if a record is inaccurate or misleading.',
+        consent:
+          'Your records are not disclosed to third parties without your consent, except in cases the law allows.',
+        complaint:
+          'You can file a complaint with the U.S. Department of Education if you believe these rights have been violated.',
+      },
+      readMorePrefix: 'Read the full notice:',
+      readMoreLink: 'FERPA at CourseWise',
+      acknowledgeCta: 'I acknowledge',
+      acknowledgedToast: 'Thanks — your FERPA acknowledgment is on file.',
+    },
     session: {
       warningTitle: 'Your session is about to end',
       warningBody:
