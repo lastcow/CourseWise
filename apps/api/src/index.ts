@@ -29,6 +29,7 @@ import courseAiRoutes from './routes/courseAi';
 import contactRoutes from './routes/contact';
 import publicShareRoutes from './routes/publicShare';
 import recordCorrectionsRoutes from './routes/recordCorrections';
+import { retryFailedR2CleanupJobs } from './jobs/r2CleanupRetry';
 import { runRetentionSweep } from './services/retentionSweep';
 import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
@@ -205,6 +206,19 @@ export default {
           // rather than fail the Worker invocation entirely. The audit row
           // is only written on success.
           console.error('retention.sweep.failed', { cron: controller.cron, err });
+        }
+
+        // R2-cleanup retry runs alongside the retention sweep. Decoupled try/
+        // catch so a Neon hiccup mid-retention doesn't skip retries (and
+        // vice versa). Skipped silently when the bucket binding isn't
+        // present (dev / preview environments without R2 wired up).
+        if (env.COURSE_FILES) {
+          try {
+            const retrySummary = await retryFailedR2CleanupJobs(db, env.COURSE_FILES);
+            console.log('r2Cleanup.retry.ok', { cron: controller.cron, ...retrySummary });
+          } catch (err) {
+            console.error('r2Cleanup.retry.failed', { cron: controller.cron, err });
+          }
         }
       })(),
     );

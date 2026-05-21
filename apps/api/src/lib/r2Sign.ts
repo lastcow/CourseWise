@@ -103,6 +103,17 @@ export async function presignR2Url(
     throw new Error('R2 signer is not configured');
   }
   const endpoint = (config.endpoint ?? r2DefaultEndpoint(config.accountId)).replace(/\/$/, '');
+  // Fail fast on a misconfigured `R2_PUBLIC_ENDPOINT` (http://, missing scheme,
+  // or anything that wouldn't sign cleanly). The default endpoint helper
+  // returns https:// already; this guard exists for the operator-overridable
+  // case. Surfacing the error here — at first download attempt — is better
+  // than returning a presigned URL that the browser would refuse over TLS
+  // mismatch, or worse, follow over plaintext.
+  if (!endpoint.startsWith('https://')) {
+    throw new Error(
+      `R2 endpoint must use https://; got ${endpoint}. Check R2_PUBLIC_ENDPOINT.`,
+    );
+  }
   const host = new URL(endpoint).host;
   const now = new Date();
   const amzDate = now
