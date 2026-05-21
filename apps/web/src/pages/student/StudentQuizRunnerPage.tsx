@@ -5,8 +5,9 @@ import type { QuizAttemptDetail, QuizQuestionStudentView, QuizQuestionTeacherVie
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Label, Textarea } from '@/components/ui/input';
+import { Label } from '@/components/ui/input';
 import { Markdown } from '@/components/ui/markdown';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { useToast } from '@/components/ui/toast';
 import {
   useMyQuizAttempts,
@@ -277,29 +278,30 @@ export function StudentQuizRunnerPage(): JSX.Element {
                   ) : null}
                   {q.type === 'short_answer' ? (
                     // Even "short answer" prompts often invite multi-line
-                    // replies (lists, examples, formulas). A single-line
-                    // <Input> was forcing students to type past the
-                    // visible edge with no way to see context.
+                    // replies (lists, examples, formulas). MarkdownEditor
+                    // gives students the same formatting affordances the
+                    // teacher used on the prompt; minHeight kept shorter
+                    // than case_analysis to match the lighter weight of
+                    // a short-form answer.
                     <div className="space-y-1">
                       <Label htmlFor={`q-${q.id}`}>{t('quizzes.answerLabel')}</Label>
-                      <Textarea
+                      <MarkdownEditor
                         id={`q-${q.id}`}
-                        rows={3}
+                        minHeight={120}
                         value={typeof value === 'string' ? value : ''}
                         disabled={readOnly}
-                        onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                        onChange={(next) => setAnswers({ ...answers, [q.id]: next })}
                       />
                     </div>
                   ) : null}
                   {q.type === 'case_analysis' ? (
                     <div className="space-y-1">
                       <Label htmlFor={`q-${q.id}`}>{t('quizzes.answerLabel')}</Label>
-                      <Textarea
+                      <MarkdownEditor
                         id={`q-${q.id}`}
-                        rows={6}
                         value={typeof value === 'string' ? value : ''}
                         disabled={readOnly}
-                        onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                        onChange={(next) => setAnswers({ ...answers, [q.id]: next })}
                       />
                     </div>
                   ) : null}
