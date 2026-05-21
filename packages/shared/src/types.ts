@@ -256,6 +256,8 @@ export interface EnrollmentRow {
   studentEmail: string;
   enrolledAt: string;
   status: 'enrolled' | 'dropped' | 'completed';
+  // Only populated when the caller has full-roster access (teacher/admin).
+  studentNumber?: string | null;
 }
 
 export interface PresentationSummary {

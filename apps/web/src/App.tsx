@@ -52,6 +52,7 @@ import { TeacherAlertsPage } from '@/pages/teacher/TeacherAlertsPage';
 import { TeacherCorrectionRequestsPage } from '@/pages/teacher/TeacherCorrectionRequestsPage';
 import { TeacherGroupSetsPage } from '@/pages/teacher/TeacherGroupSetsPage';
 import { TeacherGroupSetDetailPage } from '@/pages/teacher/TeacherGroupSetDetailPage';
+import { TeacherStudentsPage } from '@/pages/teacher/TeacherStudentsPage';
 import { AdminAlertsPage } from '@/pages/admin/AdminAlertsPage';
 import { StudentGradePage } from '@/pages/student/StudentGradePage';
 import { StudentCoursesPage } from '@/pages/student/StudentCoursesPage';
@@ -69,6 +70,7 @@ import { StudentQuizzesPage } from '@/pages/student/StudentQuizzesPage';
 import { StudentQuizRunnerPage } from '@/pages/student/StudentQuizRunnerPage';
 import { StudentAttendancePage } from '@/pages/student/StudentAttendancePage';
 import { StudentGroupSetsPage } from '@/pages/student/StudentGroupSetsPage';
+import { StudentStudentsPage } from '@/pages/student/StudentStudentsPage';
 import { SessionExpiryGuard } from '@/components/SessionExpiryGuard';
 import { FerpaAcknowledgmentGuard } from '@/components/FerpaAcknowledgmentGuard';
 
@@ -133,6 +135,7 @@ export default function App(): JSX.Element {
                 <Route path="quizzes/:quizId" element={<StudentQuizRunnerPage />} />
                 <Route path="attendance" element={<StudentAttendancePage />} />
                 <Route path="grade" element={<StudentGradePage />} />
+                <Route path="students" element={<StudentStudentsPage />} />
                 <Route path="groups" element={<StudentGroupSetsPage />} />
               </Route>
             </Route>
@@ -235,6 +238,7 @@ export default function App(): JSX.Element {
                   path="correction-requests"
                   element={<TeacherCorrectionRequestsPage />}
                 />
+                <Route path="students" element={<TeacherStudentsPage />} />
                 <Route path="group-sets" element={<TeacherGroupSetsPage />} />
                 <Route path="group-sets/:setId" element={<TeacherGroupSetDetailPage />} />
               </Route>
