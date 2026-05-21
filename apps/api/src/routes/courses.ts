@@ -385,7 +385,11 @@ r.get(
   async (c) => {
     const auth = c.get('auth');
     if (auth.user.role === 'student') {
-      // students do not see the full roster — only their own enrollment.
+      // Students see the full enrolled roster but only the public fields
+      // (name + email + status). studentNumber and cross-course enrollment
+      // counts stay teacher-only. Peers' names/emails are already exposed
+      // through group_memberships → users on the group-set endpoint, so
+      // this doesn't broaden the privacy surface.
       const db = c.get('db');
       const courseId = requireParam(c, 'courseId');
       const rows = await db
@@ -399,7 +403,8 @@ r.get(
         })
         .from(enrollments)
         .innerJoin(users, eq(enrollments.studentId, users.id))
-        .where(and(eq(enrollments.courseId, courseId), eq(enrollments.studentId, auth.user.id)));
+        .where(and(eq(enrollments.courseId, courseId), eq(enrollments.status, 'enrolled')))
+        .orderBy(asc(users.name));
       return success(c, rows);
     }
     const db = c.get('db');
