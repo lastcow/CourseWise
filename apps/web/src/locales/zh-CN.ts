@@ -819,6 +819,7 @@ export const zhCN = {
       statusLate: '迟交',
       statusGraded: '已评分',
       statusReturned: '已退回',
+      submittedAtLabel: '提交于 {{date}}',
       teamSubmission: '小组提交',
       groupBannerTitle: '以 {{groupName}} 名义提交',
       groupBannerHelp:

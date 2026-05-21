@@ -24,7 +24,14 @@ import type {
   MaterialSummary,
   PresentationSummary,
   QuizSummary,
+  SubmissionStatus,
 } from '@coursewise/shared';
+
+function submissionVariant(s: SubmissionStatus): 'success' | 'destructive' | 'secondary' {
+  if (s === 'graded' || s === 'submitted') return 'success';
+  if (s === 'late' || s === 'returned') return 'destructive';
+  return 'secondary';
+}
 
 function bucket<T extends { moduleId: string | null }>(items: T[]): Map<string, T[]> {
   const m = new Map<string, T[]>();
@@ -125,21 +132,42 @@ export function StudentModulesPage(): JSX.Element {
     </li>
   );
 
-  const renderAssignment = (a: AssignmentSummary): JSX.Element => (
-    <li key={a.id}>
-      <ItemRow
-        to={`/student/courses/${id}/assignments/${a.id}`}
-        title={a.title}
-        meta={
-          a.dueDate ? (
-            <span className="text-xs text-muted-foreground">
-              {t('assignments.dueLabel')}: {new Date(a.dueDate).toLocaleDateString()}
+  const renderAssignment = (a: AssignmentSummary): JSX.Element => {
+    const mine = a.mySubmission ?? null;
+    // Same draft-vs-submitted gating as the Assignments list page: the
+    // draft row that POST /submissions creates on first open shouldn't
+    // count as "submitted" in the module overview.
+    const hasSubmitted = mine && mine.status !== 'draft';
+    return (
+      <li key={a.id}>
+        <ItemRow
+          to={`/student/courses/${id}/assignments/${a.id}`}
+          title={a.title}
+          meta={
+            <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              {a.dueDate ? (
+                <span>
+                  {t('assignments.dueLabel')}: {new Date(a.dueDate).toLocaleDateString()}
+                </span>
+              ) : null}
+              {hasSubmitted ? (
+                <>
+                  <Badge variant={submissionVariant(mine!.status)}>
+                    {t(
+                      `submissions.status${mine!.status[0]!.toUpperCase()}${mine!.status.slice(1)}`,
+                    )}
+                  </Badge>
+                  {mine!.submittedAt ? (
+                    <span>{new Date(mine!.submittedAt).toLocaleDateString()}</span>
+                  ) : null}
+                </>
+              ) : null}
             </span>
-          ) : null
-        }
-      />
-    </li>
-  );
+          }
+        />
+      </li>
+    );
+  };
 
   const renderQuiz = (q: QuizSummary): JSX.Element => (
     <li key={q.id}>
