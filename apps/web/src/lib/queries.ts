@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminDashboardResponse,
   AiArtifactKind,
+  AssignmentGroup,
   AiModelSummary,
   AiPromptTemplate,
   AiProviderSummary,
@@ -1430,6 +1431,104 @@ export function useMyFinalGrade(courseId: string | null) {
     queryKey: ['my-final-grade', courseId],
     enabled: !!courseId,
     queryFn: () => apiCall<FinalGradeSummary | null>(`/api/me/courses/${courseId}/final-grade`),
+  });
+}
+
+// ---------- Assignment groups ----------
+export function useAssignmentGroups(courseId: string | undefined) {
+  return useQuery({
+    queryKey: ['assignment-groups', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<AssignmentGroup[]>(`/api/courses/${courseId}/assignment-groups`),
+  });
+}
+
+export function useCreateAssignmentGroup(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; weight: number; position?: number }) =>
+      apiCall<AssignmentGroup>(`/api/courses/${courseId}/assignment-groups`, {
+        method: 'POST',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['assignment-groups', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
+    },
+  });
+}
+
+export function useUpdateAssignmentGroup(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      groupId,
+      ...patch
+    }: {
+      groupId: string;
+      name?: string;
+      weight?: number;
+      position?: number;
+    }) =>
+      apiCall<AssignmentGroup>(
+        `/api/courses/${courseId}/assignment-groups/${groupId}`,
+        { method: 'PATCH', body: patch },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['assignment-groups', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
+    },
+  });
+}
+
+export function useDeleteAssignmentGroup(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (groupId: string) =>
+      apiCall<{ id: string; orphanedItemCount: number }>(
+        `/api/courses/${courseId}/assignment-groups/${groupId}`,
+        { method: 'DELETE' },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['assignment-groups', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
+    },
+  });
+}
+
+export function useReorderAssignmentGroups(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      // 204 No Content on success — bypass the JSON-envelope parser and
+      // check the status code directly, mirroring useRetryR2Cleanup.
+      const res = await apiCall<Response>(
+        `/api/courses/${courseId}/assignment-groups/reorder`,
+        { method: 'POST', body: { orderedIds }, raw: true },
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        let err: ApiError = {
+          code: 'UNKNOWN',
+          message: res.statusText,
+          i18nKey: 'errors.internal',
+        };
+        try {
+          const parsed = text ? (JSON.parse(text) as ApiResponse<unknown>) : undefined;
+          if (parsed && parsed.success === false) err = parsed.error;
+        } catch {
+          /* fall through with default err */
+        }
+        throw new ApiClientError(res.status, err);
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['assignment-groups', courseId] });
+    },
   });
 }
 
