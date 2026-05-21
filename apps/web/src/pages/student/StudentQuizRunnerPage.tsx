@@ -5,7 +5,8 @@ import type { QuizAttemptDetail, QuizQuestionStudentView, QuizQuestionTeacherVie
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input, Textarea } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/input';
+import { Markdown } from '@/components/ui/markdown';
 import { useToast } from '@/components/ui/toast';
 import {
   useMyQuizAttempts,
@@ -179,7 +180,12 @@ export function StudentQuizRunnerPage(): JSX.Element {
       ) : null}
 
       {attempt && inProgress ? (
-        <div className="sticky top-0 z-10 flex items-center justify-between rounded-md border bg-background p-3 shadow-sm">
+        // `top-14` parks the bar directly under BackOfficeLayout's sticky
+        // header (which is h-14 z-30); z-20 keeps the bar above content
+        // but under that page header so they don't visually overlap.
+        // Without these, the bar's previous `top-0 z-10` slid behind the
+        // page header and disappeared on scroll.
+        <div className="sticky top-14 z-20 -mx-4 flex items-center justify-between border-b bg-background/95 px-4 py-2 shadow-sm backdrop-blur">
           <span className="text-sm">
             {t('quizzes.questionsCount', { count: totalQuestions })}
           </span>
@@ -200,7 +206,13 @@ export function StudentQuizRunnerPage(): JSX.Element {
               <Card key={q.id}>
                 <CardHeader>
                   <CardTitle className="text-base">
-                    {idx + 1}. {q.prompt}
+                    {/* Markdown lets prompts use newlines, lists, fenced
+                        code, inline math, etc. — otherwise everything
+                        collapsed to a single visual line. */}
+                    <div className="flex items-start gap-2">
+                      <span className="shrink-0 tabular-nums">{idx + 1}.</span>
+                      <Markdown source={q.prompt} className="leading-relaxed" />
+                    </div>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -264,7 +276,12 @@ export function StudentQuizRunnerPage(): JSX.Element {
                     </div>
                   ) : null}
                   {q.type === 'short_answer' ? (
-                    <Input
+                    // Even "short answer" prompts often invite multi-line
+                    // replies (lists, examples, formulas). A single-line
+                    // <Input> was forcing students to type past the
+                    // visible edge with no way to see context.
+                    <Textarea
+                      rows={3}
                       value={typeof value === 'string' ? value : ''}
                       disabled={readOnly}
                       onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
