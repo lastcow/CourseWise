@@ -201,6 +201,18 @@ export const en = {
       noEmbed:
         'This deck can’t be embedded directly. Use “Open in Gamma” or download the .pptx above.',
     },
+    session: {
+      warningTitle: 'Your session is about to end',
+      warningBody:
+        'For your security we sign you out when your session expires. Stay signed in to keep working, or sign out now.',
+      countdownLabel: 'Signing out in',
+      signingOut: 'Signing out…',
+      staySignedIn: 'Stay signed in',
+      signOutNow: 'Sign out now',
+      refreshed: 'Session extended',
+      refreshFailed: 'Could not extend session — please sign in again.',
+      expiredToast: 'Signed out — session expired.',
+    },
     courses: {
       title: 'Courses',
       newCta: '+ New course',

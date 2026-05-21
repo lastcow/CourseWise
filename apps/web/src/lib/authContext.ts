@@ -16,6 +16,10 @@ export interface AuthContextValue {
     password: string;
   }) => Promise<StoredAuth>;
   logout: () => Promise<void>;
+  // Exchange the stored refresh token for a fresh access + refresh pair and
+  // persist them. Used by the session-expiry warning's "Stay signed in"
+  // button. Throws if there's no refresh token or the server rejects it.
+  refresh: () => Promise<StoredAuth>;
   isLoading: boolean;
 }
 
