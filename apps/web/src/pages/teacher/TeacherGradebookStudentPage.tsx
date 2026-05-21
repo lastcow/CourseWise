@@ -51,7 +51,10 @@ function GroupSummary({
         <span className="font-mono text-foreground">{formatNum(group.weighted)}</span>
       </span>
       <span>
-        {group.itemsScored}/{group.itemCount} items scored
+        {t('grading.groupItemsScored', {
+          scored: group.itemsScored,
+          total: group.itemCount,
+        })}
       </span>
     </div>
   );

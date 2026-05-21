@@ -77,7 +77,10 @@ export function StudentGradePage(): JSX.Element {
                         <td className="py-2 pr-3">
                           <div>{g.groupName}</div>
                           <div className="text-xs text-muted-foreground">
-                            {g.itemsScored}/{g.itemCount} items scored
+                            {t('grading.groupItemsScored', {
+                              scored: g.itemsScored,
+                              total: g.itemCount,
+                            })}
                           </div>
                         </td>
                         <td className="py-2 pr-3 font-mono">
