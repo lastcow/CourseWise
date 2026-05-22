@@ -176,20 +176,41 @@ export function TeacherAssignmentsPage(): JSX.Element {
                         color="yellow"
                         onClick={() => navigate(`/teacher/courses/${id}/assignments/${a.id}`)}
                       />
-                      <ActionIconButton
-                        icon={Inbox}
-                        // Mirrors the teal "view attempts" icon on the
-                        // teacher Quizzes page so both lists share the
-                        // same visual shortcut to the student response
-                        // surface.
-                        label={t('assignments.viewSubmissionsAction', {
-                          count: a.submissionCount ?? 0,
-                        })}
-                        color="teal"
-                        onClick={() =>
-                          navigate(`/teacher/courses/${id}/assignments/${a.id}/submissions`)
-                        }
-                      />
+                      <span className="relative inline-flex">
+                        <ActionIconButton
+                          icon={Inbox}
+                          // Mirrors the teal "view attempts" icon on the
+                          // teacher Quizzes page so both lists share the
+                          // same visual shortcut to the student response
+                          // surface. The amber overlay badge surfaces the
+                          // ungraded count so a teacher can scan the list
+                          // and see "what needs my attention" at a glance.
+                          label={
+                            (a.ungradedSubmissionCount ?? 0) > 0
+                              ? t('assignments.viewSubmissionsActionWithUngraded', {
+                                  count: a.submissionCount ?? 0,
+                                  ungraded: a.ungradedSubmissionCount ?? 0,
+                                })
+                              : t('assignments.viewSubmissionsAction', {
+                                  count: a.submissionCount ?? 0,
+                                })
+                          }
+                          color="teal"
+                          onClick={() =>
+                            navigate(`/teacher/courses/${id}/assignments/${a.id}/submissions`)
+                          }
+                        />
+                        {(a.ungradedSubmissionCount ?? 0) > 0 ? (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-amber-500 px-1 text-[10px] font-semibold leading-none text-white"
+                          >
+                            {(a.ungradedSubmissionCount ?? 0) > 99
+                              ? '99+'
+                              : a.ungradedSubmissionCount}
+                          </span>
+                        ) : null}
+                      </span>
                       {a.status === 'draft' ? (
                         <ActionIconButton
                           icon={CircleCheck}

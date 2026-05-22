@@ -827,6 +827,8 @@ export const en = {
       colMaxScore: 'Max score',
       colSubmissions: 'Submissions',
       viewSubmissionsAction: 'View submissions ({{count}})',
+      viewSubmissionsActionWithUngraded:
+        'View submissions ({{count}}) — {{ungraded}} ungraded',
       colActions: 'Actions',
       colMyStatus: 'My status',
       colMyGrade: 'My grade',

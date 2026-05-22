@@ -345,6 +345,9 @@ export interface AssignmentSummary {
   archivedAt: string | null;
   position: number;
   submissionCount?: number;
+  // Submitted/late submissions that don't yet have a score recorded. Surfaced
+  // on teacher-facing lists so the "view submissions" action shows a badge.
+  ungradedSubmissionCount?: number;
   submissionMode: 'individual' | 'group';
   groupSetId: string | null;
   /**

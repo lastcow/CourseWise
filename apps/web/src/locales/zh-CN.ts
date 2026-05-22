@@ -792,6 +792,7 @@ export const zhCN = {
       colMaxScore: '满分',
       colSubmissions: '提交数',
       viewSubmissionsAction: '查看提交 ({{count}})',
+      viewSubmissionsActionWithUngraded: '查看提交 ({{count}}) — {{ungraded}} 项待批改',
       colActions: '操作',
       colMyStatus: '我的状态',
       colMyGrade: '我的成绩',
