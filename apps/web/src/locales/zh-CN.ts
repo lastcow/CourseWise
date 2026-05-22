@@ -237,6 +237,16 @@ export const zhCN = {
       },
       overview: {
         quickLinks: '快捷入口',
+        needsGradingTitle: '待批改',
+        needsGradingDescription: '等待您评阅的内容。点击对应卡片可直接进入队列。',
+        needsGradingEmpty: '当前没有待批改的内容。',
+        needsGradingAllClear: '已全部处理',
+        needsGradingTotalLabel: '项',
+        needsGrading: {
+          assignments: '作业',
+          quizzes: '测验答题',
+          discussions: '讨论贴',
+        },
       },
       dangerZone: {
         title: '危险操作',

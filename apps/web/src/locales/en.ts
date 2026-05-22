@@ -249,6 +249,17 @@ export const en = {
       },
       overview: {
         quickLinks: 'Quick links',
+        needsGradingTitle: 'Needs grading',
+        needsGradingDescription:
+          'Items waiting for your review. Click a tile to jump into the queue.',
+        needsGradingEmpty: 'Nothing waiting for review.',
+        needsGradingAllClear: 'All caught up',
+        needsGradingTotalLabel: 'items',
+        needsGrading: {
+          assignments: 'Assignments',
+          quizzes: 'Quiz answers',
+          discussions: 'Discussion posts',
+        },
       },
       dangerZone: {
         title: 'Danger zone',

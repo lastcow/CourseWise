@@ -10,6 +10,7 @@ import {
   type UpdateGradingPolicyInput,
 } from '@coursewise/shared';
 import { assignmentGroups, courses, enrollments, finalGrades, users } from '../db/schema';
+import type { CourseGradingSummary } from '@coursewise/shared';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -271,6 +272,80 @@ r.get(
       return success(c, null);
     }
     return success(c, toFinalGradeSummary(row));
+  },
+);
+
+// =================== Per-course grading summary ===================
+
+// Counts of items waiting for a teacher to grade. Used by the teacher's
+// course overview page to surface "you have N things to grade right now".
+r.get(
+  '/courses/:courseId/grading-summary',
+  requireScopeGroup('gradesRead'),
+  requireTokenCourseAccess(),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    if (auth.user.role === 'student') {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Teachers and admins only');
+    }
+    if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, courseId, auth.user.id))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
+    }
+
+    // assignment_submissions where the work is in (submitted, late) and score IS NULL.
+    const aRes = await db.execute(sql`
+      SELECT COUNT(*)::int AS count
+        FROM assignment_submissions sub
+        JOIN assignments a ON a.id = sub.assignment_id
+       WHERE a.course_id = ${courseId}
+         AND sub.status IN ('submitted', 'late')
+         AND sub.score IS NULL
+    `);
+    const ungradedSubmissions = (aRes.rows[0] as { count: number } | undefined)?.count ?? 0;
+
+    // Distinct quiz_answers awaiting manual grading: pointsAwarded IS NULL on submitted attempts.
+    const qRes = await db.execute(sql`
+      SELECT COUNT(DISTINCT qa.id)::int AS count
+        FROM quiz_answers qa
+        JOIN quiz_attempts att ON att.id = qa.attempt_id
+        JOIN quizzes z          ON z.id = att.quiz_id
+       WHERE z.course_id = ${courseId}
+         AND att.status = 'submitted'
+         AND qa.points_awarded IS NULL
+    `);
+    const ungradedQuizAnswers = (qRes.rows[0] as { count: number } | undefined)?.count ?? 0;
+
+    // (topic, student) pairs in graded topics where the student has posted at
+    // least once and the discussion_grades row is missing or ungraded.
+    const dRes = await db.execute(sql`
+      SELECT COUNT(*)::int AS count
+        FROM (
+          SELECT DISTINCT dp.author_id AS student_id, dt.id AS topic_id
+            FROM discussion_topics dt
+            JOIN discussion_posts dp ON dp.topic_id = dt.id AND dp.is_deleted = false
+            JOIN enrollments e
+              ON e.course_id = dt.course_id
+             AND e.student_id = dp.author_id
+             AND e.status = 'enrolled'
+           WHERE dt.course_id = ${courseId}
+             AND dt.is_graded = true
+        ) posted
+        LEFT JOIN discussion_grades dg
+               ON dg.topic_id = posted.topic_id
+              AND dg.student_id = posted.student_id
+       WHERE dg.graded_at IS NULL
+    `);
+    const ungradedDiscussions = (dRes.rows[0] as { count: number } | undefined)?.count ?? 0;
+
+    const summary: CourseGradingSummary = {
+      courseId,
+      ungradedSubmissions,
+      ungradedQuizAnswers,
+      ungradedDiscussions,
+    };
+    return success(c, summary);
   },
 );
 
