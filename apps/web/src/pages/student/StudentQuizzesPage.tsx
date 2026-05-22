@@ -1,8 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, Circle, CircleCheck, Lock, RefreshCw } from 'lucide-react';
+import { Archive, Circle, CircleCheck, Lock, Play, RefreshCw } from 'lucide-react';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { Button } from '@/components/ui/button';
 import { stripMarkdown } from '@/components/ui/markdown';
 import {
   Table,
@@ -57,6 +56,75 @@ function StatusIcon({ status }: { status: QuizSummary['status'] }): JSX.Element 
     >
       <Icon className="h-3.5 w-3.5" aria-hidden />
     </span>
+  );
+}
+
+/**
+ * Outlined-badge action that doubles as the "take quiz" link. Disabled
+ * (muted border + cursor-not-allowed) when the quiz is unpublished or
+ * outside its [startTime, endTime] window, so the student understands
+ * the action is gated rather than discovering it via a 409 from the API.
+ */
+function StartQuizBadge({
+  cid,
+  quiz,
+  label,
+  tNotAvailable,
+  tOpensOn,
+  tClosesOn,
+}: {
+  cid: string;
+  quiz: QuizSummary;
+  label: string;
+  tNotAvailable: string;
+  tOpensOn: (iso: string) => string;
+  tClosesOn: (iso: string) => string;
+}): JSX.Element {
+  const baseClass =
+    'inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors';
+  if (quiz.status !== 'published') {
+    return (
+      <span
+        title={tNotAvailable}
+        className={cn(
+          baseClass,
+          'cursor-not-allowed border-input bg-muted/30 text-muted-foreground opacity-60',
+        )}
+      >
+        <Play className="h-3.5 w-3.5" aria-hidden />
+        {label}
+      </span>
+    );
+  }
+  const now = Date.now();
+  const notYetOpen = quiz.startTime != null && now < Date.parse(quiz.startTime);
+  const windowClosed = quiz.endTime != null && now >= Date.parse(quiz.endTime);
+  if (notYetOpen || windowClosed) {
+    const reason = notYetOpen ? tOpensOn(quiz.startTime!) : tClosesOn(quiz.endTime!);
+    return (
+      <span
+        title={reason}
+        className={cn(
+          baseClass,
+          'cursor-not-allowed border-input bg-muted/30 text-muted-foreground opacity-60',
+        )}
+      >
+        <Play className="h-3.5 w-3.5" aria-hidden />
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      to={`/student/courses/${cid}/quizzes/${quiz.id}`}
+      className={cn(
+        baseClass,
+        'border-emerald-500/60 text-emerald-600 hover:bg-emerald-500/10',
+      )}
+    >
+      <Play className="h-3.5 w-3.5" aria-hidden />
+      {label}
+    </Link>
   );
 }
 
@@ -143,17 +211,18 @@ export function StudentQuizzesPage(): JSX.Element {
                     {q.timeLimitMinutes ? `${q.timeLimitMinutes} min` : '—'}
                   </TableCell>
                   <TableCell className="text-right">
-                    {q.status === 'published' ? (
-                      <Button asChild size="sm">
-                        <Link to={`/student/courses/${cid}/quizzes/${q.id}`}>
-                          {t('quizzes.takeQuiz')}
-                        </Link>
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        {t('quizzes.notAvailable')}
-                      </span>
-                    )}
+                    <StartQuizBadge
+                      cid={cid}
+                      quiz={q}
+                      label={t('quizzes.takeQuiz')}
+                      tNotAvailable={t('quizzes.notAvailable')}
+                      tOpensOn={(d) =>
+                        t('assignments.opensOn', { date: new Date(d).toLocaleString() })
+                      }
+                      tClosesOn={(d) =>
+                        t('assignments.closesOn', { date: new Date(d).toLocaleString() })
+                      }
+                    />
                   </TableCell>
                 </TableRow>
               ))}
