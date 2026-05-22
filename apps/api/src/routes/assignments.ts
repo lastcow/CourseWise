@@ -66,6 +66,7 @@ function num(v: string | number | null | undefined): number | null {
 function toAssignmentSummary(
   row: typeof assignments.$inferSelect,
   submissionCount?: number,
+  ungradedSubmissionCount?: number,
 ): AssignmentSummary {
   return {
     id: row.id,
@@ -88,6 +89,7 @@ function toAssignmentSummary(
     archivedAt: row.archivedAt ?? null,
     position: row.position,
     submissionCount,
+    ungradedSubmissionCount,
     submissionMode: row.submissionMode,
     groupSetId: row.groupSetId ?? null,
     createdAt: row.createdAt,
@@ -204,6 +206,7 @@ r.get(
     // list views (Modules → Assignments, Assignments page) can render status
     // + submittedAt without one query per card.
     const counts = new Map<string, number>();
+    const ungradedCounts = new Map<string, number>();
     const mine = new Map<string, typeof assignmentSubmissions.$inferSelect>();
     if (ids.length > 0) {
       if (auth.user.role === 'student') {
@@ -218,21 +221,27 @@ r.get(
           );
         for (const s of myRows) mine.set(s.assignmentId, s);
       } else {
+        // FILTER on the COUNT lets us pull total + ungraded in one scan.
+        // Ungraded = submitted/late with no score recorded yet.
         const subs = await db
           .select({
             assignmentId: assignmentSubmissions.assignmentId,
             c: sql<number>`count(*)::int`,
+            ungraded: sql<number>`count(*) filter (where ${assignmentSubmissions.status} in ('submitted', 'late') and ${assignmentSubmissions.score} is null)::int`,
           })
           .from(assignmentSubmissions)
           .where(inArray(assignmentSubmissions.assignmentId, ids))
           .groupBy(assignmentSubmissions.assignmentId);
-        for (const s of subs) counts.set(s.assignmentId, s.c);
+        for (const s of subs) {
+          counts.set(s.assignmentId, s.c);
+          ungradedCounts.set(s.assignmentId, s.ungraded);
+        }
       }
     }
     return success(
       c,
       rows.map((row) => {
-        const summary = toAssignmentSummary(row, counts.get(row.id));
+        const summary = toAssignmentSummary(row, counts.get(row.id), ungradedCounts.get(row.id));
         const my = mine.get(row.id);
         if (my) {
           summary.mySubmission = {
