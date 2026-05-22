@@ -6,6 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Input, Label } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import {
+  uploadFile,
   useArchiveCourse,
   useCourse,
   useDeletionPreview,
@@ -15,6 +16,7 @@ import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
 import { DeleteCourseDialog } from '@/components/course/DeleteCourseDialog';
+import { gradientFor } from '@/lib/courseGradient';
 
 export function TeacherCourseSettings(): JSX.Element {
   const { t } = useTranslation();
@@ -32,6 +34,7 @@ export function TeacherCourseSettings(): JSX.Element {
   const [termLabel, setTermLabel] = useState('');
   const [description, setDescription] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const preview = useDeletionPreview(dialogOpen ? id : undefined);
 
   const isPrimaryTeacher = course.data?.teachers?.some(
@@ -80,8 +83,92 @@ export function TeacherCourseSettings(): JSX.Element {
     }
   };
 
+  const onPickBanner = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.push({ title: t('courses.banner.tooLarge'), tone: 'error' });
+      e.target.value = '';
+      return;
+    }
+    setUploading(true);
+    try {
+      const { fileAssetId } = await uploadFile(file, id, 'course');
+      await update.mutateAsync({ id, input: { bannerFileAssetId: fileAssetId } });
+      toast.push({ title: t('courses.banner.updated'), tone: 'success' });
+    } catch (err) {
+      const i18n = err instanceof ApiClientError ? err.error.i18nKey : null;
+      toast.push({
+        title: t('courses.banner.uploadFailed'),
+        description: i18n
+          ? t(i18n)
+          : err instanceof Error
+            ? err.message
+            : String(err),
+        tone: 'error',
+      });
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const onClearBanner = async () => {
+    try {
+      await update.mutateAsync({ id, input: { bannerFileAssetId: null } });
+      toast.push({ title: t('courses.banner.removed'), tone: 'success' });
+    } catch (err) {
+      const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(i18n), tone: 'error' });
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('courses.banner.title')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {course.data.bannerUrl ? (
+            <img
+              src={course.data.bannerUrl}
+              alt=""
+              className="h-40 w-full rounded-md object-cover"
+            />
+          ) : (
+            <div
+              className="h-40 w-full rounded-md"
+              style={{ background: gradientFor(course.data.code) }}
+              aria-hidden
+            />
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
+              {uploading ? t('courses.banner.uploading') : t('courses.banner.upload')}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={onPickBanner}
+                disabled={uploading}
+              />
+            </label>
+            {course.data.bannerFileAssetId ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onClearBanner}
+                disabled={update.isPending}
+              >
+                {t('courses.banner.remove')}
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-xs text-muted-foreground">{t('courses.banner.hint')}</p>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>{t('courses.editTitle')}</CardTitle>
