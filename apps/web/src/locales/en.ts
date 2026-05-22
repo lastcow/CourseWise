@@ -814,6 +814,7 @@ export const en = {
       colDue: 'Due',
       colMaxScore: 'Max score',
       colSubmissions: 'Submissions',
+      viewSubmissionsAction: 'View submissions ({{count}})',
       colActions: 'Actions',
       colMyStatus: 'My status',
       colMyGrade: 'My grade',
