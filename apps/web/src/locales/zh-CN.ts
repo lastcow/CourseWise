@@ -628,6 +628,7 @@ export const zhCN = {
       colSlides: '幻灯片',
       colSource: '来源',
       colActions: '操作',
+      openViewer: '打开查看',
       deleteDialogTitle: '确认删除演示文稿?',
       linkModuleTitle: '移动到模块',
       linkModuleAction: '移动到模块',
