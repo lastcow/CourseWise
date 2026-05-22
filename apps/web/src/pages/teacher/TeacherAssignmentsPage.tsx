@@ -6,6 +6,7 @@ import {
   Circle,
   CircleCheck,
   FolderInput,
+  Inbox,
   Lock,
   RefreshCw,
   SquarePen,
@@ -126,7 +127,6 @@ export function TeacherAssignmentsPage(): JSX.Element {
                 <TableHead>{t('assignments.colModule')}</TableHead>
                 <TableHead>{t('assignments.colDue')}</TableHead>
                 <TableHead className="text-right">{t('assignments.colMaxScore')}</TableHead>
-                <TableHead className="text-right">{t('assignments.colSubmissions')}</TableHead>
                 <TableHead className="text-right">{t('assignments.colActions')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -168,14 +168,6 @@ export function TeacherAssignmentsPage(): JSX.Element {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{formatDate(a.dueDate)}</TableCell>
                   <TableCell className="text-right tabular-nums">{a.maxScore ?? '—'}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    <Link
-                      to={`/teacher/courses/${id}/assignments/${a.id}/submissions`}
-                      className="hover:underline"
-                    >
-                      {a.submissionCount ?? 0}
-                    </Link>
-                  </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1.5">
                       <ActionIconButton
@@ -183,6 +175,20 @@ export function TeacherAssignmentsPage(): JSX.Element {
                         label={t('common.edit')}
                         color="yellow"
                         onClick={() => navigate(`/teacher/courses/${id}/assignments/${a.id}`)}
+                      />
+                      <ActionIconButton
+                        icon={Inbox}
+                        // Mirrors the teal "view attempts" icon on the
+                        // teacher Quizzes page so both lists share the
+                        // same visual shortcut to the student response
+                        // surface.
+                        label={t('assignments.viewSubmissionsAction', {
+                          count: a.submissionCount ?? 0,
+                        })}
+                        color="teal"
+                        onClick={() =>
+                          navigate(`/teacher/courses/${id}/assignments/${a.id}/submissions`)
+                        }
                       />
                       {a.status === 'draft' ? (
                         <ActionIconButton

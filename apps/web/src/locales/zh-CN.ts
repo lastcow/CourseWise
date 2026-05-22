@@ -780,6 +780,7 @@ export const zhCN = {
       colDue: '截止时间',
       colMaxScore: '满分',
       colSubmissions: '提交数',
+      viewSubmissionsAction: '查看提交 ({{count}})',
       colActions: '操作',
       colMyStatus: '我的状态',
       colMyGrade: '我的成绩',
