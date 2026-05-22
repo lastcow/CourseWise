@@ -86,6 +86,28 @@ export function TeacherAttendancePage(): JSX.Element {
     setMarks(next);
   }
 
+  // Auto-populate marks from server records once they load for the selected
+  // session. Without this, the roster row falls back to 'present' even when
+  // the student has already been recorded as absent (e.g. via self-sign
+  // late/absent thresholds), forcing the teacher to manually click
+  // "Load roster" to see the truth.
+  useEffect(() => {
+    if (!selectedSession || !records.data) return;
+    setMarks((current) => {
+      // Only fill students who don't already have an in-progress edit, so a
+      // teacher's unsaved changes survive a refetch.
+      const next = { ...current };
+      let changed = false;
+      for (const rec of records.data ?? []) {
+        if (!next[rec.studentId]) {
+          next[rec.studentId] = { status: rec.status, notes: rec.notes ?? '' };
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [selectedSession, records.data]);
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
