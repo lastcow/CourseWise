@@ -660,6 +660,7 @@ export const en = {
       colSlides: 'Slides',
       colSource: 'Source',
       colActions: 'Actions',
+      openViewer: 'Open viewer',
       deleteDialogTitle: 'Delete presentation?',
       linkModuleTitle: 'Move to module',
       linkModuleAction: 'Move to module',
