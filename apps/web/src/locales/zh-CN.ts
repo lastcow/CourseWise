@@ -347,6 +347,17 @@ export const zhCN = {
       statusActive: '进行中',
       statusDraft: '草稿',
       statusArchived: '已归档',
+      banner: {
+        title: '封面图片',
+        upload: '上传图片',
+        uploading: '上传中…',
+        remove: '移除',
+        hint: '建议:1600×900,PNG/JPG/WebP,不超过 5MB。',
+        tooLarge: '图片过大(最大 5MB)',
+        updated: '封面已更新',
+        removed: '封面已移除',
+        uploadFailed: '封面上传失败',
+      },
     },
     modules: {
       title: '章节',

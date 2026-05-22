@@ -365,6 +365,17 @@ export const en = {
       statusActive: 'Active',
       statusDraft: 'Draft',
       statusArchived: 'Archived',
+      banner: {
+        title: 'Banner image',
+        upload: 'Upload image',
+        uploading: 'Uploading…',
+        remove: 'Remove',
+        hint: 'Recommended: 1600×900, PNG/JPG/WebP, under 5MB.',
+        tooLarge: 'Image too large (max 5MB)',
+        updated: 'Banner updated',
+        removed: 'Banner removed',
+        uploadFailed: 'Banner upload failed',
+      },
     },
     modules: {
       title: 'Modules',

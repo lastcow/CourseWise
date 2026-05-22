@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
@@ -253,6 +254,9 @@ export const courses = pgTable(
     status: courseStatusEnum('status').notNull().default('active'),
     gradingPolicyJson: jsonb('grading_policy_json'),
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
+    bannerFileAssetId: uuid('banner_file_asset_id').references((): AnyPgColumn => fileAssets.id, {
+      onDelete: 'set null',
+    }),
     ...timestamps,
   },
   (t) => ({
