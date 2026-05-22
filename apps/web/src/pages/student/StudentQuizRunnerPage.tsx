@@ -135,6 +135,31 @@ export function StudentQuizRunnerPage(): JSX.Element {
     return attempt;
   }, [attempt]);
 
+  // Mirrors the gating in StudentQuizzesPage's StartQuizBadge so the rules
+  // match between the list (where users see the row action) and the detail
+  // page (where they click "Start quiz" after reading the description).
+  const startGate = useMemo(() => {
+    const q = quiz.data;
+    if (!q) return { disabled: true, reason: '' } as const;
+    if (q.status !== 'published') {
+      return { disabled: true, reason: t('quizzes.notAvailable') } as const;
+    }
+    const now = Date.now();
+    if (q.startTime != null && now < Date.parse(q.startTime)) {
+      return {
+        disabled: true,
+        reason: t('assignments.opensOn', { date: new Date(q.startTime).toLocaleString() }),
+      } as const;
+    }
+    if (q.endTime != null && now >= Date.parse(q.endTime)) {
+      return {
+        disabled: true,
+        reason: t('assignments.closesOn', { date: new Date(q.endTime).toLocaleString() }),
+      } as const;
+    }
+    return { disabled: false, reason: '' } as const;
+  }, [quiz.data, t]);
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
@@ -182,7 +207,18 @@ export function StudentQuizRunnerPage(): JSX.Element {
                 ) : null}
               </p>
             ) : null}
-            <Button onClick={handleStart}>{t('quizzes.startCta')}</Button>
+            <div className="flex flex-col items-start gap-2">
+              <Button
+                onClick={handleStart}
+                disabled={startGate.disabled || start.isPending}
+                title={startGate.disabled ? startGate.reason : undefined}
+              >
+                {t('quizzes.startCta')}
+              </Button>
+              {startGate.disabled ? (
+                <p className="text-xs text-muted-foreground">{startGate.reason}</p>
+              ) : null}
+            </div>
           </CardContent>
         </Card>
       ) : null}
