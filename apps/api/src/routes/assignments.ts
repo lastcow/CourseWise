@@ -1069,101 +1069,125 @@ r.post(
   },
 );
 
+// /return and /grade accept BOTH POST and PATCH. The grade endpoint
+// historically registered only PATCH, which made Hono return a stale-looking
+// 404 to any POST attempt instead of the handler's "Submission not found".
+// Sibling endpoints disagree on the verb (/submit is POST, /grade is PATCH),
+// so we register both verbs against shared handlers to remove the trap.
+
+async function returnSubmissionHandler(c: Context<AppEnv>) {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'submissionId');
+  const submission = await loadSubmission(c, id);
+  const assignment = await loadAssignment(c, submission.assignmentId);
+  if (auth.user.role === 'student') {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only a teacher can return a submission');
+  }
+  if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, assignment.courseId, auth.user.id))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
+  }
+  if (submission.status === 'draft') {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Cannot return a draft submission');
+  }
+  const input = c.get('validated') as ReturnSubmissionInput;
+  const [updated] = await db
+    .update(assignmentSubmissions)
+    .set({
+      status: 'returned',
+      score: null,
+      gradedAt: null,
+      gradedById: null,
+      feedback: input.feedback ?? submission.feedback ?? null,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(assignmentSubmissions.id, id))
+    .returning();
+  if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
+
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'submission.return',
+    target: id,
+  });
+  return success(c, toSubmissionSummary(updated));
+}
+
 r.post(
   '/submissions/:submissionId/return',
   requireScopeGroup('submissionsWrite'),
   validateJson(returnSubmissionSchema),
-  async (c) => {
-    const auth = c.get('auth');
-    const db = c.get('db');
-    const id = requireParam(c, 'submissionId');
-    const submission = await loadSubmission(c, id);
-    const assignment = await loadAssignment(c, submission.assignmentId);
-    if (auth.user.role === 'student') {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only a teacher can return a submission');
-    }
-    if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, assignment.courseId, auth.user.id))) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
-    }
-    if (submission.status === 'draft') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Cannot return a draft submission');
-    }
-    const input = c.get('validated') as ReturnSubmissionInput;
-    const [updated] = await db
-      .update(assignmentSubmissions)
-      .set({
-        status: 'returned',
-        score: null,
-        gradedAt: null,
-        gradedById: null,
-        feedback: input.feedback ?? submission.feedback ?? null,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(assignmentSubmissions.id, id))
-      .returning();
-    if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
-
-    await recordAudit(db, {
-      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
-      actorUserId: auth.user.id,
-      actorTokenId: auth.tokenId ?? null,
-      action: 'submission.return',
-      target: id,
-    });
-    return success(c, toSubmissionSummary(updated));
-  },
+  returnSubmissionHandler,
 );
+
+r.patch(
+  '/submissions/:submissionId/return',
+  requireScopeGroup('submissionsWrite'),
+  validateJson(returnSubmissionSchema),
+  returnSubmissionHandler,
+);
+
+async function gradeSubmissionHandler(c: Context<AppEnv>) {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'submissionId');
+  const submission = await loadSubmission(c, id);
+  const assignment = await loadAssignment(c, submission.assignmentId);
+  if (auth.user.role === 'student') {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only a teacher can grade');
+  }
+  if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, assignment.courseId, auth.user.id))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
+  }
+  if (submission.status === 'draft') {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Cannot grade a draft submission');
+  }
+  const input = c.get('validated') as GradeSubmissionInput;
+  const max = num(assignment.maxScore);
+  if (max == null) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment has no maxScore');
+  }
+  const clamped = clampScore(input.score, max);
+  const now = new Date().toISOString();
+  const [updated] = await db
+    .update(assignmentSubmissions)
+    .set({
+      score: clamped.toString(),
+      feedback: input.feedback ?? null,
+      status: 'graded',
+      gradedAt: now,
+      gradedById: auth.user.id,
+      updatedAt: now,
+    })
+    .where(eq(assignmentSubmissions.id, id))
+    .returning();
+  if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
+
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'submission.grade',
+    target: id,
+    metadata: { score: clamped },
+  });
+  return success(c, toSubmissionSummary(updated));
+}
 
 r.patch(
   '/submissions/:submissionId/grade',
   requireScopeGroup('submissionsWrite'),
   validateJson(gradeSubmissionSchema),
-  async (c) => {
-    const auth = c.get('auth');
-    const db = c.get('db');
-    const id = requireParam(c, 'submissionId');
-    const submission = await loadSubmission(c, id);
-    const assignment = await loadAssignment(c, submission.assignmentId);
-    if (auth.user.role === 'student') {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only a teacher can grade');
-    }
-    if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, assignment.courseId, auth.user.id))) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
-    }
-    if (submission.status === 'draft') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Cannot grade a draft submission');
-    }
-    const input = c.get('validated') as GradeSubmissionInput;
-    const max = num(assignment.maxScore);
-    if (max == null) {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment has no maxScore');
-    }
-    const clamped = clampScore(input.score, max);
-    const now = new Date().toISOString();
-    const [updated] = await db
-      .update(assignmentSubmissions)
-      .set({
-        score: clamped.toString(),
-        feedback: input.feedback ?? null,
-        status: 'graded',
-        gradedAt: now,
-        gradedById: auth.user.id,
-        updatedAt: now,
-      })
-      .where(eq(assignmentSubmissions.id, id))
-      .returning();
-    if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
+  gradeSubmissionHandler,
+);
 
-    await recordAudit(db, {
-      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
-      actorUserId: auth.user.id,
-      actorTokenId: auth.tokenId ?? null,
-      action: 'submission.grade',
-      target: id,
-      metadata: { score: clamped },
-    });
-    return success(c, toSubmissionSummary(updated));
-  },
+r.post(
+  '/submissions/:submissionId/grade',
+  requireScopeGroup('submissionsWrite'),
+  validateJson(gradeSubmissionSchema),
+  gradeSubmissionHandler,
 );
 
 export default r;
