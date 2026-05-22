@@ -809,6 +809,14 @@ export interface TeacherDashboardResponse {
   recentAlerts: AlertSummary[];
 }
 
+// Per-course "needs grading" counts shown on the teacher course overview.
+export interface CourseGradingSummary {
+  courseId: string;
+  ungradedSubmissions: number;
+  ungradedQuizAnswers: number;
+  ungradedDiscussions: number;
+}
+
 export interface StudentCourseSnapshot {
   courseId: string;
   courseCode: string;

@@ -24,6 +24,7 @@ import type {
   CourseDeletionLogEntry,
   CourseDeletionPreview,
   CourseDetail,
+  CourseGradingSummary,
   CourseSummary,
   CreateAiModelInput,
   CreateAiProviderInput,
@@ -140,6 +141,15 @@ export function useCourse(courseId: string | null) {
     queryKey: ['course', courseId],
     enabled: !!courseId,
     queryFn: () => apiCall<CourseDetail>(`/api/courses/${courseId}`),
+  });
+}
+
+export function useCourseGradingSummary(courseId: string | null) {
+  return useQuery({
+    queryKey: ['course-grading-summary', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<CourseGradingSummary>(`/api/courses/${courseId}/grading-summary`),
   });
 }
 
