@@ -109,6 +109,14 @@ export interface CourseSummary {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  bannerFileAssetId: string | null;
+  bannerUrl: string | null;
+  counts: {
+    modules: number;
+    assignments: number;
+    presentations: number;
+    students: number;
+  };
 }
 
 export interface CourseDetail extends CourseSummary {
