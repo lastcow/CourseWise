@@ -18,12 +18,14 @@ import {
   courseTeachers,
   courses,
   enrollments,
+  fileAssets,
   studentProfiles,
   users,
 } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
+import { presignR2Url, type R2SignerConfig } from '../lib/r2Sign';
 import { requireAuth, requireCourseAccess, requireTokenCourseAccess } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
@@ -31,11 +33,21 @@ import { canDeleteCourse, canWriteCourse } from '../services/courseAccess';
 import { courseChildCounts } from '../services/courseDeletion';
 import { recordAudit } from '../services/audit';
 import { runR2Cleanup } from '../jobs/r2Cleanup';
-import type { AppEnv } from '../types';
+import type { AppBindings, AppEnv } from '../types';
 
 const r = new Hono<AppEnv>();
 
-function toCourseSummary(row: typeof courses.$inferSelect): CourseSummary {
+const BANNER_URL_TTL_SECONDS = 5 * 60;
+
+function defaultCounts(): CourseSummary['counts'] {
+  return { modules: 0, assignments: 0, presentations: 0, students: 0 };
+}
+
+function toCourseSummary(
+  row: typeof courses.$inferSelect,
+  bannerUrl: string | null = null,
+  counts: CourseSummary['counts'] = defaultCounts(),
+): CourseSummary {
   return {
     id: row.id,
     code: row.code,
@@ -47,36 +59,130 @@ function toCourseSummary(row: typeof courses.$inferSelect): CourseSummary {
     archivedAt: row.archivedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    bannerFileAssetId: row.bannerFileAssetId ?? null,
+    bannerUrl,
+    counts,
   };
+}
+
+// Optional R2 signer — banner URLs are best-effort. If the Worker is missing
+// R2 secrets (e.g. local dev without setup-r2.sh), we silently return a null
+// bannerUrl rather than failing the list/detail call.
+function tryBannerSignerConfig(env: AppBindings): R2SignerConfig | null {
+  const accountId = env.R2_ACCOUNT_ID;
+  const accessKeyId = env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
+  if (!accountId || !accessKeyId || !secretAccessKey) return null;
+  return {
+    accountId,
+    accessKeyId,
+    secretAccessKey,
+    bucket: env.R2_BUCKET ?? 'coursewise-files',
+    endpoint: env.R2_PUBLIC_ENDPOINT || undefined,
+  };
+}
+
+async function signBannerUrl(
+  signer: R2SignerConfig | null,
+  bucket: string | null | undefined,
+  objectKey: string | null | undefined,
+): Promise<string | null> {
+  if (!signer || !objectKey) return null;
+  // file_assets.bucket may legitimately differ per-asset, but the signer is
+  // scoped to one bucket; if they disagree we skip rather than sign against
+  // the wrong bucket.
+  const targetBucket = bucket ?? signer.bucket;
+  if (targetBucket !== signer.bucket) return null;
+  const presigned = await presignR2Url(signer, {
+    method: 'GET',
+    key: objectKey,
+    expiresInSeconds: BANNER_URL_TTL_SECONDS,
+  });
+  return presigned.url;
 }
 
 r.use('*', requireAuth);
 
 // List courses scoped by role.
+//
+// One round-trip: outer scoping by role, banner asset joined in, and four
+// COUNT(*) subqueries for modules/assignments/presentations/students.
+// Students see only published assignments + presentations in the counts;
+// teachers/admins see drafts too. Banner URL is signed per row from the joined
+// file_assets columns.
 r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
-  if (auth.user.role === 'admin') {
-    const rows = await db.select().from(courses).orderBy(asc(courses.createdAt));
-    return success(c, rows.map(toCourseSummary));
+  const env = c.env;
+
+  const scopeSql =
+    auth.user.role === 'admin'
+      ? sql`true`
+      : auth.user.role === 'teacher'
+        ? sql`c.id IN (SELECT course_id FROM course_teachers WHERE teacher_id = ${auth.user.id})`
+        : sql`c.id IN (SELECT course_id FROM enrollments WHERE student_id = ${auth.user.id} AND status = 'enrolled')`;
+
+  const assignmentFilter =
+    auth.user.role === 'student' ? sql`AND a.status = 'published'` : sql``;
+  const presentationFilter =
+    auth.user.role === 'student' ? sql`AND p.status = 'published'` : sql``;
+
+  const result = await db.execute(sql`
+    SELECT
+      c.id,
+      c.code,
+      c.title,
+      c.description,
+      c.term_label AS "termLabel",
+      c.status,
+      c.grading_policy_json AS "gradingPolicyJson",
+      c.archived_at AS "archivedAt",
+      c.created_at AS "createdAt",
+      c.updated_at AS "updatedAt",
+      c.banner_file_asset_id AS "bannerFileAssetId",
+      fa.bucket AS "banner_bucket",
+      fa.object_key AS "banner_object_key",
+      (SELECT count(*)::int FROM modules m WHERE m.course_id = c.id) AS "modules_count",
+      (SELECT count(*)::int FROM assignments a WHERE a.course_id = c.id ${assignmentFilter}) AS "assignments_count",
+      (SELECT count(*)::int FROM presentations p WHERE p.course_id = c.id ${presentationFilter}) AS "presentations_count",
+      (SELECT count(*)::int FROM enrollments e WHERE e.course_id = c.id AND e.status = 'enrolled') AS "students_count"
+    FROM courses c
+    LEFT JOIN file_assets fa ON fa.id = c.banner_file_asset_id
+    WHERE ${scopeSql}
+    ORDER BY c.created_at ASC
+  `);
+
+  const signer = tryBannerSignerConfig(env);
+  const summaries: CourseSummary[] = [];
+  for (const row of result.rows as Array<Record<string, unknown>>) {
+    const bannerUrl = await signBannerUrl(
+      signer,
+      (row.banner_bucket as string | null) ?? null,
+      (row.banner_object_key as string | null) ?? null,
+    );
+    summaries.push({
+      id: row.id as string,
+      code: row.code as string,
+      title: row.title as string,
+      description: (row.description ?? null) as string | null,
+      termLabel: (row.termLabel ?? null) as string | null,
+      status: row.status as CourseSummary['status'],
+      gradingPolicy:
+        ((row.gradingPolicyJson as GradingPolicy | null) ?? null) as CourseSummary['gradingPolicy'],
+      archivedAt: (row.archivedAt ?? null) as string | null,
+      createdAt: row.createdAt as string,
+      updatedAt: row.updatedAt as string,
+      bannerFileAssetId: (row.bannerFileAssetId ?? null) as string | null,
+      bannerUrl,
+      counts: {
+        modules: Number(row.modules_count ?? 0),
+        assignments: Number(row.assignments_count ?? 0),
+        presentations: Number(row.presentations_count ?? 0),
+        students: Number(row.students_count ?? 0),
+      },
+    });
   }
-  if (auth.user.role === 'teacher') {
-    const rows = await db
-      .select({ c: courses })
-      .from(courseTeachers)
-      .innerJoin(courses, eq(courseTeachers.courseId, courses.id))
-      .where(eq(courseTeachers.teacherId, auth.user.id))
-      .orderBy(asc(courses.createdAt));
-    return success(c, rows.map(({ c: row }) => toCourseSummary(row)));
-  }
-  // student
-  const rows = await db
-    .select({ c: courses })
-    .from(enrollments)
-    .innerJoin(courses, eq(enrollments.courseId, courses.id))
-    .where(and(eq(enrollments.studentId, auth.user.id), eq(enrollments.status, 'enrolled')))
-    .orderBy(asc(courses.createdAt));
-  return success(c, rows.map(({ c: row }) => toCourseSummary(row)));
+  return success(c, summaries);
 });
 
 // Create a course. Admin or teacher.
@@ -145,7 +251,9 @@ r.post('/courses', requireScopeGroup('coursesWrite'), validateJson(createCourseS
 
 // Read a single course (with teachers + enrollment count).
 r.get('/courses/:courseId', requireScopeGroup('coursesRead'), requireCourseAccess(), requireTokenCourseAccess(), async (c) => {
+  const auth = c.get('auth');
   const db = c.get('db');
+  const env = c.env;
   const courseId = requireParam(c, 'courseId');
   const row = (await db.select().from(courses).where(eq(courses.id, courseId)).limit(1))[0];
   if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
@@ -166,8 +274,41 @@ r.get('/courses/:courseId', requireScopeGroup('coursesRead'), requireCourseAcces
     .from(enrollments)
     .where(and(eq(enrollments.courseId, courseId), eq(enrollments.status, 'enrolled')));
 
+  // Counts + banner asset — same shape as the list endpoint so the detail
+  // view can hydrate cards without a second fetch.
+  const assignmentFilter =
+    auth.user.role === 'student' ? sql`AND a.status = 'published'` : sql``;
+  const presentationFilter =
+    auth.user.role === 'student' ? sql`AND p.status = 'published'` : sql``;
+
+  const aggResult = await db.execute(sql`
+    SELECT
+      fa.bucket AS "banner_bucket",
+      fa.object_key AS "banner_object_key",
+      (SELECT count(*)::int FROM modules m WHERE m.course_id = ${courseId}) AS "modules_count",
+      (SELECT count(*)::int FROM assignments a WHERE a.course_id = ${courseId} ${assignmentFilter}) AS "assignments_count",
+      (SELECT count(*)::int FROM presentations p WHERE p.course_id = ${courseId} ${presentationFilter}) AS "presentations_count",
+      (SELECT count(*)::int FROM enrollments e WHERE e.course_id = ${courseId} AND e.status = 'enrolled') AS "students_count"
+    FROM courses c
+    LEFT JOIN file_assets fa ON fa.id = c.banner_file_asset_id
+    WHERE c.id = ${courseId}
+  `);
+  const agg = (aggResult.rows[0] ?? {}) as Record<string, unknown>;
+  const counts = {
+    modules: Number(agg.modules_count ?? 0),
+    assignments: Number(agg.assignments_count ?? 0),
+    presentations: Number(agg.presentations_count ?? 0),
+    students: Number(agg.students_count ?? 0),
+  };
+  const signer = tryBannerSignerConfig(env);
+  const bannerUrl = await signBannerUrl(
+    signer,
+    (agg.banner_bucket as string | null) ?? null,
+    (agg.banner_object_key as string | null) ?? null,
+  );
+
   const detail: CourseDetail = {
-    ...toCourseSummary(row),
+    ...toCourseSummary(row, bannerUrl, counts),
     teachers: teacherRows.map((t) => ({
       id: t.id,
       name: t.name,
@@ -204,6 +345,34 @@ r.patch(
       patch.archivedAt = input.status === 'archived' ? new Date().toISOString() : null;
     }
     if (input.gradingPolicy !== undefined) patch.gradingPolicyJson = input.gradingPolicy;
+
+    if (input.bannerFileAssetId !== undefined) {
+      if (input.bannerFileAssetId === null) {
+        patch.bannerFileAssetId = null;
+      } else {
+        const [asset] = await db
+          .select({
+            id: fileAssets.id,
+            ownerId: fileAssets.ownerId,
+            courseId: fileAssets.courseId,
+          })
+          .from(fileAssets)
+          .where(eq(fileAssets.id, input.bannerFileAssetId))
+          .limit(1);
+        if (
+          !asset ||
+          asset.courseId !== courseId ||
+          (auth.user.role !== 'admin' && asset.ownerId !== auth.user.id)
+        ) {
+          throw new ApiException(
+            400,
+            ERROR_CODES.VALIDATION_ERROR,
+            'Banner asset must be a course-scoped file you uploaded',
+          );
+        }
+        patch.bannerFileAssetId = input.bannerFileAssetId;
+      }
+    }
 
     if (input.code !== undefined) {
       const existing = await db
