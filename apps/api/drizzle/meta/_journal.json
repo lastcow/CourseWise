@@ -155,6 +155,13 @@
       "when": 1780771200000,
       "tag": "0021_assignment_quiz_scheduling",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1780857600000,
+      "tag": "0022_course_banner",
+      "breakpoints": true
     }
   ]
 }
