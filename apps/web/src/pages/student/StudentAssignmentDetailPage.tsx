@@ -273,6 +273,31 @@ export function StudentAssignmentDetailPage(): JSX.Element {
             )}
           </CardContent>
         </Card>
+      ) : submission.error instanceof ApiClientError &&
+        submission.error.error.code === 'NOT_IN_GROUP' ? (
+        // Group-mode assignment + student has not joined a group in the
+        // assignment's set yet. We still show the requirements above; the
+        // submission card is replaced with a warning so they know what to
+        // do instead of seeing a stuck loading spinner.
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">{t('submissions.yourSubmission')}</CardTitle>
+            <Badge variant="destructive">{t('submissions.actionRequired')}</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+              <p className="font-medium">{t('submissions.notInGroupTitle')}</p>
+              <p className="mt-1 text-muted-foreground">
+                {t('submissions.notInGroupHelp')}
+              </p>
+              <Button asChild variant="outline" size="sm" className="mt-3">
+                <Link to={`/student/courses/${cId}/students`}>
+                  {t('submissions.notInGroupCta')}
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <p>{t('common.loading')}</p>
       )}

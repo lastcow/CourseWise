@@ -875,6 +875,11 @@ export const en = {
       statusGraded: 'Graded',
       statusReturned: 'Returned',
       submittedAtLabel: 'Submitted on {{date}}',
+      actionRequired: 'Action required',
+      notInGroupTitle: 'You must be in a group to submit this assignment.',
+      notInGroupHelp:
+        'This assignment is graded per team. Join a group in the course Students page, then come back here to start your team submission.',
+      notInGroupCta: 'Go to course Students',
       teamSubmission: 'Your team submission',
       groupBannerTitle: 'Submitting as {{groupName}}',
       groupBannerHelp:
@@ -1254,6 +1259,7 @@ export const en = {
       forbidden: "You don't have access to that.",
       notFound: 'That resource was not found.',
       conflict: 'There was a conflict with another change.',
+      notInGroup: 'You must be in a group to submit this assignment.',
       rateLimited: 'Too many requests. Try again shortly.',
       accountLocked: 'Your account is temporarily locked.',
       accountInactive: 'Your account is not active.',

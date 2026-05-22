@@ -724,9 +724,12 @@ r.post(
         auth.user.id,
       );
       if (!myGroup) {
+        // Specific code so the student detail page can swap the submission
+        // form for a friendly "join a group first" notice instead of just
+        // showing a generic conflict toast.
         throw new ApiException(
           409,
-          ERROR_CODES.CONFLICT,
+          ERROR_CODES.NOT_IN_GROUP,
           'You are not in a group for this assignment',
         );
       }
