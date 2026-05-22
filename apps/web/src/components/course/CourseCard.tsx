@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ClipboardList, Library, Presentation, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { CourseSummary } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { gradientFor } from '@/lib/courseGradient';
@@ -11,6 +12,9 @@ type Props = {
 };
 
 export function CourseCard({ course, hrefBase }: Props): JSX.Element {
+  const { t } = useTranslation();
+  const statusKey =
+    `courses.status${course.status[0]!.toUpperCase()}${course.status.slice(1)}` as const;
   const banner = course.bannerUrl ? (
     <img
       src={course.bannerUrl}
@@ -38,7 +42,7 @@ export function CourseCard({ course, hrefBase }: Props): JSX.Element {
             variant={course.status === 'active' ? 'success' : 'secondary'}
             className="bg-background/80 backdrop-blur"
           >
-            {course.status}
+            {t(statusKey)}
           </Badge>
         </div>
         <div className="absolute right-2 top-2 rounded-md bg-background/80 px-2 py-0.5 font-mono text-xs backdrop-blur">
