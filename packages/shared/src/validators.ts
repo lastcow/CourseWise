@@ -139,6 +139,8 @@ export const updateCourseSchema = z.object({
   status: z.enum(COURSE_STATUSES).optional(),
   gradingPolicy: gradingPolicySchema.optional(),
   bannerFileAssetId: z.string().uuid().nullable().optional(),
+  syllabusMd: z.string().max(50_000).nullable().optional(),
+  syllabusFileAssetId: z.string().uuid().nullable().optional(),
 });
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
 

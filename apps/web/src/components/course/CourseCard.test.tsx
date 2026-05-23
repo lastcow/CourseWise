@@ -19,6 +19,9 @@ const base: CourseSummary = {
   updatedAt: '2026-01-01',
   bannerFileAssetId: null,
   bannerUrl: null,
+  syllabusMd: null,
+  syllabusFileAssetId: null,
+  syllabusFileUrl: null,
   counts: { modules: 3, assignments: 5, presentations: 2, students: 18 },
 };
 

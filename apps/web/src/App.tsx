@@ -53,6 +53,7 @@ import { TeacherCorrectionRequestsPage } from '@/pages/teacher/TeacherCorrection
 import { TeacherGroupSetsPage } from '@/pages/teacher/TeacherGroupSetsPage';
 import { TeacherGroupSetDetailPage } from '@/pages/teacher/TeacherGroupSetDetailPage';
 import { TeacherStudentsPage } from '@/pages/teacher/TeacherStudentsPage';
+import { TeacherSyllabusPage } from '@/pages/teacher/TeacherSyllabusPage';
 import { AdminAlertsPage } from '@/pages/admin/AdminAlertsPage';
 import { StudentGradePage } from '@/pages/student/StudentGradePage';
 import { StudentCoursesPage } from '@/pages/student/StudentCoursesPage';
@@ -71,6 +72,7 @@ import { StudentQuizRunnerPage } from '@/pages/student/StudentQuizRunnerPage';
 import { StudentAttendancePage } from '@/pages/student/StudentAttendancePage';
 import { StudentGroupSetsPage } from '@/pages/student/StudentGroupSetsPage';
 import { StudentStudentsPage } from '@/pages/student/StudentStudentsPage';
+import { StudentSyllabusPage } from '@/pages/student/StudentSyllabusPage';
 import { SessionExpiryGuard } from '@/components/SessionExpiryGuard';
 import { FerpaAcknowledgmentGuard } from '@/components/FerpaAcknowledgmentGuard';
 
@@ -127,6 +129,7 @@ export default function App(): JSX.Element {
                 <Route path="materials" element={<StudentMaterialsPage />} />
                 <Route path="materials/:materialId" element={<StudentMaterialDetailPage />} />
                 <Route path="presentations" element={<StudentPresentationsPage />} />
+                <Route path="syllabus" element={<StudentSyllabusPage />} />
                 <Route path="assignments" element={<StudentAssignmentsPage />} />
                 <Route path="assignments/:assignmentId" element={<StudentAssignmentDetailPage />} />
                 <Route path="discussion" element={<StudentDiscussionPage />} />
@@ -215,6 +218,7 @@ export default function App(): JSX.Element {
                 <Route path="materials/:materialId/edit" element={<TeacherMaterialEditPage />} />
                 <Route path="presentations" element={<TeacherPresentationsPage />} />
                 <Route path="presentations/new-gamma" element={<TeacherGenerateGammaPage />} />
+                <Route path="syllabus" element={<TeacherSyllabusPage />} />
                 <Route path="assignments" element={<TeacherAssignmentsPage />} />
                 <Route path="assignments/new" element={<TeacherAssignmentFormPage />} />
                 <Route path="assignments/:assignmentId" element={<TeacherAssignmentFormPage />} />

@@ -111,6 +111,9 @@ export interface CourseSummary {
   updatedAt: string;
   bannerFileAssetId: string | null;
   bannerUrl: string | null;
+  syllabusMd: string | null;
+  syllabusFileAssetId: string | null;
+  syllabusFileUrl: string | null;
   counts: {
     modules: number;
     assignments: number;
