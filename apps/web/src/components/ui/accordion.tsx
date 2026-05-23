@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type AccordionContextValue = {
@@ -100,16 +100,22 @@ export function AccordionItem({
 
 type AccordionTriggerProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
   children: React.ReactNode;
-  /** Extra content rendered next to the chevron, outside the toggle button. */
+  /** Content rendered to the LEFT of the toggle button (e.g. a drag handle).
+   *  Lives outside the toggle so it doesn't open/close the panel on click. */
+  leading?: React.ReactNode;
+  /** Extra content rendered to the right of the toggle button, outside it. */
   trailing?: React.ReactNode;
 };
 
 /**
- * Renders the header row: a button wrapping `children` plus an optional
- * `trailing` slot for action buttons that must NOT toggle the panel.
+ * Renders the header row: a button wrapping `children` plus optional
+ * `leading` / `trailing` slots for adornments that must NOT toggle the panel.
+ * The disclosure indicator is a solid Play triangle that rotates 90° when
+ * open (closed → right-pointing, open → down-pointing).
  */
 export function AccordionTrigger({
   children,
+  leading,
   trailing,
   className,
   ...props
@@ -119,6 +125,7 @@ export function AccordionTrigger({
   const open = isOpen(value);
   return (
     <div className="flex items-center gap-2 p-3">
+      {leading ? <div className="flex items-center">{leading}</div> : null}
       <button
         type="button"
         aria-expanded={open}
@@ -129,8 +136,11 @@ export function AccordionTrigger({
         )}
         {...props}
       >
-        <ChevronDown
-          className={cn('size-4 shrink-0 transition-transform', open && 'rotate-180')}
+        <Play
+          className={cn(
+            'size-3 shrink-0 fill-current transition-transform',
+            open && 'rotate-90',
+          )}
           aria-hidden
         />
         <div className="flex-1">{children}</div>

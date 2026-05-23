@@ -243,15 +243,17 @@ export function TeacherModulesPage(): JSX.Element {
                 )}
               >
                 <AccordionTrigger
+                  leading={
+                    <span
+                      className="hidden cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing md:inline-flex"
+                      aria-label={t('common.drag')}
+                      title={t('common.drag')}
+                    >
+                      <GripVertical className="h-4 w-4" aria-hidden />
+                    </span>
+                  }
                   trailing={
                     <>
-                      <span
-                        className="hidden cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing md:inline-flex"
-                        aria-label={t('common.drag')}
-                        title={t('common.drag')}
-                      >
-                        <GripVertical className="h-4 w-4" aria-hidden />
-                      </span>
                       <ActionIconButton
                         icon={ChevronUp}
                         label={t('common.moveUp')}
