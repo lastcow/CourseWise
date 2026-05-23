@@ -394,6 +394,11 @@ export const en = {
       reordered: 'Order saved',
       expandAll: 'Expand all',
       collapseAll: 'Collapse all',
+      pendingTasksTitle: 'Pending tasks',
+      pendingTasks: {
+        ungradedAssignments: 'Ungraded assignment submissions',
+        ungradedQuizzes: 'Ungraded quiz answers',
+      },
       summary: {
         materials: '{{count}} reading materials',
         presentations: '{{count}} presentations',
