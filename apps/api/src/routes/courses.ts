@@ -47,6 +47,7 @@ function toCourseSummary(
   row: typeof courses.$inferSelect,
   bannerUrl: string | null = null,
   counts: CourseSummary['counts'] = defaultCounts(),
+  syllabusFileUrl: string | null = null,
 ): CourseSummary {
   return {
     id: row.id,
@@ -61,6 +62,9 @@ function toCourseSummary(
     updatedAt: row.updatedAt,
     bannerFileAssetId: row.bannerFileAssetId ?? null,
     bannerUrl,
+    syllabusMd: row.syllabusMd ?? null,
+    syllabusFileAssetId: row.syllabusFileAssetId ?? null,
+    syllabusFileUrl,
     counts,
   };
 }
@@ -140,6 +144,8 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       c.created_at AS "createdAt",
       c.updated_at AS "updatedAt",
       c.banner_file_asset_id AS "bannerFileAssetId",
+      c.syllabus_md AS "syllabusMd",
+      c.syllabus_file_asset_id AS "syllabusFileAssetId",
       fa.bucket AS "banner_bucket",
       fa.object_key AS "banner_object_key",
       (SELECT count(*)::int FROM modules m WHERE m.course_id = c.id) AS "modules_count",
@@ -174,6 +180,9 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       updatedAt: row.updatedAt as string,
       bannerFileAssetId: (row.bannerFileAssetId ?? null) as string | null,
       bannerUrl,
+      syllabusMd: (row.syllabusMd ?? null) as string | null,
+      syllabusFileAssetId: (row.syllabusFileAssetId ?? null) as string | null,
+      syllabusFileUrl: null,
       counts: {
         modules: Number(row.modules_count ?? 0),
         assignments: Number(row.assignments_count ?? 0),
@@ -307,8 +316,22 @@ r.get('/courses/:courseId', requireScopeGroup('coursesRead'), requireCourseAcces
     (agg.banner_object_key as string | null) ?? null,
   );
 
+  let syllabusFileUrl: string | null = null;
+  if (row.syllabusFileAssetId) {
+    const [asset] = await db
+      .select({ bucket: fileAssets.bucket, objectKey: fileAssets.objectKey })
+      .from(fileAssets)
+      .where(eq(fileAssets.id, row.syllabusFileAssetId))
+      .limit(1);
+    syllabusFileUrl = await signBannerUrl(
+      signer,
+      asset?.bucket ?? null,
+      asset?.objectKey ?? null,
+    );
+  }
+
   const detail: CourseDetail = {
-    ...toCourseSummary(row, bannerUrl, counts),
+    ...toCourseSummary(row, bannerUrl, counts, syllabusFileUrl),
     teachers: teacherRows.map((t) => ({
       id: t.id,
       name: t.name,
@@ -372,6 +395,38 @@ r.patch(
         }
         patch.bannerFileAssetId = input.bannerFileAssetId;
       }
+    }
+
+    if (input.syllabusFileAssetId !== undefined) {
+      if (input.syllabusFileAssetId === null) {
+        patch.syllabusFileAssetId = null;
+      } else {
+        const [asset] = await db
+          .select({
+            id: fileAssets.id,
+            ownerId: fileAssets.ownerId,
+            courseId: fileAssets.courseId,
+          })
+          .from(fileAssets)
+          .where(eq(fileAssets.id, input.syllabusFileAssetId))
+          .limit(1);
+        if (
+          !asset ||
+          asset.courseId !== courseId ||
+          (auth.user.role !== 'admin' && asset.ownerId !== auth.user.id)
+        ) {
+          throw new ApiException(
+            400,
+            ERROR_CODES.VALIDATION_ERROR,
+            'Syllabus asset must be a course-scoped file you uploaded',
+          );
+        }
+        patch.syllabusFileAssetId = input.syllabusFileAssetId;
+      }
+    }
+
+    if (input.syllabusMd !== undefined) {
+      patch.syllabusMd = input.syllabusMd;
     }
 
     if (input.code !== undefined) {
