@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/accordion';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
 import { Input, Label } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
@@ -41,6 +42,29 @@ import type {
   PresentationSummary,
   QuizSummary,
 } from '@coursewise/shared';
+
+// Inner-card wrapper used by each per-module subsection (Materials,
+// Presentations, Assignments, Quizzes, Discussions) so each lives in its
+// own visual surface inside the expanded module accordion.
+function Section({
+  titleKey,
+  children,
+}: {
+  titleKey: string;
+  children: React.ReactNode;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <Card className="bg-muted/30">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+          {t(titleKey)}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
 
 export function TeacherModulesPage(): JSX.Element {
   const { t } = useTranslation();
@@ -217,10 +241,7 @@ export function TeacherModulesPage(): JSX.Element {
                     <p className="text-sm text-muted-foreground">{stripMarkdown(m.description)}</p>
                   ) : null}
 
-                  <div className="space-y-2">
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                      {t('materials.title')}
-                    </div>
+                  <Section titleKey="materials.title">
                     {mats.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         {t('materials.emptyInModule')}
@@ -323,13 +344,10 @@ export function TeacherModulesPage(): JSX.Element {
                         ))}
                       </ul>
                     )}
-                  </div>
+                  </Section>
 
                   {pres.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                        {t('presentations.title')}
-                      </div>
+                    <Section titleKey="presentations.title">
                       <ul className="space-y-1.5">
                         {pres.map((p) => (
                           <li
@@ -369,14 +387,11 @@ export function TeacherModulesPage(): JSX.Element {
                           </li>
                         ))}
                       </ul>
-                    </div>
+                    </Section>
                   ) : null}
 
                   {asgs.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                        {t('assignments.title')}
-                      </div>
+                    <Section titleKey="assignments.title">
                       <ul className="space-y-1.5">
                         {asgs.map((a) => (
                           <li
@@ -413,14 +428,11 @@ export function TeacherModulesPage(): JSX.Element {
                           </li>
                         ))}
                       </ul>
-                    </div>
+                    </Section>
                   ) : null}
 
                   {qzs.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                        {t('quizzes.title')}
-                      </div>
+                    <Section titleKey="quizzes.title">
                       <ul className="space-y-1.5">
                         {qzs.map((q) => (
                           <li
@@ -454,14 +466,11 @@ export function TeacherModulesPage(): JSX.Element {
                           </li>
                         ))}
                       </ul>
-                    </div>
+                    </Section>
                   ) : null}
 
                   {dscs.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                        {t('discussion.title')}
-                      </div>
+                    <Section titleKey="discussion.title">
                       <ul className="space-y-1.5">
                         {dscs.map((d) => (
                           <li
@@ -495,7 +504,7 @@ export function TeacherModulesPage(): JSX.Element {
                           </li>
                         ))}
                       </ul>
-                    </div>
+                    </Section>
                   ) : null}
                 </AccordionContent>
               </AccordionItem>

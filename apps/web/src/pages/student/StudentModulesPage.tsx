@@ -9,6 +9,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
 import { ModuleContentSummary } from '@/components/ModuleContentSummary';
 import {
@@ -77,10 +78,16 @@ function Section({
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <div className="space-y-2">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{t(titleKey)}</div>
-      <ul className="space-y-1.5">{children}</ul>
-    </div>
+    <Card className="bg-muted/30">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+          {t(titleKey)}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-1.5">{children}</ul>
+      </CardContent>
+    </Card>
   );
 }
 
