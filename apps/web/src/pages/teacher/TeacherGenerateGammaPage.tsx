@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -67,7 +67,6 @@ export function TeacherGenerateGammaPage(): JSX.Element {
   const [title, setTitle] = useState('');
   const [moduleId, setModuleId] = useState<string>(defaultModuleId ?? '');
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const [touchedSelection, setTouchedSelection] = useState(false);
   const [instructions, setInstructions] = useState('');
   const [themeId, setThemeId] = useState<string>('');
   const [format, setFormat] = useState<GammaFormat>('presentation');
@@ -92,19 +91,9 @@ export function TeacherGenerateGammaPage(): JSX.Element {
     [materialsQ.data],
   );
 
-  // Pre-check every manual_text material the first time the list lands.
-  useEffect(() => {
-    if (touchedSelection) return;
-    if (!materialsQ.data) return;
-    const initial = materialsQ.data
-      .filter((m) => m.sourceType === 'manual_text')
-      .map((m) => m.id);
-    if (initial.length === 0) return;
-    setSelected((prev) => {
-      if (prev.size > 0) return prev;
-      return new Set(initial);
-    });
-  }, [materialsQ.data, touchedSelection]);
+  // Reading materials start unchecked — the teacher opts in to whatever
+  // they want Gamma to use. Avoids accidentally pulling in everything
+  // when only one or two materials are intended.
 
   const moduleTitle = useMemo(() => {
     const map = new Map<string, string>();
@@ -134,7 +123,6 @@ export function TeacherGenerateGammaPage(): JSX.Element {
   }, [materials, moduleTitle, t]);
 
   const toggleMaterial = (id: string): void => {
-    setTouchedSelection(true);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
