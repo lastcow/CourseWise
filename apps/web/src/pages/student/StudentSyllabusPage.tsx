@@ -14,6 +14,7 @@ import {
 } from '@/lib/queries';
 import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
 import { gradientFor } from '@/lib/courseGradient';
+import { useNow } from '@/lib/useNow';
 
 export function StudentSyllabusPage(): JSX.Element {
   const { t } = useTranslation();
@@ -26,13 +27,17 @@ export function StudentSyllabusPage(): JSX.Element {
   const assignments = useAssignmentsList(id);
   const quizzes = useQuizzesList(id);
 
+  // useNow re-renders every 5 minutes so the rolling 30-day window stays
+  // accurate when the page is left open. Called at the top level (before
+  // any early returns) per the rules of hooks.
+  const now = useNow(5 * 60_000);
+  const horizon = now + 30 * 24 * 60 * 60 * 1000;
+
   if (course.isLoading) return <p>{t('common.loading')}</p>;
   if (!course.data) return <p>{t('common.error')}</p>;
   const c = course.data;
 
   // Upcoming dates: assignments with dueDate AND quizzes with endTime in next 30 days.
-  const now = Date.now();
-  const horizon = now + 30 * 24 * 60 * 60 * 1000;
   const upcoming: Array<{
     id: string;
     title: string;
