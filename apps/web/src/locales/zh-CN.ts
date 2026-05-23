@@ -374,6 +374,8 @@ export const zhCN = {
       updated: '章节已更新',
       deleted: '章节已删除',
       reordered: '顺序已保存',
+      expandAll: '展开全部',
+      collapseAll: '折叠全部',
       summary: {
         materials: '{{count}} 份阅读资料',
         presentations: '{{count}} 份演示文稿',

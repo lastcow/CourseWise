@@ -87,6 +87,9 @@ export function TeacherModulesPage(): JSX.Element {
   const toast = useToast();
 
   const [openCreate, setOpenCreate] = useState(false);
+  // Controlled accordion state so the Expand all / Collapse all buttons can
+  // bulk-set which module bodies are open.
+  const [openIds, setOpenIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   // Drag-and-drop module reordering. We use the native HTML5 API (no extra
   // dependency) since modules are a flat list and a teacher's typical row
@@ -169,9 +172,27 @@ export function TeacherModulesPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-2">
         <h2 className="text-xl font-semibold">{t('modules.title')}</h2>
-        <Button onClick={() => setOpenCreate(true)}>{t('modules.newCta')}</Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setOpenIds((list.data ?? []).map((m) => m.id))}
+            disabled={!list.data || list.data.length === 0}
+          >
+            {t('modules.expandAll')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setOpenIds([])}
+            disabled={openIds.length === 0}
+          >
+            {t('modules.collapseAll')}
+          </Button>
+          <Button onClick={() => setOpenCreate(true)}>{t('modules.newCta')}</Button>
+        </div>
       </header>
       {list.isLoading ? (
         <p>{t('common.loading')}</p>
@@ -181,7 +202,7 @@ export function TeacherModulesPage(): JSX.Element {
           action={<Button onClick={() => setOpenCreate(true)}>{t('modules.newCta')}</Button>}
         />
       ) : (
-        <Accordion className="space-y-3">
+        <Accordion className="space-y-3" value={openIds} onValueChange={setOpenIds}>
           {list.data.map((m) => {
             const mats = moduleMaterials.get(m.id) ?? [];
             const pres = modulePresentations.get(m.id) ?? [];
