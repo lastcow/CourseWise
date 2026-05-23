@@ -18,7 +18,7 @@ import { Input, Label, Textarea } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { EmptyState } from '@/components/ui/empty';
 import { cn } from '@/lib/utils';
-import { downloadMaterialAsMarkdown } from '@/lib/materialDownload';
+import { downloadMaterialAsPdf } from '@/lib/materialDownload';
 import {
   Table,
   TableBody,
@@ -244,7 +244,7 @@ export function TeacherMaterialsPage(): JSX.Element {
                           icon={Download}
                           label={t('materials.download')}
                           color="sky"
-                          onClick={() => downloadMaterialAsMarkdown(m)}
+                          onClick={() => downloadMaterialAsPdf(m)}
                         />
                       )}
                       {m.sourceType === 'external_link' && m.externalUrl ? (
