@@ -12,6 +12,7 @@ import {
   assignmentSubmissions,
   assignments,
   fileAssets,
+  presentations,
   readingMaterials,
 } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
@@ -262,7 +263,20 @@ r.get('/files/:fileId/download-url', async (c) => {
           throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Cannot download another student submission');
         }
       } else {
-        throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No published resource references this file');
+        // Presentation files are linked via `presentations.fileAssetId` rather
+        // than `fileAssets.relatedType`/`relatedId`, so a student request hits
+        // this fallback. Allow when a published presentation in the same
+        // course references this asset.
+        const pres = (
+          await db
+            .select({ status: presentations.status, courseId: presentations.courseId })
+            .from(presentations)
+            .where(eq(presentations.fileAssetId, fileId))
+            .limit(1)
+        )[0];
+        if (!pres || pres.status !== 'published' || pres.courseId !== row.courseId) {
+          throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No published resource references this file');
+        }
       }
     }
   }
