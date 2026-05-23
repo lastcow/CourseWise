@@ -698,6 +698,7 @@ export const en = {
       fileLabel: 'File',
       fileHint: 'PPTX, PPT, PDF, or KEY. Up to 50 MB.',
       fileTooLarge: 'File too large (max 50 MB)',
+      downloadFile: 'Download',
     },
     gamma: {
       dialogTitle: 'Generate presentation with Gamma',
