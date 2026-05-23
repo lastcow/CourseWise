@@ -120,8 +120,8 @@ function teacherCourseSections(courseId: string): NavSection[] {
       id: 'top',
       items: [
         { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
-        { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
         { to: `${prefix}/syllabus`, labelKey: 'nav.syllabus', icon: BookText },
+        { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
       ],
     },
     {
@@ -181,8 +181,8 @@ function studentCourseSections(courseId: string): NavSection[] {
       id: 'top',
       items: [
         { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
-        { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
         { to: `${prefix}/syllabus`, labelKey: 'nav.syllabus', icon: BookText },
+        { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
       ],
     },
     {
