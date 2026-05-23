@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, ChevronDown, ChevronUp, CircleCheck, ExternalLink, Pencil, Trash2 } from 'lucide-react';
+import { Archive, ChevronDown, ChevronUp, CircleCheck, ExternalLink, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import {
@@ -14,6 +14,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
+import { cn } from '@/lib/utils';
 import { Input, Label } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { stripMarkdown } from '@/components/ui/markdown';
@@ -87,6 +88,11 @@ export function TeacherModulesPage(): JSX.Element {
 
   const [openCreate, setOpenCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Drag-and-drop module reordering. We use the native HTML5 API (no extra
+  // dependency) since modules are a flat list and a teacher's typical row
+  // count is small. The mouse-drag mirrors the existing up/down arrows.
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const moduleMaterials = useMemo(() => {
     const map = new Map<string, MaterialSummary[]>();
@@ -158,6 +164,24 @@ export function TeacherModulesPage(): JSX.Element {
     }
   };
 
+  const onDropOnto = async (targetId: string) => {
+    const fromIdx = list.data?.findIndex((m) => m.id === draggingId) ?? -1;
+    const toIdx = list.data?.findIndex((m) => m.id === targetId) ?? -1;
+    setDraggingId(null);
+    setDragOverId(null);
+    if (!list.data || fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+    const next = list.data.slice();
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved!);
+    try {
+      await reorder.mutateAsync({ ids: next.map((m) => m.id) });
+      toast.push({ title: t('modules.reordered'), tone: 'success' });
+    } catch (err) {
+      const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(i18n), tone: 'error' });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <header className="flex items-center justify-between">
@@ -179,11 +203,55 @@ export function TeacherModulesPage(): JSX.Element {
             const asgs = moduleAssignments.get(m.id) ?? [];
             const qzs = moduleQuizzes.get(m.id) ?? [];
             const dscs = moduleDiscussions.get(m.id) ?? [];
+            const isDragging = draggingId === m.id;
+            const isDragOver = dragOverId === m.id && draggingId !== m.id;
             return (
-              <AccordionItem key={m.id} value={m.id}>
+              <AccordionItem
+                key={m.id}
+                value={m.id}
+                draggable
+                onDragStart={(e) => {
+                  setDraggingId(m.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                  // setData required for Firefox to actually start the drag.
+                  e.dataTransfer.setData('text/plain', m.id);
+                }}
+                onDragOver={(e) => {
+                  if (!draggingId || draggingId === m.id) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dragOverId !== m.id) setDragOverId(m.id);
+                }}
+                onDragLeave={(e) => {
+                  // Only clear when leaving the item entirely, not when moving
+                  // between child elements (which fire dragleave + dragenter).
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                    if (dragOverId === m.id) setDragOverId(null);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  void onDropOnto(m.id);
+                }}
+                onDragEnd={() => {
+                  setDraggingId(null);
+                  setDragOverId(null);
+                }}
+                className={cn(
+                  isDragging && 'opacity-50',
+                  isDragOver && 'ring-2 ring-primary ring-offset-1',
+                )}
+              >
                 <AccordionTrigger
                   trailing={
                     <>
+                      <span
+                        className="hidden cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing md:inline-flex"
+                        aria-label={t('common.drag')}
+                        title={t('common.drag')}
+                      >
+                        <GripVertical className="h-4 w-4" aria-hidden />
+                      </span>
                       <ActionIconButton
                         icon={ChevronUp}
                         label={t('common.moveUp')}

@@ -87,6 +87,7 @@ export const en = {
       done: 'Done',
       moveUp: 'Move up',
       moveDown: 'Move down',
+      drag: 'Drag to reorder',
       download: 'Download',
       open: 'Open',
       reply: 'Reply',
