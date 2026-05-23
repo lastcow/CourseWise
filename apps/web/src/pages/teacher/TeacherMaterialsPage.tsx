@@ -1,7 +1,15 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, CircleCheck, Pencil, Trash2 } from 'lucide-react';
+import {
+  Archive,
+  CircleCheck,
+  Download,
+  ExternalLink,
+  Pencil,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Dialog } from '@/components/ui/dialog';
@@ -9,6 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { EmptyState } from '@/components/ui/empty';
+import { cn } from '@/lib/utils';
+import { downloadMaterialAsMarkdown } from '@/lib/materialDownload';
 import {
   Table,
   TableBody,
@@ -18,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  getDownloadUrl,
   uploadFile,
   useCreateMaterial,
   useDeleteMaterial,
@@ -107,26 +118,20 @@ export function TeacherMaterialsPage(): JSX.Element {
   const deletingModuleTitle =
     deleting?.moduleId ? moduleTitleById.get(deleting.moduleId) ?? null : null;
 
+  const onDownloadFile = async (fileAssetId: string) => {
+    try {
+      const presign = await getDownloadUrl(fileAssetId);
+      window.open(presign.downloadUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      const i18nKey = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(i18nKey), tone: 'error' });
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
+      <header>
         <h2 className="text-xl font-semibold">{t('materials.title')}</h2>
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <label>
-              {t('materials.uploadCta')}
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
-                onChange={onUpload}
-              />
-            </label>
-          </Button>
-          <Button onClick={() => setShowCreate('external_link')}>{t('materials.linkCta')}</Button>
-          <Button onClick={() => setShowCreate('manual_text')}>{t('materials.textCta')}</Button>
-        </div>
       </header>
 
       {uploadProgress !== null ? (
@@ -138,12 +143,45 @@ export function TeacherMaterialsPage(): JSX.Element {
         </div>
       ) : null}
 
-      {materialsQ.isLoading ? (
-        <p>{t('common.loading')}</p>
-      ) : rows.length === 0 ? (
-        <EmptyState title={t('materials.empty')} />
-      ) : (
-        <div className="overflow-hidden rounded-md border">
+      <div className="overflow-hidden rounded-md border">
+        {/* Toolbar attached to the table — create actions on the left,
+            refresh on the right. The hidden file input is kept inside
+            the upload button label so picking a file triggers the
+            existing onUpload handler unchanged. */}
+        <div className="flex flex-wrap items-center justify-end gap-1.5 border-b bg-muted/30 px-3 py-2">
+          <Button asChild variant="outline" size="sm">
+            <label>
+              {t('materials.uploadCta')}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
+                onChange={onUpload}
+              />
+            </label>
+          </Button>
+          <Button size="sm" onClick={() => setShowCreate('external_link')}>
+            {t('materials.linkCta')}
+          </Button>
+          <Button size="sm" onClick={() => setShowCreate('manual_text')}>
+            {t('materials.textCta')}
+          </Button>
+          <ActionIconButton
+            icon={RefreshCw}
+            label={t('common.refresh')}
+            color="sky"
+            size="sm"
+            onClick={() => void materialsQ.refetch()}
+            disabled={materialsQ.isFetching}
+            className={cn(materialsQ.isFetching && '[&_svg]:animate-spin')}
+          />
+        </div>
+        {materialsQ.isLoading ? (
+          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
+        ) : rows.length === 0 ? (
+          <EmptyState title={t('materials.empty')} />
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -188,6 +226,37 @@ export function TeacherMaterialsPage(): JSX.Element {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1.5">
+                      {m.sourceType === 'upload' && m.fileAssetId ? (
+                        // Stream the original file via the presigned URL —
+                        // generating a markdown stand-in would lose
+                        // formatting / images / non-text payloads.
+                        <ActionIconButton
+                          icon={Download}
+                          label={t('materials.download')}
+                          color="sky"
+                          onClick={() => void onDownloadFile(m.fileAssetId!)}
+                        />
+                      ) : (
+                        // Manual text / external link: build a markdown
+                        // blob client-side from the row's content so every
+                        // material has a download option.
+                        <ActionIconButton
+                          icon={Download}
+                          label={t('materials.download')}
+                          color="sky"
+                          onClick={() => downloadMaterialAsMarkdown(m)}
+                        />
+                      )}
+                      {m.sourceType === 'external_link' && m.externalUrl ? (
+                        <ActionIconButton
+                          asChild
+                          icon={ExternalLink}
+                          label={t('materials.open')}
+                          color="sky"
+                        >
+                          <a href={m.externalUrl} target="_blank" rel="noreferrer" />
+                        </ActionIconButton>
+                      ) : null}
                       <ActionIconButton
                         icon={m.status === 'published' ? Archive : CircleCheck}
                         label={
@@ -216,8 +285,8 @@ export function TeacherMaterialsPage(): JSX.Element {
               ))}
             </TableBody>
           </Table>
-        </div>
-      )}
+        )}
+      </div>
 
       {showCreate ? (
         <CreateMaterialDialog
