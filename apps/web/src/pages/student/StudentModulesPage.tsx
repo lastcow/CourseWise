@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ExternalLink } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -139,6 +139,18 @@ export function StudentModulesPage(): JSX.Element {
           }
         />
       </div>
+      {p.provider === 'gamma' && p.externalUrl ? (
+        <a
+          href={p.externalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={t('gamma.openInGamma')}
+          title={t('gamma.openInGamma')}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-transparent transition-colors hover:bg-accent"
+        >
+          <ExternalLink className="h-4 w-4" aria-hidden />
+        </a>
+      ) : null}
       {p.fileAssetId ? (
         <DownloadPresentationButton fileAssetId={p.fileAssetId} iconOnly />
       ) : null}

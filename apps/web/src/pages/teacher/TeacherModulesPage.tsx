@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, ChevronDown, ChevronUp, CircleCheck, Pencil, Trash2 } from 'lucide-react';
+import { Archive, ChevronDown, ChevronUp, CircleCheck, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import {
@@ -378,6 +378,18 @@ export function TeacherModulesPage(): JSX.Element {
                                 {t('presentations.slidesCount', { count: p.slideCount })}
                               </span>
                             </Link>
+                            {p.provider === 'gamma' && p.externalUrl ? (
+                              <a
+                                href={p.externalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={t('gamma.openInGamma')}
+                                title={t('gamma.openInGamma')}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-transparent transition-colors hover:bg-accent"
+                              >
+                                <ExternalLink className="h-4 w-4" aria-hidden />
+                              </a>
+                            ) : null}
                             {p.fileAssetId ? (
                               <DownloadPresentationButton
                                 fileAssetId={p.fileAssetId}
