@@ -9,6 +9,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
 import { ModuleContentSummary } from '@/components/ModuleContentSummary';
 import {
   useAssignmentsList,
@@ -119,16 +120,21 @@ export function StudentModulesPage(): JSX.Element {
   );
 
   const renderPresentation = (p: PresentationSummary): JSX.Element => (
-    <li key={p.id}>
-      <ItemRow
-        to={`/student/courses/${id}/presentations/${p.id}`}
-        title={p.title}
-        meta={
-          <span className="text-xs text-muted-foreground">
-            {t('presentations.slidesCount', { count: p.slideCount })}
-          </span>
-        }
-      />
+    <li key={p.id} className="flex items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <ItemRow
+          to={`/student/courses/${id}/presentations/${p.id}`}
+          title={p.title}
+          meta={
+            <span className="text-xs text-muted-foreground">
+              {t('presentations.slidesCount', { count: p.slideCount })}
+            </span>
+          }
+        />
+      </div>
+      {p.fileAssetId ? (
+        <DownloadPresentationButton fileAssetId={p.fileAssetId} iconOnly />
+      ) : null}
     </li>
   );
 

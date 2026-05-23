@@ -665,6 +665,7 @@ export const zhCN = {
       fileLabel: '文件',
       fileHint: '支持 PPTX、PPT、PDF 或 KEY,最大 50 MB。',
       fileTooLarge: '文件过大 (最大 50 MB)',
+      downloadFile: '下载',
     },
     gamma: {
       dialogTitle: '使用 Gamma 生成演示文稿',

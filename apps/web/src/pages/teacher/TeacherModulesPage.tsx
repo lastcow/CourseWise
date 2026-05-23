@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/accordion';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
 import { Input, Label } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { stripMarkdown } from '@/components/ui/markdown';
@@ -359,6 +360,12 @@ export function TeacherModulesPage(): JSX.Element {
                                 {t('presentations.slidesCount', { count: p.slideCount })}
                               </span>
                             </Link>
+                            {p.fileAssetId ? (
+                              <DownloadPresentationButton
+                                fileAssetId={p.fileAssetId}
+                                iconOnly
+                              />
+                            ) : null}
                           </li>
                         ))}
                       </ul>

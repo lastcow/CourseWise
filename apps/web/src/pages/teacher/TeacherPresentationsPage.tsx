@@ -6,7 +6,6 @@ import {
   Archive,
   Circle,
   CircleCheck,
-  Download,
   ExternalLink,
   FolderInput,
   RefreshCw,
@@ -27,7 +26,6 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import {
-  getDownloadUrl,
   uploadFile,
   useCourseGammaPendingJobs,
   useCreatePresentation,
@@ -39,6 +37,7 @@ import {
   useUpdatePresentation,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
+import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
 import { GammaProgressBar } from '@/components/ai/GammaProgressBar';
 import type { PresentationSummary } from '@coursewise/shared';
 
@@ -74,40 +73,6 @@ function GammaJobWatcher({ jobId, onResolved, onJobUpdate }: GammaJobWatcherProp
   }, [jobId, status, errorMessage, onResolved]);
 
   return null;
-}
-
-function DownloadPptxButton({
-  fileAssetId,
-  label,
-}: {
-  fileAssetId: string;
-  label: string;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      disabled={busy}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          const res = await getDownloadUrl(fileAssetId);
-          window.location.href = res.downloadUrl;
-        } catch (err) {
-          const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-          toast.push({ title: t(key), tone: 'error' });
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <Download className="h-4 w-4" />
-      {label}
-    </Button>
-  );
 }
 
 function StatusIcon({ status }: { status: PresentationSummary['status'] }): JSX.Element {
@@ -364,9 +329,9 @@ export function TeacherPresentationsPage(): JSX.Element {
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{p.slideCount}</TableCell>
                       <TableCell>
-                        {isGamma && (p.externalUrl || p.fileAssetId) ? (
+                        {p.externalUrl || p.fileAssetId ? (
                           <div className="flex flex-wrap items-center gap-1.5">
-                            {p.externalUrl ? (
+                            {isGamma && p.externalUrl ? (
                               <Button size="sm" variant="outline" asChild>
                                 <a href={p.externalUrl} target="_blank" rel="noopener noreferrer">
                                   <ExternalLink className="h-4 w-4" />
@@ -375,10 +340,7 @@ export function TeacherPresentationsPage(): JSX.Element {
                               </Button>
                             ) : null}
                             {p.fileAssetId ? (
-                              <DownloadPptxButton
-                                fileAssetId={p.fileAssetId}
-                                label={t('gamma.downloadPptx')}
-                              />
+                              <DownloadPresentationButton fileAssetId={p.fileAssetId} />
                             ) : null}
                           </div>
                         ) : (
