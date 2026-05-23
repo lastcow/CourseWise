@@ -70,8 +70,6 @@ export function HomePage(): JSX.Element {
               <span className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3 py-1">
                 <Shield className="h-3.5 w-3.5 text-violet-600" /> Built FERPA-first
               </span>
-              <span className="hidden md:inline">·</span>
-              <span>Trusted by [placeholder institutions]</span>
             </div>
           </Reveal>
         </Container>
