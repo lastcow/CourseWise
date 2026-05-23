@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Download, ExternalLink } from 'lucide-react';
+import { Download, ExternalLink, RefreshCw } from 'lucide-react';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
@@ -17,6 +17,8 @@ import {
 import { getDownloadUrl, useMaterialsList, useModulesList } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { downloadMaterialAsMarkdown } from '@/lib/materialDownload';
 import type { MaterialSourceType, MaterialSummary, ModuleSummary } from '@coursewise/shared';
 
 export function StudentMaterialsPage(): JSX.Element {
@@ -52,12 +54,24 @@ export function StudentMaterialsPage(): JSX.Element {
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{t('materials.title')}</h1>
       </header>
-      {materialsQ.isLoading ? (
-        <p>{t('common.loading')}</p>
-      ) : rows.length === 0 ? (
-        <EmptyState title={t('materials.empty')} />
-      ) : (
-        <div className="overflow-hidden rounded-md border">
+      <div className="overflow-hidden rounded-md border">
+        {/* Toolbar attached to the table — refresh only for students. */}
+        <div className="flex items-center justify-end gap-1.5 border-b bg-muted/30 px-3 py-2">
+          <ActionIconButton
+            icon={RefreshCw}
+            label={t('common.refresh')}
+            color="sky"
+            size="sm"
+            onClick={() => void materialsQ.refetch()}
+            disabled={materialsQ.isFetching}
+            className={cn(materialsQ.isFetching && '[&_svg]:animate-spin')}
+          />
+        </div>
+        {materialsQ.isLoading ? (
+          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
+        ) : rows.length === 0 ? (
+          <EmptyState title={t('materials.empty')} />
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -97,13 +111,29 @@ export function StudentMaterialsPage(): JSX.Element {
                   <TableCell>
                     <div className="flex items-center justify-end gap-1.5">
                       {m.sourceType === 'upload' && m.fileAssetId ? (
+                        // Uploaded materials stream the original file via
+                        // a presigned URL — that's the actual asset and
+                        // generating a markdown stand-in would lose
+                        // formatting / images.
                         <ActionIconButton
                           icon={Download}
                           label={t('materials.download')}
                           color="sky"
                           onClick={() => onDownload(m.fileAssetId!)}
                         />
-                      ) : null}
+                      ) : (
+                        // Manual text and external-link materials get a
+                        // browser-side blob built from the row's content
+                        // (title + description + URL + body) so every
+                        // material has a download option without the
+                        // server round-trip.
+                        <ActionIconButton
+                          icon={Download}
+                          label={t('materials.download')}
+                          color="sky"
+                          onClick={() => downloadMaterialAsMarkdown(m)}
+                        />
+                      )}
                       {m.sourceType === 'external_link' && m.externalUrl ? (
                         <ActionIconButton
                           asChild
@@ -120,8 +150,8 @@ export function StudentMaterialsPage(): JSX.Element {
               ))}
             </TableBody>
           </Table>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
