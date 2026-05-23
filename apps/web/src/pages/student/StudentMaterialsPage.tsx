@@ -18,7 +18,7 @@ import { getDownloadUrl, useMaterialsList, useModulesList } from '@/lib/queries'
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { downloadMaterialAsPdf } from '@/lib/materialDownload';
+import { downloadMaterialAsMarkdown } from '@/lib/materialDownload';
 import type { MaterialSourceType, MaterialSummary, ModuleSummary } from '@coursewise/shared';
 
 export function StudentMaterialsPage(): JSX.Element {
@@ -131,7 +131,7 @@ export function StudentMaterialsPage(): JSX.Element {
                           icon={Download}
                           label={t('materials.download')}
                           color="sky"
-                          onClick={() => downloadMaterialAsPdf(m)}
+                          onClick={() => downloadMaterialAsMarkdown(m)}
                         />
                       )}
                       {m.sourceType === 'external_link' && m.externalUrl ? (
