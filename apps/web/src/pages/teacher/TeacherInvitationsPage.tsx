@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Ban, Check, Copy, RefreshCw } from 'lucide-react';
+import { Ban, Check, Copy, Link2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +41,19 @@ function statusVariant(
   return 'secondary';
 }
 
+/**
+ * Build the shareable invite URL. We point at `/invite/:code` rather than
+ * `/register?invitationCode=…` so a recipient who already has an account
+ * lands on a "Join course" confirmation card instead of an empty
+ * registration form. The `/invite/:code` page redirects logged-out users
+ * to /register?invitationCode=… so the registration form auto-fills.
+ */
+function inviteUrl(code: string): string {
+  const origin =
+    typeof window !== 'undefined' && window.location ? window.location.origin : '';
+  return `${origin}/invite/${encodeURIComponent(code)}`;
+}
+
 export function TeacherInvitationsPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId } = useParams();
@@ -64,6 +77,15 @@ export function TeacherInvitationsPage(): JSX.Element {
     }
   };
 
+  const onCopyLink = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(inviteUrl(code));
+      toast.push({ title: t('invitations.linkCopied'), tone: 'success' });
+    } catch {
+      toast.push({ title: t('common.error'), tone: 'error' });
+    }
+  };
+
   const onCreate = async () => {
     const parsedMax = maxUses.trim() ? Number.parseInt(maxUses, 10) : null;
     if (parsedMax !== null && (!Number.isFinite(parsedMax) || parsedMax <= 0)) {
@@ -80,9 +102,11 @@ export function TeacherInvitationsPage(): JSX.Element {
       setOpenCreate(false);
       setMaxUses('');
       setExpiresAt('');
-      // Copy to clipboard immediately so the teacher can paste the code into
-      // wherever they communicate with students.
-      void onCopy(created.code);
+      // Auto-copy the full invite link (not just the code) so the teacher can
+      // paste it straight into a chat/email — students who click it land on
+      // /register with the code pre-filled, or on a "Join course" card if
+      // they already have an account.
+      void onCopyLink(created.code);
     } catch (err) {
       const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
       toast.push({ title: t(key), tone: 'error' });
@@ -145,7 +169,20 @@ export function TeacherInvitationsPage(): JSX.Element {
             <TableBody>
               {list.data.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-mono text-sm">{row.code}</TableCell>
+                  <TableCell className="font-mono text-sm">
+                    <div className="space-y-0.5">
+                      <div>{row.code}</div>
+                      <a
+                        href={inviteUrl(row.code)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block truncate text-xs font-normal text-muted-foreground underline-offset-2 hover:underline"
+                        title={inviteUrl(row.code)}
+                      >
+                        {inviteUrl(row.code)}
+                      </a>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={statusVariant(row.status)}>
                       {t(`invitations.status${row.status[0]!.toUpperCase()}${row.status.slice(1)}`)}
@@ -162,10 +199,17 @@ export function TeacherInvitationsPage(): JSX.Element {
                     <div className="flex items-center justify-end gap-1.5">
                       <ActionIconButton
                         icon={Copy}
-                        label={t('common.copy')}
+                        label={t('invitations.copyCode')}
                         color="sky"
                         size="sm"
                         onClick={() => void onCopy(row.code)}
+                      />
+                      <ActionIconButton
+                        icon={Link2}
+                        label={t('invitations.copyLink')}
+                        color="teal"
+                        size="sm"
+                        onClick={() => void onCopyLink(row.code)}
                       />
                       {row.status === 'active' ? (
                         <ActionIconButton

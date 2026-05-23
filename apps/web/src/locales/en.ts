@@ -520,7 +520,10 @@ export const en = {
       generateCta: 'Generate code',
       generateTitle: 'Generate invitation code',
       generateHint:
-        'Leave both fields blank for an unlimited, non-expiring code. The new code is copied to your clipboard.',
+        'Leave both fields blank for an unlimited, non-expiring code. The shareable link is copied to your clipboard.',
+      copyCode: 'Copy code',
+      copyLink: 'Copy invite link',
+      linkCopied: 'Invite link copied',
       maxUsesLabel: 'Max uses',
       maxUsesPlaceholder: 'No limit',
       maxUsesHint: 'Optional. Leave blank for unlimited uses.',
