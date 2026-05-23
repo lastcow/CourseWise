@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, ChevronDown, ChevronUp, CircleCheck, ExternalLink, GripVertical, Pencil, Trash2 } from 'lucide-react';
+import { Archive, CircleCheck, ExternalLink, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import {
@@ -149,21 +149,6 @@ export function TeacherModulesPage(): JSX.Element {
     return map;
   }, [discussionTopicsQ.data]);
 
-  const onMove = async (index: number, dir: -1 | 1) => {
-    if (!list.data) return;
-    const next = list.data.slice();
-    const target = index + dir;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target]!, next[index]!];
-    try {
-      await reorder.mutateAsync({ ids: next.map((m) => m.id) });
-      toast.push({ title: t('modules.reordered'), tone: 'success' });
-    } catch (err) {
-      const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-      toast.push({ title: t(i18n), tone: 'error' });
-    }
-  };
-
   const onDropOnto = async (targetId: string) => {
     const fromIdx = list.data?.findIndex((m) => m.id === draggingId) ?? -1;
     const toIdx = list.data?.findIndex((m) => m.id === targetId) ?? -1;
@@ -197,7 +182,7 @@ export function TeacherModulesPage(): JSX.Element {
         />
       ) : (
         <Accordion className="space-y-3">
-          {list.data.map((m, idx) => {
+          {list.data.map((m) => {
             const mats = moduleMaterials.get(m.id) ?? [];
             const pres = modulePresentations.get(m.id) ?? [];
             const asgs = moduleAssignments.get(m.id) ?? [];
@@ -254,20 +239,6 @@ export function TeacherModulesPage(): JSX.Element {
                   }
                   trailing={
                     <>
-                      <ActionIconButton
-                        icon={ChevronUp}
-                        label={t('common.moveUp')}
-                        color="sky"
-                        onClick={() => onMove(idx, -1)}
-                        disabled={idx === 0}
-                      />
-                      <ActionIconButton
-                        icon={ChevronDown}
-                        label={t('common.moveDown')}
-                        color="sky"
-                        onClick={() => onMove(idx, 1)}
-                        disabled={idx === list.data!.length - 1}
-                      />
                       <ActionIconButton
                         icon={Pencil}
                         label={t('common.edit')}
