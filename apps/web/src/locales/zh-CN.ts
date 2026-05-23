@@ -87,6 +87,7 @@ export const zhCN = {
       done: '完成',
       moveUp: '上移',
       moveDown: '下移',
+      drag: '拖动以排序',
       download: '下载',
       open: '打开',
       reply: '回复',
