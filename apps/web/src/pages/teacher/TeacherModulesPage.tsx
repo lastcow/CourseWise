@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, CircleCheck, ExternalLink, GripVertical, Pencil, Trash2 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Archive,
+  CircleCheck,
+  ClipboardList,
+  ExternalLink,
+  GripVertical,
+  ListChecks,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import {
@@ -22,6 +32,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { ModuleContentSummary } from '@/components/ModuleContentSummary';
 import {
   useAssignmentsList,
+  useCourseGradingSummary,
   useCreateModule,
   useDeleteModule,
   useDeleteMaterial,
@@ -43,6 +54,71 @@ import type {
   PresentationSummary,
   QuizSummary,
 } from '@coursewise/shared';
+
+/**
+ * Sidebar card surfacing one pending-task counter. Body-only (no header
+ * bar) with an icon + label on the left and an outlined count badge on
+ * the right. Clicking the card opens the relevant management page so
+ * the teacher can dispatch the work. Zero counts render as a muted
+ * "all caught up" line so the sidebar never goes empty.
+ */
+function PendingTaskCard({
+  to,
+  icon: Icon,
+  label,
+  count,
+  isLoading,
+  emptyLabel,
+}: {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+  count: number;
+  isLoading: boolean;
+  emptyLabel: string;
+}): JSX.Element {
+  const hasWork = !isLoading && count > 0;
+  return (
+    <Link
+      to={to}
+      className={cn(
+        'block rounded-md border bg-card transition-colors',
+        hasWork
+          ? 'hover:border-amber-400 hover:bg-amber-50/60 dark:hover:bg-amber-950/40'
+          : 'hover:bg-accent',
+      )}
+    >
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <span
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
+            hasWork
+              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
+              : 'bg-muted text-muted-foreground',
+          )}
+        >
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium leading-tight">{label}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {isLoading ? '—' : hasWork ? '' : emptyLabel}
+          </p>
+        </div>
+        <span
+          className={cn(
+            'inline-flex min-w-[2rem] items-center justify-center rounded-md border px-2 py-0.5 text-sm font-semibold tabular-nums',
+            hasWork
+              ? 'border-amber-400/60 text-amber-700 dark:text-amber-300'
+              : 'border-input text-muted-foreground',
+          )}
+        >
+          {isLoading ? '…' : count}
+        </span>
+      </div>
+    </Link>
+  );
+}
 
 // Inner-card wrapper used by each per-module subsection (Materials,
 // Presentations, Assignments, Quizzes, Discussions) so each lives in its
@@ -77,6 +153,7 @@ export function TeacherModulesPage(): JSX.Element {
   const presentationsQ = usePresentationsList(id);
   const assignmentsQ = useAssignmentsList(id);
   const quizzesQ = useQuizzesList(id);
+  const gradingQ = useCourseGradingSummary(id);
   const discussionTopicsQ = useDiscussionTopicsList(id);
   const create = useCreateModule(id);
   const update = useUpdateModule(id);
@@ -192,6 +269,8 @@ export function TeacherModulesPage(): JSX.Element {
           <Button onClick={() => setOpenCreate(true)}>{t('modules.newCta')}</Button>
         </div>
       </header>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-4">
       {list.isLoading ? (
         <p>{t('common.loading')}</p>
       ) : !list.data || list.data.length === 0 ? (
@@ -598,6 +677,30 @@ export function TeacherModulesPage(): JSX.Element {
           })}
         </Accordion>
       )}
+        </div>
+
+        <aside className="space-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            {t('modules.pendingTasksTitle')}
+          </h3>
+          <PendingTaskCard
+            to={`/teacher/courses/${id}/assignments`}
+            icon={ClipboardList}
+            label={t('modules.pendingTasks.ungradedAssignments')}
+            count={gradingQ.data?.ungradedSubmissions ?? 0}
+            isLoading={gradingQ.isLoading}
+            emptyLabel={t('course.overview.needsGradingAllClear')}
+          />
+          <PendingTaskCard
+            to={`/teacher/courses/${id}/quizzes`}
+            icon={ListChecks}
+            label={t('modules.pendingTasks.ungradedQuizzes')}
+            count={gradingQ.data?.ungradedQuizAnswers ?? 0}
+            isLoading={gradingQ.isLoading}
+            emptyLabel={t('course.overview.needsGradingAllClear')}
+          />
+        </aside>
+      </div>
 
       <ModuleDialog
         open={openCreate}

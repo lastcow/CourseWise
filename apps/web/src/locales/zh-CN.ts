@@ -376,6 +376,11 @@ export const zhCN = {
       reordered: '顺序已保存',
       expandAll: '展开全部',
       collapseAll: '折叠全部',
+      pendingTasksTitle: '待办任务',
+      pendingTasks: {
+        ungradedAssignments: '未批阅的作业提交',
+        ungradedQuizzes: '未批阅的测验答题',
+      },
       summary: {
         materials: '{{count}} 份阅读资料',
         presentations: '{{count}} 份演示文稿',
