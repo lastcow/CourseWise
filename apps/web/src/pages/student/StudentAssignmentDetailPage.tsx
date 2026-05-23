@@ -18,6 +18,7 @@ import {
   useUpdateSubmission,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
+import { useNow } from '@/lib/useNow';
 import { ALLOWED_UPLOAD_MIME_TYPES, MAX_UPLOAD_BYTES, type SubmissionStatus } from '@coursewise/shared';
 
 function statusVariant(s: SubmissionStatus): 'success' | 'destructive' | 'secondary' {
@@ -52,6 +53,16 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   }, [mySub]);
 
   const editable = mySub?.status === 'draft' || mySub?.status === 'returned';
+
+  // Window gating: if the assignment hasn't opened yet, replace the
+  // submission card with a clear error banner instead of an editable form.
+  // useNow ticks every minute so the banner clears itself when the start
+  // time passes while the page is open.
+  const now = useNow(60_000);
+  const startMs = assignment.data?.startDate
+    ? Date.parse(assignment.data.startDate)
+    : null;
+  const notYetOpen = startMs !== null && now < startMs;
 
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
@@ -169,7 +180,26 @@ export function StudentAssignmentDetailPage(): JSX.Element {
         </Card>
       ) : null}
 
-      {mySub ? (
+      {notYetOpen ? (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">{t('submissions.yourSubmission')}</CardTitle>
+            <Badge variant="secondary">{t('submissions.notYetOpenBadge')}</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-950">
+              <p className="font-medium text-amber-900 dark:text-amber-200">
+                {t('submissions.notYetOpenTitle')}
+              </p>
+              <p className="mt-1 text-amber-800/90 dark:text-amber-200/80">
+                {t('submissions.notYetOpenBody', {
+                  date: new Date(startMs!).toLocaleString(),
+                })}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : mySub ? (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">
