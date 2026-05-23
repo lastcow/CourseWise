@@ -86,10 +86,20 @@ export function AccordionItem({
   children,
   ...props
 }: AccordionItemProps): JSX.Element {
+  const { isOpen } = useAccordion();
+  const open = isOpen(value);
   return (
     <AccordionItemContext.Provider value={{ value }}>
       <div
-        className={cn('rounded-lg border bg-card text-card-foreground shadow-sm', className)}
+        data-state={open ? 'open' : 'closed'}
+        className={cn(
+          'rounded-lg border bg-card text-card-foreground shadow-sm',
+          // Open-state accent: a primary-colored strip on the leading edge so a
+          // glance tells you which item is currently expanded.
+          'border-l-4 border-l-transparent transition-colors',
+          open && 'border-l-primary',
+          className,
+        )}
         {...props}
       >
         {children}
