@@ -175,21 +175,19 @@ export function TeacherModulesPage(): JSX.Element {
       <header className="flex items-center justify-between gap-2">
         <h2 className="text-xl font-semibold">{t('modules.title')}</h2>
         <div className="flex items-center gap-2">
+          {/* One toggle: "Collapse all" while anything is open, otherwise
+              "Expand all". Disabled when there are no modules to act on. */}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setOpenIds((list.data ?? []).map((m) => m.id))}
+            onClick={() =>
+              setOpenIds(
+                openIds.length > 0 ? [] : (list.data ?? []).map((m) => m.id),
+              )
+            }
             disabled={!list.data || list.data.length === 0}
           >
-            {t('modules.expandAll')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setOpenIds([])}
-            disabled={openIds.length === 0}
-          >
-            {t('modules.collapseAll')}
+            {openIds.length > 0 ? t('modules.collapseAll') : t('modules.expandAll')}
           </Button>
           <Button onClick={() => setOpenCreate(true)}>{t('modules.newCta')}</Button>
         </div>
