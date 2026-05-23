@@ -280,6 +280,13 @@ export function TeacherModulesPage(): JSX.Element {
                               </Badge>
                             </Link>
                             <div className="flex items-center gap-1.5">
+                              {mat.fileAssetId ? (
+                                <DownloadPresentationButton
+                                  fileAssetId={mat.fileAssetId}
+                                  labelKey="common.download"
+                                  iconOnly
+                                />
+                              ) : null}
                               <ActionIconButton
                                 size="sm"
                                 icon={mat.status === 'published' ? Archive : CircleCheck}
@@ -437,6 +444,13 @@ export function TeacherModulesPage(): JSX.Element {
                                 </span>
                               ) : null}
                             </Link>
+                            {a.attachmentFileId ? (
+                              <DownloadPresentationButton
+                                fileAssetId={a.attachmentFileId}
+                                labelKey="common.download"
+                                iconOnly
+                              />
+                            ) : null}
                           </li>
                         ))}
                       </ul>

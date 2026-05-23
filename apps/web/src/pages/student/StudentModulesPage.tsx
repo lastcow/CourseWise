@@ -109,20 +109,29 @@ export function StudentModulesPage(): JSX.Element {
   const dscByModule = useMemo(() => bucket(discussionsQ.data ?? []), [discussionsQ.data]);
 
   const renderMaterial = (mat: MaterialSummary): JSX.Element => (
-    <li key={mat.id}>
-      <ItemRow
-        to={`/student/courses/${id}/materials/${mat.id}`}
-        title={mat.title}
-        meta={
-          <Badge variant="info">
-            {t(
-              `materials.kind${mat.sourceType.replace(/(^|_)(\w)/g, (_, _b, c: string) =>
-                c.toUpperCase(),
-              )}`,
-            )}
-          </Badge>
-        }
-      />
+    <li key={mat.id} className="flex items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <ItemRow
+          to={`/student/courses/${id}/materials/${mat.id}`}
+          title={mat.title}
+          meta={
+            <Badge variant="info">
+              {t(
+                `materials.kind${mat.sourceType.replace(/(^|_)(\w)/g, (_, _b, c: string) =>
+                  c.toUpperCase(),
+                )}`,
+              )}
+            </Badge>
+          }
+        />
+      </div>
+      {mat.fileAssetId ? (
+        <DownloadPresentationButton
+          fileAssetId={mat.fileAssetId}
+          labelKey="common.download"
+          iconOnly
+        />
+      ) : null}
     </li>
   );
 
@@ -164,32 +173,41 @@ export function StudentModulesPage(): JSX.Element {
     // count as "submitted" in the module overview.
     const hasSubmitted = mine && mine.status !== 'draft';
     return (
-      <li key={a.id}>
-        <ItemRow
-          to={`/student/courses/${id}/assignments/${a.id}`}
-          title={a.title}
-          meta={
-            <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-              {a.dueDate ? (
-                <span>
-                  {t('assignments.dueLabel')}: {new Date(a.dueDate).toLocaleDateString()}
-                </span>
-              ) : null}
-              {hasSubmitted ? (
-                <>
-                  <Badge variant={submissionVariant(mine!.status)}>
-                    {t(
-                      `submissions.status${mine!.status[0]!.toUpperCase()}${mine!.status.slice(1)}`,
-                    )}
-                  </Badge>
-                  {mine!.submittedAt ? (
-                    <span>{new Date(mine!.submittedAt).toLocaleDateString()}</span>
-                  ) : null}
-                </>
-              ) : null}
-            </span>
-          }
-        />
+      <li key={a.id} className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <ItemRow
+            to={`/student/courses/${id}/assignments/${a.id}`}
+            title={a.title}
+            meta={
+              <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                {a.dueDate ? (
+                  <span>
+                    {t('assignments.dueLabel')}: {new Date(a.dueDate).toLocaleDateString()}
+                  </span>
+                ) : null}
+                {hasSubmitted ? (
+                  <>
+                    <Badge variant={submissionVariant(mine!.status)}>
+                      {t(
+                        `submissions.status${mine!.status[0]!.toUpperCase()}${mine!.status.slice(1)}`,
+                      )}
+                    </Badge>
+                    {mine!.submittedAt ? (
+                      <span>{new Date(mine!.submittedAt).toLocaleDateString()}</span>
+                    ) : null}
+                  </>
+                ) : null}
+              </span>
+            }
+          />
+        </div>
+        {a.attachmentFileId ? (
+          <DownloadPresentationButton
+            fileAssetId={a.attachmentFileId}
+            labelKey="common.download"
+            iconOnly
+          />
+        ) : null}
       </li>
     );
   };
