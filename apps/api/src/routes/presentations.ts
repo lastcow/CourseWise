@@ -17,7 +17,7 @@ import {
   type UpdatePresentationInput,
   type UpdateSlideInput,
 } from '@coursewise/shared';
-import { gammaGenerationJobs, modules, presentations, slides } from '../db/schema';
+import { fileAssets, gammaGenerationJobs, modules, presentations, slides } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -244,6 +244,33 @@ r.post(
       }
     }
 
+    // When the teacher attaches an uploaded file, verify the file asset is
+    // course-scoped and (for non-admin teachers) owned by them, then mark
+    // the presentation as provider='upload' so the viewer renders a
+    // download action instead of the in-app slide editor.
+    let fileAssetId: string | null = null;
+    let provider: string | null = null;
+    if (input.fileAssetId) {
+      const [asset] = await db
+        .select({ id: fileAssets.id, ownerId: fileAssets.ownerId, courseId: fileAssets.courseId })
+        .from(fileAssets)
+        .where(eq(fileAssets.id, input.fileAssetId))
+        .limit(1);
+      if (
+        !asset ||
+        asset.courseId !== courseId ||
+        (auth.user.role !== 'admin' && asset.ownerId !== auth.user.id)
+      ) {
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'Presentation file must be a course-scoped upload you own',
+        );
+      }
+      fileAssetId = input.fileAssetId;
+      provider = 'upload';
+    }
+
     const [created] = await db
       .insert(presentations)
       .values({
@@ -254,6 +281,8 @@ r.post(
         position: input.position ?? 0,
         status: 'draft',
         createdById: auth.user.id,
+        fileAssetId,
+        provider,
       })
       .returning();
     if (!created) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create presentation');
