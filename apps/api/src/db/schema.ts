@@ -257,6 +257,10 @@ export const courses = pgTable(
     bannerFileAssetId: uuid('banner_file_asset_id').references((): AnyPgColumn => fileAssets.id, {
       onDelete: 'set null',
     }),
+    syllabusMd: text('syllabus_md'),
+    syllabusFileAssetId: uuid('syllabus_file_asset_id').references((): AnyPgColumn => fileAssets.id, {
+      onDelete: 'set null',
+    }),
     ...timestamps,
   },
   (t) => ({
