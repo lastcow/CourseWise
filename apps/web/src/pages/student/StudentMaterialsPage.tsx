@@ -1,16 +1,23 @@
 import { useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Download, ExternalLink } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
-import { MarkdownView, stripMarkdown } from '@/components/ui/markdown';
+import { stripMarkdown } from '@/components/ui/markdown';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { getDownloadUrl, useMaterialsList, useModulesList } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
-import type { MaterialSummary, ModuleSummary } from '@coursewise/shared';
+import type { MaterialSourceType, MaterialSummary, ModuleSummary } from '@coursewise/shared';
 
 export function StudentMaterialsPage(): JSX.Element {
   const { t } = useTranslation();
@@ -20,7 +27,12 @@ export function StudentMaterialsPage(): JSX.Element {
   const modulesQ = useModulesList(id);
   const toast = useToast();
 
-  const grouped = useMemo(() => groupByModule(materialsQ.data ?? [], modulesQ.data ?? []), [
+  const moduleTitleById = useMemo(
+    () => new Map((modulesQ.data ?? []).map((m) => [m.id, m.title])),
+    [modulesQ.data],
+  );
+
+  const rows = useMemo(() => sortForTable(materialsQ.data ?? [], modulesQ.data ?? []), [
     materialsQ.data,
     modulesQ.data,
   ]);
@@ -42,123 +54,95 @@ export function StudentMaterialsPage(): JSX.Element {
       </header>
       {materialsQ.isLoading ? (
         <p>{t('common.loading')}</p>
-      ) : grouped.totalMaterials === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState title={t('materials.empty')} />
       ) : (
-        <div className="space-y-6">
-          {grouped.modules.map((g) =>
-            g.materials.length === 0 ? null : (
-              <section key={g.module.id} className="space-y-2">
-                <header className="flex items-baseline gap-2">
-                  <h2 className="text-base font-semibold">{g.module.title}</h2>
-                  {g.module.description ? (
-                    <span className="text-xs text-muted-foreground">
-                      — {stripMarkdown(g.module.description)}
+        <div className="overflow-hidden rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('materials.colTitle')}</TableHead>
+                <TableHead>{t('materials.colDescription')}</TableHead>
+                <TableHead>{t('materials.colModule')}</TableHead>
+                <TableHead>{t('materials.colSource')}</TableHead>
+                <TableHead className="text-right">{t('materials.colActions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell className="font-medium">
+                    <Link
+                      to={`/student/courses/${id}/materials/${m.id}`}
+                      className="hover:underline"
+                    >
+                      {m.title}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="max-w-[32ch] text-muted-foreground">
+                    <span className="line-clamp-1">
+                      {m.description ? stripMarkdown(m.description) : '—'}
                     </span>
-                  ) : null}
-                </header>
-                <div className="space-y-2">
-                  {g.materials.map((m) => (
-                    <StudentRow key={m.id} material={m} onDownload={onDownload} />
-                  ))}
-                </div>
-              </section>
-            ),
-          )}
-          {grouped.unassigned.length > 0 ? (
-            <section className="space-y-2">
-              <header>
-                <h2 className="text-base font-semibold">{t('materials.unassignedGroup')}</h2>
-              </header>
-              <div className="space-y-2">
-                {grouped.unassigned.map((m) => (
-                  <StudentRow key={m.id} material={m} onDownload={onDownload} />
-                ))}
-              </div>
-            </section>
-          ) : null}
+                  </TableCell>
+                  <TableCell>
+                    <span className={m.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
+                      {m.moduleId
+                        ? moduleTitleById.get(m.moduleId) ?? '—'
+                        : t('materials.unassigned')}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="info">{t(kindKey(m.sourceType))}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {m.sourceType === 'upload' && m.fileAssetId ? (
+                        <ActionIconButton
+                          icon={Download}
+                          label={t('materials.download')}
+                          color="sky"
+                          onClick={() => onDownload(m.fileAssetId!)}
+                        />
+                      ) : null}
+                      {m.sourceType === 'external_link' && m.externalUrl ? (
+                        <ActionIconButton
+                          asChild
+                          icon={ExternalLink}
+                          label={t('materials.open')}
+                          color="sky"
+                        >
+                          <a href={m.externalUrl} target="_blank" rel="noreferrer" />
+                        </ActionIconButton>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
   );
 }
 
-function StudentRow({
-  material: m,
-  onDownload,
-}: {
-  material: MaterialSummary;
-  onDownload: (fileAssetId: string) => Promise<void>;
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <Card>
-      <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{m.title}</span>
-            <Badge variant="info">
-              {t(`materials.kind${m.sourceType.replace(/(^|_)(\w)/g, (_, _b, c: string) => c.toUpperCase())}`)}
-            </Badge>
-          </div>
-          {m.description ? (
-            <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">
-              {stripMarkdown(m.description)}
-            </p>
-          ) : null}
-          {m.sourceType === 'manual_text' && m.content ? (
-            <div className="mt-2 rounded bg-muted/30 p-3">
-              <MarkdownView source={m.content} />
-            </div>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1.5">
-          {m.sourceType === 'upload' && m.fileAssetId ? (
-            <ActionIconButton
-              icon={Download}
-              label={t('materials.download')}
-              color="sky"
-              onClick={() => onDownload(m.fileAssetId!)}
-            />
-          ) : null}
-          {m.sourceType === 'external_link' && m.externalUrl ? (
-            <ActionIconButton
-              asChild
-              icon={ExternalLink}
-              label={t('materials.open')}
-              color="sky"
-            >
-              <a href={m.externalUrl} target="_blank" rel="noreferrer" />
-            </ActionIconButton>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
-  );
+function kindKey(sourceType: MaterialSourceType): string {
+  return sourceType === 'upload'
+    ? 'materials.kindUpload'
+    : sourceType === 'external_link'
+      ? 'materials.kindExternalLink'
+      : 'materials.kindManualText';
 }
 
-function groupByModule(
+function sortForTable(
   materials: MaterialSummary[],
   modules: ModuleSummary[],
-): {
-  modules: Array<{ module: ModuleSummary; materials: MaterialSummary[] }>;
-  unassigned: MaterialSummary[];
-  totalMaterials: number;
-} {
-  const byModule = new Map<string, MaterialSummary[]>();
-  const unassigned: MaterialSummary[] = [];
-  for (const m of materials) {
-    if (m.moduleId) {
-      const arr = byModule.get(m.moduleId) ?? [];
-      arr.push(m);
-      byModule.set(m.moduleId, arr);
-    } else {
-      unassigned.push(m);
-    }
-  }
-  return {
-    modules: modules.map((mod) => ({ module: mod, materials: byModule.get(mod.id) ?? [] })),
-    unassigned,
-    totalMaterials: materials.length,
-  };
+): MaterialSummary[] {
+  const order = new Map(modules.map((m, i) => [m.id, i]));
+  return [...materials].sort((a, b) => {
+    const ai = a.moduleId ? order.get(a.moduleId) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+    const bi = b.moduleId ? order.get(b.moduleId) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+    if (ai !== bi) return ai - bi;
+    return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+  });
 }

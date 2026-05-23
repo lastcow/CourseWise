@@ -1,15 +1,22 @@
 import { useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Archive, CircleCheck, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { EmptyState } from '@/components/ui/empty';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   uploadFile,
   useCreateMaterial,
@@ -28,12 +35,6 @@ import {
   type ModuleSummary,
 } from '@coursewise/shared';
 
-// Layout choice: a single unified Materials page that visually groups materials
-// by their linked module, with an "Unassigned" group at the bottom for
-// orphans. Publish / unpublish / edit / delete actions live on each material
-// row inside its module section — there is no separate top-level list of
-// module-linked materials, so nothing is duplicated.
-
 export function TeacherMaterialsPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId } = useParams();
@@ -50,7 +51,12 @@ export function TeacherMaterialsPage(): JSX.Element {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const grouped = useMemo(() => groupByModule(materialsQ.data ?? [], modulesQ.data ?? []), [
+  const moduleTitleById = useMemo(
+    () => new Map((modulesQ.data ?? []).map((m) => [m.id, m.title])),
+    [modulesQ.data],
+  );
+
+  const rows = useMemo(() => sortForTable(materialsQ.data ?? [], modulesQ.data ?? []), [
     materialsQ.data,
     modulesQ.data,
   ]);
@@ -84,31 +90,22 @@ export function TeacherMaterialsPage(): JSX.Element {
     }
   };
 
-  const renderRow = (m: MaterialSummary) => (
-    <MaterialRow
-      key={m.id}
-      material={m}
-      onPublishToggle={async () => {
-        try {
-          const action = m.status === 'published' ? 'archive' : 'publish';
-          await transition.mutateAsync({ id: m.id, action });
-          toast.push({
-            title: t(action === 'publish' ? 'materials.published' : 'materials.archived'),
-            tone: 'success',
-          });
-        } catch (err) {
-          const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-          toast.push({ title: t(i18n), tone: 'error' });
-        }
-      }}
-      onEdit={() => navigate(`/teacher/courses/${id}/materials/${m.id}/edit`)}
-      onDelete={() => setDeleting(m)}
-    />
-  );
+  const onPublishToggle = async (m: MaterialSummary) => {
+    try {
+      const action = m.status === 'published' ? 'archive' : 'publish';
+      await transition.mutateAsync({ id: m.id, action });
+      toast.push({
+        title: t(action === 'publish' ? 'materials.published' : 'materials.archived'),
+        tone: 'success',
+      });
+    } catch (err) {
+      const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(i18n), tone: 'error' });
+    }
+  };
 
-  const deletingModule = deleting?.moduleId
-    ? (modulesQ.data ?? []).find((mod) => mod.id === deleting.moduleId) ?? null
-    : null;
+  const deletingModuleTitle =
+    deleting?.moduleId ? moduleTitleById.get(deleting.moduleId) ?? null : null;
 
   return (
     <div className="space-y-4">
@@ -143,37 +140,82 @@ export function TeacherMaterialsPage(): JSX.Element {
 
       {materialsQ.isLoading ? (
         <p>{t('common.loading')}</p>
-      ) : grouped.totalMaterials === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState title={t('materials.empty')} />
       ) : (
-        <div className="space-y-6">
-          {grouped.modules.map((g) => (
-            <section key={g.module.id} className="space-y-2">
-              <header className="flex items-baseline gap-2">
-                <h3 className="text-base font-semibold">{g.module.title}</h3>
-                <span className="text-xs text-muted-foreground">
-                  {t('materials.countInModule', { count: g.materials.length })}
-                </span>
-              </header>
-              {g.materials.length === 0 ? (
-                <p className="px-1 text-sm text-muted-foreground">{t('materials.emptyInModule')}</p>
-              ) : (
-                <div className="space-y-2">{g.materials.map(renderRow)}</div>
-              )}
-            </section>
-          ))}
-
-          {grouped.unassigned.length > 0 ? (
-            <section className="space-y-2">
-              <header className="flex items-baseline gap-2">
-                <h3 className="text-base font-semibold">{t('materials.unassignedGroup')}</h3>
-                <span className="text-xs text-muted-foreground">
-                  {t('materials.countInModule', { count: grouped.unassigned.length })}
-                </span>
-              </header>
-              <div className="space-y-2">{grouped.unassigned.map(renderRow)}</div>
-            </section>
-          ) : null}
+        <div className="overflow-hidden rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('materials.colTitle')}</TableHead>
+                <TableHead>{t('materials.colDescription')}</TableHead>
+                <TableHead>{t('materials.colModule')}</TableHead>
+                <TableHead>{t('materials.colSource')}</TableHead>
+                <TableHead>{t('materials.colStatus')}</TableHead>
+                <TableHead>{t('materials.colUpdated')}</TableHead>
+                <TableHead className="text-right">{t('materials.colActions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell className="font-medium">
+                    <Link
+                      to={`/teacher/courses/${id}/materials/${m.id}`}
+                      className="hover:underline"
+                    >
+                      {m.title}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="max-w-[28ch] text-muted-foreground">
+                    <span className="line-clamp-1">{m.description ?? '—'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className={m.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
+                      {m.moduleId
+                        ? moduleTitleById.get(m.moduleId) ?? '—'
+                        : t('materials.unassigned')}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="info">{t(kindKey(m.sourceType))}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariant(m.status)}>{t(statusKey(m.status))}</Badge>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {new Date(m.updatedAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <ActionIconButton
+                        icon={m.status === 'published' ? Archive : CircleCheck}
+                        label={
+                          m.status === 'published'
+                            ? t('materials.unpublish')
+                            : t('materials.publish')
+                        }
+                        color={m.status === 'published' ? 'orange' : 'emerald'}
+                        onClick={() => void onPublishToggle(m)}
+                      />
+                      <ActionIconButton
+                        icon={Pencil}
+                        label={t('common.edit')}
+                        color="yellow"
+                        onClick={() => navigate(`/teacher/courses/${id}/materials/${m.id}/edit`)}
+                      />
+                      <ActionIconButton
+                        icon={Trash2}
+                        label={t('common.delete')}
+                        color="red"
+                        onClick={() => setDeleting(m)}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -197,7 +239,7 @@ export function TeacherMaterialsPage(): JSX.Element {
 
       <DeleteMaterialConfirmDialog
         material={deleting}
-        moduleTitle={deletingModule?.title ?? null}
+        moduleTitle={deletingModuleTitle}
         pending={del.isPending}
         onCancel={() => setDeleting(null)}
         onConfirm={async () => {
@@ -216,6 +258,42 @@ export function TeacherMaterialsPage(): JSX.Element {
   );
 }
 
+function kindKey(sourceType: MaterialSourceType): string {
+  return sourceType === 'upload'
+    ? 'materials.kindUpload'
+    : sourceType === 'external_link'
+      ? 'materials.kindExternalLink'
+      : 'materials.kindManualText';
+}
+
+function statusKey(status: MaterialSummary['status']): string {
+  return status === 'published'
+    ? 'materials.statusPublished'
+    : status === 'archived'
+      ? 'materials.statusArchived'
+      : 'materials.statusDraft';
+}
+
+function statusVariant(status: MaterialSummary['status']): 'success' | 'outline' | 'secondary' {
+  return status === 'published' ? 'success' : status === 'draft' ? 'outline' : 'secondary';
+}
+
+// Sort: materials in module order (using the modules list to define order), then
+// unassigned materials at the bottom. Within each group, newest-updated first so
+// recent edits stay near the top — matches the previous grouped layout's intent.
+function sortForTable(
+  materials: MaterialSummary[],
+  modules: ModuleSummary[],
+): MaterialSummary[] {
+  const order = new Map(modules.map((m, i) => [m.id, i]));
+  return [...materials].sort((a, b) => {
+    const ai = a.moduleId ? order.get(a.moduleId) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+    const bi = b.moduleId ? order.get(b.moduleId) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+    if (ai !== bi) return ai - bi;
+    return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+  });
+}
+
 function DeleteMaterialConfirmDialog({
   material,
   moduleTitle,
@@ -230,20 +308,6 @@ function DeleteMaterialConfirmDialog({
   onConfirm: () => void | Promise<void>;
 }): JSX.Element {
   const { t } = useTranslation();
-
-  const statusKey =
-    material?.status === 'published'
-      ? 'materials.statusPublished'
-      : material?.status === 'archived'
-        ? 'materials.statusArchived'
-        : 'materials.statusDraft';
-
-  const sourceKey =
-    material?.sourceType === 'upload'
-      ? 'materials.kindUpload'
-      : material?.sourceType === 'external_link'
-        ? 'materials.kindExternalLink'
-        : 'materials.kindManualText';
 
   const lastUpdated = material ? new Date(material.updatedAt).toLocaleDateString() : '';
 
@@ -260,11 +324,11 @@ function DeleteMaterialConfirmDialog({
             <div className="break-words text-sm font-semibold">{material.title}</div>
             <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <dt>{t('materials.module')}</dt>
-              <dd className="text-foreground">{moduleTitle ?? t('materials.unassignedGroup')}</dd>
+              <dd className="text-foreground">{moduleTitle ?? t('materials.unassigned')}</dd>
               <dt>{t('materials.sourceType')}</dt>
               <dd className="flex items-center gap-2 text-foreground">
-                <Badge variant="secondary">{t(sourceKey)}</Badge>
-                <Badge variant="secondary">{t(statusKey)}</Badge>
+                <Badge variant="secondary">{t(kindKey(material.sourceType))}</Badge>
+                <Badge variant="secondary">{t(statusKey(material.status))}</Badge>
               </dd>
               <dt>{t('materials.deleteConfirmLastUpdated')}</dt>
               <dd className="text-foreground">{lastUpdated}</dd>
@@ -281,104 +345,6 @@ function DeleteMaterialConfirmDialog({
         </div>
       ) : null}
     </Dialog>
-  );
-}
-
-function groupByModule(
-  materials: MaterialSummary[],
-  modules: ModuleSummary[],
-): {
-  modules: Array<{ module: ModuleSummary; materials: MaterialSummary[] }>;
-  unassigned: MaterialSummary[];
-  totalMaterials: number;
-} {
-  const byModule = new Map<string, MaterialSummary[]>();
-  const unassigned: MaterialSummary[] = [];
-  for (const m of materials) {
-    if (m.moduleId) {
-      const arr = byModule.get(m.moduleId) ?? [];
-      arr.push(m);
-      byModule.set(m.moduleId, arr);
-    } else {
-      unassigned.push(m);
-    }
-  }
-  return {
-    modules: modules.map((mod) => ({ module: mod, materials: byModule.get(mod.id) ?? [] })),
-    unassigned,
-    totalMaterials: materials.length,
-  };
-}
-
-function MaterialRow({
-  material: m,
-  onPublishToggle,
-  onEdit,
-  onDelete,
-}: {
-  material: MaterialSummary;
-  onPublishToggle: () => Promise<void>;
-  onEdit: () => void;
-  onDelete: () => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <Card>
-      <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{m.title}</span>
-            <Badge
-              variant={
-                m.status === 'published'
-                  ? 'success'
-                  : m.status === 'draft'
-                    ? 'outline'
-                    : 'secondary'
-              }
-            >
-              {t(`materials.status${m.status[0]!.toUpperCase()}${m.status.slice(1)}`)}
-            </Badge>
-            <Badge variant="info">
-              {t(`materials.kind${m.sourceType.replace(/(^|_)(\w)/g, (_, _b, c: string) => c.toUpperCase())}`)}
-            </Badge>
-          </div>
-          {m.description ? (
-            <p className="mt-0.5 text-sm text-muted-foreground">{m.description}</p>
-          ) : null}
-          {m.externalUrl ? (
-            <a
-              href={m.externalUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-sky-600 hover:underline"
-            >
-              {m.externalUrl}
-            </a>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <ActionIconButton
-            icon={m.status === 'published' ? Archive : CircleCheck}
-            label={m.status === 'published' ? t('materials.unpublish') : t('materials.publish')}
-            color={m.status === 'published' ? 'orange' : 'emerald'}
-            onClick={onPublishToggle}
-          />
-          <ActionIconButton
-            icon={Pencil}
-            label={t('common.edit')}
-            color="yellow"
-            onClick={onEdit}
-          />
-          <ActionIconButton
-            icon={Trash2}
-            label={t('common.delete')}
-            color="red"
-            onClick={onDelete}
-          />
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -480,4 +446,3 @@ function CreateMaterialDialog({
     </Dialog>
   );
 }
-
