@@ -919,6 +919,9 @@ export const en = {
       statusReturned: 'Returned',
       submittedAtLabel: 'Submitted on {{date}}',
       actionRequired: 'Action required',
+      notYetOpenBadge: 'Not open yet',
+      notYetOpenTitle: 'This assignment is not open yet.',
+      notYetOpenBody: 'You can start your submission on {{date}}.',
       notInGroupTitle: 'You must be in a group to submit this assignment.',
       notInGroupHelp:
         'This assignment is graded per team. Join a group in the course Students page, then come back here to start your team submission.',
