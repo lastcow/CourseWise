@@ -30,6 +30,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCourse } from '@/lib/queries';
 
 export type UserRole = 'admin' | 'teacher' | 'student';
 
@@ -51,6 +52,9 @@ type NavSection = {
 type NavGroup = {
   id: string;
   titleKey?: string;
+  /** Pre-resolved title string. Takes precedence over `titleKey` so callers
+   *  can interpolate dynamic data (e.g. the active course code). */
+  title?: string;
   items?: NavItem[];
   sections?: NavSection[];
 };
@@ -239,9 +243,22 @@ export function SideNav({
   const teacherCourseId = teacherCourseMatch?.params.courseId;
   const studentCourseMatch = useMatch('/student/courses/:courseId/*');
   const studentCourseId = studentCourseMatch?.params.courseId;
+  // Active course id (for the current-course group label suffix). Skip the
+  // 'new' sentinel that the teacher's "create course" route uses.
+  const activeCourseId =
+    teacherCourseId && teacherCourseId !== 'new'
+      ? teacherCourseId
+      : studentCourseId ?? null;
+  const activeCourse = useCourse(activeCourseId);
   const isMobile = variant === 'mobile';
   // In mobile drawer, force expanded for readability
   const showLabels = isMobile ? true : !collapsed;
+
+  const currentCourseTitle = useMemo(() => {
+    const base = t('nav.currentCourse');
+    const code = activeCourse.data?.code;
+    return code ? `${base} · ${code}` : base;
+  }, [t, activeCourse.data?.code]);
 
   const groups = useMemo<NavGroup[]>(() => {
     if (role === 'admin') return ADMIN_GROUPS;
@@ -251,7 +268,7 @@ export function SideNav({
           ...TEACHER_TOP_GROUPS,
           {
             id: 'currentCourse',
-            titleKey: 'nav.currentCourse',
+            title: currentCourseTitle,
             sections: teacherCourseSections(teacherCourseId),
           },
           SETTINGS_GROUP,
@@ -265,7 +282,7 @@ export function SideNav({
           ...STUDENT_TOP_GROUPS,
           {
             id: 'currentCourse',
-            titleKey: 'nav.currentCourse',
+            title: currentCourseTitle,
             sections: studentCourseSections(studentCourseId),
           },
           SETTINGS_GROUP,
@@ -274,7 +291,7 @@ export function SideNav({
       return [...STUDENT_TOP_GROUPS, SETTINGS_GROUP];
     }
     return [];
-  }, [role, teacherCourseId, studentCourseId]);
+  }, [role, teacherCourseId, studentCourseId, currentCourseTitle]);
 
   return (
     <div
@@ -317,9 +334,9 @@ export function SideNav({
       <nav className="flex-1 overflow-y-auto py-2" aria-label={t('nav.sideMenu')}>
         {groups.map((group) => (
           <div key={group.id} className="mb-2">
-            {group.titleKey && showLabels ? (
+            {(group.title || group.titleKey) && showLabels ? (
               <div className="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {t(group.titleKey)}
+                {group.title ?? t(group.titleKey!)}
               </div>
             ) : null}
             {group.sections ? (
