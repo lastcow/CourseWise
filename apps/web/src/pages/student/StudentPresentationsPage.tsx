@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Button } from '@/components/ui/button';
+import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
 import {
   Table,
   TableBody,
@@ -123,16 +124,23 @@ export function StudentPresentationsPage(): JSX.Element {
                     <TableCell className="text-right tabular-nums">{p.slideCount}</TableCell>
                     <TableCell>
                       {isGamma && p.externalUrl ? (
-                        <Button size="sm" variant="outline" asChild>
-                          <a
-                            href={p.externalUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                            {t('gamma.openInGamma')}
-                          </a>
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Button size="sm" variant="outline" asChild>
+                            <a
+                              href={p.externalUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                              {t('gamma.openInGamma')}
+                            </a>
+                          </Button>
+                          {p.fileAssetId ? (
+                            <DownloadPresentationButton fileAssetId={p.fileAssetId} />
+                          ) : null}
+                        </div>
+                      ) : p.fileAssetId ? (
+                        <DownloadPresentationButton fileAssetId={p.fileAssetId} />
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
