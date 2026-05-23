@@ -57,63 +57,36 @@ import type {
 
 /**
  * Sidebar card surfacing one pending-task counter. Body-only (no header
- * bar) with an icon + label on the left and an outlined count badge on
- * the right. Clicking the card opens the relevant management page so
- * the teacher can dispatch the work. Zero counts render as a muted
- * "all caught up" line so the sidebar never goes empty.
+ * bar) with an icon + label on the left and an amber count badge on the
+ * right. Caller is responsible for only rendering this when count > 0 —
+ * the sidebar collapses zero-count tasks into a single "all caught up"
+ * empty state instead of showing muted rows for each.
  */
 function PendingTaskCard({
   to,
   icon: Icon,
   label,
   count,
-  isLoading,
-  emptyLabel,
 }: {
   to: string;
   icon: LucideIcon;
   label: string;
   count: number;
-  isLoading: boolean;
-  emptyLabel: string;
 }): JSX.Element {
-  const hasWork = !isLoading && count > 0;
   return (
     <Link
       to={to}
-      className={cn(
-        'block rounded-md border bg-card transition-colors',
-        hasWork
-          ? 'hover:border-amber-400 hover:bg-amber-50/60 dark:hover:bg-amber-950/40'
-          : 'hover:bg-accent',
-      )}
+      className="block rounded-md border bg-card transition-colors hover:border-amber-400 hover:bg-amber-50/60 dark:hover:bg-amber-950/40"
     >
       <div className="flex items-center gap-3 px-3 py-2.5">
-        <span
-          className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
-            hasWork
-              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
-              : 'bg-muted text-muted-foreground',
-          )}
-        >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium leading-tight">{label}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {isLoading ? '—' : hasWork ? '' : emptyLabel}
-          </p>
         </div>
-        <span
-          className={cn(
-            'inline-flex min-w-[2rem] items-center justify-center rounded-md border px-2 py-0.5 text-sm font-semibold tabular-nums',
-            hasWork
-              ? 'border-amber-400/60 text-amber-700 dark:text-amber-300'
-              : 'border-input text-muted-foreground',
-          )}
-        >
-          {isLoading ? '…' : count}
+        <span className="inline-flex min-w-[2rem] items-center justify-center rounded-md border border-amber-400/60 px-2 py-0.5 text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+          {count}
         </span>
       </div>
     </Link>
@@ -683,22 +656,66 @@ export function TeacherModulesPage(): JSX.Element {
           <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             {t('modules.pendingTasksTitle')}
           </h3>
-          <PendingTaskCard
-            to={`/teacher/courses/${id}/assignments`}
-            icon={ClipboardList}
-            label={t('modules.pendingTasks.ungradedAssignments')}
-            count={gradingQ.data?.ungradedSubmissions ?? 0}
-            isLoading={gradingQ.isLoading}
-            emptyLabel={t('course.overview.needsGradingAllClear')}
-          />
-          <PendingTaskCard
-            to={`/teacher/courses/${id}/quizzes`}
-            icon={ListChecks}
-            label={t('modules.pendingTasks.ungradedQuizzes')}
-            count={gradingQ.data?.ungradedQuizAnswers ?? 0}
-            isLoading={gradingQ.isLoading}
-            emptyLabel={t('course.overview.needsGradingAllClear')}
-          />
+          {(() => {
+            // Tasks with zero counts collapse out of the rail entirely;
+            // when nothing is left we surface a single positive
+            // "All caught up" card instead of an empty space.
+            const ungradedAsg = gradingQ.data?.ungradedSubmissions ?? 0;
+            const ungradedQuiz = gradingQ.data?.ungradedQuizAnswers ?? 0;
+            const tasks: Array<{
+              key: string;
+              to: string;
+              icon: LucideIcon;
+              label: string;
+              count: number;
+            }> = [];
+            if (ungradedAsg > 0) {
+              tasks.push({
+                key: 'assignments',
+                to: `/teacher/courses/${id}/assignments`,
+                icon: ClipboardList,
+                label: t('modules.pendingTasks.ungradedAssignments'),
+                count: ungradedAsg,
+              });
+            }
+            if (ungradedQuiz > 0) {
+              tasks.push({
+                key: 'quizzes',
+                to: `/teacher/courses/${id}/quizzes`,
+                icon: ListChecks,
+                label: t('modules.pendingTasks.ungradedQuizzes'),
+                count: ungradedQuiz,
+              });
+            }
+            if (gradingQ.isLoading) {
+              return (
+                <p className="rounded-md border bg-card px-3 py-2.5 text-sm text-muted-foreground">
+                  {t('common.loading')}
+                </p>
+              );
+            }
+            if (tasks.length === 0) {
+              return (
+                <div className="flex items-center gap-3 rounded-md border border-emerald-500/40 bg-emerald-50/40 px-3 py-2.5 dark:bg-emerald-950/30">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+                    <CircleCheck className="h-4 w-4" aria-hidden />
+                  </span>
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                    {t('course.overview.needsGradingAllClear')}
+                  </p>
+                </div>
+              );
+            }
+            return tasks.map((task) => (
+              <PendingTaskCard
+                key={task.key}
+                to={task.to}
+                icon={task.icon}
+                label={task.label}
+                count={task.count}
+              />
+            ));
+          })()}
         </aside>
       </div>
 
