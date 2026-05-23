@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Printer, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +16,7 @@ import { DownloadPresentationButton } from '@/components/presentation/DownloadPr
 import { gradientFor } from '@/lib/courseGradient';
 
 export function StudentSyllabusPage(): JSX.Element {
+  const { t } = useTranslation();
   const { courseId } = useParams();
   const id = courseId ?? '';
   const course = useCourse(id);
@@ -24,8 +26,8 @@ export function StudentSyllabusPage(): JSX.Element {
   const assignments = useAssignmentsList(id);
   const quizzes = useQuizzesList(id);
 
-  if (course.isLoading) return <p>Loading…</p>;
-  if (!course.data) return <p>Error</p>;
+  if (course.isLoading) return <p>{t('common.loading')}</p>;
+  if (!course.data) return <p>{t('common.error')}</p>;
   const c = course.data;
 
   // Upcoming dates: assignments with dueDate AND quizzes with endTime in next 30 days.
@@ -74,11 +76,11 @@ export function StudentSyllabusPage(): JSX.Element {
       `}</style>
 
       <header className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Syllabus</h2>
+        <h2 className="text-xl font-semibold">{t('syllabus.title')}</h2>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="mr-1 h-4 w-4" />
-            Print
+            {t('syllabus.print')}
           </Button>
         </div>
       </header>
@@ -110,14 +112,14 @@ export function StudentSyllabusPage(): JSX.Element {
       {/* Authored section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Overview</CardTitle>
+          <CardTitle className="text-base">{t('syllabus.section.overview')}</CardTitle>
         </CardHeader>
         <CardContent>
           {c.syllabusMd ? (
             <MarkdownView source={c.syllabusMd} />
           ) : (
             <p className="text-sm text-muted-foreground">
-              Your instructor hasn't published a syllabus yet.
+              {t('syllabus.emptyStudent')}
             </p>
           )}
         </CardContent>
@@ -126,16 +128,16 @@ export function StudentSyllabusPage(): JSX.Element {
       {/* Grading auto-section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Grading</CardTitle>
+          <CardTitle className="text-base">{t('syllabus.section.grading')}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Pulled live from the grading policy.
+            {t('syllabus.section.gradingHint')}
           </p>
         </CardHeader>
         <CardContent>
           <table className="w-full text-sm">
             <tbody>
               <tr className="border-b">
-                <td className="py-1.5">Attendance</td>
+                <td className="py-1.5">{t('syllabus.section.attendance')}</td>
                 <td className="py-1.5 text-right tabular-nums">{attendanceWeight}%</td>
               </tr>
               {(groups.data ?? []).map((g) => (
@@ -152,14 +154,16 @@ export function StudentSyllabusPage(): JSX.Element {
       {/* Schedule auto-section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Schedule</CardTitle>
+          <CardTitle className="text-base">{t('syllabus.section.schedule')}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Modules in order, with assignments and quizzes inline.
+            {t('syllabus.section.scheduleHint')}
           </p>
         </CardHeader>
         <CardContent>
           {(modules.data ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No modules yet.</p>
+            <p className="text-sm text-muted-foreground">
+              {t('syllabus.section.scheduleEmpty')}
+            </p>
           ) : (
             <ul className="space-y-3">
               {(modules.data ?? []).map((m) => {
@@ -174,17 +178,17 @@ export function StudentSyllabusPage(): JSX.Element {
                       <ul className="ml-4 mt-1 text-sm text-muted-foreground">
                         {mAssignments.map((a) => (
                           <li key={a.id}>
-                            Assignment: {a.title}
+                            {t('syllabus.assignmentLabel')}: {a.title}
                             {a.dueDate
-                              ? ` — due ${new Date(a.dueDate).toLocaleDateString()}`
+                              ? ` — ${t('syllabus.assignmentDue', { date: new Date(a.dueDate).toLocaleDateString() })}`
                               : ''}
                           </li>
                         ))}
                         {mQuizzes.map((q) => (
                           <li key={q.id}>
-                            Quiz: {q.title}
+                            {t('syllabus.quizLabel')}: {q.title}
                             {q.endTime
-                              ? ` — closes ${new Date(q.endTime).toLocaleDateString()}`
+                              ? ` — ${t('syllabus.quizCloses', { date: new Date(q.endTime).toLocaleDateString() })}`
                               : ''}
                           </li>
                         ))}
@@ -201,12 +205,12 @@ export function StudentSyllabusPage(): JSX.Element {
       {/* Upcoming auto-section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Upcoming (next 30 days)</CardTitle>
+          <CardTitle className="text-base">{t('syllabus.section.upcoming')}</CardTitle>
         </CardHeader>
         <CardContent>
           {upcoming.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nothing due in the next 30 days.
+              {t('syllabus.section.upcomingEmpty')}
             </p>
           ) : (
             <ul className="space-y-1.5">
@@ -217,7 +221,9 @@ export function StudentSyllabusPage(): JSX.Element {
                 >
                   <span>
                     <span className="mr-2 text-xs uppercase text-muted-foreground">
-                      {u.kind}
+                      {u.kind === 'assignment'
+                        ? t('syllabus.assignmentLabel')
+                        : t('syllabus.quizLabel')}
                     </span>
                     {u.title}
                   </span>
@@ -235,7 +241,7 @@ export function StudentSyllabusPage(): JSX.Element {
       {c.syllabusFileAssetId ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Official syllabus PDF</CardTitle>
+            <CardTitle className="text-base">{t('syllabus.pdf.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3">
