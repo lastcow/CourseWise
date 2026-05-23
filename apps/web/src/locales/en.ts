@@ -392,6 +392,8 @@ export const en = {
       updated: 'Module updated',
       deleted: 'Module deleted',
       reordered: 'Order saved',
+      expandAll: 'Expand all',
+      collapseAll: 'Collapse all',
       summary: {
         materials: '{{count}} reading materials',
         presentations: '{{count}} presentations',
