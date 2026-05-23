@@ -11,11 +11,12 @@ import {
   FolderInput,
   RefreshCw,
   Trash2,
+  Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Dialog } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -27,7 +28,9 @@ import {
 import { useToast } from '@/components/ui/toast';
 import {
   getDownloadUrl,
+  uploadFile,
   useCourseGammaPendingJobs,
+  useCreatePresentation,
   useDeletePresentation,
   useGammaJob,
   useModulesList,
@@ -152,6 +155,13 @@ export function TeacherPresentationsPage(): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<PresentationSummary | null>(null);
   const [moveTarget, setMoveTarget] = useState<PresentationSummary | null>(null);
   const [moveModuleId, setMoveModuleId] = useState<string>('');
+  // Upload-presentation dialog state.
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadModuleId, setUploadModuleId] = useState<string>('');
+  const [uploadFileObj, setUploadFileObj] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const createPresentation = useCreatePresentation(id);
   const [activeJobIds, setActiveJobIds] = useState<string[]>([]);
   // Map jobId → { presentationId, jobCreatedAt } so rows can render the live
   // progress bar while we're still polling.
@@ -261,6 +271,19 @@ export function TeacherPresentationsPage(): JSX.Element {
 
       <div className="overflow-hidden rounded-md border">
         <div className="flex items-center justify-end gap-1.5 border-b bg-muted/30 px-3 py-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setUploadTitle('');
+              setUploadModuleId('');
+              setUploadFileObj(null);
+              setUploadOpen(true);
+            }}
+          >
+            <Upload className="mr-1 h-4 w-4" aria-hidden />
+            {t('presentations.uploadButton')}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -442,6 +465,95 @@ export function TeacherPresentationsPage(): JSX.Element {
             }}
           >
             {t('common.delete')}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={uploadOpen}
+        onClose={() => (uploading ? undefined : setUploadOpen(false))}
+        title={t('presentations.uploadTitle')}
+        dismissOnBackdropClick={false}
+      >
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="upload-title">{t('presentations.titleLabel')}</Label>
+            <Input
+              id="upload-title"
+              value={uploadTitle}
+              onChange={(e) => setUploadTitle(e.target.value)}
+              maxLength={200}
+              placeholder={t('presentations.titlePlaceholder')}
+            />
+          </div>
+          <div>
+            <Label htmlFor="upload-module">{t('presentations.moduleLabel')}</Label>
+            <select
+              id="upload-module"
+              value={uploadModuleId}
+              onChange={(e) => setUploadModuleId(e.target.value)}
+              disabled={modulesQ.isLoading}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">{t('presentations.unassignedModule')}</option>
+              {(modulesQ.data ?? []).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="upload-file">{t('presentations.fileLabel')}</Label>
+            <input
+              id="upload-file"
+              type="file"
+              accept=".pptx,.ppt,.pdf,.key,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                if (f && f.size > 50 * 1024 * 1024) {
+                  toast.push({ title: t('presentations.fileTooLarge'), tone: 'error' });
+                  e.target.value = '';
+                  return;
+                }
+                setUploadFileObj(f);
+              }}
+              className="block w-full text-sm text-muted-foreground file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground hover:file:bg-accent"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">{t('presentations.fileHint')}</p>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setUploadOpen(false)} disabled={uploading}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            disabled={!uploadTitle.trim() || !uploadFileObj || uploading}
+            onClick={async () => {
+              if (!uploadFileObj) return;
+              setUploading(true);
+              try {
+                const { fileAssetId } = await uploadFile(uploadFileObj, id, 'presentation');
+                await createPresentation.mutateAsync({
+                  title: uploadTitle.trim(),
+                  moduleId: uploadModuleId || null,
+                  fileAssetId,
+                });
+                toast.push({ title: t('presentations.uploadCreated'), tone: 'success' });
+                setUploadOpen(false);
+              } catch (err) {
+                const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                toast.push({
+                  title: t(key),
+                  description: err instanceof Error ? err.message : undefined,
+                  tone: 'error',
+                });
+              } finally {
+                setUploading(false);
+              }
+            }}
+          >
+            {uploading ? t('presentations.uploading') : t('presentations.createCta')}
           </Button>
         </div>
       </Dialog>

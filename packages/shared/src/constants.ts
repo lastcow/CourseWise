@@ -364,7 +364,7 @@ export const ALERT_RULES = {
 
 export const MATERIAL_RELATED_TYPE = 'material';
 
-export const FILE_RELATED_TYPES = ['material', 'assignment', 'submission', 'course'] as const;
+export const FILE_RELATED_TYPES = ['material', 'assignment', 'submission', 'course', 'presentation'] as const;
 export type FileRelatedType = (typeof FILE_RELATED_TYPES)[number];
 
 export const PRESENTATION_STATUSES = ['draft', 'published', 'archived'] as const;

@@ -294,6 +294,9 @@ export const createPresentationSchema = z.object({
   description: z.string().trim().max(2000).optional().nullable(),
   moduleId: z.string().uuid().optional().nullable(),
   position: z.number().int().min(0).optional(),
+  // When set, the presentation backs an uploaded file (PPTX/PDF/etc) and the
+  // viewer renders a download/open action instead of the in-app slide editor.
+  fileAssetId: z.string().uuid().optional().nullable(),
 });
 export type CreatePresentationInput = z.infer<typeof createPresentationSchema>;
 
