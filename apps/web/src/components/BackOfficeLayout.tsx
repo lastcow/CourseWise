@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, KeyRound, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { SideNav, type UserRole } from '@/components/SideNav';
 import { useEscapeToClose, useSideNavCollapsed } from '@/components/sideNavHooks';
 import { useAuth } from '@/lib/authContext';
+import { useCourse } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 
@@ -47,6 +48,20 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
     navigate('/login');
   };
 
+  // Active course label for the top-bar center slot. Mirrors the same
+  // course-route detection the SideNav uses so the header and sidebar
+  // stay in sync about "which course am I in?". Skips the /new sentinel
+  // so the header doesn't flash during the create-course flow.
+  const teacherCourseMatch = useMatch('/teacher/courses/:courseId/*');
+  const studentCourseMatch = useMatch('/student/courses/:courseId/*');
+  const teacherCourseId = teacherCourseMatch?.params.courseId;
+  const studentCourseId = studentCourseMatch?.params.courseId;
+  const activeCourseId =
+    teacherCourseId && teacherCourseId !== 'new'
+      ? teacherCourseId
+      : studentCourseId ?? null;
+  const activeCourse = useCourse(activeCourseId);
+
   return (
     <div className="flex min-h-screen bg-background">
       <aside
@@ -86,7 +101,19 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
-          <div className="flex h-14 items-center justify-between gap-2 px-4">
+          <div className="relative flex h-14 items-center justify-between gap-2 px-4">
+            {activeCourse.data ? (
+              <div
+                className="pointer-events-none absolute left-1/2 top-1/2 hidden max-w-[40%] -translate-x-1/2 -translate-y-1/2 truncate text-sm font-medium md:block"
+                title={`${activeCourse.data.code} – ${activeCourse.data.title}`}
+              >
+                <span className="font-mono text-muted-foreground">
+                  {activeCourse.data.code}
+                </span>
+                <span className="mx-1.5 text-muted-foreground">–</span>
+                <span>{activeCourse.data.title}</span>
+              </div>
+            ) : null}
             <div className="flex items-center gap-2">
               <button
                 type="button"
