@@ -1126,3 +1126,56 @@ export interface GroupSetWithGroups extends GroupSetSummary {
   unassignedStudents: UnassignedStudent[];
   myGroupId: string | null;
 }
+
+// -------- Messaging --------
+
+export const MESSAGE_PRIORITIES = ['normal', 'high', 'urgent'] as const;
+export type MessagePriority = (typeof MESSAGE_PRIORITIES)[number];
+
+export interface MessageParticipantSummary {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface MessageThreadSummary {
+  threadId: string;
+  courseId: string;
+  subject: string;
+  otherParticipant: MessageParticipantSummary;
+  lastMessageAt: string;
+  lastMessageSenderId: string | null;
+  lastMessagePreview: string;
+  unreadCount: number;
+  highestUnreadPriority: MessagePriority | null;
+}
+
+export interface MessageRecord {
+  id: string;
+  threadId: string;
+  senderId: string;
+  body: string;
+  priority: MessagePriority;
+  createdAt: string;
+  readAtByRecipient: string | null;
+}
+
+export interface MessageThreadDetail {
+  threadId: string;
+  courseId: string;
+  subject: string;
+  otherParticipant: MessageParticipantSummary;
+  messages: MessageRecord[];
+}
+
+export interface SendMessageInput {
+  recipientId: string;
+  threadId?: string;
+  subject?: string;
+  body: string;
+  priority?: MessagePriority;
+}
+
+export interface UnreadCountResponse {
+  total: number;
+}

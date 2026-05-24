@@ -73,6 +73,7 @@ import { StudentAttendancePage } from '@/pages/student/StudentAttendancePage';
 import { StudentGroupSetsPage } from '@/pages/student/StudentGroupSetsPage';
 import { StudentStudentsPage } from '@/pages/student/StudentStudentsPage';
 import { StudentSyllabusPage } from '@/pages/student/StudentSyllabusPage';
+import { MessagesPage } from '@/pages/messaging/MessagesPage';
 import { SessionExpiryGuard } from '@/components/SessionExpiryGuard';
 import { FerpaAcknowledgmentGuard } from '@/components/FerpaAcknowledgmentGuard';
 
@@ -140,6 +141,7 @@ export default function App(): JSX.Element {
                 <Route path="grade" element={<StudentGradePage />} />
                 <Route path="students" element={<StudentStudentsPage />} />
                 <Route path="groups" element={<StudentGroupSetsPage />} />
+                <Route path="messages" element={<MessagesPage />} />
               </Route>
             </Route>
             <Route element={<BackOfficeLayout role="admin" />}>
@@ -245,6 +247,7 @@ export default function App(): JSX.Element {
                 <Route path="students" element={<TeacherStudentsPage />} />
                 <Route path="group-sets" element={<TeacherGroupSetsPage />} />
                 <Route path="group-sets/:setId" element={<TeacherGroupSetDetailPage />} />
+                <Route path="messages" element={<MessagesPage />} />
               </Route>
               <Route
                 path="/teacher/courses/:courseId/quizzes/:quizId"

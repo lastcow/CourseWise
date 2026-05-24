@@ -14,6 +14,7 @@ import {
   FileText,
   GraduationCap,
   Home,
+  Inbox,
   KeyRound,
   LayoutDashboard,
   Library,
@@ -147,6 +148,7 @@ function teacherCourseSections(courseId: string): NavSection[] {
         { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
         { to: `${prefix}/attendance`, labelKey: 'attendance.title', icon: UserCheck },
         { to: `${prefix}/students`, labelKey: 'students.title', icon: Users },
+        { to: `${prefix}/messages`, labelKey: 'messages.title', icon: Inbox },
       ],
     },
     {
@@ -208,6 +210,7 @@ function studentCourseSections(courseId: string): NavSection[] {
         { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
         { to: `${prefix}/attendance`, labelKey: 'attendance.myTitle', icon: UserCheck },
         { to: `${prefix}/students`, labelKey: 'students.title', icon: Users },
+        { to: `${prefix}/messages`, labelKey: 'messages.title', icon: Inbox },
       ],
     },
     {

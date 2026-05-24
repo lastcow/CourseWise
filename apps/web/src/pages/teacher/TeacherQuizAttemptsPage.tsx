@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Mail } from 'lucide-react';
 import type { QuizQuestionTeacherView } from '@coursewise/shared';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Button } from '@/components/ui/button';
+import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -48,6 +51,8 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
   const [draft, setDraft] = useState<Record<string, { points: string; feedback: string }>>(
     {},
   );
+  const [composeOpen, setComposeOpen] = useState(false);
+  const selectedAttempt = attempts.data?.find((a) => a.id === selectedAttemptId) ?? null;
 
   return (
     <div className="space-y-4">
@@ -102,8 +107,17 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>{t('quizzes.gradingTitle')}</CardTitle>
+            {selectedAttempt ? (
+              <ActionIconButton
+                icon={Mail}
+                label={t('messages.composeCta')}
+                color="sky"
+                size="sm"
+                onClick={() => setComposeOpen(true)}
+              />
+            ) : null}
           </CardHeader>
           <CardContent>
             {!attempt.data ? (
@@ -208,6 +222,22 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
           </CardContent>
         </Card>
       </div>
+
+      {composeOpen && selectedAttempt ? (
+        <MessageComposeDialog
+          open
+          onClose={() => setComposeOpen(false)}
+          courseId={cid}
+          recipientId={selectedAttempt.student.id}
+          recipientName={selectedAttempt.student.name}
+          initialSubject={t('messages.aboutQuiz', {
+            title: quiz.data?.title ?? '',
+          })}
+          contextLine={t('messages.contextQuiz', {
+            title: quiz.data?.title ?? '',
+          })}
+        />
+      ) : null}
     </div>
   );
 }

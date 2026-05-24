@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Download } from 'lucide-react';
+import { Download, Mail } from 'lucide-react';
+import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +43,7 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [score, setScore] = useState<number | ''>('');
   const [feedback, setFeedback] = useState('');
+  const [composeOpen, setComposeOpen] = useState(false);
 
   // Flatten member rows so the existing selected-row UI keeps working in
   // both individual and group modes.
@@ -199,8 +201,15 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
 
         {selected ? (
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base">{selected.student.name}</CardTitle>
+              <ActionIconButton
+                icon={Mail}
+                label={t('messages.composeCta')}
+                color="sky"
+                size="sm"
+                onClick={() => setComposeOpen(true)}
+              />
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
@@ -263,6 +272,22 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
           <EmptyState title={t('submissions.selectPrompt')} />
         )}
       </div>
+
+      {composeOpen && selected ? (
+        <MessageComposeDialog
+          open
+          onClose={() => setComposeOpen(false)}
+          courseId={cId}
+          recipientId={selected.student.id}
+          recipientName={selected.student.name}
+          initialSubject={t('messages.aboutAssignment', {
+            title: assignment.data?.title ?? '',
+          })}
+          contextLine={t('messages.contextAssignment', {
+            title: assignment.data?.title ?? '',
+          })}
+        />
+      ) : null}
     </div>
   );
 }
