@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, KeyRound, Menu } from 'lucide-react';
+import { Home, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { MessageBell } from '@/components/messaging/MessageBell';
@@ -143,15 +143,6 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
                     {auth.user.name}
                   </span>
                   <MessageBell enabled={!!auth} />
-                  <Link
-                    to="/settings/api-tokens"
-                    className="inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label={t('nav.apiTokens')}
-                    title={t('nav.apiTokens')}
-                  >
-                    <KeyRound className="h-4 w-4" aria-hidden />
-                    <span className="hidden md:inline">{t('nav.apiTokens')}</span>
-                  </Link>
                   <LanguageSwitcher />
                   <Button size="sm" variant="outline" onClick={onLogout}>
                     {t('nav.logout')}
