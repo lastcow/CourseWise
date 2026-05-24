@@ -324,6 +324,7 @@ export const zhCN = {
       staySignedIn: '保持登录',
       signOutNow: '立即登出',
       refreshed: '会话已延长',
+      refreshing: '正在延长…',
       refreshFailed: '会话延长失败,请重新登录。',
       expiredToast: '会话已过期,已登出。',
     },

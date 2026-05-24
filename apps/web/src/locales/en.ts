@@ -342,6 +342,7 @@ export const en = {
       staySignedIn: 'Stay signed in',
       signOutNow: 'Sign out now',
       refreshed: 'Session extended',
+      refreshing: 'Extending…',
       refreshFailed: 'Could not extend session — please sign in again.',
       expiredToast: 'Signed out — session expired.',
     },
