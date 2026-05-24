@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, Users } from 'lucide-react';
@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Pagination, usePageSlice } from '@/components/ui/pagination';
 import { useToast } from '@/components/ui/toast';
 import {
   useCourseStudents,
@@ -303,6 +304,13 @@ function FlatRosterTable({
   loading: boolean;
   t: (k: string, v?: Record<string, unknown>) => string;
 }) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  useEffect(() => {
+    setPage(1);
+  }, [rows.length]);
+  const { slice } = usePageSlice(rows, page, pageSize);
+
   if (loading) {
     return (
       <p className="px-3 py-6 text-center text-sm text-muted-foreground">{t('common.loading')}</p>
@@ -312,22 +320,34 @@ function FlatRosterTable({
     return <EmptyState title={t('students.emptyRoster')} />;
   }
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[40%]">{t('students.colName')}</TableHead>
-          <TableHead>{t('students.colEmail')}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((r) => (
-          <TableRow key={r.id}>
-            <TableCell className="font-medium">{r.studentName}</TableCell>
-            <TableCell className="text-muted-foreground">{r.studentEmail}</TableCell>
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[40%]">{t('students.colName')}</TableHead>
+            <TableHead>{t('students.colEmail')}</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {slice.map((r) => (
+            <TableRow key={r.id}>
+              <TableCell className="font-medium">{r.studentName}</TableCell>
+              <TableCell className="text-muted-foreground">{r.studentEmail}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={rows.length}
+        onPageChange={setPage}
+        onPageSizeChange={(n) => {
+          setPageSize(n);
+          setPage(1);
+        }}
+      />
+    </>
   );
 }
 
