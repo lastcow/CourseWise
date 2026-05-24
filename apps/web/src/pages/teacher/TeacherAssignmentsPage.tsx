@@ -177,44 +177,60 @@ export function TeacherAssignmentsPage(): JSX.Element {
                         color="yellow"
                         onClick={() => navigate(`/teacher/courses/${id}/assignments/${a.id}`)}
                       />
-                      <span className="relative inline-flex">
-                        <ActionIconButton
-                          icon={Inbox}
-                          // Mirrors the teal "view attempts" icon on the
-                          // teacher Quizzes page so both lists share the
-                          // same visual shortcut to the student response
-                          // surface. The mini ungraded/total badge lets a
-                          // teacher scan the list and see "what needs my
-                          // attention" at a glance.
-                          label={
+                      <ActionIconButton
+                        icon={Inbox}
+                        // Mirrors the teal "view attempts" icon on the
+                        // teacher Quizzes page so both lists share the
+                        // same visual shortcut to the student response
+                        // surface. The neighbouring split-pill badge
+                        // surfaces ungraded/total at a glance.
+                        label={
+                          (a.ungradedSubmissionCount ?? 0) > 0
+                            ? t('assignments.viewSubmissionsActionWithUngraded', {
+                                count: a.submissionCount ?? 0,
+                                ungraded: a.ungradedSubmissionCount ?? 0,
+                              })
+                            : t('assignments.viewSubmissionsAction', {
+                                count: a.submissionCount ?? 0,
+                              })
+                        }
+                        color="teal"
+                        onClick={() =>
+                          navigate(`/teacher/courses/${id}/assignments/${a.id}/submissions`)
+                        }
+                      />
+                      {(a.submissionCount ?? 0) > 0 ? (
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'inline-flex items-center overflow-hidden rounded-md border text-[10px] font-medium leading-none tabular-nums',
                             (a.ungradedSubmissionCount ?? 0) > 0
-                              ? t('assignments.viewSubmissionsActionWithUngraded', {
-                                  count: a.submissionCount ?? 0,
-                                  ungraded: a.ungradedSubmissionCount ?? 0,
-                                })
-                              : t('assignments.viewSubmissionsAction', {
-                                  count: a.submissionCount ?? 0,
-                                })
-                          }
-                          color="teal"
-                          onClick={() =>
-                            navigate(`/teacher/courses/${id}/assignments/${a.id}/submissions`)
-                          }
-                        />
-                        {(a.submissionCount ?? 0) > 0 ? (
+                              ? 'border-amber-500/50'
+                              : 'border-emerald-500/40',
+                          )}
+                        >
                           <span
-                            aria-hidden
                             className={cn(
-                              'pointer-events-none absolute -right-2 -top-1.5 inline-flex h-4 items-center justify-center rounded-full border bg-background px-1 text-[10px] font-medium leading-none tabular-nums',
+                              'px-1.5 py-1',
                               (a.ungradedSubmissionCount ?? 0) > 0
-                                ? 'border-amber-500/70 text-amber-600'
-                                : 'border-muted-foreground/40 text-muted-foreground',
+                                ? 'text-amber-700 dark:text-amber-300'
+                                : 'text-emerald-700 dark:text-emerald-300',
                             )}
                           >
-                            {a.ungradedSubmissionCount ?? 0}/{a.submissionCount ?? 0}
+                            {a.ungradedSubmissionCount ?? 0}
                           </span>
-                        ) : null}
-                      </span>
+                          <span
+                            className={cn(
+                              'border-l px-1.5 py-1',
+                              (a.ungradedSubmissionCount ?? 0) > 0
+                                ? 'border-amber-500/50 bg-amber-500/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200'
+                                : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200',
+                            )}
+                          >
+                            {a.submissionCount ?? 0}
+                          </span>
+                        </span>
+                      ) : null}
                       {a.status === 'draft' ? (
                         <ActionIconButton
                           icon={CircleCheck}
