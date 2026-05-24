@@ -34,6 +34,7 @@ import {
   useUpdateAssignment,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import type { AssignmentSummary } from '@coursewise/shared';
 
 function formatDate(iso: string | null): string {
@@ -182,9 +183,9 @@ export function TeacherAssignmentsPage(): JSX.Element {
                           // Mirrors the teal "view attempts" icon on the
                           // teacher Quizzes page so both lists share the
                           // same visual shortcut to the student response
-                          // surface. The amber overlay badge surfaces the
-                          // ungraded count so a teacher can scan the list
-                          // and see "what needs my attention" at a glance.
+                          // surface. The mini ungraded/total badge lets a
+                          // teacher scan the list and see "what needs my
+                          // attention" at a glance.
                           label={
                             (a.ungradedSubmissionCount ?? 0) > 0
                               ? t('assignments.viewSubmissionsActionWithUngraded', {
@@ -200,14 +201,17 @@ export function TeacherAssignmentsPage(): JSX.Element {
                             navigate(`/teacher/courses/${id}/assignments/${a.id}/submissions`)
                           }
                         />
-                        {(a.ungradedSubmissionCount ?? 0) > 0 ? (
+                        {(a.submissionCount ?? 0) > 0 ? (
                           <span
                             aria-hidden
-                            className="pointer-events-none absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-amber-500 px-1 text-[10px] font-semibold leading-none text-white"
+                            className={cn(
+                              'pointer-events-none absolute -right-2 -top-1.5 inline-flex h-4 items-center justify-center rounded-full border bg-background px-1 text-[10px] font-medium leading-none tabular-nums',
+                              (a.ungradedSubmissionCount ?? 0) > 0
+                                ? 'border-amber-500/70 text-amber-600'
+                                : 'border-muted-foreground/40 text-muted-foreground',
+                            )}
                           >
-                            {(a.ungradedSubmissionCount ?? 0) > 99
-                              ? '99+'
-                              : a.ungradedSubmissionCount}
+                            {a.ungradedSubmissionCount ?? 0}/{a.submissionCount ?? 0}
                           </span>
                         ) : null}
                       </span>
