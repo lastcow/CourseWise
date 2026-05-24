@@ -221,13 +221,17 @@ r.get(
           );
         for (const s of myRows) mine.set(s.assignmentId, s);
       } else {
-        // FILTER on the COUNT lets us pull total + ungraded in one scan.
-        // Ungraded = submitted/late with no score recorded yet.
+        // Count "submission units" — for individual assignments that's the
+        // student row, for group assignments that's the shared
+        // group_submissions row, so a 4-person group counts once not four
+        // times. COALESCE(group_submission_id, id) gives a stable de-dup
+        // key per unit. Drafts are excluded from the totals because the
+        // student hasn't actually turned anything in yet.
         const subs = await db
           .select({
             assignmentId: assignmentSubmissions.assignmentId,
-            c: sql<number>`count(*)::int`,
-            ungraded: sql<number>`count(*) filter (where ${assignmentSubmissions.status} in ('submitted', 'late') and ${assignmentSubmissions.score} is null)::int`,
+            c: sql<number>`count(distinct coalesce(${assignmentSubmissions.groupSubmissionId}, ${assignmentSubmissions.id})) filter (where ${assignmentSubmissions.status} in ('submitted', 'late', 'graded', 'returned'))::int`,
+            ungraded: sql<number>`count(distinct coalesce(${assignmentSubmissions.groupSubmissionId}, ${assignmentSubmissions.id})) filter (where ${assignmentSubmissions.status} in ('submitted', 'late') and ${assignmentSubmissions.score} is null)::int`,
           })
           .from(assignmentSubmissions)
           .where(inArray(assignmentSubmissions.assignmentId, ids))
