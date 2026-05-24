@@ -131,6 +131,8 @@ import type {
   SendMessageInput,
   UnreadCountResponse,
   MessageRecord,
+  StudentProfileDetail,
+  UpdateStudentProfileInput,
 } from '@coursewise/shared';
 import { ApiClientError, apiCall, getStoredAuth } from './api';
 
@@ -2160,5 +2162,32 @@ export function useMessageUnreadCount(enabled: boolean) {
     enabled,
     queryFn: () => apiCall<UnreadCountResponse>('/api/messages/unread-count'),
     refetchInterval: 60_000,
+  });
+}
+
+// ---------- Student profile (Modify dialog) ----------
+
+export function useStudentProfile(userId: string | null) {
+  return useQuery({
+    queryKey: ['student-profile', userId],
+    enabled: !!userId,
+    queryFn: () => apiCall<StudentProfileDetail>(`/api/students/${userId}/profile`),
+  });
+}
+
+export function useUpdateStudentProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, input }: { userId: string; input: UpdateStudentProfileInput }) =>
+      apiCall<StudentProfileDetail>(`/api/students/${userId}/profile`, {
+        method: 'PATCH',
+        body: input,
+      }),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['student-profile', vars.userId] });
+      // Roster queries surface name + studentNumber; refresh so the row
+      // updates without a manual reload.
+      void qc.invalidateQueries({ queryKey: ['course-students'] });
+    },
   });
 }

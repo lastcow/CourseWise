@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, RefreshCw, Users } from 'lucide-react';
+import { Mail, Pencil, RefreshCw, Users } from 'lucide-react';
 import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
+import { StudentProfileDialog } from '@/components/students/StudentProfileDialog';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,7 @@ export function StudentStudentsPage(): JSX.Element {
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [messageTarget, setMessageTarget] = useState<{ id: string; name: string } | null>(null);
+  const [editingOwn, setEditingOwn] = useState(false);
   const activeSetQ = useGroupSet(cId || undefined, activeSetId ?? undefined);
   const join = useJoinOrAssignGroupMember(cId, activeSetId ?? '');
   const leave = useRemoveGroupMember(cId, activeSetId ?? '');
@@ -206,6 +208,7 @@ export function StudentStudentsPage(): JSX.Element {
             onMessage={(row) =>
               setMessageTarget({ id: row.studentId, name: row.studentName })
             }
+            onEditOwn={() => setEditingOwn(true)}
             t={t}
           />
         ) : !set ? (
@@ -311,6 +314,14 @@ export function StudentStudentsPage(): JSX.Element {
           recipientName={messageTarget.name}
         />
       ) : null}
+
+      {editingOwn && myUserId ? (
+        <StudentProfileDialog
+          open
+          onClose={() => setEditingOwn(false)}
+          userId={myUserId}
+        />
+      ) : null}
     </div>
   );
 }
@@ -320,12 +331,14 @@ function FlatRosterTable({
   loading,
   myUserId,
   onMessage,
+  onEditOwn,
   t,
 }: {
   rows: EnrollmentRow[];
   loading: boolean;
   myUserId: string;
   onMessage: (row: EnrollmentRow) => void;
+  onEditOwn: () => void;
   t: (k: string, v?: Record<string, unknown>) => string;
 }) {
   const [page, setPage] = useState(1);
@@ -359,15 +372,25 @@ function FlatRosterTable({
               <TableCell className="font-medium">{r.studentName}</TableCell>
               <TableCell className="text-muted-foreground">{r.studentEmail}</TableCell>
               <TableCell className="text-right">
-                {r.studentId !== myUserId ? (
-                  <ActionIconButton
-                    icon={Mail}
-                    label={t('messages.composeCta')}
-                    color="sky"
-                    size="sm"
-                    onClick={() => onMessage(r)}
-                  />
-                ) : null}
+                <div className="flex items-center justify-end gap-1.5">
+                  {r.studentId === myUserId ? (
+                    <ActionIconButton
+                      icon={Pencil}
+                      label={t('studentProfile.editCta')}
+                      color="yellow"
+                      size="sm"
+                      onClick={onEditOwn}
+                    />
+                  ) : (
+                    <ActionIconButton
+                      icon={Mail}
+                      label={t('messages.composeCta')}
+                      color="sky"
+                      size="sm"
+                      onClick={() => onMessage(r)}
+                    />
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}
