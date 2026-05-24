@@ -1179,3 +1179,30 @@ export interface SendMessageInput {
 export interface UnreadCountResponse {
   total: number;
 }
+
+// -------- Student profile (Modify dialog) --------
+
+export interface StudentProfileEnrollmentRow {
+  courseId: string;
+  courseCode: string;
+  courseTitle: string;
+  status: string;
+  enrolledAt: string;
+}
+
+export interface StudentProfileDetail {
+  userId: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'teacher' | 'student';
+  studentNumber: string | null;
+  enrollmentYear: number | null;
+  preferredLanguage: string;
+  enrollments: StudentProfileEnrollmentRow[];
+}
+
+export interface UpdateStudentProfileInput {
+  name?: string;
+  /** Pass null to clear, omit to leave unchanged, or a string to set. */
+  studentNumber?: string | null;
+}

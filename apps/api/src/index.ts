@@ -31,6 +31,7 @@ import contactRoutes from './routes/contact';
 import publicShareRoutes from './routes/publicShare';
 import recordCorrectionsRoutes from './routes/recordCorrections';
 import messagesRoutes from './routes/messages';
+import studentsRoutes from './routes/students';
 import { retryFailedR2CleanupJobs } from './jobs/r2CleanupRetry';
 import { runRetentionSweep } from './services/retentionSweep';
 import { buildOpenApiSpec } from './lib/openapi';
@@ -134,6 +135,7 @@ app.route('/api', contactRoutes);
 app.route('/api', publicShareRoutes);
 app.route('/api', recordCorrectionsRoutes);
 app.route('/api', messagesRoutes);
+app.route('/api', studentsRoutes);
 
 app.notFound((c) =>
   c.json(

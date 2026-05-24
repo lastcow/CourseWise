@@ -15,6 +15,7 @@ import {
   Users,
 } from 'lucide-react';
 import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
+import { StudentProfileDialog } from '@/components/students/StudentProfileDialog';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -82,6 +83,7 @@ export function TeacherStudentsPage(): JSX.Element {
   // Dialogs
   const [openCreate, setOpenCreate] = useState(false);
   const [messageTarget, setMessageTarget] = useState<{ id: string; name: string } | null>(null);
+  const [editTargetId, setEditTargetId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<GroupSetSummary | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<GroupSetSummary | null>(null);
@@ -428,6 +430,7 @@ export function TeacherStudentsPage(): JSX.Element {
             onMessage={(row) =>
               setMessageTarget({ id: row.studentId, name: row.studentName })
             }
+            onEdit={(row) => setEditTargetId(row.studentId)}
             t={t}
           />
         ) : !activeSet ? (
@@ -580,6 +583,14 @@ export function TeacherStudentsPage(): JSX.Element {
           recipientName={messageTarget.name}
         />
       ) : null}
+
+      {editTargetId ? (
+        <StudentProfileDialog
+          open
+          onClose={() => setEditTargetId(null)}
+          userId={editTargetId}
+        />
+      ) : null}
     </div>
   );
 }
@@ -590,11 +601,13 @@ function FlatRosterTable({
   rows,
   loading,
   onMessage,
+  onEdit,
   t,
 }: {
   rows: EnrollmentRow[];
   loading: boolean;
   onMessage: (row: EnrollmentRow) => void;
+  onEdit: (row: EnrollmentRow) => void;
   t: (k: string, v?: Record<string, unknown>) => string;
 }) {
   const [page, setPage] = useState(1);
@@ -644,13 +657,22 @@ function FlatRosterTable({
                   <Badge variant="secondary">{label}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <ActionIconButton
-                    icon={Mail}
-                    label={t('messages.composeCta')}
-                    color="sky"
-                    size="sm"
-                    onClick={() => onMessage(r)}
-                  />
+                  <div className="flex items-center justify-end gap-1.5">
+                    <ActionIconButton
+                      icon={Pencil}
+                      label={t('studentProfile.editCta')}
+                      color="yellow"
+                      size="sm"
+                      onClick={() => onEdit(r)}
+                    />
+                    <ActionIconButton
+                      icon={Mail}
+                      label={t('messages.composeCta')}
+                      color="sky"
+                      size="sm"
+                      onClick={() => onMessage(r)}
+                    />
+                  </div>
                 </TableCell>
               </TableRow>
             );
