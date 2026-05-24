@@ -81,6 +81,15 @@ export function SessionExpiryGuard(): JSX.Element | null {
     firedLogoutRef.current = false;
   }, [auth?.accessToken]);
 
+  // True while a user-initiated refresh is in flight. The auto-logout branch
+  // below MUST NOT fire while this is true — otherwise a countdown tick that
+  // crosses zero during the network round-trip races with the refresh,
+  // clears the freshly-issued tokens, and bounces the user to /login. Ref
+  // (not state) so the guard is observed synchronously inside the render
+  // body, before React commits the state update.
+  const refreshingRef = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+
   // Skip the dialog on public pages and when there's no session.
   if (!auth || expMs == null || isPublicPath(location.pathname)) return null;
 
@@ -88,8 +97,14 @@ export function SessionExpiryGuard(): JSX.Element | null {
 
   // Hit zero → logout + redirect. Done as a side-effect of render here is
   // OK because navigate/logout are stable callbacks and a guard ref prevents
-  // re-entry.
-  if (remaining != null && remaining <= 0 && !firedLogoutRef.current) {
+  // re-entry. Skipped while a user-initiated refresh is in flight so the
+  // refresh path wins the race.
+  if (
+    remaining != null &&
+    remaining <= 0 &&
+    !firedLogoutRef.current &&
+    !refreshingRef.current
+  ) {
     firedLogoutRef.current = true;
     void (async () => {
       try {
@@ -103,8 +118,11 @@ export function SessionExpiryGuard(): JSX.Element | null {
 
   if (!shouldWarn || remaining == null) return null;
 
-  const countdownLabel =
-    remaining <= 0 ? t('session.signingOut') : formatRemaining(remaining);
+  const countdownLabel = refreshing
+    ? t('session.refreshing')
+    : remaining <= 0
+      ? t('session.signingOut')
+      : formatRemaining(remaining);
 
   return (
     <Dialog
@@ -126,6 +144,7 @@ export function SessionExpiryGuard(): JSX.Element | null {
           <Button
             type="button"
             variant="outline"
+            disabled={refreshing}
             onClick={async () => {
               try {
                 await logout();
@@ -138,7 +157,14 @@ export function SessionExpiryGuard(): JSX.Element | null {
           </Button>
           <Button
             type="button"
+            disabled={refreshing}
             onClick={async () => {
+              if (refreshingRef.current) return;
+              // Synchronous ref guard — set BEFORE the await so a tick that
+              // crosses zero during the round-trip can't race the auto-logout
+              // branch above. The state flag is for the UI.
+              refreshingRef.current = true;
+              setRefreshing(true);
               try {
                 await refresh();
                 toast.push({ title: t('session.refreshed'), tone: 'success' });
@@ -151,10 +177,13 @@ export function SessionExpiryGuard(): JSX.Element | null {
                 } finally {
                   navigate('/login', { replace: true });
                 }
+              } finally {
+                refreshingRef.current = false;
+                setRefreshing(false);
               }
             }}
           >
-            {t('session.staySignedIn')}
+            {refreshing ? t('session.refreshing') : t('session.staySignedIn')}
           </Button>
         </div>
       </div>
