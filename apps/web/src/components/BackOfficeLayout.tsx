@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Home, KeyRound, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { MessageBell } from '@/components/messaging/MessageBell';
 import { SideNav, type UserRole } from '@/components/SideNav';
 import { useEscapeToClose, useSideNavCollapsed } from '@/components/sideNavHooks';
 import { useAuth } from '@/lib/authContext';
@@ -141,6 +142,7 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
                   <span className="hidden text-muted-foreground sm:inline">
                     {auth.user.name}
                   </span>
+                  <MessageBell enabled={!!auth} />
                   <Link
                     to="/settings/api-tokens"
                     className="inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CircleCheck } from 'lucide-react';
+import { CircleCheck, Mail } from 'lucide-react';
+import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import type { AlertStatus, AlertWithStudent } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,12 @@ export function TeacherAlertsPage(): JSX.Element {
 
   const [resolving, setResolving] = useState<AlertWithStudent | null>(null);
   const [note, setNote] = useState('');
+  const [messageTarget, setMessageTarget] = useState<{
+    id: string;
+    name: string;
+    subject: string;
+    context: string;
+  } | null>(null);
 
   async function onGenerate() {
     try {
@@ -116,8 +123,24 @@ export function TeacherAlertsPage(): JSX.Element {
                 {a.body ? (
                   <p className="mt-2 text-sm text-muted-foreground">{a.body}</p>
                 ) : null}
-                {a.status === 'open' ? (
-                  <div className="mt-2 flex justify-end gap-2">
+                <div className="mt-2 flex justify-end gap-2">
+                  {a.student?.id ? (
+                    <ActionIconButton
+                      size="sm"
+                      icon={Mail}
+                      label={t('messages.composeCta')}
+                      color="sky"
+                      onClick={() =>
+                        setMessageTarget({
+                          id: a.student!.id,
+                          name: a.student!.name,
+                          subject: t('messages.aboutAlert', { title: a.title }),
+                          context: t('messages.contextAlert', { title: a.title }),
+                        })
+                      }
+                    />
+                  ) : null}
+                  {a.status === 'open' ? (
                     <ActionIconButton
                       size="sm"
                       icon={CircleCheck}
@@ -128,12 +151,11 @@ export function TeacherAlertsPage(): JSX.Element {
                         setNote('');
                       }}
                     />
-                  </div>
-                ) : (
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    {a.resolutionNote ?? null}
-                  </div>
-                )}
+                  ) : null}
+                </div>
+                {a.status !== 'open' && a.resolutionNote ? (
+                  <div className="mt-2 text-xs text-muted-foreground">{a.resolutionNote}</div>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -166,6 +188,17 @@ export function TeacherAlertsPage(): JSX.Element {
           </div>
         ) : null}
       </Dialog>
+      {messageTarget ? (
+        <MessageComposeDialog
+          open
+          onClose={() => setMessageTarget(null)}
+          courseId={cid}
+          recipientId={messageTarget.id}
+          recipientName={messageTarget.name}
+          initialSubject={messageTarget.subject}
+          contextLine={messageTarget.context}
+        />
+      ) : null}
     </Card>
   );
 }

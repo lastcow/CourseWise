@@ -5,6 +5,7 @@ import {
   Check,
   Copy,
   Lock,
+  Mail,
   Pencil,
   RefreshCw,
   Trash2,
@@ -13,6 +14,7 @@ import {
   UserRoundPlus,
   Users,
 } from 'lucide-react';
+import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -79,6 +81,7 @@ export function TeacherStudentsPage(): JSX.Element {
 
   // Dialogs
   const [openCreate, setOpenCreate] = useState(false);
+  const [messageTarget, setMessageTarget] = useState<{ id: string; name: string } | null>(null);
   const [renameTarget, setRenameTarget] = useState<GroupSetSummary | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<GroupSetSummary | null>(null);
@@ -422,6 +425,9 @@ export function TeacherStudentsPage(): JSX.Element {
           <FlatRosterTable
             rows={filteredStudents}
             loading={studentsQ.isLoading}
+            onMessage={(row) =>
+              setMessageTarget({ id: row.studentId, name: row.studentName })
+            }
             t={t}
           />
         ) : !activeSet ? (
@@ -564,6 +570,16 @@ export function TeacherStudentsPage(): JSX.Element {
           </Button>
         </div>
       </Dialog>
+
+      {messageTarget ? (
+        <MessageComposeDialog
+          open
+          onClose={() => setMessageTarget(null)}
+          courseId={cId}
+          recipientId={messageTarget.id}
+          recipientName={messageTarget.name}
+        />
+      ) : null}
     </div>
   );
 }
@@ -573,10 +589,12 @@ export function TeacherStudentsPage(): JSX.Element {
 function FlatRosterTable({
   rows,
   loading,
+  onMessage,
   t,
 }: {
   rows: EnrollmentRow[];
   loading: boolean;
+  onMessage: (row: EnrollmentRow) => void;
   t: (k: string, v?: Record<string, unknown>) => string;
 }) {
   const [page, setPage] = useState(1);
@@ -604,6 +622,7 @@ function FlatRosterTable({
             <TableHead>{t('students.colEmail')}</TableHead>
             <TableHead>{t('students.colNumber')}</TableHead>
             <TableHead>{t('students.colStatus')}</TableHead>
+            <TableHead className="text-right">{t('common.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -623,6 +642,15 @@ function FlatRosterTable({
                 <TableCell className="text-muted-foreground">{r.studentNumber ?? '—'}</TableCell>
                 <TableCell>
                   <Badge variant="secondary">{label}</Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <ActionIconButton
+                    icon={Mail}
+                    label={t('messages.composeCta')}
+                    color="sky"
+                    size="sm"
+                    onClick={() => onMessage(r)}
+                  />
                 </TableCell>
               </TableRow>
             );

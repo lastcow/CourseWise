@@ -126,6 +126,11 @@ import type {
   UpdateSubmissionInput,
   UploadFileResponse,
   ValidateInvitationCodeResponse,
+  MessageThreadSummary,
+  MessageThreadDetail,
+  SendMessageInput,
+  UnreadCountResponse,
+  MessageRecord,
 } from '@coursewise/shared';
 import { ApiClientError, apiCall, getStoredAuth } from './api';
 
@@ -2081,5 +2086,79 @@ export function useCourseAiJob(courseId: string | null, jobId: string | null) {
       if (!job) return false;
       return job.status === 'queued' || job.status === 'running' ? 2000 : false;
     },
+  });
+}
+
+// ---------- Messaging ----------
+
+export function useMessageThreads(courseId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['messages', 'threads', courseId],
+    enabled: !!courseId,
+    queryFn: async () => {
+      const res = await apiCall<{ threads: MessageThreadSummary[] }>(
+        `/api/courses/${courseId}/messages/threads`,
+      );
+      return res.threads;
+    },
+    refetchInterval: 15_000,
+  });
+}
+
+export function useMessageThread(courseId: string | null | undefined, threadId: string | null) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: ['messages', 'thread', courseId, threadId],
+    enabled: !!courseId && !!threadId,
+    queryFn: async () => {
+      const detail = await apiCall<MessageThreadDetail>(
+        `/api/courses/${courseId}/messages/threads/${threadId}`,
+      );
+      // The GET marks unread-as-read server-side, so refresh the list +
+      // unread-count once detail returns.
+      void qc.invalidateQueries({ queryKey: ['messages', 'threads', courseId] });
+      void qc.invalidateQueries({ queryKey: ['messages', 'unread-count'] });
+      return detail;
+    },
+    refetchInterval: 15_000,
+  });
+}
+
+export function useSendMessage(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SendMessageInput) =>
+      apiCall<{ threadId: string; message: MessageRecord }>(
+        `/api/courses/${courseId}/messages`,
+        { body: input },
+      ),
+    onSuccess: (data) => {
+      void qc.invalidateQueries({ queryKey: ['messages', 'threads', courseId] });
+      void qc.invalidateQueries({ queryKey: ['messages', 'thread', courseId, data.threadId] });
+      void qc.invalidateQueries({ queryKey: ['messages', 'unread-count'] });
+    },
+  });
+}
+
+export function useDeleteMessageThread(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (threadId: string) =>
+      apiCall<{ id: string }>(`/api/courses/${courseId}/messages/threads/${threadId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['messages', 'threads', courseId] });
+      void qc.invalidateQueries({ queryKey: ['messages', 'unread-count'] });
+    },
+  });
+}
+
+export function useMessageUnreadCount(enabled: boolean) {
+  return useQuery({
+    queryKey: ['messages', 'unread-count'],
+    enabled,
+    queryFn: () => apiCall<UnreadCountResponse>('/api/messages/unread-count'),
+    refetchInterval: 60_000,
   });
 }

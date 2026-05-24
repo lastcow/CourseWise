@@ -1318,3 +1318,69 @@ export type AiGenerationJobRow = typeof aiGenerationJobs.$inferSelect;
 export type AiGenerationArtifactRow = typeof aiGenerationArtifacts.$inferSelect;
 export type CourseDeletionLogRow = typeof courseDeletionLog.$inferSelect;
 export type R2CleanupJobRow = typeof r2CleanupJobs.$inferSelect;
+
+export const messageThreads = pgTable(
+  'message_threads',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    participantAId: uuid('participant_a_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    participantBId: uuid('participant_b_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    subject: text('subject').notNull(),
+    lastMessageAt: timestamp('last_message_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+    lastMessageSenderId: uuid('last_message_sender_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    deletedByAAt: timestamp('deleted_by_a_at', { withTimezone: true, mode: 'string' }),
+    deletedByBAt: timestamp('deleted_by_b_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    courseALastIdx: index('message_threads_course_a_last_idx').on(
+      t.courseId,
+      t.participantAId,
+      t.lastMessageAt,
+    ),
+    courseBLastIdx: index('message_threads_course_b_last_idx').on(
+      t.courseId,
+      t.participantBId,
+      t.lastMessageAt,
+    ),
+  }),
+);
+
+export const messages = pgTable(
+  'messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    threadId: uuid('thread_id')
+      .notNull()
+      .references(() => messageThreads.id, { onDelete: 'cascade' }),
+    senderId: uuid('sender_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    priority: text('priority').notNull().default('normal'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+    readAtByRecipient: timestamp('read_at_by_recipient', {
+      withTimezone: true,
+      mode: 'string',
+    }),
+  },
+  (t) => ({
+    threadCreatedIdx: index('messages_thread_created_idx').on(t.threadId, t.createdAt),
+  }),
+);
+
+export type MessageThreadRow = typeof messageThreads.$inferSelect;
+export type MessageRow = typeof messages.$inferSelect;

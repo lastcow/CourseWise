@@ -169,6 +169,13 @@
       "when": 1780944000000,
       "tag": "0023_course_syllabus",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1781308800000,
+      "tag": "0024_messaging",
+      "breakpoints": true
     }
   ]
 }

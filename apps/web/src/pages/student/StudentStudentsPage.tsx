@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Users } from 'lucide-react';
+import { Mail, RefreshCw, Users } from 'lucide-react';
+import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ export function StudentStudentsPage(): JSX.Element {
   const groupSetsQ = useGroupSets(cId || undefined);
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [messageTarget, setMessageTarget] = useState<{ id: string; name: string } | null>(null);
   const activeSetQ = useGroupSet(cId || undefined, activeSetId ?? undefined);
   const join = useJoinOrAssignGroupMember(cId, activeSetId ?? '');
   const leave = useRemoveGroupMember(cId, activeSetId ?? '');
@@ -197,7 +199,15 @@ export function StudentStudentsPage(): JSX.Element {
 
         {/* Body */}
         {activeSetId === null ? (
-          <FlatRosterTable rows={flatStudents} loading={studentsQ.isLoading} t={t} />
+          <FlatRosterTable
+            rows={flatStudents}
+            loading={studentsQ.isLoading}
+            myUserId={myUserId}
+            onMessage={(row) =>
+              setMessageTarget({ id: row.studentId, name: row.studentName })
+            }
+            t={t}
+          />
         ) : !set ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
             {t('common.loading')}
@@ -291,6 +301,16 @@ export function StudentStudentsPage(): JSX.Element {
           </Table>
         )}
       </div>
+
+      {messageTarget ? (
+        <MessageComposeDialog
+          open
+          onClose={() => setMessageTarget(null)}
+          courseId={cId}
+          recipientId={messageTarget.id}
+          recipientName={messageTarget.name}
+        />
+      ) : null}
     </div>
   );
 }
@@ -298,10 +318,14 @@ export function StudentStudentsPage(): JSX.Element {
 function FlatRosterTable({
   rows,
   loading,
+  myUserId,
+  onMessage,
   t,
 }: {
   rows: EnrollmentRow[];
   loading: boolean;
+  myUserId: string;
+  onMessage: (row: EnrollmentRow) => void;
   t: (k: string, v?: Record<string, unknown>) => string;
 }) {
   const [page, setPage] = useState(1);
@@ -326,6 +350,7 @@ function FlatRosterTable({
           <TableRow>
             <TableHead className="w-[40%]">{t('students.colName')}</TableHead>
             <TableHead>{t('students.colEmail')}</TableHead>
+            <TableHead className="text-right">{t('common.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -333,6 +358,17 @@ function FlatRosterTable({
             <TableRow key={r.id}>
               <TableCell className="font-medium">{r.studentName}</TableCell>
               <TableCell className="text-muted-foreground">{r.studentEmail}</TableCell>
+              <TableCell className="text-right">
+                {r.studentId !== myUserId ? (
+                  <ActionIconButton
+                    icon={Mail}
+                    label={t('messages.composeCta')}
+                    color="sky"
+                    size="sm"
+                    onClick={() => onMessage(r)}
+                  />
+                ) : null}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
