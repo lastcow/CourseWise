@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Pagination, usePageSlice } from '@/components/ui/pagination';
 import { useToast } from '@/components/ui/toast';
 import {
   useCourseInvitationCodes,
@@ -578,6 +579,16 @@ function FlatRosterTable({
   loading: boolean;
   t: (k: string, v?: Record<string, unknown>) => string;
 }) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  // Reset to page 1 whenever the filtered roster shrinks below the current
+  // window — keeps the user from staring at an empty page after a search
+  // narrows the list.
+  useEffect(() => {
+    setPage(1);
+  }, [rows.length]);
+  const { slice } = usePageSlice(rows, page, pageSize);
+
   if (loading) {
     return <p className="px-3 py-6 text-center text-sm text-muted-foreground">{t('common.loading')}</p>;
   }
@@ -585,38 +596,50 @@ function FlatRosterTable({
     return <EmptyState title={t('students.emptyRoster')} />;
   }
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t('students.colName')}</TableHead>
-          <TableHead>{t('students.colEmail')}</TableHead>
-          <TableHead>{t('students.colNumber')}</TableHead>
-          <TableHead>{t('students.colStatus')}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((r) => {
-          // For enrolled students, surface their TOTAL active enrollments
-          // (across all courses) so teachers see who's juggling more than
-          // this one course at a glance. Dropped/completed keep the simple
-          // label — the count isn't actionable for them.
-          const label =
-            r.status === 'enrolled' && r.enrolledCourseCount != null
-              ? t('students.statusEnrolledCount', { count: r.enrolledCourseCount })
-              : t(`students.status${r.status[0]!.toUpperCase()}${r.status.slice(1)}`);
-          return (
-            <TableRow key={r.id}>
-              <TableCell className="font-medium">{r.studentName}</TableCell>
-              <TableCell className="text-muted-foreground">{r.studentEmail}</TableCell>
-              <TableCell className="text-muted-foreground">{r.studentNumber ?? '—'}</TableCell>
-              <TableCell>
-                <Badge variant="secondary">{label}</Badge>
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t('students.colName')}</TableHead>
+            <TableHead>{t('students.colEmail')}</TableHead>
+            <TableHead>{t('students.colNumber')}</TableHead>
+            <TableHead>{t('students.colStatus')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {slice.map((r) => {
+            // For enrolled students, surface their TOTAL active enrollments
+            // (across all courses) so teachers see who's juggling more than
+            // this one course at a glance. Dropped/completed keep the simple
+            // label — the count isn't actionable for them.
+            const label =
+              r.status === 'enrolled' && r.enrolledCourseCount != null
+                ? t('students.statusEnrolledCount', { count: r.enrolledCourseCount })
+                : t(`students.status${r.status[0]!.toUpperCase()}${r.status.slice(1)}`);
+            return (
+              <TableRow key={r.id}>
+                <TableCell className="font-medium">{r.studentName}</TableCell>
+                <TableCell className="text-muted-foreground">{r.studentEmail}</TableCell>
+                <TableCell className="text-muted-foreground">{r.studentNumber ?? '—'}</TableCell>
+                <TableCell>
+                  <Badge variant="secondary">{label}</Badge>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={rows.length}
+        onPageChange={setPage}
+        onPageSizeChange={(n) => {
+          setPageSize(n);
+          setPage(1);
+        }}
+      />
+    </>
   );
 }
 

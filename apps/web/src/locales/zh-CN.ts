@@ -101,6 +101,13 @@ export const zhCN = {
       pin: '置顶',
       unpin: '取消置顶',
       deactivate: '停用',
+      pageFirst: '首页',
+      pagePrev: '上一页',
+      pageNext: '下一页',
+      pageLast: '末页',
+      pageSizeLabel: '每页行数',
+      pageRange: '第 {{from}}–{{to}} 条,共 {{total}} 条',
+      pageOfTotal: '第 {{page}} 页,共 {{total}} 页',
     },
     roles: {
       admin: '管理员',

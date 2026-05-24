@@ -101,6 +101,13 @@ export const en = {
       pin: 'Pin',
       unpin: 'Unpin',
       deactivate: 'Deactivate',
+      pageFirst: 'First page',
+      pagePrev: 'Previous page',
+      pageNext: 'Next page',
+      pageLast: 'Last page',
+      pageSizeLabel: 'Rows per page',
+      pageRange: 'Showing {{from}}–{{to}} of {{total}}',
+      pageOfTotal: 'Page {{page}} of {{total}}',
     },
     roles: {
       admin: 'Admin',
