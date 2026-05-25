@@ -694,6 +694,8 @@ export const en = {
         'Reducing the size keeps existing populated groups as-is. Only empty trailing groups are removed.',
       addAnyway: 'Add anyway ({{next}})',
       addAnywayHint: 'Bumps this group cap to {{next}} and admits the student.',
+      capacityHint:
+        '{{groups}} groups × {{max}} max = up to {{total}} students total.',
       groupNameLabel: 'Group name',
       currentlyInGroup: 'You are in {{groupName}}.',
     },
