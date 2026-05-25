@@ -1200,6 +1200,7 @@ export const zhCN = {
       absent: '缺勤',
       late: '迟到',
       excused: '请假',
+      pending: '未签到',
       session: {
         open: '进行中',
         closed: '已关闭',
