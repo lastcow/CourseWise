@@ -1508,6 +1508,7 @@ export const en = {
       modelDeleted: 'Model removed',
       generate: {
         cta: 'Generate with AI',
+        disabledHint: 'Generate with AI is temporarily disabled.',
         title: 'Generate reading materials',
         model: 'Model',
         modules: 'Modules',

@@ -131,7 +131,11 @@ export function TeacherCourseOverviewPage(): JSX.Element {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant={statusVariant}>{t(statusKey)}</Badge>
-              <Button onClick={() => setAiOpen(true)} className="gap-1.5">
+              <Button
+                disabled
+                title={t('ai.generate.disabledHint')}
+                className="gap-1.5"
+              >
                 <Sparkles className="h-4 w-4" aria-hidden />
                 {t('ai.generate.cta')}
               </Button>
