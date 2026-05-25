@@ -1241,6 +1241,17 @@ export const en = {
       noStudents: 'No enrolled students yet.',
       deleteSession: 'Delete session',
       deleteSessionConfirm: 'Delete this session? All records will be lost.',
+      deleteSessionConfirmTitle: 'Delete attendance session?',
+      deleteSessionConfirmBody:
+        'This permanently removes the session and every attendance record under it. This cannot be undone.',
+      deleteSessionConfirmAction: 'Delete session',
+      sessionDeleted: 'Session deleted',
+      sessionStatus: 'Status',
+      signedInLabel: 'Signed in',
+      signedInOfTotal: '{{signed}} of {{total}} students',
+      markedBreakdownLabel: 'Marked',
+      markedBreakdownValue:
+        'Present {{present}} · Late {{late}} · Absent {{absent}} · Excused {{excused}} · Pending {{pending}}',
       closeSession: 'Close session',
       present: 'Present',
       absent: 'Absent',
