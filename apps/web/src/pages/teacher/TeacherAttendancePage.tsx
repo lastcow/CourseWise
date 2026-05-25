@@ -44,18 +44,12 @@ const STATUS_TONE: Record<AttendanceStatus, string> = {
   excused: 'border-sky-500/50 bg-sky-500/5 text-sky-700 dark:text-sky-300',
 };
 
-const COUNTER_TONE: Record<AttendanceStatus | 'pending', string> = {
+const COUNTER_TONE: Record<AttendanceStatus, string> = {
   present: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   absent: 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300',
   late: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   excused: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  pending:
-    'border-muted-foreground/40 bg-muted/40 text-muted-foreground',
 };
-
-// Tone for the per-row "no status yet" select state. Neutral so it
-// reads as "untouched" rather than any particular status decision.
-const PENDING_SELECT_TONE = 'border-dashed border-muted-foreground/40 text-muted-foreground';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -79,11 +73,12 @@ export function TeacherAttendancePage(): JSX.Element {
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const records = useAttendanceRecords(selectedSession);
   const bulkMark = useBulkMarkAttendance(selectedSession ?? '', cid);
-  // `status` may be '' to mean "no record yet — student hasn't signed in
-  // and the teacher hasn't marked them". An empty status is skipped at
-  // save time so we don't conjure a fake 'present' record on the server.
+  // Default per row is 'absent' until a student self-signs (-> present /
+  // late) or the teacher manually edits. Treating absent-as-default keeps
+  // the persisted state honest if the teacher saves without touching
+  // every row: the LMS convention is "absent unless proven present."
   const [marks, setMarks] = useState<
-    Record<string, { status: AttendanceStatus | ''; notes: string }>
+    Record<string, { status: AttendanceStatus; notes: string }>
   >({});
 
   const [openDialog, setOpenDialog] = useState(false);
@@ -201,21 +196,10 @@ export function TeacherAttendancePage(): JSX.Element {
           marks={marks}
           setMarks={setMarks}
           deleting={delSession.isPending}
-          onSave={async () => {
-            if (!selectedSession) return;
-            // Only save rows the teacher (or server records) has an
-            // explicit status for. Untouched rows stay record-less so
-            // un-signed-in students aren't silently marked present.
-            const payload = Object.entries(marks)
-              .filter(([, m]) => m.status !== '')
-              .map(([studentId, m]) => ({
-                studentId,
-                status: m.status as AttendanceStatus,
-                notes: m.notes.trim() || null,
-              }));
-            if (payload.length === 0) return;
+          onSave={async (records) => {
+            if (!selectedSession || records.length === 0) return;
             try {
-              await bulkMark.mutateAsync({ records: payload });
+              await bulkMark.mutateAsync({ records });
               toast.push({ title: t('attendance.saved'), tone: 'success' });
             } catch (err) {
               toast.push({
@@ -346,7 +330,8 @@ export function TeacherAttendancePage(): JSX.Element {
   );
 }
 
-type RosterMarks = Record<string, { status: AttendanceStatus | ''; notes: string }>;
+type RosterMarks = Record<string, { status: AttendanceStatus; notes: string }>;
+type BulkRecord = { studentId: string; status: AttendanceStatus; notes: string | null };
 
 /**
  * Polished roster surface for the selected attendance session. The header
@@ -372,7 +357,7 @@ function RosterCard({
   enrollments: EnrollmentRow[];
   marks: RosterMarks;
   setMarks: React.Dispatch<React.SetStateAction<RosterMarks>>;
-  onSave: () => Promise<void>;
+  onSave: (records: BulkRecord[]) => Promise<void>;
   saving: boolean;
   onCloseSession: () => Promise<void>;
   onDeleteSession: () => Promise<void>;
@@ -382,30 +367,24 @@ function RosterCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Active status filter for the roster table. null = show everyone.
   // Click a chip to filter to that status; click it again to clear.
-  const [statusFilter, setStatusFilter] = useState<
-    AttendanceStatus | 'pending' | null
-  >(null);
+  const [statusFilter, setStatusFilter] = useState<AttendanceStatus | null>(null);
 
-  // Live tallies. A row with no recorded status counts toward the
-  // "pending" bucket (student hasn't signed in yet AND the teacher
-  // hasn't marked them), NOT 'present'. This matches the backend
-  // semantics where absent-by-default would silently lie about a
-  // session that just opened.
+  // Live tallies. Untouched rows default to 'absent' so the LMS
+  // convention "absent unless proven present" holds even before the
+  // teacher clicks Save.
   const total = enrollments.length;
-  const counts: Record<AttendanceStatus, number> & { pending: number } = {
+  const counts: Record<AttendanceStatus, number> = {
     present: 0,
     absent: 0,
     late: 0,
     excused: 0,
-    pending: 0,
   };
   for (const e of enrollments) {
-    const status = marks[e.studentId]?.status ?? '';
-    if (status === '') counts.pending += 1;
-    else counts[status] += 1;
+    const status = marks[e.studentId]?.status ?? 'absent';
+    counts[status] += 1;
   }
 
-  const setStatus = (studentId: string, status: AttendanceStatus | '') => {
+  const setStatus = (studentId: string, status: AttendanceStatus) => {
     setMarks((current) => ({
       ...current,
       [studentId]: { status, notes: current[studentId]?.notes ?? '' },
@@ -414,9 +393,21 @@ function RosterCard({
   const setNotes = (studentId: string, notes: string) => {
     setMarks((current) => ({
       ...current,
-      [studentId]: { status: current[studentId]?.status ?? '', notes },
+      [studentId]: { status: current[studentId]?.status ?? 'absent', notes },
     }));
   };
+
+  // Build the save payload from the live roster so every enrolled
+  // student is sent — untouched rows default to 'absent'.
+  const buildPayload = (): BulkRecord[] =>
+    enrollments.map((e) => {
+      const m = marks[e.studentId];
+      return {
+        studentId: e.studentId,
+        status: m?.status ?? 'absent',
+        notes: m?.notes.trim() ? m.notes.trim() : null,
+      };
+    });
 
   return (
     <Card>
@@ -433,7 +424,7 @@ function RosterCard({
           <div className="flex flex-wrap items-center gap-1.5">
             <Button
               size="sm"
-              onClick={() => void onSave()}
+              onClick={() => void onSave(buildPayload())}
               disabled={saving || total === 0}
             >
               <Save className="mr-1.5 h-4 w-4" aria-hidden />
@@ -486,11 +477,9 @@ function RosterCard({
           </p>
         ) : (
           <div className="space-y-3">
-            {/* Per-status tally chips. Pending counts students with no
-                record yet — they haven't signed in and haven't been
-                marked. */}
+            {/* Per-status tally chips. Untouched rows count as absent. */}
             <div className="flex flex-wrap items-center gap-1.5">
-              {(['pending', ...STATUSES] as const).map((s) => {
+              {STATUSES.map((s) => {
                 const active = statusFilter === s;
                 return (
                   <button
@@ -548,8 +537,7 @@ function RosterCard({
                   {(() => {
                     const filtered = statusFilter
                       ? enrollments.filter((e) => {
-                          const s = marks[e.studentId]?.status ?? '';
-                          if (statusFilter === 'pending') return s === '';
+                          const s = marks[e.studentId]?.status ?? 'absent';
                           return s === statusFilter;
                         })
                       : enrollments;
@@ -566,15 +554,13 @@ function RosterCard({
                       );
                     }
                     return filtered.map((e, idx) => {
-                    // Default to empty status: a brand-new session shouldn't
-                    // silently mark every student "present" before they've
-                    // signed in.
+                    // Default to 'absent' — LMS convention is
+                    // "absent unless proven present." Self-sign /
+                    // manual edits flip the status to present / late /
+                    // excused.
                     const row =
-                      marks[e.studentId] ?? { status: '' as const, notes: '' };
-                    const tone =
-                      row.status === ''
-                        ? PENDING_SELECT_TONE
-                        : STATUS_TONE[row.status];
+                      marks[e.studentId] ?? { status: 'absent' as const, notes: '' };
+                    const tone = STATUS_TONE[row.status];
                     return (
                       <TableRow key={e.studentId}>
                         <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
@@ -598,13 +584,10 @@ function RosterCard({
                             onChange={(ev) =>
                               setStatus(
                                 e.studentId,
-                                ev.target.value as AttendanceStatus | '',
+                                ev.target.value as AttendanceStatus,
                               )
                             }
                           >
-                            <option value="">
-                              {t('attendance.pending')}
-                            </option>
                             {STATUSES.map((s) => (
                               <option key={s} value={s}>
                                 {t(`attendance.${s}`)}
@@ -677,7 +660,6 @@ function RosterCard({
                   late: counts.late,
                   absent: counts.absent,
                   excused: counts.excused,
-                  pending: counts.pending,
                 })}
               </dd>
             </dl>

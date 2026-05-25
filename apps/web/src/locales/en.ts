@@ -1251,7 +1251,7 @@ export const en = {
       signedInOfTotal: '{{signed}} of {{total}} students',
       markedBreakdownLabel: 'Marked',
       markedBreakdownValue:
-        'Present {{present}} · Late {{late}} · Absent {{absent}} · Excused {{excused}} · Pending {{pending}}',
+        'Present {{present}} · Late {{late}} · Absent {{absent}} · Excused {{excused}}',
       closeSession: 'Close session',
       present: 'Present',
       absent: 'Absent',
