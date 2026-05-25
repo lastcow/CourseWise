@@ -1454,6 +1454,7 @@ export const zhCN = {
       modelDeleted: '模型已删除',
       generate: {
         cta: 'AI 生成',
+        disabledHint: 'AI 生成功能已暂时停用。',
         title: '生成阅读资料',
         model: '模型',
         modules: '章节',
