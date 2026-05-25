@@ -1204,7 +1204,7 @@ export const zhCN = {
       signedInOfTotal: '{{signed}} / {{total}} 人',
       markedBreakdownLabel: '已登记',
       markedBreakdownValue:
-        '出勤 {{present}} · 迟到 {{late}} · 缺勤 {{absent}} · 请假 {{excused}} · 未签到 {{pending}}',
+        '出勤 {{present}} · 迟到 {{late}} · 缺勤 {{absent}} · 请假 {{excused}}',
       closeSession: '关闭考勤',
       present: '出勤',
       absent: '缺勤',
