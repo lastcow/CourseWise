@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Check,
+  ChevronRight,
   Copy,
   Lock,
   Mail,
@@ -466,6 +467,7 @@ export function TeacherStudentsPage(): JSX.Element {
             set={activeSet}
             studentById={studentById}
             matchesSearch={matchesSearch}
+            searchActive={search.trim().length > 0}
             assignTargetId={assignTargetId}
             onPickAssignTarget={setAssignTargetId}
             onAssign={onAssign}
@@ -769,6 +771,7 @@ type GroupedTableProps = {
   set: NonNullable<ReturnType<typeof useGroupSet>['data']>;
   studentById: Map<string, EnrollmentRow>;
   matchesSearch: (name: string, email: string) => boolean;
+  searchActive: boolean;
   assignTargetId: string;
   onPickAssignTarget: (id: string) => void;
   onAssign: (groupId: string, opts?: { force?: boolean }) => void;
@@ -782,6 +785,7 @@ function GroupedRosterTable({
   set,
   studentById,
   matchesSearch,
+  searchActive,
   assignTargetId,
   onPickAssignTarget,
   onAssign,
@@ -811,6 +815,7 @@ function GroupedRosterTable({
               key={g.id}
               t={t}
               title={`${set.name} · ${g.name}`}
+              defaultOpen={searchActive && visibleMembers.length > 0}
               statusBadge={
                 full
                   ? {
@@ -900,6 +905,7 @@ function GroupedRosterTable({
           <GroupBlock
             t={t}
             title={t('students.unassignedRow')}
+            defaultOpen
             statusBadge={{
               label: String(set.unassignedStudents.length),
               variant: 'secondary' as const,
@@ -934,27 +940,51 @@ function GroupBlock({
   title,
   statusBadge,
   rightSlot,
+  defaultOpen = false,
   children,
 }: {
   t: (k: string, v?: Record<string, unknown>) => string;
   title: string;
   statusBadge: { label: string; variant: 'secondary' | 'destructive' | 'success' | 'info' };
   rightSlot?: React.ReactNode;
+  /** Render member rows expanded on mount. Default closed so a long roster
+   *  fits in the viewport; auto-open when a search is active so matches
+   *  surface, and on the "Unassigned" bucket so teachers can act on it. */
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
   void t; // reserved for future labels
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <>
-      <TableRow className="bg-muted/40 hover:bg-muted/40">
+      <TableRow
+        className="cursor-pointer bg-muted/40 hover:bg-muted/40"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
         <TableCell colSpan={4} className="py-2">
           <div className="flex flex-wrap items-center gap-2">
+            <ChevronRight
+              className={cn(
+                'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                open && 'rotate-90',
+              )}
+              aria-hidden
+            />
             <span className="font-medium">{title}</span>
             <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
-            <div className="ml-auto">{rightSlot}</div>
+            <div
+              className="ml-auto"
+              // Picker / action controls live in rightSlot. Don't let clicks
+              // on them collapse the group.
+              onClick={(e) => e.stopPropagation()}
+            >
+              {rightSlot}
+            </div>
           </div>
         </TableCell>
       </TableRow>
-      {children}
+      {open ? children : null}
     </>
   );
 }

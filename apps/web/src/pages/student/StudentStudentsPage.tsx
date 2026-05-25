@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, Pencil, RefreshCw, Users } from 'lucide-react';
+import { ChevronRight, Mail, Pencil, RefreshCw, Users } from 'lucide-react';
 import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import { StudentProfileDialog } from '@/components/students/StudentProfileDialog';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
@@ -237,68 +237,27 @@ export function StudentStudentsPage(): JSX.Element {
                 const visibleMembers = g.members.filter((m) =>
                   matchesSearch(m.name, m.email),
                 );
+                const searchActive = search.trim().length > 0;
                 return (
-                  <Block key={g.id}>
-                    <TableRow className="bg-muted/40 hover:bg-muted/40">
-                      <TableCell colSpan={3} className="py-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={isMine ? 'font-semibold text-primary' : 'font-medium'}
-                          >
-                            {set.name} · {g.name}
-                          </span>
-                          <Badge variant={full ? 'destructive' : 'secondary'}>
-                            {full
-                              ? t('groups.groupFull')
-                              : t('groups.slotsLeft', {
-                                  remaining,
-                                  max: effectiveMax,
-                                })}
-                          </Badge>
-                          {isMine ? (
-                            <Badge variant="info">{t('groups.yourGroup')}</Badge>
-                          ) : null}
-                          <div className="ml-auto">
-                            {isMine ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={isLocked || leave.isPending}
-                                onClick={() => onLeave(g.id)}
-                              >
-                                {t('groups.leaveCta')}
-                              </Button>
-                            ) : canJoin ? (
-                              <Button
-                                size="sm"
-                                disabled={join.isPending}
-                                onClick={() => onJoin(g.id)}
-                              >
-                                {t('groups.joinCta')}
-                              </Button>
-                            ) : null}
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {visibleMembers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={3} className="pl-8 text-xs text-muted-foreground">
-                          {g.members.length === 0
-                            ? t('common.none')
-                            : t('students.noSearchMatch')}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      visibleMembers.map((m) => (
-                        <TableRow key={m.studentId}>
-                          <TableCell className="pl-8 font-medium">{m.name}</TableCell>
-                          <TableCell className="text-muted-foreground">{m.email}</TableCell>
-                          <TableCell />
-                        </TableRow>
-                      ))
-                    )}
-                  </Block>
+                  <StudentGroupRow
+                    key={g.id}
+                    setName={set.name}
+                    groupName={g.name}
+                    isMine={isMine}
+                    effectiveMax={effectiveMax}
+                    memberCount={g.members.length}
+                    visibleMembers={visibleMembers}
+                    full={full}
+                    remaining={remaining}
+                    canJoin={canJoin}
+                    isLocked={isLocked}
+                    joinBusy={join.isPending}
+                    leaveBusy={leave.isPending}
+                    onJoin={() => onJoin(g.id)}
+                    onLeave={() => onLeave(g.id)}
+                    defaultOpen={isMine || (searchActive && visibleMembers.length > 0)}
+                    t={t}
+                  />
                 );
               })}
             </TableBody>
@@ -411,7 +370,108 @@ function FlatRosterTable({
   );
 }
 
-/** Fragment wrapper so we can group header + member rows together. */
-function Block({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+/**
+ * Collapsible group row for the student-side grouped roster. Mirrors the
+ * teacher page's GroupBlock — chevron-toggle header + member rows; closed
+ * by default unless the caller is in the group or a search match exists.
+ */
+function StudentGroupRow({
+  setName,
+  groupName,
+  isMine,
+  effectiveMax,
+  memberCount,
+  visibleMembers,
+  full,
+  remaining,
+  canJoin,
+  isLocked,
+  joinBusy,
+  leaveBusy,
+  onJoin,
+  onLeave,
+  defaultOpen,
+  t,
+}: {
+  setName: string;
+  groupName: string;
+  isMine: boolean;
+  effectiveMax: number;
+  memberCount: number;
+  visibleMembers: { studentId: string; name: string; email: string }[];
+  full: boolean;
+  remaining: number;
+  canJoin: boolean;
+  isLocked: boolean;
+  joinBusy: boolean;
+  leaveBusy: boolean;
+  onJoin: () => void;
+  onLeave: () => void;
+  defaultOpen: boolean;
+  t: (k: string, v?: Record<string, unknown>) => string;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <>
+      <TableRow
+        className="cursor-pointer bg-muted/40 hover:bg-muted/40"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <TableCell colSpan={3} className="py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <ChevronRight
+              className={cn(
+                'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                open && 'rotate-90',
+              )}
+              aria-hidden
+            />
+            <span className={isMine ? 'font-semibold text-primary' : 'font-medium'}>
+              {setName} · {groupName}
+            </span>
+            <Badge variant={full ? 'destructive' : 'secondary'}>
+              {full
+                ? t('groups.groupFull')
+                : t('groups.slotsLeft', { remaining, max: effectiveMax })}
+            </Badge>
+            {isMine ? <Badge variant="info">{t('groups.yourGroup')}</Badge> : null}
+            <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
+              {isMine ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isLocked || leaveBusy}
+                  onClick={onLeave}
+                >
+                  {t('groups.leaveCta')}
+                </Button>
+              ) : canJoin ? (
+                <Button size="sm" disabled={joinBusy} onClick={onJoin}>
+                  {t('groups.joinCta')}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </TableCell>
+      </TableRow>
+      {open ? (
+        visibleMembers.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={3} className="pl-8 text-xs text-muted-foreground">
+              {memberCount === 0 ? t('common.none') : t('students.noSearchMatch')}
+            </TableCell>
+          </TableRow>
+        ) : (
+          visibleMembers.map((m) => (
+            <TableRow key={m.studentId}>
+              <TableCell className="pl-8 font-medium">{m.name}</TableCell>
+              <TableCell className="text-muted-foreground">{m.email}</TableCell>
+              <TableCell />
+            </TableRow>
+          ))
+        )
+      ) : null}
+    </>
+  );
 }
