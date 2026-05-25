@@ -86,6 +86,8 @@ export function TeacherStudentsPage(): JSX.Element {
   const [editTargetId, setEditTargetId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<GroupSetSummary | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [editCount, setEditCount] = useState('');
+  const [editMax, setEditMax] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<GroupSetSummary | null>(null);
   const [copied, setCopied] = useState(false);
   // Create-set form state
@@ -155,11 +157,26 @@ export function TeacherStudentsPage(): JSX.Element {
 
   const onRename = async () => {
     if (!renameTarget || !renameValue.trim()) return;
+    const patch: { name?: string; numberOfGroups?: number; maxMembersPerGroup?: number } = {};
+    if (renameValue.trim() !== renameTarget.name) patch.name = renameValue.trim();
+    const nextCount = Number.parseInt(editCount, 10);
+    if (Number.isFinite(nextCount) && nextCount > 0 && nextCount !== renameTarget.groupCount) {
+      patch.numberOfGroups = nextCount;
+    }
+    const nextMax = Number.parseInt(editMax, 10);
+    if (
+      Number.isFinite(nextMax) &&
+      nextMax > 0 &&
+      nextMax !== renameTarget.maxMembersPerGroup
+    ) {
+      patch.maxMembersPerGroup = nextMax;
+    }
+    if (Object.keys(patch).length === 0) {
+      setRenameTarget(null);
+      return;
+    }
     try {
-      await updateSet.mutateAsync({
-        setId: renameTarget.id,
-        patch: { name: renameValue.trim() },
-      });
+      await updateSet.mutateAsync({ setId: renameTarget.id, patch });
       toast.push({ title: t('groups.setUpdated'), tone: 'success' });
       setRenameTarget(null);
     } catch (err) {
@@ -182,10 +199,14 @@ export function TeacherStudentsPage(): JSX.Element {
     }
   };
 
-  const onAssign = async (groupId: string) => {
+  const onAssign = async (groupId: string, opts?: { force?: boolean }) => {
     if (!assignTargetId) return;
     try {
-      await assignMember.mutateAsync({ groupId, studentId: assignTargetId });
+      await assignMember.mutateAsync({
+        groupId,
+        studentId: assignTargetId,
+        force: opts?.force,
+      });
       toast.push({ title: t('groups.memberJoined'), tone: 'success' });
       setAssignTargetId('');
     } catch (err) {
@@ -407,6 +428,8 @@ export function TeacherStudentsPage(): JSX.Element {
                 onClick={() => {
                   setRenameTarget(activeSummary);
                   setRenameValue(activeSummary.name);
+                  setEditCount(String(activeSummary.groupCount));
+                  setEditMax(String(activeSummary.maxMembersPerGroup));
                 }}
               >
                 <Pencil className="h-4 w-4" aria-hidden /> {t('common.edit')}
@@ -528,31 +551,78 @@ export function TeacherStudentsPage(): JSX.Element {
         </div>
       </Dialog>
 
-      {/* --- Rename --- */}
+      {/* --- Edit set (rename + resize) --- */}
       <Dialog
         open={renameTarget !== null}
         onClose={() => setRenameTarget(null)}
-        title={t('groups.renameGroupTitle')}
+        title={t('groups.editSetTitle')}
       >
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="ts-rename">{t('groups.setNameLabel')}</Label>
-            <Input
-              id="ts-rename"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              maxLength={100}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setRenameTarget(null)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={onRename} disabled={updateSet.isPending || !renameValue.trim()}>
-              {t('common.save')}
-            </Button>
-          </div>
-        </div>
+        {renameTarget ? (
+          (() => {
+            const targetCount = Number.parseInt(editCount, 10);
+            const targetMax = Number.parseInt(editMax, 10);
+            const shrinking =
+              (Number.isFinite(targetCount) && targetCount < renameTarget.groupCount) ||
+              (Number.isFinite(targetMax) && targetMax < renameTarget.maxMembersPerGroup);
+            return (
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="ts-rename">{t('groups.setNameLabel')}</Label>
+                  <Input
+                    id="ts-rename"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    maxLength={100}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="ts-edit-count">
+                      {t('groups.numberOfGroupsLabel')}
+                    </Label>
+                    <Input
+                      id="ts-edit-count"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={editCount}
+                      onChange={(e) => setEditCount(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="ts-edit-max">
+                      {t('groups.maxPerGroupLabel')}
+                    </Label>
+                    <Input
+                      id="ts-edit-max"
+                      type="number"
+                      min={1}
+                      max={200}
+                      value={editMax}
+                      onChange={(e) => setEditMax(e.target.value)}
+                    />
+                  </div>
+                </div>
+                {shrinking ? (
+                  <p className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                    {t('groups.shrinkHint')}
+                  </p>
+                ) : null}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setRenameTarget(null)}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button
+                    onClick={onRename}
+                    disabled={updateSet.isPending || !renameValue.trim()}
+                  >
+                    {t('common.save')}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()
+        ) : null}
       </Dialog>
 
       {/* --- Delete --- */}
@@ -701,7 +771,7 @@ type GroupedTableProps = {
   matchesSearch: (name: string, email: string) => boolean;
   assignTargetId: string;
   onPickAssignTarget: (id: string) => void;
-  onAssign: (groupId: string) => void;
+  onAssign: (groupId: string, opts?: { force?: boolean }) => void;
   onRemove: (groupId: string, studentId: string) => void;
   assignBusy: boolean;
   removeBusy: boolean;
@@ -731,8 +801,10 @@ function GroupedRosterTable({
       </TableHeader>
       <TableBody>
         {set.groups.map((g) => {
-          const remaining = set.maxMembersPerGroup - g.members.length;
+          const effectiveMax = g.maxMembersOverride ?? set.maxMembersPerGroup;
+          const remaining = effectiveMax - g.members.length;
           const full = remaining <= 0;
+          const hasOverride = g.maxMembersOverride !== null;
           const visibleMembers = g.members.filter((m) => matchesSearch(m.name, m.email));
           return (
             <GroupBlock
@@ -741,12 +813,12 @@ function GroupedRosterTable({
               title={`${set.name} · ${g.name}`}
               statusBadge={
                 full
-                  ? { label: t('groups.groupFull'), variant: 'destructive' as const }
+                  ? {
+                      label: `${g.members.length}/${effectiveMax}${hasOverride ? ' ↑' : ''} · ${t('groups.groupFull')}`,
+                      variant: 'destructive' as const,
+                    }
                   : {
-                      label: t('groups.slotsLeft', {
-                        remaining,
-                        max: set.maxMembersPerGroup,
-                      }),
+                      label: `${g.members.length}/${effectiveMax}${hasOverride ? ' ↑' : ''}`,
                       variant: 'secondary' as const,
                     }
               }
@@ -764,14 +836,27 @@ function GroupedRosterTable({
                       </option>
                     ))}
                   </select>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!assignTargetId || full || assignBusy}
-                    onClick={() => onAssign(g.id)}
-                  >
-                    {t('groups.assignCta')}
-                  </Button>
+                  {full && assignTargetId ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+                      disabled={assignBusy}
+                      onClick={() => onAssign(g.id, { force: true })}
+                      title={t('groups.addAnywayHint', { next: g.members.length + 1 })}
+                    >
+                      {t('groups.addAnyway', { next: g.members.length + 1 })}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!assignTargetId || full || assignBusy}
+                      onClick={() => onAssign(g.id)}
+                    >
+                      {t('groups.assignCta')}
+                    </Button>
+                  )}
                 </div>
               }
             >

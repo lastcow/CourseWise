@@ -228,7 +228,8 @@ export function StudentStudentsPage(): JSX.Element {
             </TableHeader>
             <TableBody>
               {set.groups.map((g) => {
-                const remaining = set.maxMembersPerGroup - g.members.length;
+                const effectiveMax = g.maxMembersOverride ?? set.maxMembersPerGroup;
+                const remaining = effectiveMax - g.members.length;
                 const full = remaining <= 0;
                 const isMine = myGroupId === g.id;
                 const canJoin =
@@ -251,7 +252,7 @@ export function StudentStudentsPage(): JSX.Element {
                               ? t('groups.groupFull')
                               : t('groups.slotsLeft', {
                                   remaining,
-                                  max: set.maxMembersPerGroup,
+                                  max: effectiveMax,
                                 })}
                           </Badge>
                           {isMine ? (

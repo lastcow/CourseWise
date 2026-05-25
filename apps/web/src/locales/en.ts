@@ -689,6 +689,11 @@ export const en = {
       deleteSetConfirm:
         'This removes all groups and memberships in this set. PR2 will warn if assignments depend on it.',
       renameGroupTitle: 'Rename group',
+      editSetTitle: 'Edit group set',
+      shrinkHint:
+        'Reducing the size keeps existing populated groups as-is. Only empty trailing groups are removed.',
+      addAnyway: 'Add anyway ({{next}})',
+      addAnywayHint: 'Bumps this group cap to {{next}} and admits the student.',
       groupNameLabel: 'Group name',
       currentlyInGroup: 'You are in {{groupName}}.',
     },

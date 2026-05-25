@@ -1784,11 +1784,18 @@ export function useJoinOrAssignGroupMember(courseId: string, setId: string) {
     mutationFn: ({
       groupId,
       studentId,
+      force,
     }: {
       groupId: string;
       studentId?: string;
+      /** Teacher/admin only. When true and the group is at/over its
+       *  effective cap, the server bumps maxMembersOverride and admits
+       *  the student. Ignored when the caller is a student. */
+      force?: boolean;
     }) => {
-      const body: AssignGroupMemberInput | undefined = studentId ? { studentId } : undefined;
+      const body: AssignGroupMemberInput | undefined = studentId
+        ? { studentId, ...(force ? { force: true } : {}) }
+        : undefined;
       return apiCall(
         `/api/courses/${courseId}/group-sets/${setId}/groups/${groupId}/members`,
         body ? { method: 'POST', body } : { method: 'POST' },

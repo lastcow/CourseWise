@@ -859,6 +859,10 @@ export const groups = pgTable(
       .references(() => groupSets.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     position: integer('position').notNull().default(0),
+    // NULL inherits group_sets.max_members_per_group. Set to bump a single
+    // group's cap when teacher/admin force-assigns a student into a full
+    // group; the bump is persistent (cap survives subsequent reads).
+    maxMembersOverride: integer('max_members_override'),
     ...timestamps,
   },
   (t) => ({

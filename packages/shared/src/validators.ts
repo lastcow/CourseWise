@@ -1048,6 +1048,18 @@ export const updateGroupSetSchema = z
       .min(1)
       .max(GROUP_SET_MAX_MEMBERS_PER_GROUP)
       .optional(),
+    /**
+     * Resize the set in place. Growing the value inserts new auto-named
+     * groups at trailing positions. Shrinking it deletes ONLY empty
+     * trailing groups — populated groups beyond the new count are
+     * preserved (grandfathered).
+     */
+    numberOfGroups: z
+      .number()
+      .int()
+      .min(1)
+      .max(GROUP_SET_MAX_GROUPS)
+      .optional(),
     signupMode: z.enum(GROUP_SET_SIGNUP_MODES).optional(),
     signupStatus: z.enum(GROUP_SET_SIGNUP_STATUSES).optional(),
   })
@@ -1068,6 +1080,10 @@ export type UpdateGroupInput = z.infer<typeof updateGroupSchema>;
 
 export const assignGroupMemberSchema = z.object({
   studentId: z.string().uuid(),
+  /** Teacher/admin only. When true and the group is at/over its effective
+   *  cap, the group's `maxMembersOverride` is bumped to currentCount + 1
+   *  and the student is admitted. Ignored when the caller is a student. */
+  force: z.boolean().optional(),
 });
 export type AssignGroupMemberInput = z.infer<typeof assignGroupMemberSchema>;
 
