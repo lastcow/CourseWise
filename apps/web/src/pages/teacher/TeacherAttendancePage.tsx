@@ -44,12 +44,18 @@ const STATUS_TONE: Record<AttendanceStatus, string> = {
   excused: 'border-sky-500/50 bg-sky-500/5 text-sky-700 dark:text-sky-300',
 };
 
-const COUNTER_TONE: Record<AttendanceStatus, string> = {
+const COUNTER_TONE: Record<AttendanceStatus | 'pending', string> = {
   present: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   absent: 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300',
   late: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   excused: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  pending:
+    'border-muted-foreground/40 bg-muted/40 text-muted-foreground',
 };
+
+// Tone for the per-row "no status yet" select state. Neutral so it
+// reads as "untouched" rather than any particular status decision.
+const PENDING_SELECT_TONE = 'border-dashed border-muted-foreground/40 text-muted-foreground';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -73,7 +79,12 @@ export function TeacherAttendancePage(): JSX.Element {
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const records = useAttendanceRecords(selectedSession);
   const bulkMark = useBulkMarkAttendance(selectedSession ?? '', cid);
-  const [marks, setMarks] = useState<Record<string, { status: AttendanceStatus; notes: string }>>({});
+  // `status` may be '' to mean "no record yet — student hasn't signed in
+  // and the teacher hasn't marked them". An empty status is skipped at
+  // save time so we don't conjure a fake 'present' record on the server.
+  const [marks, setMarks] = useState<
+    Record<string, { status: AttendanceStatus | ''; notes: string }>
+  >({});
 
   const [openDialog, setOpenDialog] = useState(false);
   const [draft, setDraft] = useState({
@@ -190,11 +201,16 @@ export function TeacherAttendancePage(): JSX.Element {
           setMarks={setMarks}
           onSave={async () => {
             if (!selectedSession) return;
-            const payload = Object.entries(marks).map(([studentId, m]) => ({
-              studentId,
-              status: m.status,
-              notes: m.notes.trim() || null,
-            }));
+            // Only save rows the teacher (or server records) has an
+            // explicit status for. Untouched rows stay record-less so
+            // un-signed-in students aren't silently marked present.
+            const payload = Object.entries(marks)
+              .filter(([, m]) => m.status !== '')
+              .map(([studentId, m]) => ({
+                studentId,
+                status: m.status as AttendanceStatus,
+                notes: m.notes.trim() || null,
+              }));
             if (payload.length === 0) return;
             try {
               await bulkMark.mutateAsync({ records: payload });
@@ -328,7 +344,7 @@ export function TeacherAttendancePage(): JSX.Element {
   );
 }
 
-type RosterMarks = Record<string, { status: AttendanceStatus; notes: string }>;
+type RosterMarks = Record<string, { status: AttendanceStatus | ''; notes: string }>;
 
 /**
  * Polished roster surface for the selected attendance session. The header
@@ -358,21 +374,26 @@ function RosterCard({
 }): JSX.Element {
   const { t } = useTranslation();
 
-  // Live tallies. Default state is 'present' until a teacher edits, which
-  // matches how the backend records absent unless flipped.
+  // Live tallies. A row with no recorded status counts toward the
+  // "pending" bucket (student hasn't signed in yet AND the teacher
+  // hasn't marked them), NOT 'present'. This matches the backend
+  // semantics where absent-by-default would silently lie about a
+  // session that just opened.
   const total = enrollments.length;
-  const counts: Record<AttendanceStatus, number> = {
+  const counts: Record<AttendanceStatus, number> & { pending: number } = {
     present: 0,
     absent: 0,
     late: 0,
     excused: 0,
+    pending: 0,
   };
   for (const e of enrollments) {
-    const status = marks[e.studentId]?.status ?? 'present';
-    counts[status] = (counts[status] ?? 0) + 1;
+    const status = marks[e.studentId]?.status ?? '';
+    if (status === '') counts.pending += 1;
+    else counts[status] += 1;
   }
 
-  const setStatus = (studentId: string, status: AttendanceStatus) => {
+  const setStatus = (studentId: string, status: AttendanceStatus | '') => {
     setMarks((current) => ({
       ...current,
       [studentId]: { status, notes: current[studentId]?.notes ?? '' },
@@ -381,7 +402,7 @@ function RosterCard({
   const setNotes = (studentId: string, notes: string) => {
     setMarks((current) => ({
       ...current,
-      [studentId]: { status: current[studentId]?.status ?? 'present', notes },
+      [studentId]: { status: current[studentId]?.status ?? '', notes },
     }));
   };
 
@@ -453,9 +474,11 @@ function RosterCard({
           </p>
         ) : (
           <div className="space-y-3">
-            {/* Per-status tally chips */}
+            {/* Per-status tally chips. Pending counts students with no
+                record yet — they haven't signed in and haven't been
+                marked. */}
             <div className="flex flex-wrap items-center gap-1.5">
-              {STATUSES.map((s) => (
+              {(['pending', ...STATUSES] as const).map((s) => (
                 <span
                   key={s}
                   className={cn(
@@ -488,8 +511,15 @@ function RosterCard({
                 </TableHeader>
                 <TableBody>
                   {enrollments.map((e, idx) => {
+                    // Default to empty status: a brand-new session shouldn't
+                    // silently mark every student "present" before they've
+                    // signed in.
                     const row =
-                      marks[e.studentId] ?? { status: 'present', notes: '' };
+                      marks[e.studentId] ?? { status: '' as const, notes: '' };
+                    const tone =
+                      row.status === ''
+                        ? PENDING_SELECT_TONE
+                        : STATUS_TONE[row.status];
                     return (
                       <TableRow key={e.studentId}>
                         <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
@@ -507,16 +537,19 @@ function RosterCard({
                           <select
                             className={cn(
                               'h-8 w-full rounded-md border bg-background px-2 text-xs font-medium',
-                              STATUS_TONE[row.status],
+                              tone,
                             )}
                             value={row.status}
                             onChange={(ev) =>
                               setStatus(
                                 e.studentId,
-                                ev.target.value as AttendanceStatus,
+                                ev.target.value as AttendanceStatus | '',
                               )
                             }
                           >
+                            <option value="">
+                              {t('attendance.pending')}
+                            </option>
                             {STATUSES.map((s) => (
                               <option key={s} value={s}>
                                 {t(`attendance.${s}`)}

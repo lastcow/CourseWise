@@ -1246,6 +1246,7 @@ export const en = {
       absent: 'Absent',
       late: 'Late',
       excused: 'Excused',
+      pending: 'Not signed in',
       session: {
         open: 'Open',
         closed: 'Closed',

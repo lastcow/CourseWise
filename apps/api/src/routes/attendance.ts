@@ -103,7 +103,7 @@ r.get(
       .select()
       .from(attendanceSessions)
       .where(eq(attendanceSessions.courseId, courseId))
-      .orderBy(desc(attendanceSessions.sessionDate));
+      .orderBy(asc(attendanceSessions.sessionDate));
     const ids = rows.map((s) => s.id);
     const counts = new Map<string, number>();
     if (ids.length > 0) {
@@ -447,7 +447,7 @@ r.get(
       .select()
       .from(attendanceSessions)
       .where(eq(attendanceSessions.courseId, courseId))
-      .orderBy(desc(attendanceSessions.sessionDate));
+      .orderBy(asc(attendanceSessions.sessionDate));
     const sessionIds = sessions.map((s) => s.id);
     const recsMap = new Map<string, typeof attendanceRecords.$inferSelect>();
     if (sessionIds.length > 0) {
