@@ -456,6 +456,17 @@ export const zhCN = {
       noEnrollments: '尚未注册任何课程。',
       enrolledAt: '注册于 {{date}}',
       saved: '学生信息已更新',
+      dangerZoneTitle: '危险区',
+      dangerZoneBody:
+        '永久删除此学生账户。所有选课、提交、消息和文件都会被移除,系统会向账户邮箱发送一次性通知邮件。',
+      deleteCta: '删除学生账户',
+      deleteConfirmTitle: '删除学生账户?',
+      deleteConfirmBody: '此操作将永久删除 {{name}}({{email}}),且无法撤销。',
+      deleteConfirmTypeLabel: '请输入 {{email}} 以确认',
+      deleteConfirmAction: '永久删除',
+      deleteSuccess: '学生账户已删除,通知邮件已发送。',
+      deleteEmailFailed: '学生账户已删除,但通知邮件未能发送。',
+      reasonLabel: '原因(可选)',
     },
     messages: {
       title: '消息',

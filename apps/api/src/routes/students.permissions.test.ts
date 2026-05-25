@@ -35,4 +35,17 @@ describe('students profile routes — unauthenticated rejections', () => {
     );
     expect(res.status).toBe(401);
   });
+
+  it('DELETE /api/students/<uuid> → 401', async () => {
+    const res = await app.request(
+      `/api/students/${USER}`,
+      {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'wrong email' }),
+      },
+      env,
+    );
+    expect(res.status).toBe(401);
+  });
 });

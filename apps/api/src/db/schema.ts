@@ -1230,6 +1230,34 @@ export const courseDeletionLog = pgTable('course_deletion_log', {
   childCounts: jsonb('child_counts').notNull(),
 });
 
+// Mirrors course_deletion_log for student-account hard deletes (typically
+// invoked to recover from a wrong-email registration). user_id and
+// deleted_by are uuid-only without FK constraints so the row survives
+// when either side is later deleted.
+export const userDeletionLog = pgTable(
+  'user_deletion_log',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').notNull(),
+    userEmail: text('user_email').notNull(),
+    userName: text('user_name').notNull(),
+    userRole: text('user_role').notNull(),
+    deletedBy: uuid('deleted_by').references(() => users.id, { onDelete: 'set null' }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+    reason: text('reason'),
+    enrollmentCount: integer('enrollment_count').notNull(),
+    emailStatus: text('email_status').notNull(),
+    emailProviderId: text('email_provider_id'),
+    childCounts: jsonb('child_counts').notNull(),
+  },
+  (t) => ({
+    userIdx: index('user_deletion_log_user_idx').on(t.userId),
+    deletedAtIdx: index('user_deletion_log_deleted_at_idx').on(t.deletedAt),
+  }),
+);
+
 export const r2CleanupJobs = pgTable(
   'r2_cleanup_jobs',
   {
