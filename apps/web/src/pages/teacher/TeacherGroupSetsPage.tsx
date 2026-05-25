@@ -6,6 +6,7 @@ import { ApiClientError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { CapacityHint } from '@/components/groups/CapacityHint';
 import { Input, Label } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import {
@@ -172,6 +173,7 @@ export function TeacherGroupSetsPage(): JSX.Element {
               />
             </div>
           </div>
+          <CapacityHint groups={numberOfGroups} maxPer={maxMembersPerGroup} />
           <div>
             <Label htmlFor="set-mode">{t('groups.signupModeLabel')}</Label>
             <select

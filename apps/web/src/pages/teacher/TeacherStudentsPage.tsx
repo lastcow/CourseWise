@@ -15,6 +15,7 @@ import {
   UserRoundPlus,
   Users,
 } from 'lucide-react';
+import { CapacityHint } from '@/components/groups/CapacityHint';
 import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import { StudentProfileDialog } from '@/components/students/StudentProfileDialog';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
@@ -525,7 +526,7 @@ export function TeacherStudentsPage(): JSX.Element {
               />
             </div>
           </div>
-          <CapacityHint groups={newCount} maxPer={newMax} t={t} />
+          <CapacityHint groups={newCount} maxPer={newMax} />
           <div>
             <Label htmlFor="ts-mode">{t('groups.signupModeLabel')}</Label>
             <select
@@ -612,7 +613,7 @@ export function TeacherStudentsPage(): JSX.Element {
                     />
                   </div>
                 </div>
-                <CapacityHint groups={editCount} maxPer={editMax} t={t} />
+                <CapacityHint groups={editCount} maxPer={editMax} />
                 {shrinking ? (
                   <p className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
                     {t('groups.shrinkHint')}
@@ -1002,29 +1003,3 @@ function GroupBlock({
   );
 }
 
-/**
- * Real-time capacity preview for the create / edit group-set dialogs:
- * groups × maxPerGroup. Renders a muted strip so users see how many
- * students the new shape can actually hold while they tweak inputs.
- */
-function CapacityHint({
-  groups,
-  maxPer,
-  t,
-}: {
-  groups: string;
-  maxPer: string;
-  t: (k: string, v?: Record<string, unknown>) => string;
-}): JSX.Element | null {
-  const n = Number.parseInt(groups, 10);
-  const m = Number.parseInt(maxPer, 10);
-  if (!Number.isFinite(n) || !Number.isFinite(m) || n <= 0 || m <= 0) return null;
-  return (
-    <p
-      className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
-      aria-live="polite"
-    >
-      {t('groups.capacityHint', { groups: n, max: m, total: n * m })}
-    </p>
-  );
-}
