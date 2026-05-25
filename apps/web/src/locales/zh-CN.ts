@@ -659,6 +659,7 @@ export const zhCN = {
       shrinkHint: '缩小数量不会移除有成员的小组,只删除末尾的空小组。',
       addAnyway: '仍然添加({{next}})',
       addAnywayHint: '将此小组容量提升到 {{next}} 并加入该学生。',
+      capacityHint: '{{groups}} 组 × 每组 {{max}} 人 = 最多可容纳 {{total}} 名学生。',
       groupNameLabel: '小组名称',
       currentlyInGroup: '你在 {{groupName}}。',
     },
