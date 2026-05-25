@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Ban, Check, Copy, Link2, RefreshCw } from 'lucide-react';
+import { useNow } from '@/lib/useNow';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +43,23 @@ function statusVariant(
 }
 
 /**
+ * Server-side jobs only flip a row to `expired` lazily, so the UI must
+ * also treat an `active` row whose `expiresAt` has already passed as
+ * effectively expired. Falls back to the stored status when no expiry
+ * is set or when the date hasn't passed yet.
+ */
+function effectiveStatus(
+  row: Pick<InvitationCodeSummary, 'status' | 'expiresAt'>,
+  nowMs: number,
+): InvitationCodeSummary['status'] {
+  if (row.status === 'active' && row.expiresAt) {
+    const expMs = Date.parse(row.expiresAt);
+    if (Number.isFinite(expMs) && expMs <= nowMs) return 'expired';
+  }
+  return row.status;
+}
+
+/**
  * Build the shareable invite URL. We point at `/invite/:code` rather than
  * `/register?invitationCode=…` so a recipient who already has an account
  * lands on a "Join course" confirmation card instead of an empty
@@ -62,6 +80,9 @@ export function TeacherInvitationsPage(): JSX.Element {
   const create = useCreateCourseInvitationCode(id);
   const deactivate = useDeactivateInvitationCode();
   const toast = useToast();
+  // Tick once a minute so a row whose expiry passes while the teacher is
+  // on the page flips from "Active" to "Expired" without a manual reload.
+  const now = useNow(60_000);
 
   const [openCreate, setOpenCreate] = useState(false);
   const [maxUses, setMaxUses] = useState<string>('');
@@ -184,9 +205,14 @@ export function TeacherInvitationsPage(): JSX.Element {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={statusVariant(row.status)}>
-                      {t(`invitations.status${row.status[0]!.toUpperCase()}${row.status.slice(1)}`)}
-                    </Badge>
+                    {(() => {
+                      const s = effectiveStatus(row, now);
+                      return (
+                        <Badge variant={statusVariant(s)}>
+                          {t(`invitations.status${s[0]!.toUpperCase()}${s.slice(1)}`)}
+                        </Badge>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {row.usedCount}
@@ -211,7 +237,7 @@ export function TeacherInvitationsPage(): JSX.Element {
                         size="sm"
                         onClick={() => void onCopyLink(row.code)}
                       />
-                      {row.status === 'active' ? (
+                      {effectiveStatus(row, now) === 'active' ? (
                         <ActionIconButton
                           icon={Ban}
                           label={t('invitations.deactivate')}
