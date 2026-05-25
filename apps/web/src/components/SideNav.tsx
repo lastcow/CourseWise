@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { NavLink, useMatch } from 'react-router-dom';
+import { useCourseStudents } from '@/lib/queries';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { LucideIcon } from 'lucide-react';
@@ -40,6 +41,9 @@ type NavItem = {
   labelKey: string;
   icon: LucideIcon;
   end?: boolean;
+  /** Optional badge value shown to the right of the label (collapsed nav
+   *  uses tooltip only). Renders as a small outlined square pill. */
+  badge?: number | null;
 };
 
 type NavSection = {
@@ -114,7 +118,10 @@ const STUDENT_TOP_GROUPS: NavGroup[] = [
   },
 ];
 
-function teacherCourseSections(courseId: string): NavSection[] {
+function teacherCourseSections(
+  courseId: string,
+  extra: { activeStudentsCount?: number | null } = {},
+): NavSection[] {
   const prefix = `/teacher/courses/${courseId}`;
   return [
     {
@@ -147,7 +154,12 @@ function teacherCourseSections(courseId: string): NavSection[] {
       items: [
         { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
         { to: `${prefix}/attendance`, labelKey: 'attendance.title', icon: UserCheck },
-        { to: `${prefix}/students`, labelKey: 'students.title', icon: Users },
+        {
+          to: `${prefix}/students`,
+          labelKey: 'students.title',
+          icon: Users,
+          badge: extra.activeStudentsCount ?? null,
+        },
         { to: `${prefix}/messages`, labelKey: 'messages.title', icon: Inbox },
       ],
     },
@@ -176,7 +188,10 @@ function teacherCourseSections(courseId: string): NavSection[] {
   ];
 }
 
-function studentCourseSections(courseId: string): NavSection[] {
+function studentCourseSections(
+  courseId: string,
+  extra: { activeStudentsCount?: number | null } = {},
+): NavSection[] {
   const prefix = `/student/courses/${courseId}`;
   return [
     {
@@ -209,7 +224,12 @@ function studentCourseSections(courseId: string): NavSection[] {
       items: [
         { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
         { to: `${prefix}/attendance`, labelKey: 'attendance.myTitle', icon: UserCheck },
-        { to: `${prefix}/students`, labelKey: 'students.title', icon: Users },
+        {
+          to: `${prefix}/students`,
+          labelKey: 'students.title',
+          icon: Users,
+          badge: extra.activeStudentsCount ?? null,
+        },
         { to: `${prefix}/messages`, labelKey: 'messages.title', icon: Inbox },
       ],
     },
@@ -249,6 +269,17 @@ export function SideNav({
   // In mobile drawer, force expanded for readability
   const showLabels = isMobile ? true : !collapsed;
 
+  // Course-scoped active-student count drives the Students nav badge.
+  // Reuses the same cached query the Students page subscribes to, so no
+  // extra round-trip when navigating into the page.
+  const activeCourseId =
+    teacherCourseId && teacherCourseId !== 'new' ? teacherCourseId : studentCourseId;
+  const studentsQ = useCourseStudents(activeCourseId || undefined);
+  const activeStudentsCount = useMemo(() => {
+    if (!studentsQ.data) return null;
+    return studentsQ.data.filter((r) => r.status === 'enrolled').length;
+  }, [studentsQ.data]);
+
   const groups = useMemo<NavGroup[]>(() => {
     if (role === 'admin') return ADMIN_GROUPS;
     if (role === 'teacher') {
@@ -258,7 +289,7 @@ export function SideNav({
           {
             id: 'currentCourse',
             titleKey: 'nav.currentCourse',
-            sections: teacherCourseSections(teacherCourseId),
+            sections: teacherCourseSections(teacherCourseId, { activeStudentsCount }),
           },
           SETTINGS_GROUP,
         ];
@@ -272,7 +303,7 @@ export function SideNav({
           {
             id: 'currentCourse',
             titleKey: 'nav.currentCourse',
-            sections: studentCourseSections(studentCourseId),
+            sections: studentCourseSections(studentCourseId, { activeStudentsCount }),
           },
           SETTINGS_GROUP,
         ];
@@ -280,7 +311,7 @@ export function SideNav({
       return [...STUDENT_TOP_GROUPS, SETTINGS_GROUP];
     }
     return [];
-  }, [role, teacherCourseId, studentCourseId]);
+  }, [role, teacherCourseId, studentCourseId, activeStudentsCount]);
 
   return (
     <div
@@ -422,6 +453,7 @@ type SideNavLinkProps = {
 
 function SideNavLink({ item, showLabel, label, onNavigate }: SideNavLinkProps): JSX.Element {
   const Icon = item.icon;
+  const hasBadge = typeof item.badge === 'number' && item.badge >= 0;
   return (
     <NavLink
       to={item.to}
@@ -441,7 +473,19 @@ function SideNavLink({ item, showLabel, label, onNavigate }: SideNavLinkProps): 
       aria-label={!showLabel ? label : undefined}
     >
       <Icon className="h-4 w-4 shrink-0" aria-hidden />
-      {showLabel ? <span className="truncate">{label}</span> : null}
+      {showLabel ? (
+        <>
+          <span className="truncate">{label}</span>
+          {hasBadge ? (
+            <span
+              aria-hidden
+              className="ml-auto inline-flex h-5 min-w-[22px] items-center justify-center rounded border border-current px-1.5 text-[11px] font-medium leading-none tabular-nums"
+            >
+              {item.badge}
+            </span>
+          ) : null}
+        </>
+      ) : null}
     </NavLink>
   );
 }
