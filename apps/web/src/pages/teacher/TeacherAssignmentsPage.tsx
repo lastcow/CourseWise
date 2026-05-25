@@ -203,7 +203,10 @@ export function TeacherAssignmentsPage(): JSX.Element {
                         <span
                           aria-hidden
                           className={cn(
-                            'inline-flex items-center overflow-hidden rounded-md border text-[10px] font-medium leading-none tabular-nums',
+                            // h-8 matches ActionIconButton's default size so
+                            // the pill aligns flush with neighbouring action
+                            // icons in the row.
+                            'inline-flex h-8 items-stretch overflow-hidden rounded-md border text-[10px] font-medium leading-none tabular-nums',
                             (a.ungradedSubmissionCount ?? 0) > 0
                               ? 'border-amber-500/50'
                               : 'border-emerald-500/40',
@@ -211,7 +214,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
                         >
                           <span
                             className={cn(
-                              'px-1.5 py-1',
+                              'inline-flex items-center px-1.5',
                               (a.ungradedSubmissionCount ?? 0) > 0
                                 ? 'text-amber-700 dark:text-amber-300'
                                 : 'text-emerald-700 dark:text-emerald-300',
@@ -221,7 +224,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
                           </span>
                           <span
                             className={cn(
-                              'border-l px-1.5 py-1',
+                              'inline-flex items-center border-l px-1.5',
                               (a.ungradedSubmissionCount ?? 0) > 0
                                 ? 'border-amber-500/50 bg-amber-500/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200'
                                 : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200',
