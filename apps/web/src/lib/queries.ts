@@ -133,6 +133,7 @@ import type {
   MessageRecord,
   StudentProfileDetail,
   UpdateStudentProfileInput,
+  DeleteStudentAccountResponse,
 } from '@coursewise/shared';
 import { ApiClientError, apiCall, getStoredAuth } from './api';
 
@@ -2187,6 +2188,23 @@ export function useUpdateStudentProfile() {
       void qc.invalidateQueries({ queryKey: ['student-profile', vars.userId] });
       // Roster queries surface name + studentNumber; refresh so the row
       // updates without a manual reload.
+      void qc.invalidateQueries({ queryKey: ['course-students'] });
+    },
+  });
+}
+
+export function useDeleteStudentAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, reason }: { userId: string; reason?: string | null }) =>
+      apiCall<DeleteStudentAccountResponse>(`/api/students/${userId}`, {
+        method: 'DELETE',
+        // validateJson on the API requires a JSON body even when all
+        // fields are optional, so always send {} at minimum.
+        body: { reason: reason ?? null },
+      }),
+    onSuccess: (_data, vars) => {
+      void qc.removeQueries({ queryKey: ['student-profile', vars.userId] });
       void qc.invalidateQueries({ queryKey: ['course-students'] });
     },
   });

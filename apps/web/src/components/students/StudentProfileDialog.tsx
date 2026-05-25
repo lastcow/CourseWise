@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
-import { Input, Label } from '@/components/ui/input';
+import { Input, Label, Textarea } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
-import { useStudentProfile, useUpdateStudentProfile } from '@/lib/queries';
+import {
+  useDeleteStudentAccount,
+  useStudentProfile,
+  useUpdateStudentProfile,
+} from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
 
 type Props = {
@@ -13,6 +17,9 @@ type Props = {
   onClose: () => void;
   /** The student row's user id. */
   userId: string;
+  /** When true, the Danger Zone block is rendered. Authoritative gate is
+   *  server-side; this prop only controls visibility. */
+  canDelete?: boolean;
 };
 
 /**
@@ -22,14 +29,18 @@ type Props = {
  * Server-side permission and field allowlist are the authoritative gate;
  * this dialog only renders what the caller can see.
  */
-export function StudentProfileDialog({ open, onClose, userId }: Props): JSX.Element {
+export function StudentProfileDialog({ open, onClose, userId, canDelete = false }: Props): JSX.Element {
   const { t } = useTranslation();
   const toast = useToast();
   const q = useStudentProfile(open ? userId : null);
   const update = useUpdateStudentProfile();
+  const del = useDeleteStudentAccount();
 
   const [name, setName] = useState('');
   const [studentNumber, setStudentNumber] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const [reason, setReason] = useState('');
 
   // Re-prime form when the dialog opens or the loaded record changes.
   useEffect(() => {
@@ -38,6 +49,14 @@ export function StudentProfileDialog({ open, onClose, userId }: Props): JSX.Elem
       setStudentNumber(q.data.studentNumber ?? '');
     }
   }, [open, q.data]);
+
+  // Reset the confirm form whenever the confirm dialog closes.
+  useEffect(() => {
+    if (!confirmOpen) {
+      setConfirmEmail('');
+      setReason('');
+    }
+  }, [confirmOpen]);
 
   const data = q.data ?? null;
   const dirty =
@@ -53,6 +72,28 @@ export function StudentProfileDialog({ open, onClose, userId }: Props): JSX.Elem
     try {
       await update.mutateAsync({ userId, input });
       toast.push({ title: t('studentProfile.saved'), tone: 'success' });
+      onClose();
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  const confirmReady =
+    data !== null && confirmEmail.trim().toLowerCase() === data.email.toLowerCase();
+
+  const onDelete = async () => {
+    if (!data || !confirmReady) return;
+    try {
+      const res = await del.mutateAsync({ userId, reason: reason.trim() || null });
+      toast.push({
+        title:
+          res.emailStatus === 'sent'
+            ? t('studentProfile.deleteSuccess')
+            : t('studentProfile.deleteEmailFailed'),
+        tone: res.emailStatus === 'sent' ? 'success' : 'info',
+      });
+      setConfirmOpen(false);
       onClose();
     } catch (err) {
       const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
@@ -156,8 +197,89 @@ export function StudentProfileDialog({ open, onClose, userId }: Props): JSX.Elem
               {update.isPending ? t('common.loading') : t('common.save')}
             </Button>
           </div>
+
+          {canDelete && data.role === 'student' ? (
+            <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+              <div className="text-sm font-semibold text-destructive">
+                {t('studentProfile.dangerZoneTitle')}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('studentProfile.dangerZoneBody')}
+              </p>
+              <div className="mt-2">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={update.isPending}
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  {t('studentProfile.deleteCta')}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
+
+      {data ? (
+        <Dialog
+          open={confirmOpen}
+          onClose={del.isPending ? () => undefined : () => setConfirmOpen(false)}
+          title={t('studentProfile.deleteConfirmTitle')}
+          dismissOnBackdropClick={false}
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {t('studentProfile.deleteConfirmBody', { name: data.name, email: data.email })}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t('studentProfile.enrollmentsHeading', { count: data.enrollments.length })}
+            </p>
+            <div className="space-y-1">
+              <Label htmlFor="sp-confirm-email">
+                {t('studentProfile.deleteConfirmTypeLabel', { email: data.email })}
+              </Label>
+              <Input
+                id="sp-confirm-email"
+                value={confirmEmail}
+                onChange={(e) => setConfirmEmail(e.target.value)}
+                placeholder={data.email}
+                autoComplete="off"
+                disabled={del.isPending}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sp-reason">{t('studentProfile.reasonLabel')}</Label>
+              <Textarea
+                id="sp-reason"
+                rows={2}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                maxLength={500}
+                disabled={del.isPending}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmOpen(false)}
+                disabled={del.isPending}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => void onDelete()}
+                disabled={!confirmReady || del.isPending}
+              >
+                {del.isPending
+                  ? t('common.loading')
+                  : t('studentProfile.deleteConfirmAction')}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
     </Dialog>
   );
 }

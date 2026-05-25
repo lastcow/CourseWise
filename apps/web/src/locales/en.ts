@@ -477,6 +477,19 @@ export const en = {
       noEnrollments: 'Not enrolled in any courses yet.',
       enrolledAt: 'Enrolled {{date}}',
       saved: 'Student details updated',
+      dangerZoneTitle: 'Danger zone',
+      dangerZoneBody:
+        'Permanently delete this student account. All enrollments, submissions, messages, and files are removed. A one-time notification email is sent to the account address.',
+      deleteCta: 'Delete student account',
+      deleteConfirmTitle: 'Delete student account?',
+      deleteConfirmBody:
+        'This will permanently delete {{name}} ({{email}}). This action cannot be undone.',
+      deleteConfirmTypeLabel: 'Type {{email}} to confirm',
+      deleteConfirmAction: 'Delete permanently',
+      deleteSuccess: 'Student account deleted and notification email sent.',
+      deleteEmailFailed:
+        'Student account deleted, but the notification email could not be sent.',
+      reasonLabel: 'Reason (optional)',
     },
     messages: {
       title: 'Messages',

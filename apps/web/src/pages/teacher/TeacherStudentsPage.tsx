@@ -589,6 +589,7 @@ export function TeacherStudentsPage(): JSX.Element {
           open
           onClose={() => setEditTargetId(null)}
           userId={editTargetId}
+          canDelete
         />
       ) : null}
     </div>

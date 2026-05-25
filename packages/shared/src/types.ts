@@ -1206,3 +1206,14 @@ export interface UpdateStudentProfileInput {
   /** Pass null to clear, omit to leave unchanged, or a string to set. */
   studentNumber?: string | null;
 }
+
+export interface DeleteStudentAccountInput {
+  reason?: string | null;
+}
+
+export type DeleteEmailStatus = 'sent' | 'failed' | 'skipped';
+
+export interface DeleteStudentAccountResponse {
+  id: string;
+  emailStatus: DeleteEmailStatus;
+}
