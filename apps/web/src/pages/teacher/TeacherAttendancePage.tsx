@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CircleCheck, Save, Trash2 } from 'lucide-react';
-import type { AttendanceStatus } from '@coursewise/shared';
+import type { AttendanceSessionSummary, AttendanceStatus } from '@coursewise/shared';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -196,9 +196,11 @@ export function TeacherAttendancePage(): JSX.Element {
 
         <RosterCard
           selectedSession={selectedSession}
+          session={sessions.data?.find((s) => s.id === selectedSession) ?? null}
           enrollments={enrollments}
           marks={marks}
           setMarks={setMarks}
+          deleting={delSession.isPending}
           onSave={async () => {
             if (!selectedSession) return;
             // Only save rows the teacher (or server records) has an
@@ -230,9 +232,9 @@ export function TeacherAttendancePage(): JSX.Element {
           }}
           onDeleteSession={async () => {
             if (!selectedSession) return;
-            if (!confirm(t('attendance.deleteSessionConfirm'))) return;
             await delSession.mutateAsync(selectedSession);
             setSelectedSession(null);
+            toast.push({ title: t('attendance.sessionDeleted'), tone: 'success' });
           }}
         />
       </div>
@@ -355,6 +357,7 @@ type RosterMarks = Record<string, { status: AttendanceStatus | ''; notes: string
  */
 function RosterCard({
   selectedSession,
+  session,
   enrollments,
   marks,
   setMarks,
@@ -362,8 +365,10 @@ function RosterCard({
   saving,
   onCloseSession,
   onDeleteSession,
+  deleting,
 }: {
   selectedSession: string | null;
+  session: AttendanceSessionSummary | null;
   enrollments: EnrollmentRow[];
   marks: RosterMarks;
   setMarks: React.Dispatch<React.SetStateAction<RosterMarks>>;
@@ -371,8 +376,10 @@ function RosterCard({
   saving: boolean;
   onCloseSession: () => Promise<void>;
   onDeleteSession: () => Promise<void>;
+  deleting: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Live tallies. A row with no recorded status counts toward the
   // "pending" bucket (student hasn't signed in yet AND the teacher
@@ -458,7 +465,7 @@ function RosterCard({
               label={t('attendance.deleteSession')}
               color="red"
               size="sm"
-              onClick={() => void onDeleteSession()}
+              onClick={() => setConfirmDelete(true)}
             />
           </div>
         ) : null}
@@ -576,6 +583,79 @@ function RosterCard({
           </div>
         )}
       </CardContent>
+
+      <Dialog
+        open={confirmDelete}
+        onClose={deleting ? () => undefined : () => setConfirmDelete(false)}
+        title={t('attendance.deleteSessionConfirmTitle')}
+        dismissOnBackdropClick={false}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {t('attendance.deleteSessionConfirmBody')}
+          </p>
+          {session ? (
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border bg-muted/30 p-3 text-sm">
+              <dt className="text-muted-foreground">{t('attendance.sessionTitle')}</dt>
+              <dd className="break-words text-foreground">{session.title}</dd>
+              <dt className="text-muted-foreground">{t('attendance.sessionDate')}</dt>
+              <dd className="text-foreground">{formatDate(session.sessionDate)}</dd>
+              <dt className="text-muted-foreground">
+                {t('attendance.sessionStatus')}
+              </dt>
+              <dd>
+                <Badge
+                  variant={session.status === 'open' ? 'success' : 'secondary'}
+                >
+                  {t(`attendance.session.${session.status}`)}
+                </Badge>
+              </dd>
+              <dt className="text-muted-foreground">
+                {t('attendance.signedInLabel')}
+              </dt>
+              <dd className="text-foreground">
+                {t('attendance.signedInOfTotal', {
+                  signed: counts.present + counts.late,
+                  total,
+                })}
+              </dd>
+              <dt className="text-muted-foreground">
+                {t('attendance.markedBreakdownLabel')}
+              </dt>
+              <dd className="text-foreground">
+                {t('attendance.markedBreakdownValue', {
+                  present: counts.present,
+                  late: counts.late,
+                  absent: counts.absent,
+                  excused: counts.excused,
+                  pending: counts.pending,
+                })}
+              </dd>
+            </dl>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleting}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={async () => {
+                setConfirmDelete(false);
+                await onDeleteSession();
+              }}
+            >
+              {deleting
+                ? t('common.loading')
+                : t('attendance.deleteSessionConfirmAction')}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </Card>
   );
 }
