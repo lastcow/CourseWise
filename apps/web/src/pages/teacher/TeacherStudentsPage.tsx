@@ -73,7 +73,10 @@ export function TeacherStudentsPage(): JSX.Element {
   const activeSetQ = useGroupSet(cId || undefined, activeSetId ?? undefined);
 
   const [search, setSearch] = useState('');
-  const [assignTargetId, setAssignTargetId] = useState<string>('');
+  // Picker selection is per-group: each group's dropdown owns its own
+  // student-id state so picking one student in group A doesn't make the
+  // same student appear pre-selected in groups B, C, D.
+  const [assignTargets, setAssignTargets] = useState<Record<string, string>>({});
 
   const createSet = useCreateGroupSet(cId);
   const updateSet = useUpdateGroupSet(cId);
@@ -201,15 +204,16 @@ export function TeacherStudentsPage(): JSX.Element {
   };
 
   const onAssign = async (groupId: string, opts?: { force?: boolean }) => {
-    if (!assignTargetId) return;
+    const studentId = assignTargets[groupId] ?? '';
+    if (!studentId) return;
     try {
       await assignMember.mutateAsync({
         groupId,
-        studentId: assignTargetId,
+        studentId,
         force: opts?.force,
       });
       toast.push({ title: t('groups.memberJoined'), tone: 'success' });
-      setAssignTargetId('');
+      setAssignTargets((current) => ({ ...current, [groupId]: '' }));
     } catch (err) {
       const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
       toast.push({ title: t(key), tone: 'error' });
@@ -468,8 +472,10 @@ export function TeacherStudentsPage(): JSX.Element {
             studentById={studentById}
             matchesSearch={matchesSearch}
             searchActive={search.trim().length > 0}
-            assignTargetId={assignTargetId}
-            onPickAssignTarget={setAssignTargetId}
+            assignTargets={assignTargets}
+            onPickAssignTarget={(groupId, studentId) =>
+              setAssignTargets((current) => ({ ...current, [groupId]: studentId }))
+            }
             onAssign={onAssign}
             onRemove={onRemove}
             assignBusy={assignMember.isPending}
@@ -772,8 +778,10 @@ type GroupedTableProps = {
   studentById: Map<string, EnrollmentRow>;
   matchesSearch: (name: string, email: string) => boolean;
   searchActive: boolean;
-  assignTargetId: string;
-  onPickAssignTarget: (id: string) => void;
+  /** Per-group picker selection. Each group key independently maps to a
+   *  student id (or '' for no selection). */
+  assignTargets: Record<string, string>;
+  onPickAssignTarget: (groupId: string, studentId: string) => void;
   onAssign: (groupId: string, opts?: { force?: boolean }) => void;
   onRemove: (groupId: string, studentId: string) => void;
   assignBusy: boolean;
@@ -786,7 +794,7 @@ function GroupedRosterTable({
   studentById,
   matchesSearch,
   searchActive,
-  assignTargetId,
+  assignTargets,
   onPickAssignTarget,
   onAssign,
   onRemove,
@@ -827,43 +835,46 @@ function GroupedRosterTable({
                       variant: 'secondary' as const,
                     }
               }
-              rightSlot={
-                <div className="flex items-center gap-1.5">
-                  <select
-                    value={assignTargetId}
-                    onChange={(e) => onPickAssignTarget(e.target.value)}
-                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                  >
-                    <option value="">{t('students.pickStudent')}</option>
-                    {set.unassignedStudents.map((u) => (
-                      <option key={u.studentId} value={u.studentId}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
-                  {full && assignTargetId ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
-                      disabled={assignBusy}
-                      onClick={() => onAssign(g.id, { force: true })}
-                      title={t('groups.addAnywayHint', { next: g.members.length + 1 })}
+              rightSlot={(() => {
+                const pickedId = assignTargets[g.id] ?? '';
+                return (
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={pickedId}
+                      onChange={(e) => onPickAssignTarget(g.id, e.target.value)}
+                      className="h-8 rounded-md border border-input bg-background px-2 text-xs"
                     >
-                      {t('groups.addAnyway', { next: g.members.length + 1 })}
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!assignTargetId || full || assignBusy}
-                      onClick={() => onAssign(g.id)}
-                    >
-                      {t('groups.assignCta')}
-                    </Button>
-                  )}
-                </div>
-              }
+                      <option value="">{t('students.pickStudent')}</option>
+                      {set.unassignedStudents.map((u) => (
+                        <option key={u.studentId} value={u.studentId}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                    {full && pickedId ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+                        disabled={assignBusy}
+                        onClick={() => onAssign(g.id, { force: true })}
+                        title={t('groups.addAnywayHint', { next: g.members.length + 1 })}
+                      >
+                        {t('groups.addAnyway', { next: g.members.length + 1 })}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!pickedId || full || assignBusy}
+                        onClick={() => onAssign(g.id)}
+                      >
+                        {t('groups.assignCta')}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })()}
             >
               {visibleMembers.length === 0 ? (
                 <TableRow>
