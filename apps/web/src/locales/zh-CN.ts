@@ -1211,6 +1211,9 @@ export const zhCN = {
       late: '迟到',
       excused: '请假',
       pending: '未签到',
+      filterBy: '按 {{status}} 筛选',
+      clearFilter: '清除筛选',
+      noMatchingStudents: '没有符合此筛选的学生。',
       session: {
         open: '进行中',
         closed: '已关闭',

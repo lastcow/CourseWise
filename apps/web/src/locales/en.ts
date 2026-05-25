@@ -1258,6 +1258,9 @@ export const en = {
       late: 'Late',
       excused: 'Excused',
       pending: 'Not signed in',
+      filterBy: 'Filter by {{status}}',
+      clearFilter: 'Clear filter',
+      noMatchingStudents: 'No students match this filter.',
       session: {
         open: 'Open',
         closed: 'Closed',
