@@ -339,9 +339,9 @@ r.post(
     if (!(await canWriteCourse(db, auth.user, session.courseId))) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
     }
-    if (session.status === 'closed') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Session is closed');
-    }
+    // Closing a session freezes student self-sign (enforced separately
+    // below) — it does NOT freeze teacher corrections. Teachers must be
+    // able to fix a misclick or excuse a late arrival after the fact.
     const input = c.get('validated') as BulkMarkAttendanceInput;
     const studentIds = input.records.map((r) => r.studentId);
     const enrolled = await db
