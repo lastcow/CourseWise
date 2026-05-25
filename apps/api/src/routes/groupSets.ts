@@ -212,6 +212,7 @@ r.get(
       groupSetId: g.groupSetId,
       name: g.name,
       position: g.position,
+      maxMembersOverride: g.maxMembersOverride ?? null,
       members: (membersByGroup.get(g.id) ?? []).sort((a, b) =>
         a.joinedAt.localeCompare(b.joinedAt),
       ),
@@ -282,25 +283,56 @@ r.patch(
     if (input.maxMembersPerGroup !== undefined) patch.maxMembersPerGroup = input.maxMembersPerGroup;
     if (input.signupMode !== undefined) patch.signupMode = input.signupMode;
     if (input.signupStatus !== undefined) patch.signupStatus = input.signupStatus;
+    // Lowering maxMembersPerGroup is allowed even when some groups exceed
+    // the new value — those groups stay grandfathered. New assignments
+    // against them still go through the effective-cap check on the assign
+    // endpoint (override || set cap).
 
-    // If shrinking the per-group cap, refuse if any group already exceeds it.
-    // Better to fail loud than silently leave over-capacity groups.
-    if (input.maxMembersPerGroup !== undefined) {
-      const overCap = await db.execute(sql`
-        SELECT g.id, g.name, count(gm.id)::int AS member_count
-        FROM groups g
-        LEFT JOIN group_memberships gm ON gm.group_id = g.id
-        WHERE g.group_set_id = ${setId}
-        GROUP BY g.id, g.name
-        HAVING count(gm.id) > ${input.maxMembersPerGroup}
-        LIMIT 1
-      `);
-      if (overCap.rows.length > 0) {
-        throw new ApiException(
-          409,
-          ERROR_CODES.CONFLICT,
-          'A group already has more members than the requested cap',
-        );
+    // Resize: grow inserts new auto-named groups; shrink deletes only the
+    // empty trailing groups, preserving any populated ones beyond the
+    // requested count.
+    let groupsAdded = 0;
+    let groupsRemoved = 0;
+    if (input.numberOfGroups !== undefined) {
+      const existing = await db
+        .select({ id: groups.id, position: groups.position })
+        .from(groups)
+        .where(eq(groups.groupSetId, setId))
+        .orderBy(asc(groups.position));
+      const current = existing.length;
+      const target = input.numberOfGroups;
+      if (target > current) {
+        const rows = Array.from({ length: target - current }, (_, i) => ({
+          groupSetId: setId,
+          name: `Group ${current + i + 1}`,
+          position: current + i,
+        }));
+        if (rows.length > 0) {
+          await db.insert(groups).values(rows);
+          groupsAdded = rows.length;
+        }
+      } else if (target < current) {
+        const memberCounts = await db
+          .select({
+            groupId: groupMemberships.groupId,
+            n: sql<number>`count(*)::int`,
+          })
+          .from(groupMemberships)
+          .where(eq(groupMemberships.groupSetId, setId))
+          .groupBy(groupMemberships.groupId);
+        const memberByGroup = new Map(memberCounts.map((r) => [r.groupId, r.n]));
+        // Walk trailing groups from highest position down and delete the
+        // empty ones. Populated trailing groups stay; future re-shrinks
+        // can still clean them up once emptied by hand.
+        const trailing = existing
+          .filter((g) => g.position >= target)
+          .sort((a, b) => b.position - a.position);
+        for (const g of trailing) {
+          if ((memberByGroup.get(g.id) ?? 0) === 0) {
+            await db.delete(groups).where(eq(groups.id, g.id));
+            groupsRemoved += 1;
+          }
+        }
       }
     }
 
@@ -318,7 +350,13 @@ r.patch(
         actorTokenId: auth.tokenId ?? null,
         action: 'group-set.update',
         target: setId,
-        metadata: { courseId, fields: Object.keys(patch).filter((k) => k !== 'updatedAt') },
+        metadata: {
+          courseId,
+          fields: Object.keys(patch).filter((k) => k !== 'updatedAt'),
+          groupsAdded,
+          groupsRemoved,
+          numberOfGroups: input.numberOfGroups ?? null,
+        },
       });
       return success(c, updated);
     } catch (e) {
@@ -420,8 +458,9 @@ r.post(
     const groupId = requireParam(c, 'groupId');
 
     // Two callers: a student joining themselves (no body), or a teacher/admin
-    // assigning a student (body = { studentId }). We branch on role.
+    // assigning a student (body = { studentId, force? }). We branch on role.
     let targetStudentId: string;
+    let forceRequested = false;
     if (auth.user.role === 'student') {
       if (!(await isCourseEnrolled(db, courseId, auth.user.id))) {
         throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
@@ -446,10 +485,11 @@ r.post(
         throw new ApiException(409, ERROR_CODES.CONFLICT, 'Student is not enrolled in this course');
       }
       targetStudentId = input.studentId;
+      forceRequested = input.force === true;
     }
 
     const setRow = await loadGroupSetOrThrow(db, courseId, setId);
-    await loadGroupOrThrow(db, setId, groupId);
+    const groupRow = await loadGroupOrThrow(db, setId, groupId);
 
     // Self-signup must be open. Teacher-assigned mode means students can't
     // self-join; the role check above already routes teachers around this.
@@ -466,16 +506,32 @@ r.post(
       }
     }
 
-    // Capacity check. Done before insert; a concurrent join could still race
-    // past the cap, but the practical likelihood is low enough that we accept
-    // it for v1 rather than introducing advisory locking.
+    // Capacity check using the effective cap (per-group override falls
+    // back to the set's maxMembersPerGroup). Done before insert; a
+    // concurrent join could still race past the cap, but the practical
+    // likelihood is low enough that we accept it for v1 rather than
+    // introducing advisory locking.
     const countRows = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(groupMemberships)
       .where(eq(groupMemberships.groupId, groupId));
     const currentCount = countRows[0]?.count ?? 0;
-    if (currentCount >= setRow.maxMembersPerGroup) {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Group is full');
+    const effectiveMax = groupRow.maxMembersOverride ?? setRow.maxMembersPerGroup;
+    let overrideAfter: number | null = groupRow.maxMembersOverride ?? null;
+    if (currentCount >= effectiveMax) {
+      // Students can never override; teacher/admin must explicitly opt in
+      // via { force: true }. When forced, the per-group override is
+      // bumped to currentCount + 1 so the cap persistently reflects the
+      // new size.
+      if (!forceRequested || auth.user.role === 'student') {
+        throw new ApiException(409, ERROR_CODES.CONFLICT, 'Group is full');
+      }
+      const nextOverride = currentCount + 1;
+      await db
+        .update(groups)
+        .set({ maxMembersOverride: nextOverride, updatedAt: new Date().toISOString() })
+        .where(eq(groups.id, groupId));
+      overrideAfter = nextOverride;
     }
 
     try {
@@ -489,7 +545,13 @@ r.post(
         actorTokenId: auth.tokenId ?? null,
         action: auth.user.role === 'student' ? 'group.self-join' : 'group.assign',
         target: groupId,
-        metadata: { courseId, setId, studentId: targetStudentId },
+        metadata: {
+          courseId,
+          setId,
+          studentId: targetStudentId,
+          forced: forceRequested && currentCount >= effectiveMax,
+          overrideAfter,
+        },
       });
       return success(c, inserted, 201);
     } catch (e) {

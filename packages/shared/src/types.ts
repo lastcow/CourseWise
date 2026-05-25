@@ -1112,6 +1112,9 @@ export interface GroupWithMembers {
   groupSetId: string;
   name: string;
   position: number;
+  /** NULL when the group inherits the set's maxMembersPerGroup. Set when
+   *  a teacher/admin force-assigned a student into a full group. */
+  maxMembersOverride: number | null;
   members: GroupMember[];
 }
 
