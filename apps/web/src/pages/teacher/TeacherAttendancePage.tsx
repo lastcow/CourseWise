@@ -380,6 +380,11 @@ function RosterCard({
 }): JSX.Element {
   const { t } = useTranslation();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Active status filter for the roster table. null = show everyone.
+  // Click a chip to filter to that status; click it again to clear.
+  const [statusFilter, setStatusFilter] = useState<
+    AttendanceStatus | 'pending' | null
+  >(null);
 
   // Live tallies. A row with no recorded status counts toward the
   // "pending" bucket (student hasn't signed in yet AND the teacher
@@ -485,18 +490,41 @@ function RosterCard({
                 record yet — they haven't signed in and haven't been
                 marked. */}
             <div className="flex flex-wrap items-center gap-1.5">
-              {(['pending', ...STATUSES] as const).map((s) => (
-                <span
-                  key={s}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium tabular-nums',
-                    COUNTER_TONE[s],
-                  )}
+              {(['pending', ...STATUSES] as const).map((s) => {
+                const active = statusFilter === s;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatusFilter((cur) => (cur === s ? null : s))}
+                    aria-pressed={active}
+                    title={
+                      active
+                        ? t('attendance.clearFilter')
+                        : t('attendance.filterBy', { status: t(`attendance.${s}`) })
+                    }
+                    className={cn(
+                      'inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium tabular-nums transition',
+                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      active
+                        ? 'ring-2 ring-current/30 brightness-110 ' + COUNTER_TONE[s]
+                        : COUNTER_TONE[s] + ' opacity-90 hover:opacity-100',
+                    )}
+                  >
+                    <span>{t(`attendance.${s}`)}</span>
+                    <span className="font-semibold">{counts[s]}</span>
+                  </button>
+                );
+              })}
+              {statusFilter ? (
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter(null)}
+                  className="text-xs text-muted-foreground underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
                 >
-                  <span>{t(`attendance.${s}`)}</span>
-                  <span className="font-semibold">{counts[s]}</span>
-                </span>
-              ))}
+                  {t('attendance.clearFilter')}
+                </button>
+              ) : null}
               <span className="ml-auto text-xs text-muted-foreground">
                 {t('attendance.rosterCount', { count: total })}
               </span>
@@ -517,7 +545,27 @@ function RosterCard({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {enrollments.map((e, idx) => {
+                  {(() => {
+                    const filtered = statusFilter
+                      ? enrollments.filter((e) => {
+                          const s = marks[e.studentId]?.status ?? '';
+                          if (statusFilter === 'pending') return s === '';
+                          return s === statusFilter;
+                        })
+                      : enrollments;
+                    if (filtered.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell
+                            colSpan={4}
+                            className="py-6 text-center text-sm text-muted-foreground"
+                          >
+                            {t('attendance.noMatchingStudents')}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+                    return filtered.map((e, idx) => {
                     // Default to empty status: a brand-new session shouldn't
                     // silently mark every student "present" before they've
                     // signed in.
@@ -576,7 +624,8 @@ function RosterCard({
                         </TableCell>
                       </TableRow>
                     );
-                  })}
+                  });
+                  })()}
                 </TableBody>
               </Table>
             </div>
