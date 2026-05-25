@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CircleCheck, Trash2, Users } from 'lucide-react';
+import { CircleCheck, Save, Trash2 } from 'lucide-react';
 import type { AttendanceStatus } from '@coursewise/shared';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
@@ -10,6 +10,15 @@ import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import {
   downloadAttendanceCsv,
@@ -24,6 +33,23 @@ import { apiCall, pickI18nKey } from '@/lib/api';
 import type { EnrollmentRow } from '@coursewise/shared';
 
 const STATUSES: AttendanceStatus[] = ['present', 'absent', 'late', 'excused'];
+
+// Per-status border/background tint for the inline select + counter pills,
+// so a teacher can scan the column for outliers at a glance.
+const STATUS_TONE: Record<AttendanceStatus, string> = {
+  present:
+    'border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300',
+  absent: 'border-red-500/50 bg-red-500/5 text-red-700 dark:text-red-300',
+  late: 'border-amber-500/50 bg-amber-500/5 text-amber-700 dark:text-amber-300',
+  excused: 'border-sky-500/50 bg-sky-500/5 text-sky-700 dark:text-sky-300',
+};
+
+const COUNTER_TONE: Record<AttendanceStatus, string> = {
+  present: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  absent: 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300',
+  late: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  excused: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+};
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -71,20 +97,6 @@ export function TeacherAttendancePage(): JSX.Element {
       cancelled = true;
     };
   }, [cid]);
-
-  function ensureMarks() {
-    const next = { ...marks };
-    const known = new Map<string, { status: AttendanceStatus; notes: string }>();
-    for (const rec of records.data ?? []) {
-      known.set(rec.studentId, { status: rec.status, notes: rec.notes ?? '' });
-    }
-    for (const s of enrollments) {
-      if (!next[s.studentId]) {
-        next[s.studentId] = known.get(s.studentId) ?? { status: 'present', notes: '' };
-      }
-    }
-    setMarks(next);
-  }
 
   // Auto-populate marks from server records once they load for the selected
   // session. Without this, the roster row falls back to 'present' even when
@@ -171,145 +183,42 @@ export function TeacherAttendancePage(): JSX.Element {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('attendance.rosterTitle')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!selectedSession ? (
-              <p className="text-sm text-muted-foreground">{t('attendance.pickSession')}</p>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <ActionIconButton
-                    icon={Users}
-                    label={t('attendance.loadRoster')}
-                    color="teal"
-                    onClick={ensureMarks}
-                  />
-                  <ActionIconButton
-                    icon={CircleCheck}
-                    label={t('attendance.markAllPresent')}
-                    color="emerald"
-                    onClick={() => {
-                      const next: typeof marks = {};
-                      for (const s of enrollments) {
-                        next[s.studentId] = {
-                          status: 'present',
-                          notes: marks[s.studentId]?.notes ?? '',
-                        };
-                      }
-                      setMarks(next);
-                    }}
-                  />
-                  <ActionIconButton
-                    icon={CircleCheck}
-                    label={t('attendance.closeSession')}
-                    color="emerald"
-                    onClick={async () => {
-                      if (!selectedSession) return;
-                      await closeSession.mutateAsync(selectedSession);
-                      toast.push({ title: t('attendance.sessionClosed'), tone: 'success' });
-                    }}
-                  />
-                  <ActionIconButton
-                    icon={Trash2}
-                    label={t('attendance.deleteSession')}
-                    color="red"
-                    onClick={async () => {
-                      if (!selectedSession) return;
-                      if (!confirm(t('attendance.deleteSessionConfirm'))) return;
-                      await delSession.mutateAsync(selectedSession);
-                      setSelectedSession(null);
-                    }}
-                  />
-                </div>
-
-                {enrollments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t('attendance.noStudents')}
-                  </p>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead className="text-left text-xs uppercase text-muted-foreground">
-                      <tr>
-                        <th className="py-2">{t('attendance.student')}</th>
-                        <th>{t('attendance.status')}</th>
-                        <th>{t('attendance.notes')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {enrollments.map((e) => {
-                        const row = marks[e.studentId] ?? { status: 'present', notes: '' };
-                        return (
-                          <tr key={e.studentId} className="border-t">
-                            <td className="py-2">{e.studentName}</td>
-                            <td>
-                              <select
-                                className="h-9 rounded-md border bg-background px-2 text-sm"
-                                value={row.status}
-                                onChange={(ev) =>
-                                  setMarks({
-                                    ...marks,
-                                    [e.studentId]: {
-                                      ...row,
-                                      status: ev.target.value as AttendanceStatus,
-                                    },
-                                  })
-                                }
-                              >
-                                {STATUSES.map((s) => (
-                                  <option key={s} value={s}>
-                                    {t(`attendance.${s}`)}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td>
-                              <Textarea
-                                rows={1}
-                                value={row.notes}
-                                onChange={(ev) =>
-                                  setMarks({
-                                    ...marks,
-                                    [e.studentId]: { ...row, notes: ev.target.value },
-                                  })
-                                }
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-
-                <Button
-                  onClick={async () => {
-                    if (!selectedSession) return;
-                    const payload = Object.entries(marks).map(([studentId, m]) => ({
-                      studentId,
-                      status: m.status,
-                      notes: m.notes.trim() || null,
-                    }));
-                    if (payload.length === 0) return;
-                    try {
-                      await bulkMark.mutateAsync({ records: payload });
-                      toast.push({ title: t('attendance.saved'), tone: 'success' });
-                    } catch (err) {
-                      toast.push({
-                        title: t(pickI18nKey(err, 'errors.internal')),
-                        tone: 'error',
-                      });
-                    }
-                  }}
-                >
-                  {t('attendance.saveBulk')}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <RosterCard
+          selectedSession={selectedSession}
+          enrollments={enrollments}
+          marks={marks}
+          setMarks={setMarks}
+          onSave={async () => {
+            if (!selectedSession) return;
+            const payload = Object.entries(marks).map(([studentId, m]) => ({
+              studentId,
+              status: m.status,
+              notes: m.notes.trim() || null,
+            }));
+            if (payload.length === 0) return;
+            try {
+              await bulkMark.mutateAsync({ records: payload });
+              toast.push({ title: t('attendance.saved'), tone: 'success' });
+            } catch (err) {
+              toast.push({
+                title: t(pickI18nKey(err, 'errors.internal')),
+                tone: 'error',
+              });
+            }
+          }}
+          saving={bulkMark.isPending}
+          onCloseSession={async () => {
+            if (!selectedSession) return;
+            await closeSession.mutateAsync(selectedSession);
+            toast.push({ title: t('attendance.sessionClosed'), tone: 'success' });
+          }}
+          onDeleteSession={async () => {
+            if (!selectedSession) return;
+            if (!confirm(t('attendance.deleteSessionConfirm'))) return;
+            await delSession.mutateAsync(selectedSession);
+            setSelectedSession(null);
+          }}
+        />
       </div>
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title={t('attendance.newSession')}>
@@ -416,5 +325,224 @@ export function TeacherAttendancePage(): JSX.Element {
         </div>
       </Dialog>
     </div>
+  );
+}
+
+type RosterMarks = Record<string, { status: AttendanceStatus; notes: string }>;
+
+/**
+ * Polished roster surface for the selected attendance session. The header
+ * surfaces a per-status tally (Present / Absent / Late / Excused) so a
+ * teacher can scan a 40-student roster without scrolling, and the primary
+ * Save CTA lives in the toolbar so it's reachable without skimming to
+ * the bottom of the page on long classes.
+ */
+function RosterCard({
+  selectedSession,
+  enrollments,
+  marks,
+  setMarks,
+  onSave,
+  saving,
+  onCloseSession,
+  onDeleteSession,
+}: {
+  selectedSession: string | null;
+  enrollments: EnrollmentRow[];
+  marks: RosterMarks;
+  setMarks: React.Dispatch<React.SetStateAction<RosterMarks>>;
+  onSave: () => Promise<void>;
+  saving: boolean;
+  onCloseSession: () => Promise<void>;
+  onDeleteSession: () => Promise<void>;
+}): JSX.Element {
+  const { t } = useTranslation();
+
+  // Live tallies. Default state is 'present' until a teacher edits, which
+  // matches how the backend records absent unless flipped.
+  const total = enrollments.length;
+  const counts: Record<AttendanceStatus, number> = {
+    present: 0,
+    absent: 0,
+    late: 0,
+    excused: 0,
+  };
+  for (const e of enrollments) {
+    const status = marks[e.studentId]?.status ?? 'present';
+    counts[status] = (counts[status] ?? 0) + 1;
+  }
+
+  const setStatus = (studentId: string, status: AttendanceStatus) => {
+    setMarks((current) => ({
+      ...current,
+      [studentId]: { status, notes: current[studentId]?.notes ?? '' },
+    }));
+  };
+  const setNotes = (studentId: string, notes: string) => {
+    setMarks((current) => ({
+      ...current,
+      [studentId]: { status: current[studentId]?.status ?? 'present', notes },
+    }));
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <CardTitle>{t('attendance.rosterTitle')}</CardTitle>
+          {selectedSession ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {t('attendance.rosterCount', { count: total })}
+            </p>
+          ) : null}
+        </div>
+        {selectedSession ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              size="sm"
+              onClick={() => void onSave()}
+              disabled={saving || total === 0}
+            >
+              <Save className="mr-1.5 h-4 w-4" aria-hidden />
+              {saving ? t('common.loading') : t('attendance.saveBulk')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const next: RosterMarks = {};
+                for (const s of enrollments) {
+                  next[s.studentId] = {
+                    status: 'present',
+                    notes: marks[s.studentId]?.notes ?? '',
+                  };
+                }
+                setMarks(next);
+              }}
+              disabled={total === 0}
+            >
+              <CircleCheck className="mr-1.5 h-4 w-4" aria-hidden />
+              {t('attendance.markAllPresent')}
+            </Button>
+            <span className="mx-1 hidden h-5 w-px bg-border sm:inline" aria-hidden />
+            <ActionIconButton
+              icon={CircleCheck}
+              label={t('attendance.closeSession')}
+              color="emerald"
+              size="sm"
+              onClick={() => void onCloseSession()}
+            />
+            <ActionIconButton
+              icon={Trash2}
+              label={t('attendance.deleteSession')}
+              color="red"
+              size="sm"
+              onClick={() => void onDeleteSession()}
+            />
+          </div>
+        ) : null}
+      </CardHeader>
+      <CardContent className="pt-0">
+        {!selectedSession ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {t('attendance.pickSession')}
+          </p>
+        ) : total === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {t('attendance.noStudents')}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {/* Per-status tally chips */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {STATUSES.map((s) => (
+                <span
+                  key={s}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium tabular-nums',
+                    COUNTER_TONE[s],
+                  )}
+                >
+                  <span>{t(`attendance.${s}`)}</span>
+                  <span className="font-semibold">{counts[s]}</span>
+                </span>
+              ))}
+              <span className="ml-auto text-xs text-muted-foreground">
+                {t('attendance.rosterCount', { count: total })}
+              </span>
+            </div>
+
+            <div className="overflow-hidden rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10 text-right text-xs text-muted-foreground">
+                      #
+                    </TableHead>
+                    <TableHead>{t('attendance.student')}</TableHead>
+                    <TableHead className="w-[150px]">
+                      {t('attendance.status')}
+                    </TableHead>
+                    <TableHead>{t('attendance.notes')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {enrollments.map((e, idx) => {
+                    const row =
+                      marks[e.studentId] ?? { status: 'present', notes: '' };
+                    return (
+                      <TableRow key={e.studentId}>
+                        <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                          {idx + 1}
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <div className="font-medium leading-tight">
+                            {e.studentName}
+                          </div>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {e.studentEmail}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <select
+                            className={cn(
+                              'h-8 w-full rounded-md border bg-background px-2 text-xs font-medium',
+                              STATUS_TONE[row.status],
+                            )}
+                            value={row.status}
+                            onChange={(ev) =>
+                              setStatus(
+                                e.studentId,
+                                ev.target.value as AttendanceStatus,
+                              )
+                            }
+                          >
+                            {STATUSES.map((s) => (
+                              <option key={s} value={s}>
+                                {t(`attendance.${s}`)}
+                              </option>
+                            ))}
+                          </select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={row.notes}
+                            onChange={(ev) =>
+                              setNotes(e.studentId, ev.target.value)
+                            }
+                            className="h-8 text-xs"
+                            placeholder={t('attendance.notesPlaceholder')}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
