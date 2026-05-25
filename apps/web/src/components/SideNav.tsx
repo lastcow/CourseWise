@@ -1,6 +1,16 @@
 import { useMemo } from 'react';
 import { NavLink, useMatch } from 'react-router-dom';
-import { useCourseStudents } from '@/lib/queries';
+import {
+  useAssignmentsList,
+  useCourseCorrectionRequests,
+  useCourseStudents,
+  useDiscussionTopicsList,
+  useMaterialsList,
+  useMessageThreads,
+  useModulesList,
+  usePresentationsList,
+  useQuizzesList,
+} from '@/lib/queries';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { LucideIcon } from 'lucide-react';
@@ -118,9 +128,23 @@ const STUDENT_TOP_GROUPS: NavGroup[] = [
   },
 ];
 
+type CourseNavExtras = {
+  activeStudentsCount?: number | null;
+  modulesCount?: number | null;
+  materialsCount?: number | null;
+  presentationsCount?: number | null;
+  assignmentsCount?: number | null;
+  quizzesCount?: number | null;
+  discussionsCount?: number | null;
+  /** Unread only; null when 0 so the badge stays hidden when caught up. */
+  messagesUnreadCount?: number | null;
+  /** Open correction requests; teacher-only. */
+  correctionRequestsCount?: number | null;
+};
+
 function teacherCourseSections(
   courseId: string,
-  extra: { activeStudentsCount?: number | null } = {},
+  extra: CourseNavExtras = {},
 ): NavSection[] {
   const prefix = `/teacher/courses/${courseId}`;
   return [
@@ -129,30 +153,60 @@ function teacherCourseSections(
       items: [
         { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
         { to: `${prefix}/syllabus`, labelKey: 'nav.syllabus', icon: BookText },
-        { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
+        {
+          to: `${prefix}/modules`,
+          labelKey: 'modules.title',
+          icon: Library,
+          badge: extra.modulesCount ?? null,
+        },
       ],
     },
     {
       id: 'learn',
       titleKey: 'course.nav.section.learn',
       items: [
-        { to: `${prefix}/materials`, labelKey: 'materials.title', icon: FileText },
-        { to: `${prefix}/presentations`, labelKey: 'presentations.title', icon: Presentation },
+        {
+          to: `${prefix}/materials`,
+          labelKey: 'materials.title',
+          icon: FileText,
+          badge: extra.materialsCount ?? null,
+        },
+        {
+          to: `${prefix}/presentations`,
+          labelKey: 'presentations.title',
+          icon: Presentation,
+          badge: extra.presentationsCount ?? null,
+        },
       ],
     },
     {
       id: 'assessment',
       titleKey: 'course.nav.section.assessment',
       items: [
-        { to: `${prefix}/assignments`, labelKey: 'assignments.title', icon: ClipboardList },
-        { to: `${prefix}/quizzes`, labelKey: 'quizzes.title', icon: ListChecks },
+        {
+          to: `${prefix}/assignments`,
+          labelKey: 'assignments.title',
+          icon: ClipboardList,
+          badge: extra.assignmentsCount ?? null,
+        },
+        {
+          to: `${prefix}/quizzes`,
+          labelKey: 'quizzes.title',
+          icon: ListChecks,
+          badge: extra.quizzesCount ?? null,
+        },
       ],
     },
     {
       id: 'engagement',
       titleKey: 'course.nav.section.engagement',
       items: [
-        { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
+        {
+          to: `${prefix}/discussion`,
+          labelKey: 'discussion.title',
+          icon: MessageSquare,
+          badge: extra.discussionsCount ?? null,
+        },
         { to: `${prefix}/attendance`, labelKey: 'attendance.title', icon: UserCheck },
         {
           to: `${prefix}/students`,
@@ -160,7 +214,12 @@ function teacherCourseSections(
           icon: Users,
           badge: extra.activeStudentsCount ?? null,
         },
-        { to: `${prefix}/messages`, labelKey: 'messages.title', icon: Inbox },
+        {
+          to: `${prefix}/messages`,
+          labelKey: 'messages.title',
+          icon: Inbox,
+          badge: extra.messagesUnreadCount ?? null,
+        },
       ],
     },
     {
@@ -181,6 +240,7 @@ function teacherCourseSections(
           to: `${prefix}/correction-requests`,
           labelKey: 'nav.correctionRequests',
           icon: ClipboardEdit,
+          badge: extra.correctionRequestsCount ?? null,
         },
         { to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings },
       ],
@@ -190,7 +250,7 @@ function teacherCourseSections(
 
 function studentCourseSections(
   courseId: string,
-  extra: { activeStudentsCount?: number | null } = {},
+  extra: CourseNavExtras = {},
 ): NavSection[] {
   const prefix = `/student/courses/${courseId}`;
   return [
@@ -199,30 +259,60 @@ function studentCourseSections(
       items: [
         { to: prefix, labelKey: 'nav.overview', icon: Home, end: true },
         { to: `${prefix}/syllabus`, labelKey: 'nav.syllabus', icon: BookText },
-        { to: `${prefix}/modules`, labelKey: 'modules.title', icon: Library },
+        {
+          to: `${prefix}/modules`,
+          labelKey: 'modules.title',
+          icon: Library,
+          badge: extra.modulesCount ?? null,
+        },
       ],
     },
     {
       id: 'learn',
       titleKey: 'course.nav.section.learn',
       items: [
-        { to: `${prefix}/materials`, labelKey: 'materials.title', icon: FileText },
-        { to: `${prefix}/presentations`, labelKey: 'presentations.title', icon: Presentation },
+        {
+          to: `${prefix}/materials`,
+          labelKey: 'materials.title',
+          icon: FileText,
+          badge: extra.materialsCount ?? null,
+        },
+        {
+          to: `${prefix}/presentations`,
+          labelKey: 'presentations.title',
+          icon: Presentation,
+          badge: extra.presentationsCount ?? null,
+        },
       ],
     },
     {
       id: 'assessment',
       titleKey: 'course.nav.section.assessment',
       items: [
-        { to: `${prefix}/assignments`, labelKey: 'assignments.title', icon: ClipboardList },
-        { to: `${prefix}/quizzes`, labelKey: 'quizzes.title', icon: ListChecks },
+        {
+          to: `${prefix}/assignments`,
+          labelKey: 'assignments.title',
+          icon: ClipboardList,
+          badge: extra.assignmentsCount ?? null,
+        },
+        {
+          to: `${prefix}/quizzes`,
+          labelKey: 'quizzes.title',
+          icon: ListChecks,
+          badge: extra.quizzesCount ?? null,
+        },
       ],
     },
     {
       id: 'engagement',
       titleKey: 'course.nav.section.engagement',
       items: [
-        { to: `${prefix}/discussion`, labelKey: 'discussion.title', icon: MessageSquare },
+        {
+          to: `${prefix}/discussion`,
+          labelKey: 'discussion.title',
+          icon: MessageSquare,
+          badge: extra.discussionsCount ?? null,
+        },
         { to: `${prefix}/attendance`, labelKey: 'attendance.myTitle', icon: UserCheck },
         {
           to: `${prefix}/students`,
@@ -230,7 +320,12 @@ function studentCourseSections(
           icon: Users,
           badge: extra.activeStudentsCount ?? null,
         },
-        { to: `${prefix}/messages`, labelKey: 'messages.title', icon: Inbox },
+        {
+          to: `${prefix}/messages`,
+          labelKey: 'messages.title',
+          icon: Inbox,
+          badge: extra.messagesUnreadCount ?? null,
+        },
       ],
     },
     {
@@ -269,16 +364,58 @@ export function SideNav({
   // In mobile drawer, force expanded for readability
   const showLabels = isMobile ? true : !collapsed;
 
-  // Course-scoped active-student count drives the Students nav badge.
-  // Reuses the same cached query the Students page subscribes to, so no
-  // extra round-trip when navigating into the page.
+  // Course-scoped counts power the per-item nav badges. Each hook reuses
+  // the same cached query the corresponding page subscribes to, so
+  // navigating into a page after seeing the badge doesn't re-fetch.
   const activeCourseId =
     teacherCourseId && teacherCourseId !== 'new' ? teacherCourseId : studentCourseId;
+  const navCourseId = activeCourseId ?? null;
+  const isTeacherNavCourse = role === 'teacher' && !!navCourseId;
   const studentsQ = useCourseStudents(activeCourseId || undefined);
-  const activeStudentsCount = useMemo(() => {
-    if (!studentsQ.data) return null;
-    return studentsQ.data.filter((r) => r.status === 'enrolled').length;
-  }, [studentsQ.data]);
+  const modulesQ = useModulesList(navCourseId);
+  const materialsQ = useMaterialsList(navCourseId);
+  const presentationsQ = usePresentationsList(navCourseId);
+  const assignmentsQ = useAssignmentsList(navCourseId);
+  const quizzesQ = useQuizzesList(navCourseId);
+  const discussionsQ = useDiscussionTopicsList(navCourseId);
+  const messageThreadsQ = useMessageThreads(navCourseId || undefined);
+  const correctionRequestsQ = useCourseCorrectionRequests(
+    isTeacherNavCourse ? navCourseId : null,
+    'open',
+  );
+
+  const navExtras = useMemo<CourseNavExtras>(() => {
+    const activeStudentsCount =
+      studentsQ.data ? studentsQ.data.filter((r) => r.status === 'enrolled').length : null;
+    const unread = messageThreadsQ.data
+      ? messageThreadsQ.data.reduce((acc, t) => acc + (t.unreadCount ?? 0), 0)
+      : 0;
+    return {
+      activeStudentsCount,
+      modulesCount: modulesQ.data ? modulesQ.data.length : null,
+      materialsCount: materialsQ.data ? materialsQ.data.length : null,
+      presentationsCount: presentationsQ.data ? presentationsQ.data.length : null,
+      assignmentsCount: assignmentsQ.data ? assignmentsQ.data.length : null,
+      quizzesCount: quizzesQ.data ? quizzesQ.data.length : null,
+      discussionsCount: discussionsQ.data ? discussionsQ.data.length : null,
+      // Unread-only: hide the badge when caught up so it doesn't shout
+      // "0" at the user.
+      messagesUnreadCount: unread > 0 ? unread : null,
+      correctionRequestsCount: correctionRequestsQ.data
+        ? correctionRequestsQ.data.length
+        : null,
+    };
+  }, [
+    studentsQ.data,
+    modulesQ.data,
+    materialsQ.data,
+    presentationsQ.data,
+    assignmentsQ.data,
+    quizzesQ.data,
+    discussionsQ.data,
+    messageThreadsQ.data,
+    correctionRequestsQ.data,
+  ]);
 
   const groups = useMemo<NavGroup[]>(() => {
     if (role === 'admin') return ADMIN_GROUPS;
@@ -289,7 +426,7 @@ export function SideNav({
           {
             id: 'currentCourse',
             titleKey: 'nav.currentCourse',
-            sections: teacherCourseSections(teacherCourseId, { activeStudentsCount }),
+            sections: teacherCourseSections(teacherCourseId, navExtras),
           },
           SETTINGS_GROUP,
         ];
@@ -303,7 +440,7 @@ export function SideNav({
           {
             id: 'currentCourse',
             titleKey: 'nav.currentCourse',
-            sections: studentCourseSections(studentCourseId, { activeStudentsCount }),
+            sections: studentCourseSections(studentCourseId, navExtras),
           },
           SETTINGS_GROUP,
         ];
@@ -311,7 +448,7 @@ export function SideNav({
       return [...STUDENT_TOP_GROUPS, SETTINGS_GROUP];
     }
     return [];
-  }, [role, teacherCourseId, studentCourseId, activeStudentsCount]);
+  }, [role, teacherCourseId, studentCourseId, navExtras]);
 
   return (
     <div
