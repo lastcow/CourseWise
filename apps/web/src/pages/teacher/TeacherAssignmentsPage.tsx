@@ -177,13 +177,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
                         color="yellow"
                         onClick={() => navigate(`/teacher/courses/${id}/assignments/${a.id}`)}
                       />
-                      <ActionIconButton
-                        icon={Inbox}
-                        // Mirrors the teal "view attempts" icon on the
-                        // teacher Quizzes page so both lists share the
-                        // same visual shortcut to the student response
-                        // surface. The neighbouring split-pill badge
-                        // surfaces ungraded/total at a glance.
+                      <ViewSubmissionsButton
                         label={
                           (a.ungradedSubmissionCount ?? 0) > 0
                             ? t('assignments.viewSubmissionsActionWithUngraded', {
@@ -194,46 +188,12 @@ export function TeacherAssignmentsPage(): JSX.Element {
                                 count: a.submissionCount ?? 0,
                               })
                         }
-                        color="teal"
+                        ungraded={a.ungradedSubmissionCount ?? 0}
+                        total={a.submissionCount ?? 0}
                         onClick={() =>
                           navigate(`/teacher/courses/${id}/assignments/${a.id}/submissions`)
                         }
                       />
-                      {(a.submissionCount ?? 0) > 0 ? (
-                        <span
-                          aria-hidden
-                          className={cn(
-                            // h-8 matches ActionIconButton's default size so
-                            // the pill aligns flush with neighbouring action
-                            // icons in the row.
-                            'inline-flex h-8 items-stretch overflow-hidden rounded-md border text-[10px] font-medium leading-none tabular-nums',
-                            (a.ungradedSubmissionCount ?? 0) > 0
-                              ? 'border-amber-500/50'
-                              : 'border-emerald-500/40',
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'inline-flex items-center px-1.5',
-                              (a.ungradedSubmissionCount ?? 0) > 0
-                                ? 'text-amber-700 dark:text-amber-300'
-                                : 'text-emerald-700 dark:text-emerald-300',
-                            )}
-                          >
-                            {a.ungradedSubmissionCount ?? 0}
-                          </span>
-                          <span
-                            className={cn(
-                              'inline-flex items-center border-l px-1.5',
-                              (a.ungradedSubmissionCount ?? 0) > 0
-                                ? 'border-amber-500/50 bg-amber-500/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200'
-                                : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200',
-                            )}
-                          >
-                            {a.submissionCount ?? 0}
-                          </span>
-                        </span>
-                      ) : null}
                       {a.status === 'draft' ? (
                         <ActionIconButton
                           icon={CircleCheck}
@@ -371,5 +331,69 @@ export function TeacherAssignmentsPage(): JSX.Element {
         </div>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * Compound view-submissions button: rounded-outline pill that bundles the
+ * Inbox icon with an x/y count badge into one clickable affordance. Color
+ * theme flips based on workload — amber when there's ungraded work, emerald
+ * when caught up, muted teal when nothing has been submitted yet.
+ */
+function ViewSubmissionsButton({
+  label,
+  ungraded,
+  total,
+  onClick,
+}: {
+  label: string;
+  ungraded: number;
+  total: number;
+  onClick: () => void;
+}): JSX.Element {
+  const tone =
+    ungraded > 0 ? 'amber' : total > 0 ? 'emerald' : 'teal';
+  const borderTone = {
+    amber: 'border-amber-500/60 hover:bg-amber-500/10',
+    emerald: 'border-emerald-500/50 hover:bg-emerald-500/10',
+    teal: 'border-teal-500/40 hover:bg-teal-500/10',
+  }[tone];
+  const iconTone = {
+    amber: 'text-amber-600 dark:text-amber-300',
+    emerald: 'text-emerald-600 dark:text-emerald-300',
+    teal: 'text-teal-500',
+  }[tone];
+  const dividerTone = {
+    amber: 'border-amber-500/60',
+    emerald: 'border-emerald-500/50',
+    teal: 'border-teal-500/40',
+  }[tone];
+  const countTone = {
+    amber: 'bg-amber-500/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200',
+    emerald:
+      'bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200',
+    teal: 'bg-teal-500/10 text-teal-700 dark:bg-teal-500/15 dark:text-teal-200',
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-8 items-stretch overflow-hidden rounded-md border bg-background text-xs font-medium leading-none tabular-nums transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        borderTone,
+      )}
+    >
+      <span className={cn('inline-flex items-center px-2', iconTone)}>
+        <Inbox className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      <span
+        className={cn('inline-flex items-center border-l px-2', dividerTone, countTone)}
+      >
+        {ungraded}/{total}
+      </span>
+    </button>
   );
 }
