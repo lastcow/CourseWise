@@ -1336,6 +1336,9 @@ export const zhCN = {
     alerts: {
       title: '预警',
       adminCenterTitle: '预警中心',
+      scopedToCourse: '当前课程:{{code}} · {{title}}',
+      typeFilterLabel: '按类型筛选:',
+      clearTypeFilter: '清除类型筛选',
       emptyTitle: '暂无预警',
       emptyDescription: '当前没有需要关注的风险。',
       runRules: '运行规则',
