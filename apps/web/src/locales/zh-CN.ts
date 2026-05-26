@@ -28,6 +28,7 @@ export const zhCN = {
       aiProviders: 'AI 服务',
       settingsSection: '设置',
       switchLanguage: '切换到 {{language}}',
+      changeLanguage: '切换语言(当前:{{language}})',
     },
     auth: {
       loginTitle: '登录',

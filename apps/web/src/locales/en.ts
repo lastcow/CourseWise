@@ -28,6 +28,7 @@ export const en = {
       aiProviders: 'AI providers',
       settingsSection: 'Settings',
       switchLanguage: 'Switch to {{language}}',
+      changeLanguage: 'Change language (currently {{language}})',
     },
     auth: {
       loginTitle: 'Sign in',

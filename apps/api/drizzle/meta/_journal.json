@@ -190,6 +190,13 @@
       "when": 1781481600000,
       "tag": "0026_group_capacity_override",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1781568000000,
+      "tag": "0027_preferred_language_fr",
+      "breakpoints": true
     }
   ]
 }

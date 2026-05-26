@@ -4,6 +4,7 @@ import { initReactI18next } from 'react-i18next';
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from '@coursewise/shared';
 import { en } from './locales/en';
 import { zhCN } from './locales/zh-CN';
+import { fr } from './locales/fr';
 
 void i18n
   .use(LanguageDetector)
@@ -16,6 +17,7 @@ void i18n
     resources: {
       en,
       'zh-CN': zhCN,
+      fr,
     },
   });
 
