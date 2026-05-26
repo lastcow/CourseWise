@@ -1391,6 +1391,8 @@ export const en = {
       scopedToCourse: 'Showing alerts for {{code}} · {{title}}',
       typeFilterLabel: 'Filter by type:',
       clearTypeFilter: 'Clear type filter',
+      unassignedGroup: 'Unassigned',
+      alertCount: '{{count}} alert(s)',
       emptyTitle: 'No alerts',
       emptyDescription: "You're all caught up. Risk alerts will appear here.",
       runRules: 'Run rules',

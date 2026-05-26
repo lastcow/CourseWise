@@ -62,7 +62,8 @@ export function TeacherAlertsPage(): JSX.Element {
   const cid = courseId ?? '';
   const [status, setStatus] = useState<AlertStatus>('open');
   const [typeFilter, setTypeFilter] = useState<Set<AlertType>>(new Set());
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Per-group open state, keyed by student id (or '__unassigned__').
+  const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
   const course = useCourse(cid || '');
   const alerts = useCourseAlerts(cid || null, status);
   const generate = useGenerateAlerts(cid);
@@ -117,11 +118,11 @@ export function TeacherAlertsPage(): JSX.Element {
     });
   }
 
-  function toggleExpanded(id: string): void {
-    setExpanded((current) => {
+  function toggleGroup(key: string): void {
+    setClosedGroups((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
@@ -148,6 +149,33 @@ export function TeacherAlertsPage(): JSX.Element {
     if (typeFilter.size === 0) return alerts.data;
     return alerts.data.filter((a) => typeFilter.has(a.type));
   }, [alerts.data, typeFilter]);
+
+  // Group by student so the page reads as "what's going on with each
+  // person" instead of a flat list. Manual alerts without a student
+  // fall into an Unassigned bucket pinned at the bottom.
+  const grouped = useMemo(() => {
+    const byStudent = new Map<
+      string,
+      { id: string | null; name: string; alerts: AlertWithStudent[] }
+    >();
+    for (const a of filtered) {
+      const key = a.student?.id ?? '__unassigned__';
+      const entry =
+        byStudent.get(key) ??
+        {
+          id: a.student?.id ?? null,
+          name: a.student?.name ?? '',
+          alerts: [] as AlertWithStudent[],
+        };
+      entry.alerts.push(a);
+      byStudent.set(key, entry);
+    }
+    const named = [...byStudent.values()]
+      .filter((g) => g.id !== null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const unassigned = byStudent.get('__unassigned__');
+    return unassigned ? [...named, unassigned] : named;
+  }, [filtered]);
 
   return (
     <Card>
@@ -236,11 +264,27 @@ export function TeacherAlertsPage(): JSX.Element {
           />
         ) : (
           <ul className="space-y-2">
-            {filtered.map((a) => {
-              const open = expanded.has(a.id);
+            {grouped.map((g) => {
+              const key = g.id ?? '__unassigned__';
+              // Default open for "open" status (actionable view);
+              // default closed for resolved/dismissed (historical view).
+              const defaultOpen = status === 'open';
+              const isClosed = closedGroups.has(key);
+              const open = defaultOpen ? !isClosed : isClosed;
+              const sevCounts = g.alerts.reduce(
+                (acc, a) => {
+                  acc[a.severity as 'critical' | 'warning' | 'info'] =
+                    (acc[a.severity as 'critical' | 'warning' | 'info'] ?? 0) + 1;
+                  return acc;
+                },
+                { critical: 0, warning: 0, info: 0 } as Record<
+                  'critical' | 'warning' | 'info',
+                  number
+                >,
+              );
               return (
                 <li
-                  key={a.id}
+                  key={key}
                   data-state={open ? 'open' : 'closed'}
                   className={cn(
                     'overflow-hidden rounded-md border bg-card transition-colors',
@@ -249,7 +293,7 @@ export function TeacherAlertsPage(): JSX.Element {
                 >
                   <button
                     type="button"
-                    onClick={() => toggleExpanded(a.id)}
+                    onClick={() => toggleGroup(key)}
                     aria-expanded={open}
                     className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
@@ -260,76 +304,98 @@ export function TeacherAlertsPage(): JSX.Element {
                       )}
                       aria-hidden
                     />
-                    <Badge
-                      variant={severityVariant(a.severity)}
-                      className="shrink-0"
-                    >
-                      {t(`alerts.severity.${a.severity}`)}
+                    <span className="min-w-0 flex-1 truncate font-semibold">
+                      {g.id ? g.name : t('alerts.unassignedGroup')}
+                    </span>
+                    <Badge variant="outline" className="shrink-0">
+                      {t('alerts.alertCount', { count: g.alerts.length })}
                     </Badge>
-                    <span
-                      className={cn(
-                        'inline-flex shrink-0 items-center rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium',
-                        TYPE_TONE[a.type],
-                      )}
-                    >
-                      {t(`alerts.type.${a.type}`)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-medium">
-                      {a.title}
-                    </span>
-                    <span className="hidden text-xs text-muted-foreground sm:inline">
-                      {a.student?.name ?? '—'} ·{' '}
-                      {new Date(a.createdAt).toLocaleDateString()}
-                    </span>
+                    {sevCounts.critical > 0 ? (
+                      <Badge variant="destructive" className="shrink-0">
+                        {sevCounts.critical}
+                      </Badge>
+                    ) : null}
+                    {sevCounts.warning > 0 ? (
+                      <Badge variant="secondary" className="shrink-0">
+                        {sevCounts.warning}
+                      </Badge>
+                    ) : null}
                   </button>
                   {open ? (
-                    <div className="border-t px-3 py-3 text-sm">
-                      <div className="text-xs text-muted-foreground">
-                        {a.student?.name ?? '—'} ·{' '}
-                        {new Date(a.createdAt).toLocaleString()}
-                      </div>
-                      {a.body ? (
-                        <p className="mt-2 text-muted-foreground">{a.body}</p>
-                      ) : null}
-                      <div className="mt-3 flex justify-end gap-2">
-                        {a.student?.id ? (
-                          <ActionIconButton
-                            size="sm"
-                            icon={Mail}
-                            label={t('messages.composeCta')}
-                            color="sky"
-                            onClick={() =>
-                              setMessageTarget({
-                                id: a.student!.id,
-                                name: a.student!.name,
-                                subject: t('messages.aboutAlert', {
-                                  title: a.title,
-                                }),
-                                context: t('messages.contextAlert', {
-                                  title: a.title,
-                                }),
-                              })
-                            }
-                          />
-                        ) : null}
-                        {a.status === 'open' ? (
-                          <ActionIconButton
-                            size="sm"
-                            icon={CircleCheck}
-                            label={t('alerts.resolveCta')}
-                            color="emerald"
-                            onClick={() => {
-                              setResolving(a);
-                              setNote('');
-                            }}
-                          />
-                        ) : null}
-                      </div>
-                      {a.status !== 'open' && a.resolutionNote ? (
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          {a.resolutionNote}
+                    <div className="space-y-2 border-t bg-muted/20 p-3">
+                      {g.alerts.map((a) => (
+                        <div
+                          key={a.id}
+                          className="rounded-md border bg-card p-3"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge
+                              variant={severityVariant(a.severity)}
+                              className="shrink-0"
+                            >
+                              {t(`alerts.severity.${a.severity}`)}
+                            </Badge>
+                            <span
+                              className={cn(
+                                'inline-flex shrink-0 items-center rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium',
+                                TYPE_TONE[a.type],
+                              )}
+                            >
+                              {t(`alerts.type.${a.type}`)}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {a.title}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(a.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          {a.body ? (
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {a.body}
+                            </p>
+                          ) : null}
+                          <div className="mt-2 flex justify-end gap-2">
+                            {a.student?.id ? (
+                              <ActionIconButton
+                                size="sm"
+                                icon={Mail}
+                                label={t('messages.composeCta')}
+                                color="sky"
+                                onClick={() =>
+                                  setMessageTarget({
+                                    id: a.student!.id,
+                                    name: a.student!.name,
+                                    subject: t('messages.aboutAlert', {
+                                      title: a.title,
+                                    }),
+                                    context: t('messages.contextAlert', {
+                                      title: a.title,
+                                    }),
+                                  })
+                                }
+                              />
+                            ) : null}
+                            {a.status === 'open' ? (
+                              <ActionIconButton
+                                size="sm"
+                                icon={CircleCheck}
+                                label={t('alerts.resolveCta')}
+                                color="emerald"
+                                onClick={() => {
+                                  setResolving(a);
+                                  setNote('');
+                                }}
+                              />
+                            ) : null}
+                          </div>
+                          {a.status !== 'open' && a.resolutionNote ? (
+                            <div className="mt-2 text-xs text-muted-foreground">
+                              {a.resolutionNote}
+                            </div>
+                          ) : null}
                         </div>
-                      ) : null}
+                      ))}
                     </div>
                   ) : null}
                 </li>
