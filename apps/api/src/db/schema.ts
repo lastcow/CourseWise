@@ -17,7 +17,7 @@ import type { AiPromptDepthConfig } from '@coursewise/shared';
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'teacher', 'student']);
 export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'suspended']);
-export const preferredLanguageEnum = pgEnum('preferred_language', ['en', 'zh-CN']);
+export const preferredLanguageEnum = pgEnum('preferred_language', ['en', 'zh-CN', 'fr']);
 export const courseStatusEnum = pgEnum('course_status', ['draft', 'active', 'archived']);
 export const enrollmentStatusEnum = pgEnum('enrollment_status', [
   'enrolled',
