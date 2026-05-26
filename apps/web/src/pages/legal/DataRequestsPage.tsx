@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { LegalPageHeader } from '@/components/legal/LegalPageHeader';
 import { Button } from '@/components/ui/button';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -23,28 +24,33 @@ const ALL_RECORD_CATEGORIES: RecordCategory[] = [
   'other',
 ];
 
-const REQUESTER_LABEL: Record<RequesterType, string> = {
-  parent: 'Parent or legal guardian',
-  eligible_student: 'Eligible student (18+ or in postsecondary)',
-  records_officer: 'Institutional records officer',
-  other: 'Other',
+// Each enum value maps to a dotted i18n key under
+// public.legal.dataRequestsForm.{requester|category|action}; resolved at
+// render via the existing useTranslation hook.
+const REQUESTER_LABEL_KEY: Record<RequesterType, string> = {
+  parent: 'public.legal.dataRequestsForm.requester.parent',
+  eligible_student: 'public.legal.dataRequestsForm.requester.eligibleStudent',
+  records_officer: 'public.legal.dataRequestsForm.requester.recordsOfficer',
+  other: 'public.legal.dataRequestsForm.requester.other',
 };
 
-const CATEGORY_LABEL: Record<RecordCategory, string> = {
-  education_records: 'Education records (coursework, scores, progress)',
-  ai_generation_history: 'AI generation history (prompts, responses)',
-  account: 'Account information (name, email, role)',
-  discussion_posts: 'Discussion posts and comments',
-  other: 'Other (describe below)',
+const CATEGORY_LABEL_KEY: Record<RecordCategory, string> = {
+  education_records: 'public.legal.dataRequestsForm.category.educationRecords',
+  ai_generation_history:
+    'public.legal.dataRequestsForm.category.aiGenerationHistory',
+  account: 'public.legal.dataRequestsForm.category.account',
+  discussion_posts: 'public.legal.dataRequestsForm.category.discussionPosts',
+  other: 'public.legal.dataRequestsForm.category.other',
 };
 
-const ACTION_LABEL: Record<ActionRequested, string> = {
-  inspect: 'Inspect / get a copy',
-  amend: 'Amend or correct',
-  delete: 'Delete',
+const ACTION_LABEL_KEY: Record<ActionRequested, string> = {
+  inspect: 'public.legal.dataRequestsForm.action.inspect',
+  amend: 'public.legal.dataRequestsForm.action.amend',
+  delete: 'public.legal.dataRequestsForm.action.delete',
 };
 
 export function DataRequestsPage(): JSX.Element {
+  const { t } = useTranslation();
   const toast = useToast();
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
@@ -75,19 +81,31 @@ export function DataRequestsPage(): JSX.Element {
     const description = String(form.get('description') ?? '').trim();
 
     if (!firstName || !lastName || !email) {
-      toast.push({ title: 'Please provide your name and email.', tone: 'error' });
+      toast.push({
+        title: t('public.legal.dataRequestsForm.nameEmailRequired'),
+        tone: 'error',
+      });
       return;
     }
     if (categories.size === 0) {
-      toast.push({ title: 'Select at least one record category.', tone: 'error' });
+      toast.push({
+        title: t('public.legal.dataRequestsForm.categoryRequired'),
+        tone: 'error',
+      });
       return;
     }
     if (description.length < 10) {
-      toast.push({ title: 'Please describe the request in more detail (10+ characters).', tone: 'error' });
+      toast.push({
+        title: t('public.legal.dataRequestsForm.descriptionMinLength'),
+        tone: 'error',
+      });
       return;
     }
     if (description.length > 4000) {
-      toast.push({ title: 'Description is too long (max 4000 characters).', tone: 'error' });
+      toast.push({
+        title: t('public.legal.dataRequestsForm.descriptionMaxLength'),
+        tone: 'error',
+      });
       return;
     }
 
@@ -133,7 +151,10 @@ export function DataRequestsPage(): JSX.Element {
       });
       setDone(true);
     } catch {
-      toast.push({ title: 'Something went wrong. Please try again or email us.', tone: 'error' });
+      toast.push({
+        title: t('public.legal.dataRequestsForm.submitFailed'),
+        tone: 'error',
+      });
     } finally {
       setPending(false);
     }
@@ -217,39 +238,53 @@ export function DataRequestsPage(): JSX.Element {
       <div className="rounded-2xl border bg-white p-6 my-8 not-prose">
         {done ? (
           <div className="text-center py-6">
-            <h3 className="text-lg font-semibold">Request received.</h3>
+            <h3 className="text-lg font-semibold">
+              {t('public.legal.dataRequestsForm.doneTitle')}
+            </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              We respond within 7 calendar days and will email a receipt.
+              {t('public.legal.dataRequestsForm.doneBody')}
             </p>
           </div>
         ) : (
           <form onSubmit={onSubmit} className="space-y-6">
             <div>
-              <div className="text-sm font-semibold">Your contact information</div>
+              <div className="text-sm font-semibold">
+                {t('public.legal.dataRequestsForm.contactInformation')}
+              </div>
               <div className="mt-3 grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label htmlFor="dr-first">First name</Label>
+                  <Label htmlFor="dr-first">
+                    {t('public.legal.dataRequestsForm.firstNameLabel')}
+                  </Label>
                   <Input id="dr-first" name="firstName" required maxLength={120} />
                 </div>
                 <div>
-                  <Label htmlFor="dr-last">Last name</Label>
+                  <Label htmlFor="dr-last">
+                    {t('public.legal.dataRequestsForm.lastNameLabel')}
+                  </Label>
                   <Input id="dr-last" name="lastName" required maxLength={120} />
                 </div>
                 <div>
-                  <Label htmlFor="dr-email">Email</Label>
+                  <Label htmlFor="dr-email">
+                    {t('public.legal.dataRequestsForm.emailLabel')}
+                  </Label>
                   <Input id="dr-email" name="email" type="email" required maxLength={200} />
                 </div>
                 <div>
-                  <Label htmlFor="dr-institution">Institution</Label>
+                  <Label htmlFor="dr-institution">
+                    {t('public.legal.dataRequestsForm.institutionLabel')}
+                  </Label>
                   <Input id="dr-institution" name="institution" maxLength={200} />
                 </div>
               </div>
             </div>
 
             <fieldset>
-              <legend className="text-sm font-semibold">Requester type</legend>
+              <legend className="text-sm font-semibold">
+                {t('public.legal.dataRequestsForm.requesterTypeLegend')}
+              </legend>
               <div className="mt-3 space-y-2">
-                {(Object.keys(REQUESTER_LABEL) as RequesterType[]).map((value) => (
+                {(Object.keys(REQUESTER_LABEL_KEY) as RequesterType[]).map((value) => (
                   <label key={value} className="flex items-start gap-2 text-sm">
                     <input
                       type="radio"
@@ -259,24 +294,30 @@ export function DataRequestsPage(): JSX.Element {
                       onChange={() => setRequesterType(value)}
                       className="mt-1"
                     />
-                    <span>{REQUESTER_LABEL[value]}</span>
+                    <span>{t(REQUESTER_LABEL_KEY[value])}</span>
                   </label>
                 ))}
               </div>
             </fieldset>
 
             <div>
-              <Label htmlFor="dr-relationship">Relationship to the institution</Label>
+              <Label htmlFor="dr-relationship">
+                {t('public.legal.dataRequestsForm.relationshipLabel')}
+              </Label>
               <Input
                 id="dr-relationship"
                 name="relationship"
-                placeholder="e.g. Parent of student Jane Doe, 10th grade"
+                placeholder={t(
+                  'public.legal.dataRequestsForm.relationshipPlaceholder',
+                )}
                 maxLength={300}
               />
             </div>
 
             <fieldset>
-              <legend className="text-sm font-semibold">Record category (select all that apply)</legend>
+              <legend className="text-sm font-semibold">
+                {t('public.legal.dataRequestsForm.recordCategoryLegend')}
+              </legend>
               <div className="mt-3 space-y-2">
                 {ALL_RECORD_CATEGORIES.map((c) => (
                   <label key={c} className="flex items-start gap-2 text-sm">
@@ -286,16 +327,18 @@ export function DataRequestsPage(): JSX.Element {
                       onChange={() => toggleCategory(c)}
                       className="mt-1"
                     />
-                    <span>{CATEGORY_LABEL[c]}</span>
+                    <span>{t(CATEGORY_LABEL_KEY[c])}</span>
                   </label>
                 ))}
               </div>
             </fieldset>
 
             <fieldset>
-              <legend className="text-sm font-semibold">Action requested</legend>
+              <legend className="text-sm font-semibold">
+                {t('public.legal.dataRequestsForm.actionRequestedLegend')}
+              </legend>
               <div className="mt-3 space-y-2">
-                {(Object.keys(ACTION_LABEL) as ActionRequested[]).map((value) => (
+                {(Object.keys(ACTION_LABEL_KEY) as ActionRequested[]).map((value) => (
                   <label key={value} className="flex items-start gap-2 text-sm">
                     <input
                       type="radio"
@@ -305,14 +348,16 @@ export function DataRequestsPage(): JSX.Element {
                       onChange={() => setAction(value)}
                       className="mt-1"
                     />
-                    <span>{ACTION_LABEL[value]}</span>
+                    <span>{t(ACTION_LABEL_KEY[value])}</span>
                   </label>
                 ))}
               </div>
             </fieldset>
 
             <div>
-              <Label htmlFor="dr-description">Description</Label>
+              <Label htmlFor="dr-description">
+                {t('public.legal.dataRequestsForm.descriptionLabel')}
+              </Label>
               <Textarea
                 id="dr-description"
                 name="description"
@@ -320,19 +365,22 @@ export function DataRequestsPage(): JSX.Element {
                 rows={6}
                 minLength={10}
                 maxLength={4000}
-                placeholder="Identify the student(s), the time window, and any specific records or events you are asking us to inspect, amend, or delete."
+                placeholder={t(
+                  'public.legal.dataRequestsForm.descriptionPlaceholder',
+                )}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Between 10 and 4000 characters.
+                {t('public.legal.dataRequestsForm.descriptionHint')}
               </p>
             </div>
 
             <Button type="submit" disabled={pending} className="w-full">
-              {pending ? 'Submitting…' : 'Submit request'}
+              {pending
+                ? t('public.legal.dataRequestsForm.submitting')
+                : t('public.legal.dataRequestsForm.submitCta')}
             </Button>
             <p className="text-xs text-muted-foreground">
-              By submitting, you confirm that the information above is accurate. We will
-              email a receipt and follow up about verification.
+              {t('public.legal.dataRequestsForm.submitDisclaimer')}
             </p>
           </form>
         )}

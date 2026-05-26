@@ -1636,6 +1636,87 @@ export const en = {
         dpa: 'Data Processing Addendum',
         responsibleDisclosure: 'Responsible Disclosure',
       },
+      contact: {
+        eyebrow: 'Contact',
+        title: 'We answer fast.',
+        subtitle:
+          'Pick the right intake — sales and product questions here, FERPA record requests below.',
+        fieldsRequired: 'Please complete all required fields.',
+        doneTitle: 'Thanks — we got it.',
+        doneBody:
+          'We respond within 1 business day during the school year. For urgent matters, reach us directly.',
+        nameLabel: 'Name',
+        emailLabel: 'Email',
+        institutionLabel: 'Institution (optional)',
+        reasonLabel: 'Reason',
+        reasonSales: 'Sales / general',
+        reasonSupport: 'Existing customer support',
+        reasonPress: 'Press',
+        reasonOther: 'Other',
+        messageLabel: 'Message',
+        sendCta: 'Send message',
+        sending: 'Sending…',
+        asideResponseTime: 'Response time',
+        asideResponseTimeBody:
+          '1 business day during the school year. 3 business days during summer and holiday breaks.',
+        asideFerpa: 'FERPA data requests',
+        asideFerpaPrefix:
+          "If you're a parent, eligible student, or institutional records officer requesting inspection, amendment, or deletion of education records, use the dedicated intake:",
+        asideFerpaLink: 'Data Requests',
+        asideSecurity: 'Security disclosure',
+        asideSecurityPrefix: 'Report vulnerabilities via',
+        asideSecurityLink: 'Responsible Disclosure',
+        asideSecuritySuffix: '. We honor a 90-day safe harbor.',
+      },
+      dataRequestsForm: {
+        nameEmailRequired: 'Please provide your name and email.',
+        categoryRequired: 'Select at least one record category.',
+        descriptionMinLength:
+          'Please describe the request in more detail (10+ characters).',
+        descriptionMaxLength:
+          'Description is too long (max 4000 characters).',
+        submitFailed:
+          'Something went wrong. Please try again or email us.',
+        doneTitle: 'Request received.',
+        doneBody: 'We respond within 7 calendar days and will email a receipt.',
+        contactInformation: 'Your contact information',
+        firstNameLabel: 'First name',
+        lastNameLabel: 'Last name',
+        emailLabel: 'Email',
+        institutionLabel: 'Institution',
+        requesterTypeLegend: 'Requester type',
+        relationshipLabel: 'Relationship to the institution',
+        relationshipPlaceholder: 'e.g. Parent of student Jane Doe, 10th grade',
+        recordCategoryLegend: 'Record category (select all that apply)',
+        actionRequestedLegend: 'Action requested',
+        descriptionLabel: 'Description',
+        descriptionPlaceholder:
+          'Identify the student(s), the time window, and any specific records or events you are asking us to inspect, amend, or delete.',
+        descriptionHint: 'Between 10 and 4000 characters.',
+        submitCta: 'Submit request',
+        submitting: 'Submitting…',
+        submitDisclaimer:
+          'By submitting, you confirm that the information above is accurate. We will email a receipt and follow up about verification.',
+        requester: {
+          parent: 'Parent or legal guardian',
+          eligibleStudent: 'Eligible student (18+ or in postsecondary)',
+          recordsOfficer: 'Institutional records officer',
+          other: 'Other',
+        },
+        category: {
+          educationRecords:
+            'Education records (coursework, scores, progress)',
+          aiGenerationHistory: 'AI generation history (prompts, responses)',
+          account: 'Account information (name, email, role)',
+          discussionPosts: 'Discussion posts and comments',
+          other: 'Other (describe below)',
+        },
+        action: {
+          inspect: 'Inspect / get a copy',
+          amend: 'Amend or correct',
+          delete: 'Delete',
+        },
+      },
     },
   },
 } as const;

@@ -29,7 +29,7 @@ export function ContactPage(): JSX.Element {
     };
     const parsed = contactMessageSchema.safeParse(candidate);
     if (!parsed.success) {
-      toast.push({ title: 'Please complete all required fields.', tone: 'error' });
+      toast.push({ title: t('public.contact.fieldsRequired'), tone: 'error' });
       return;
     }
     setPending(true);
@@ -51,85 +51,88 @@ export function ContactPage(): JSX.Element {
     <>
       <SectionBand>
         <PageHeader
-          eyebrow="Contact"
-          title="We answer fast."
-          subtitle="Pick the right intake — sales and product questions here, FERPA record requests below."
+          eyebrow={t('public.contact.eyebrow')}
+          title={t('public.contact.title')}
+          subtitle={t('public.contact.subtitle')}
         />
         <Container className="mt-12 grid gap-12 md:grid-cols-[1fr_360px]">
           <Reveal>
             {done ? (
               <div className="rounded-2xl border bg-white p-8 text-center">
-                <h2 className="text-xl font-semibold">Thanks — we got it.</h2>
+                <h2 className="text-xl font-semibold">{t('public.contact.doneTitle')}</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  We respond within 1 business day during the school year. For urgent matters, reach us directly.
+                  {t('public.contact.doneBody')}
                 </p>
               </div>
             ) : (
               <form onSubmit={onSubmit} className="space-y-5 rounded-2xl border bg-white p-8">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <Label htmlFor="c-name">Name</Label>
+                    <Label htmlFor="c-name">{t('public.contact.nameLabel')}</Label>
                     <Input id="c-name" name="name" required maxLength={120} />
                   </div>
                   <div>
-                    <Label htmlFor="c-email">Email</Label>
+                    <Label htmlFor="c-email">{t('public.contact.emailLabel')}</Label>
                     <Input id="c-email" name="email" type="email" required maxLength={200} />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="c-inst">Institution (optional)</Label>
+                  <Label htmlFor="c-inst">{t('public.contact.institutionLabel')}</Label>
                   <Input id="c-inst" name="institution" maxLength={200} />
                 </div>
                 <div>
-                  <Label htmlFor="c-subject">Reason</Label>
+                  <Label htmlFor="c-subject">{t('public.contact.reasonLabel')}</Label>
                   <select
                     id="c-subject"
                     name="subject"
                     required
                     className="flex h-10 w-full rounded-md border bg-background px-3 text-sm"
                   >
-                    <option value="sales">Sales / general</option>
-                    <option value="support">Existing customer support</option>
-                    <option value="press">Press</option>
-                    <option value="other">Other</option>
+                    <option value="sales">{t('public.contact.reasonSales')}</option>
+                    <option value="support">{t('public.contact.reasonSupport')}</option>
+                    <option value="press">{t('public.contact.reasonPress')}</option>
+                    <option value="other">{t('public.contact.reasonOther')}</option>
                   </select>
                 </div>
                 <div>
-                  <Label htmlFor="c-msg">Message</Label>
+                  <Label htmlFor="c-msg">{t('public.contact.messageLabel')}</Label>
                   <Textarea id="c-msg" name="message" required rows={6} maxLength={4000} />
                 </div>
                 <Button type="submit" disabled={pending} className="w-full">
-                  {pending ? 'Sending…' : 'Send message'}
+                  {pending ? t('public.contact.sending') : t('public.contact.sendCta')}
                 </Button>
               </form>
             )}
           </Reveal>
           <aside className="space-y-6 text-sm text-muted-foreground">
             <div>
-              <div className="text-xs font-medium uppercase tracking-[0.18em]">Response time</div>
-              <p className="mt-2">
-                1 business day during the school year. 3 business days during summer and holiday breaks.
-              </p>
+              <div className="text-xs font-medium uppercase tracking-[0.18em]">
+                {t('public.contact.asideResponseTime')}
+              </div>
+              <p className="mt-2">{t('public.contact.asideResponseTimeBody')}</p>
             </div>
             <div>
-              <div className="text-xs font-medium uppercase tracking-[0.18em]">FERPA data requests</div>
+              <div className="text-xs font-medium uppercase tracking-[0.18em]">
+                {t('public.contact.asideFerpa')}
+              </div>
               <p className="mt-2">
-                If you're a parent, eligible student, or institutional records officer requesting inspection,
-                amendment, or deletion of education records, use the dedicated intake:{' '}
+                {t('public.contact.asideFerpaPrefix')}{' '}
                 <Link to="/legal/data-requests" className="underline">
-                  Data Requests
+                  {t('public.contact.asideFerpaLink')}
                 </Link>
                 .
               </p>
             </div>
             <div>
-              <div className="text-xs font-medium uppercase tracking-[0.18em]">Security disclosure</div>
+              <div className="text-xs font-medium uppercase tracking-[0.18em]">
+                {t('public.contact.asideSecurity')}
+              </div>
               <p className="mt-2">
-                Report vulnerabilities via{' '}
+                {t('public.contact.asideSecurityPrefix')}{' '}
                 <Link to="/legal/responsible-disclosure" className="underline">
-                  Responsible Disclosure
+                  {t('public.contact.asideSecurityLink')}
                 </Link>
-                . We honor a 90-day safe harbor.
+                {t('public.contact.asideSecuritySuffix')}
               </p>
             </div>
           </aside>
