@@ -83,7 +83,11 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps): JSX.Elem
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-40 mt-1 min-w-[10rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md"
+          // bg-card (not bg-popover) — the project's Tailwind config
+          // doesn't register a `popover` color token, so bg-popover
+          // resolves to transparent. shadow-lg gives the menu enough
+          // depth to read against the topbar's blurred backdrop.
+          className="absolute right-0 top-full z-40 mt-1 min-w-[10rem] overflow-hidden rounded-md border bg-card text-card-foreground shadow-lg"
         >
           <ul className="py-1">
             {SUPPORTED_LOCALES.map((loc) => {
