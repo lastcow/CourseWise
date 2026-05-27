@@ -457,6 +457,17 @@ export const en = {
     studentModules: {
       emptyModule: 'Nothing yet in this module.',
     },
+    changelog: {
+      eyebrow: 'Changelog',
+      title: "What's new",
+      subtitle: 'Product updates and fixes, shipped continuously. Newest first.',
+      empty: 'No changes to show yet.',
+      category: {
+        added: 'Added',
+        improved: 'Improved',
+        fixed: 'Fixed',
+      },
+    },
     studentTasks: {
       title: 'To do & upcoming',
       empty: "You're all caught up.",
@@ -1658,6 +1669,7 @@ export const en = {
       nav: {
         features: 'Features',
         pricing: 'Pricing',
+        changelog: 'Changelog',
         about: 'About',
         contact: 'Contact',
         signin: 'Sign in',

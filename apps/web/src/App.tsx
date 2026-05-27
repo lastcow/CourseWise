@@ -14,6 +14,7 @@ import { RegisterPage } from '@/pages/RegisterPage';
 import { TeacherAcceptInvitePage } from '@/pages/TeacherAcceptInvitePage';
 import { FeaturesPage } from '@/pages/public/FeaturesPage';
 import { PricingPage } from '@/pages/public/PricingPage';
+import { ChangelogPage } from '@/pages/public/ChangelogPage';
 import { AboutPage } from '@/pages/public/AboutPage';
 import { ContactPage } from '@/pages/public/ContactPage';
 import { PublicPresentationPage } from '@/pages/public/PublicPresentationPage';
@@ -93,6 +94,7 @@ export default function App(): JSX.Element {
               <Route path="/" element={<HomePage />} />
               <Route path="/features" element={<FeaturesPage />} />
               <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/changelog" element={<ChangelogPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/login" element={<LoginPage />} />
