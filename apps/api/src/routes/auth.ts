@@ -35,7 +35,7 @@ import {
   PASSWORD_RESET_TTL_MINUTES,
 } from '../services/passwordReset';
 import { renderPasswordResetEmail } from '../services/passwordResetEmail';
-import { sendEmailViaCloudflare } from '../services/email';
+import { sendEmailViaCloudflare, DEFAULT_EMAIL_FROM } from '../services/email';
 import { sha256Hex } from '../lib/crypto';
 import { recordAudit } from '../services/audit';
 import { getRateLimiter } from '../services/rateLimit';
@@ -84,8 +84,6 @@ async function issueTokensForContext(
     config: jwtConfig(c),
   });
 }
-
-const DEFAULT_EMAIL_FROM = 'CourseWise <noreply@fsuac.com>';
 
 function resetUrlFor(c: Context<AppEnv>, token: string): string {
   return `${resolveRequestOrigin(c)}/reset-password?token=${encodeURIComponent(token)}`;

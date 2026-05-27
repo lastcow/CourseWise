@@ -29,7 +29,7 @@ import { recordAudit } from '../services/audit';
 import { issueResetToken, PASSWORD_RESET_TTL_MINUTES } from '../services/passwordReset';
 import { renderPasswordResetEmail } from '../services/passwordResetEmail';
 import { renderStudentDropEmail } from '../services/userDropEmail';
-import { sendEmailViaCloudflare } from '../services/email';
+import { sendEmailViaCloudflare, DEFAULT_EMAIL_FROM } from '../services/email';
 import type { AppBindings, AppEnv } from '../types';
 import type { Db } from '../db/client';
 import type { AuthenticatedUser } from '../middleware/types';
@@ -383,7 +383,7 @@ r.delete('/students/:userId', validateJson(deleteSchema), async (c) => {
   let emailProviderId: string | null = null;
   if (c.env.SEND_EMAIL) {
     try {
-      const fromAddress = c.env.EMAIL_FROM ?? 'CourseWise <noreply@fsuac.com>';
+      const fromAddress = c.env.EMAIL_FROM ?? DEFAULT_EMAIL_FROM;
       const res = await sendEmailViaCloudflare(c.env.SEND_EMAIL, {
         to: target.email,
         from: fromAddress,
@@ -470,7 +470,7 @@ r.post('/students/:userId/reset-password-link', async (c) => {
   }
 
   const [target] = await db
-    .select({ id: users.id, email: users.email, status: users.status })
+    .select({ id: users.id, email: users.email })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -488,7 +488,7 @@ r.post('/students/:userId/reset-password-link', async (c) => {
     try {
       await sendEmailViaCloudflare(c.env.SEND_EMAIL, {
         to: target.email,
-        from: c.env.EMAIL_FROM ?? 'CourseWise <noreply@fsuac.com>',
+        from: c.env.EMAIL_FROM ?? DEFAULT_EMAIL_FROM,
         subject: tmpl.subject,
         html: tmpl.html,
         text: tmpl.text,

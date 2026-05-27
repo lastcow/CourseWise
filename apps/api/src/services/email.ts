@@ -1,3 +1,9 @@
+/**
+ * Default "From" header used when the `EMAIL_FROM` env var is unset.
+ * Shared across routes so the fallback address is defined in one place.
+ */
+export const DEFAULT_EMAIL_FROM = 'CourseWise <noreply@fsuac.com>';
+
 export interface SendEmailInput {
   to: string;
   subject: string;
