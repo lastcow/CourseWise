@@ -10,7 +10,7 @@ import {
   type UpdateGradingPolicyInput,
 } from '@coursewise/shared';
 import { assignmentGroups, courses, enrollments, finalGrades, users } from '../db/schema';
-import type { CourseGradingSummary } from '@coursewise/shared';
+import type { CourseGradingSummary, GradingTaskItem } from '@coursewise/shared';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -294,33 +294,48 @@ r.get(
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
     }
 
-    // assignment_submissions where the work is in (submitted, late) and score IS NULL.
+    // Per-assignment ungraded backlog: submissions in (submitted, late) with no
+    // score yet. Counted as de-duped "submission units" — COALESCE(group
+    // submission, row) so a group assignment counts once per group, matching the
+    // ungraded badge on the Assignments list.
     const aRes = await db.execute(sql`
-      SELECT COUNT(*)::int AS count
+      SELECT a.id AS id,
+             a.title AS title,
+             COUNT(DISTINCT COALESCE(sub.group_submission_id, sub.id))::int AS count
         FROM assignment_submissions sub
         JOIN assignments a ON a.id = sub.assignment_id
        WHERE a.course_id = ${courseId}
          AND sub.status IN ('submitted', 'late')
          AND sub.score IS NULL
+       GROUP BY a.id, a.title
+       ORDER BY count DESC, a.title ASC
     `);
-    const ungradedSubmissions = (aRes.rows[0] as { count: number } | undefined)?.count ?? 0;
+    const assignmentTasks = aRes.rows as unknown as GradingTaskItem[];
 
-    // Distinct quiz_answers awaiting manual grading: pointsAwarded IS NULL on submitted attempts.
+    // Per-quiz ungraded backlog: distinct quiz_answers awaiting manual grading
+    // (pointsAwarded IS NULL on submitted attempts).
     const qRes = await db.execute(sql`
-      SELECT COUNT(DISTINCT qa.id)::int AS count
+      SELECT z.id AS id,
+             z.title AS title,
+             COUNT(DISTINCT qa.id)::int AS count
         FROM quiz_answers qa
         JOIN quiz_attempts att ON att.id = qa.attempt_id
         JOIN quizzes z          ON z.id = att.quiz_id
        WHERE z.course_id = ${courseId}
          AND att.status = 'submitted'
          AND qa.points_awarded IS NULL
+       GROUP BY z.id, z.title
+       ORDER BY count DESC, z.title ASC
     `);
-    const ungradedQuizAnswers = (qRes.rows[0] as { count: number } | undefined)?.count ?? 0;
+    const quizTasks = qRes.rows as unknown as GradingTaskItem[];
 
-    // (topic, student) pairs in graded topics where the student has posted at
-    // least once and the discussion_grades row is missing or ungraded.
+    // Per-topic ungraded backlog: (topic, student) pairs in graded topics where
+    // the student has posted at least once and the discussion_grades row is
+    // missing or ungraded.
     const dRes = await db.execute(sql`
-      SELECT COUNT(*)::int AS count
+      SELECT dt.id AS id,
+             dt.title AS title,
+             COUNT(*)::int AS count
         FROM (
           SELECT DISTINCT dp.author_id AS student_id, dt.id AS topic_id
             FROM discussion_topics dt
@@ -335,15 +350,26 @@ r.get(
         LEFT JOIN discussion_grades dg
                ON dg.topic_id = posted.topic_id
               AND dg.student_id = posted.student_id
+        JOIN discussion_topics dt ON dt.id = posted.topic_id
        WHERE dg.graded_at IS NULL
+       GROUP BY dt.id, dt.title
+       ORDER BY count DESC, dt.title ASC
     `);
-    const ungradedDiscussions = (dRes.rows[0] as { count: number } | undefined)?.count ?? 0;
+    const discussionTasks = dRes.rows as unknown as GradingTaskItem[];
+
+    // Aggregate totals (still consumed by the course overview) are the sum of
+    // each per-item backlog, so the two surfaces never disagree.
+    const sumCounts = (items: GradingTaskItem[]): number =>
+      items.reduce((total, item) => total + item.count, 0);
 
     const summary: CourseGradingSummary = {
       courseId,
-      ungradedSubmissions,
-      ungradedQuizAnswers,
-      ungradedDiscussions,
+      ungradedSubmissions: sumCounts(assignmentTasks),
+      ungradedQuizAnswers: sumCounts(quizTasks),
+      ungradedDiscussions: sumCounts(discussionTasks),
+      assignmentTasks,
+      quizTasks,
+      discussionTasks,
     };
     return success(c, summary);
   },
