@@ -1,12 +1,8 @@
+import type { RenderedEmail } from './teacherInvitationEmail';
+
 export interface PasswordResetEmailVars {
   resetUrl: string;
   expiresMinutes: number;
-}
-
-export interface RenderedEmail {
-  subject: string;
-  html: string;
-  text: string;
 }
 
 function escapeHtml(s: string): string {
