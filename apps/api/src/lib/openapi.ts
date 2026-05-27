@@ -27,6 +27,8 @@ export const PUBLIC_ROUTE_WHITELIST: ReadonlyArray<{ method: Method; path: strin
   { method: 'post', path: '/api/auth/refresh' },
   { method: 'post', path: '/api/auth/register-student' },
   { method: 'post', path: '/api/auth/register-teacher' },
+  { method: 'post', path: '/api/auth/forgot-password' },
+  { method: 'post', path: '/api/auth/reset-password' },
   { method: 'get', path: '/api/auth/teacher-invitations/:token' },
 ];
 
@@ -120,6 +122,14 @@ export const ROUTES: readonly RouteSpec[] = [
     security: 'public',
     requestSchema: 'RegisterTeacherInput',
     responseSchema: 'AuthLoginResponse',
+  }),
+  r('post', '/api/auth/forgot-password', 'Request a password-reset link by email', 'auth', {
+    security: 'public',
+    requestSchema: 'ForgotPasswordInput',
+  }),
+  r('post', '/api/auth/reset-password', 'Reset a password using a reset token', 'auth', {
+    security: 'public',
+    requestSchema: 'ResetPasswordInput',
   }),
 
   // ---------- Me / preferences / tokens ----------
@@ -998,6 +1008,21 @@ const SCHEMAS: Record<string, unknown> = {
     type: 'object',
     required: ['refreshToken'],
     properties: { refreshToken: { type: 'string', minLength: 1, maxLength: 2048 } },
+  },
+  ForgotPasswordInput: {
+    type: 'object',
+    required: ['email'],
+    properties: {
+      email: { type: 'string', format: 'email' },
+    },
+  },
+  ResetPasswordInput: {
+    type: 'object',
+    required: ['token', 'password'],
+    properties: {
+      token: { type: 'string', minLength: 1, maxLength: 128 },
+      password: { type: 'string', minLength: 8, maxLength: 128 },
+    },
   },
   AuthLoginResponse: {
     type: 'object',

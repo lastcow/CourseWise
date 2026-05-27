@@ -3,9 +3,11 @@ import {
   bulkMarkAttendanceSchema,
   createQuizQuestionSchema,
   createQuizSchema,
+  forgotPasswordSchema,
   gradeQuizAnswerSchema,
   loginSchema,
   registerSchema,
+  resetPasswordSchema,
 } from './validators';
 
 describe('registerSchema', () => {
@@ -117,5 +119,26 @@ describe('M4 attendance validators', () => {
         ],
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('forgotPasswordSchema', () => {
+  it('lowercases + trims email', () => {
+    expect(forgotPasswordSchema.parse({ email: '  A@B.COM ' })).toEqual({ email: 'a@b.com' });
+  });
+  it('rejects bad email', () => {
+    expect(forgotPasswordSchema.safeParse({ email: 'nope' }).success).toBe(false);
+  });
+});
+
+describe('resetPasswordSchema', () => {
+  it('accepts token + 8+ char password', () => {
+    expect(resetPasswordSchema.safeParse({ token: 'abc', password: 'longenough' }).success).toBe(true);
+  });
+  it('rejects short password', () => {
+    expect(resetPasswordSchema.safeParse({ token: 'abc', password: 'short' }).success).toBe(false);
+  });
+  it('rejects empty token', () => {
+    expect(resetPasswordSchema.safeParse({ token: '', password: 'longenough' }).success).toBe(false);
   });
 });

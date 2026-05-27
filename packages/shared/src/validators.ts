@@ -26,7 +26,7 @@ import {
   SUPPORTED_LOCALES,
 } from './constants';
 
-export const emailSchema = z.string().email().max(254).toLowerCase().trim();
+export const emailSchema = z.string().trim().toLowerCase().email().max(254);
 
 export const passwordSchema = z
   .string()
@@ -51,6 +51,17 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(1).max(2048),
 });
 export type RefreshInput = z.infer<typeof refreshSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1).max(128),
+  password: passwordSchema,
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 export const updatePreferencesSchema = z.object({
   preferredLanguage: z.enum(SUPPORTED_LOCALES).optional(),

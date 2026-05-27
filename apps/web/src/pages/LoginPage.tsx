@@ -72,6 +72,12 @@ export function LoginPage(): JSX.Element {
             <div className="space-y-1">
               <Label htmlFor="password">{t('auth.password')}</Label>
               <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Link
+                to="/forgot-password"
+                className="block text-center text-sm text-muted-foreground hover:underline"
+              >
+                {t('auth.forgotPasswordLink')}
+              </Link>
             </div>
             {errorKey ? <p className="text-sm text-destructive">{t(errorKey)}</p> : null}
             <Button disabled={isLoading} type="submit" className="w-full">

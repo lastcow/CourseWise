@@ -1,20 +1,25 @@
 import { Hono, type Context } from 'hono';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import {
+  forgotPasswordSchema,
   loginSchema,
   refreshSchema,
   registerSchema,
   registerTeacherSchema,
+  resetPasswordSchema,
+  type ForgotPasswordInput,
   type LoginInput,
   type LoginResponse,
   type RefreshInput,
   type RegisterInput,
   type RegisterTeacherInput,
+  type ResetPasswordInput,
   type TeacherInvitationLookup,
 } from '@coursewise/shared';
 import {
   enrollments,
   invitationCodes,
+  passwordResetTokens,
   refreshTokens,
   studentProfiles,
   teacherInvitations,
@@ -24,6 +29,13 @@ import {
 import { hashPassword, verifyPassword } from '../services/password';
 import { ACCESS_TOKEN_TTL_SECONDS, verifyRefreshToken } from '../services/jwt';
 import { issueTokens } from '../services/tokens';
+import {
+  invalidateUserResetTokens,
+  issueResetToken,
+  PASSWORD_RESET_TTL_MINUTES,
+} from '../services/passwordReset';
+import { renderPasswordResetEmail } from '../services/passwordResetEmail';
+import { sendEmailViaCloudflare, DEFAULT_EMAIL_FROM } from '../services/email';
 import { sha256Hex } from '../lib/crypto';
 import { recordAudit } from '../services/audit';
 import { getRateLimiter } from '../services/rateLimit';
@@ -34,6 +46,7 @@ import { validateJson } from '../middleware/validate';
 import { requireJwtAuth } from '../middleware/jwt';
 import { requireAuth } from '../middleware/auth';
 import { requireParam } from '../lib/params';
+import { resolveRequestOrigin } from '../lib/requestOrigin';
 import type { AppEnv } from '../types';
 
 const LOCKOUT_THRESHOLD = 5;
@@ -70,6 +83,37 @@ async function issueTokensForContext(
     familyId,
     config: jwtConfig(c),
   });
+}
+
+function resetUrlFor(c: Context<AppEnv>, token: string): string {
+  return `${resolveRequestOrigin(c)}/reset-password?token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * Best-effort: dispatch the password-reset email via the Cloudflare Email
+ * Service binding. Never throws — a send failure must not change the response
+ * (enumeration-safe) and the token is already persisted regardless.
+ */
+async function trySendResetEmail(
+  c: Context<AppEnv>,
+  to: string,
+  resetUrl: string,
+): Promise<boolean> {
+  if (!c.env.SEND_EMAIL) return false;
+  const tmpl = renderPasswordResetEmail({ resetUrl, expiresMinutes: PASSWORD_RESET_TTL_MINUTES });
+  try {
+    await sendEmailViaCloudflare(c.env.SEND_EMAIL, {
+      to,
+      from: c.env.EMAIL_FROM ?? DEFAULT_EMAIL_FROM,
+      subject: tmpl.subject,
+      html: tmpl.html,
+      text: tmpl.text,
+    });
+    return true;
+  } catch (err) {
+    console.error('password-reset: email send failed', { to, err });
+    return false;
+  }
 }
 
 auth.post('/register-student', validateJson(registerSchema), async (c) => {
@@ -279,6 +323,95 @@ auth.post('/login', validateJson(loginSchema), async (c) => {
     },
   };
   return success(c, body);
+});
+
+// Enumeration-safe: always returns the same { requested: true } body whether or
+// not the email maps to an active account. Rate-limited per email and per IP.
+auth.post('/forgot-password', validateJson(forgotPasswordSchema), async (c) => {
+  const { email } = c.get('validated') as ForgotPasswordInput;
+  const db = c.get('db');
+  const meta = requestMeta(c);
+  const limiter = getRateLimiter(c.env.RATE_LIMIT_KV);
+  const byEmail = await limiter.consume(`forgot:${email}`, 5, 900);
+  const byIp = await limiter.consume(`forgot-ip:${meta.ip ?? 'unknown'}`, 20, 900);
+  if (!byEmail.allowed || !byIp.allowed) {
+    throw new ApiException(429, ERROR_CODES.RATE_LIMITED, 'Too many requests');
+  }
+
+  const rows = await db
+    .select()
+    .from(users)
+    .where(sql`lower(${users.email}) = lower(${email})`)
+    .limit(1);
+  const user = rows[0];
+  if (user && user.status === 'active') {
+    const token = await issueResetToken(db, user.id);
+    const url = resetUrlFor(c, token);
+    await trySendResetEmail(c, user.email, url);
+    await recordAudit(db, {
+      actorType: 'user',
+      actorUserId: user.id,
+      action: 'auth.password_reset.requested',
+      target: user.email,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+      metadata: { self_service: true },
+    });
+  }
+  // Always the same response — no account enumeration.
+  return success(c, { requested: true });
+});
+
+auth.post('/reset-password', validateJson(resetPasswordSchema), async (c) => {
+  const { token, password } = c.get('validated') as ResetPasswordInput;
+  const db = c.get('db');
+  const meta = requestMeta(c);
+  const hash = await sha256Hex(token);
+  const rows = await db
+    .select()
+    .from(passwordResetTokens)
+    .where(eq(passwordResetTokens.tokenHash, hash))
+    .limit(1);
+  const row = rows[0];
+  if (!row) {
+    throw new ApiException(400, ERROR_CODES.INVALID_TOKEN, 'Invalid or expired reset link');
+  }
+  if (row.usedAt) {
+    throw new ApiException(400, ERROR_CODES.TOKEN_REVOKED, 'This reset link was already used');
+  }
+  if (new Date(row.expiresAt) <= new Date()) {
+    throw new ApiException(400, ERROR_CODES.TOKEN_EXPIRED, 'This reset link has expired');
+  }
+
+  const rounds = Number(c.env.BCRYPT_ROUNDS ?? '10') || 10;
+  const newHash = await hashPassword(password, rounds);
+  await db
+    .update(users)
+    .set({
+      passwordHash: newHash,
+      failedLoginCount: 0,
+      lockedUntil: null,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(users.id, row.userId));
+  await db
+    .update(passwordResetTokens)
+    .set({ usedAt: new Date().toISOString() })
+    .where(eq(passwordResetTokens.id, row.id));
+  await invalidateUserResetTokens(db, row.userId);
+  // Kill all existing sessions: revoke outstanding refresh tokens.
+  await db
+    .update(refreshTokens)
+    .set({ revokedAt: new Date().toISOString() })
+    .where(and(eq(refreshTokens.userId, row.userId), isNull(refreshTokens.revokedAt)));
+  await recordAudit(db, {
+    actorType: 'user',
+    actorUserId: row.userId,
+    action: 'auth.password_reset.completed',
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+  });
+  return success(c, { reset: true });
 });
 
 auth.post('/refresh', validateJson(refreshSchema), async (c) => {

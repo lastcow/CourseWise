@@ -135,6 +135,7 @@ import type {
   StudentProfileDetail,
   UpdateStudentProfileInput,
   DeleteStudentAccountResponse,
+  SendResetLinkResponse,
 } from '@coursewise/shared';
 import { ApiClientError, apiCall, getStoredAuth } from './api';
 
@@ -2246,5 +2247,36 @@ export function useDeleteStudentAccount() {
       void qc.removeQueries({ queryKey: ['student-profile', vars.userId] });
       void qc.invalidateQueries({ queryKey: ['course-students'] });
     },
+  });
+}
+
+// Password reset flows. These are unauthenticated/self-service auth mutations
+// with no cached data to invalidate, so no useQueryClient is needed.
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (email: string) =>
+      apiCall<{ requested: boolean }>('/api/auth/forgot-password', {
+        body: { email },
+        auth: false,
+      }),
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (input: { token: string; password: string }) =>
+      apiCall<{ reset: boolean }>('/api/auth/reset-password', {
+        body: input,
+        auth: false,
+      }),
+  });
+}
+
+export function useSendStudentResetLink() {
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiCall<SendResetLinkResponse>(`/api/students/${userId}/reset-password-link`, {
+        method: 'POST',
+      }),
   });
 }

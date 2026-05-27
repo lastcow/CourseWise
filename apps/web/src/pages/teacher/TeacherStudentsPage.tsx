@@ -5,6 +5,7 @@ import {
   Check,
   ChevronRight,
   Copy,
+  KeyRound,
   Lock,
   Mail,
   Pencil,
@@ -43,6 +44,7 @@ import {
   useGroupSets,
   useJoinOrAssignGroupMember,
   useRemoveGroupMember,
+  useSendStudentResetLink,
   useUpdateGroupSet,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
@@ -84,6 +86,7 @@ export function TeacherStudentsPage(): JSX.Element {
   const deleteSet = useDeleteGroupSet(cId);
   const assignMember = useJoinOrAssignGroupMember(cId, activeSetId ?? '');
   const removeMember = useRemoveGroupMember(cId, activeSetId ?? '');
+  const sendReset = useSendStudentResetLink();
 
   // Dialogs
   const [openCreate, setOpenCreate] = useState(false);
@@ -95,6 +98,11 @@ export function TeacherStudentsPage(): JSX.Element {
   const [editMax, setEditMax] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<GroupSetSummary | null>(null);
   const [copied, setCopied] = useState(false);
+  // Fallback when email delivery is unavailable: hold the reset URL so the
+  // teacher can copy and share it manually. `resetLinkCopied` drives the
+  // dialog's copy-button acknowledgment (mirrors the toolbar `copied` flag).
+  const [resetLink, setResetLink] = useState<string | null>(null);
+  const [resetLinkCopied, setResetLinkCopied] = useState(false);
   // Create-set form state
   const [newName, setNewName] = useState('');
   const [newCount, setNewCount] = useState('4');
@@ -230,6 +238,32 @@ export function TeacherStudentsPage(): JSX.Element {
       // that a teacher copying multiple times in a row still sees feedback
       // on each click (the timer is reset on each successful copy).
       window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.push({ title: t('common.error'), tone: 'error' });
+    }
+  };
+
+  const onSendReset = async (row: EnrollmentRow) => {
+    try {
+      const res = await sendReset.mutateAsync(row.studentId);
+      if (res.emailSent) {
+        toast.push({ title: t('passwordReset.linkSentToast'), tone: 'success' });
+      } else {
+        // No email went out — surface the link so the teacher can share it.
+        setResetLink(res.resetUrl);
+      }
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  const onCopyResetLink = async () => {
+    if (!resetLink) return;
+    try {
+      await navigator.clipboard.writeText(resetLink);
+      setResetLinkCopied(true);
+      window.setTimeout(() => setResetLinkCopied(false), 1500);
     } catch {
       toast.push({ title: t('common.error'), tone: 'error' });
     }
@@ -460,6 +494,7 @@ export function TeacherStudentsPage(): JSX.Element {
               setMessageTarget({ id: row.studentId, name: row.studentName })
             }
             onEdit={(row) => setEditTargetId(row.studentId)}
+            onSendReset={onSendReset}
             t={t}
           />
         ) : !activeSet ? (
@@ -655,6 +690,45 @@ export function TeacherStudentsPage(): JSX.Element {
         </div>
       </Dialog>
 
+      {/* --- Reset-link copy fallback (shown when email couldn't be sent) --- */}
+      <Dialog
+        open={resetLink !== null}
+        onClose={() => {
+          setResetLink(null);
+          setResetLinkCopied(false);
+        }}
+        title={t('passwordReset.linkCopyTitle')}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t('passwordReset.linkCopyBody')}</p>
+          <div className="flex items-center gap-2">
+            <Input readOnly value={resetLink ?? ''} className="font-mono text-xs" />
+            <Button variant="outline" onClick={onCopyResetLink}>
+              {resetLinkCopied ? (
+                <>
+                  <Check className="h-4 w-4" aria-hidden /> {t('passwordReset.copied')}
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" aria-hidden /> {t('passwordReset.copyCta')}
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResetLink(null);
+                setResetLinkCopied(false);
+              }}
+            >
+              {t('common.close')}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
       {messageTarget ? (
         <MessageComposeDialog
           open
@@ -684,12 +758,14 @@ function FlatRosterTable({
   loading,
   onMessage,
   onEdit,
+  onSendReset,
   t,
 }: {
   rows: EnrollmentRow[];
   loading: boolean;
   onMessage: (row: EnrollmentRow) => void;
   onEdit: (row: EnrollmentRow) => void;
+  onSendReset: (row: EnrollmentRow) => void;
   t: (k: string, v?: Record<string, unknown>) => string;
 }) {
   const [page, setPage] = useState(1);
@@ -753,6 +829,13 @@ function FlatRosterTable({
                       color="sky"
                       size="sm"
                       onClick={() => onMessage(r)}
+                    />
+                    <ActionIconButton
+                      icon={KeyRound}
+                      label={t('passwordReset.sendLinkCta')}
+                      color="teal"
+                      size="sm"
+                      onClick={() => onSendReset(r)}
                     />
                   </div>
                 </TableCell>
