@@ -45,6 +45,33 @@ export const en = {
       logoutSuccess: 'Signed out',
       invitationInvalid: 'This invitation code is not valid.',
       invitationOk: 'Code accepted — you will join {{course}}',
+      forgotPasswordLink: 'Forgot password?',
+    },
+    passwordReset: {
+      requestTitle: 'Reset your password',
+      requestSubtitle: "Enter your email and we'll send you a link to reset your password.",
+      emailLabel: 'Email',
+      requestCta: 'Send reset link',
+      requestDoneTitle: 'Check your email',
+      requestDoneBody:
+        "If an account exists for that email, we've sent a link to reset your password. The link expires in 60 minutes.",
+      newTitle: 'Choose a new password',
+      newPasswordLabel: 'New password',
+      confirmLabel: 'Confirm new password',
+      mismatch: "Passwords don't match.",
+      submitCta: 'Reset password',
+      successToast: 'Your password has been reset. Please sign in.',
+      invalidLinkTitle: 'This link is no longer valid',
+      invalidLinkBody:
+        'This password reset link is invalid or has expired. Request a new one to continue.',
+      requestNewLink: 'Request a new link',
+      sendLinkCta: 'Send password reset link',
+      linkSentToast: 'Password reset link sent.',
+      linkCopyTitle: 'Reset link',
+      linkCopyBody:
+        "Email couldn't be sent. Copy this link and share it securely with the student.",
+      copyCta: 'Copy link',
+      copied: 'Copied',
     },
     editor: {
       toolbar: 'Formatting toolbar',

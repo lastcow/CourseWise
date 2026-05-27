@@ -45,6 +45,34 @@ export const fr = {
       logoutSuccess: 'Déconnecté',
       invitationInvalid: "Ce code d'invitation n'est pas valide.",
       invitationOk: 'Code accepté — vous rejoindrez {{course}}',
+      forgotPasswordLink: 'Mot de passe oublié ?',
+    },
+    passwordReset: {
+      requestTitle: 'Réinitialiser votre mot de passe',
+      requestSubtitle:
+        'Saisissez votre courriel et nous vous enverrons un lien pour réinitialiser votre mot de passe.',
+      emailLabel: 'Courriel',
+      requestCta: 'Envoyer le lien de réinitialisation',
+      requestDoneTitle: 'Vérifiez votre courriel',
+      requestDoneBody:
+        "Si un compte existe pour ce courriel, nous avons envoyé un lien pour réinitialiser votre mot de passe. Le lien expire dans 60 minutes.",
+      newTitle: 'Choisissez un nouveau mot de passe',
+      newPasswordLabel: 'Nouveau mot de passe',
+      confirmLabel: 'Confirmer le nouveau mot de passe',
+      mismatch: 'Les mots de passe ne correspondent pas.',
+      submitCta: 'Réinitialiser le mot de passe',
+      successToast: 'Votre mot de passe a été réinitialisé. Veuillez vous connecter.',
+      invalidLinkTitle: "Ce lien n'est plus valide",
+      invalidLinkBody:
+        'Ce lien de réinitialisation de mot de passe est invalide ou a expiré. Demandez-en un nouveau pour continuer.',
+      requestNewLink: 'Demander un nouveau lien',
+      sendLinkCta: 'Envoyer le lien de réinitialisation du mot de passe',
+      linkSentToast: 'Lien de réinitialisation du mot de passe envoyé.',
+      linkCopyTitle: 'Lien de réinitialisation',
+      linkCopyBody:
+        "Le courriel n'a pas pu être envoyé. Copiez ce lien et partagez-le de façon sécurisée avec l'étudiant.",
+      copyCta: 'Copier le lien',
+      copied: 'Copié',
     },
     editor: {
       toolbar: 'Barre de mise en forme',
