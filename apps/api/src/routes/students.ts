@@ -5,6 +5,7 @@ import {
   type DeleteEmailStatus,
   type DeleteStudentAccountInput,
   type DeleteStudentAccountResponse,
+  type SendResetLinkResponse,
   type StudentProfileDetail,
   type StudentProfileEnrollmentRow,
   type UpdateStudentProfileInput,
@@ -21,9 +22,12 @@ import {
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
+import { resolveRequestOrigin } from '../lib/requestOrigin';
 import { requireAuth } from '../middleware/auth';
 import { validateJson } from '../middleware/validate';
 import { recordAudit } from '../services/audit';
+import { issueResetToken, PASSWORD_RESET_TTL_MINUTES } from '../services/passwordReset';
+import { renderPasswordResetEmail } from '../services/passwordResetEmail';
 import { renderStudentDropEmail } from '../services/userDropEmail';
 import { sendEmailViaCloudflare } from '../services/email';
 import type { AppBindings, AppEnv } from '../types';
@@ -272,6 +276,34 @@ async function canDeleteStudent(
   return !!row;
 }
 
+/**
+ * Same ownership shape as canDeleteStudent: admin (any) or teacher (with a
+ * course the target is enrolled in). Self is excluded on purpose — an
+ * admin/teacher resetting their OWN password should use the self-service
+ * forgot-password flow, not the roster action.
+ */
+async function canResetStudentPassword(
+  db: Db,
+  caller: AuthenticatedUser,
+  targetUserId: string,
+): Promise<boolean> {
+  if (caller.id === targetUserId) return false;
+  if (caller.role === 'admin') return true;
+  if (caller.role !== 'teacher') return false;
+  const [row] = await db
+    .select({ id: enrollments.id })
+    .from(enrollments)
+    .innerJoin(courseTeachers, eq(courseTeachers.courseId, enrollments.courseId))
+    .where(
+      and(
+        eq(enrollments.studentId, targetUserId),
+        eq(courseTeachers.teacherId, caller.id),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
 async function snapshotChildCounts(
   db: Db,
   userId: string,
@@ -420,6 +452,63 @@ r.delete('/students/:userId', validateJson(deleteSchema), async (c) => {
   }
 
   const body: DeleteStudentAccountResponse = { id: userId, emailStatus };
+  return success(c, body);
+});
+
+// ---------- Admin/teacher reset-password link ----------
+
+// POST /api/students/:userId/reset-password-link — mint a reset token for a
+// student and (best-effort) email them the link. Returns the link so the
+// caller can also copy/share it directly from the roster.
+r.post('/students/:userId/reset-password-link', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const userId = requireParam(c, 'userId');
+
+  if (!(await canResetStudentPassword(db, auth.user, userId))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No reset access to this student');
+  }
+
+  const [target] = await db
+    .select({ id: users.id, email: users.email, status: users.status })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!target) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'User not found');
+
+  const token = await issueResetToken(db, target.id);
+  const resetUrl = `${resolveRequestOrigin(c)}/reset-password?token=${encodeURIComponent(token)}`;
+
+  // Best-effort email: a send failure does not block minting the link, since
+  // the caller can still copy the returned resetUrl. The outcome is recorded
+  // on the audit row.
+  let emailSent = false;
+  if (c.env.SEND_EMAIL) {
+    const tmpl = renderPasswordResetEmail({ resetUrl, expiresMinutes: PASSWORD_RESET_TTL_MINUTES });
+    try {
+      await sendEmailViaCloudflare(c.env.SEND_EMAIL, {
+        to: target.email,
+        from: c.env.EMAIL_FROM ?? 'CourseWise <noreply@fsuac.com>',
+        subject: tmpl.subject,
+        html: tmpl.html,
+        text: tmpl.text,
+      });
+      emailSent = true;
+    } catch (err) {
+      console.error('admin reset-link: email send failed', { userId, err });
+    }
+  }
+
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'auth.password_reset.admin_initiated',
+    target: target.email,
+    metadata: { emailSent },
+  });
+
+  const body: SendResetLinkResponse = { resetUrl, emailSent };
   return success(c, body);
 });
 

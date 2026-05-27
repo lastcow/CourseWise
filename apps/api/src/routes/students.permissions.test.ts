@@ -48,4 +48,13 @@ describe('students profile routes — unauthenticated rejections', () => {
     );
     expect(res.status).toBe(401);
   });
+
+  it('POST /api/students/<uuid>/reset-password-link → 401 unauthenticated', async () => {
+    const res = await app.request(
+      `/api/students/${USER}/reset-password-link`,
+      { method: 'POST' },
+      env,
+    );
+    expect(res.status).toBe(401);
+  });
 });
