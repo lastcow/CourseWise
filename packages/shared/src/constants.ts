@@ -422,6 +422,9 @@ export type AllowedUploadMimeType = (typeof ALLOWED_UPLOAD_MIME_TYPES)[number];
 
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
+// Maximum number of files a student/group may attach to one submission.
+export const MAX_SUBMISSION_FILES = 10;
+
 export const API_ROUTES = {
   health: '/api/health',
   version: '/api/version',

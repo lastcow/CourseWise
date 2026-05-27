@@ -133,9 +133,9 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const detailHeading = isGroupMode ? selectedGroup?.groupName : selectedIndividual?.student.name;
   const detailStatus = isGroupMode ? groupRep?.status : selectedIndividual?.status;
   const detailText = isGroupMode ? selectedGroup?.sharedContent : selectedIndividual?.textAnswer;
-  const detailFileId = isGroupMode
-    ? selectedGroup?.sharedFileAssetId
-    : selectedIndividual?.fileAssetId;
+  const detailAttachments = isGroupMode
+    ? selectedGroup?.attachments ?? []
+    : selectedIndividual?.attachments ?? [];
   const detailOpen = isGroupMode ? !!selectedGroup : !!selectedIndividual;
 
   return (
@@ -271,17 +271,32 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                   {detailText ? detailText : <em>{t('submissions.noAnswer')}</em>}
                 </div>
               </div>
-              {detailFileId ? (
-                <div className="flex items-center gap-2">
-                  <Label className="m-0">{t('submissions.attachment')}</Label>
-                  <ActionIconButton
-                    icon={Download}
-                    label={t('materials.download')}
-                    color="sky"
-                    onClick={() => onDownload(detailFileId)}
-                  />
-                </div>
-              ) : null}
+              <div>
+                <Label>{t('submissions.attachments')}</Label>
+                {detailAttachments.length > 0 ? (
+                  <ul className="mt-1 space-y-1">
+                    {detailAttachments.map((a) => (
+                      <li
+                        key={a.fileAssetId}
+                        className="rounded border bg-background px-2.5 py-1.5 text-sm"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onDownload(a.fileAssetId)}
+                          className="flex w-full min-w-0 items-center gap-2 rounded-sm text-left underline-offset-4 hover:underline"
+                        >
+                          <Download className="h-4 w-4 shrink-0 text-sky-600" aria-hidden />
+                          <span className="truncate">
+                            {a.filename ?? t('submissions.unnamedFile')}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-sm text-muted-foreground">{t('submissions.noFiles')}</p>
+                )}
+              </div>
 
               {isGroupMode && selectedGroup ? (
                 <div>

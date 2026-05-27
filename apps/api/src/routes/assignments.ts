@@ -1,11 +1,14 @@
 import { Hono, type Context } from 'hono';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import {
+  addSubmissionAttachmentSchema,
   createAssignmentSchema,
   gradeSubmissionSchema,
+  MAX_SUBMISSION_FILES,
   returnSubmissionSchema,
   updateAssignmentSchema,
   updateSubmissionSchema,
+  type AddSubmissionAttachmentInput,
   type AssignmentSubmissionsByGroup,
   type AssignmentSummary,
   type CreateAssignmentInput,
@@ -13,6 +16,7 @@ import {
   type GroupSubmissionWithMembers,
   type MyAssignmentSubmissionResponse,
   type ReturnSubmissionInput,
+  type SubmissionAttachment,
   type SubmissionSummary,
   type SubmissionWithStudent,
   type UpdateAssignmentInput,
@@ -99,18 +103,20 @@ function toAssignmentSummary(
 
 function toSubmissionSummary(
   row: typeof assignmentSubmissions.$inferSelect,
-  groupOverride?: { content: string | null; fileAssetId: string | null; submittedAt: string | null },
+  groupOverride?: { content: string | null; submittedAt: string | null },
+  attachments: SubmissionAttachment[] = [],
 ): SubmissionSummary {
-  // For group-mode rows, the canonical content / fileAssetId / submittedAt
-  // live on group_submissions; we materialize them here so clients can keep
-  // using SubmissionSummary uniformly.
+  // For group-mode rows, the canonical content / submittedAt live on
+  // group_submissions; we materialize them here so clients can keep using
+  // SubmissionSummary uniformly. Attachments are loaded separately (they
+  // require a file_assets query) and passed in by the listing endpoints.
   return {
     id: row.id,
     assignmentId: row.assignmentId,
     studentId: row.studentId,
     status: row.status,
     textAnswer: groupOverride ? groupOverride.content : row.content ?? null,
-    fileAssetId: groupOverride ? groupOverride.fileAssetId : row.fileAssetId ?? null,
+    attachments,
     submittedAt: groupOverride ? groupOverride.submittedAt : row.submittedAt ?? null,
     score: num(row.score),
     feedback: row.feedback ?? null,
@@ -146,6 +152,78 @@ async function loadGroupSubmissionForRow(
     .where(eq(groupSubmissions.id, row.groupSubmissionId))
     .limit(1);
   return gs ?? null;
+}
+
+/**
+ * Batch-load a submission's files. Attachments are `file_assets` rows linked
+ * via the polymorphic relatedType='submission' + relatedId=<submission row
+ * id>; multiple ready files per row means a multi-file submission. Returns a
+ * map keyed by relatedId (submission row id), each list ordered oldest-first.
+ */
+async function loadSubmissionAttachments(
+  c: Context<AppEnv>,
+  submissionRowIds: string[],
+): Promise<Map<string, SubmissionAttachment[]>> {
+  const map = new Map<string, SubmissionAttachment[]>();
+  if (submissionRowIds.length === 0) return map;
+  const db = c.get('db');
+  const rows = await db
+    .select({
+      relatedId: fileAssets.relatedId,
+      fileAssetId: fileAssets.id,
+      filename: fileAssets.originalFilename,
+      sizeBytes: fileAssets.sizeBytes,
+      contentType: fileAssets.contentType,
+    })
+    .from(fileAssets)
+    .where(
+      and(
+        eq(fileAssets.relatedType, 'submission'),
+        inArray(fileAssets.relatedId, submissionRowIds),
+        eq(fileAssets.status, 'ready'),
+      ),
+    )
+    .orderBy(asc(fileAssets.createdAt));
+  for (const row of rows) {
+    if (!row.relatedId) continue;
+    const list = map.get(row.relatedId) ?? [];
+    list.push({
+      fileAssetId: row.fileAssetId,
+      filename: row.filename ?? null,
+      sizeBytes: row.sizeBytes ?? null,
+      contentType: row.contentType ?? null,
+    });
+    map.set(row.relatedId, list);
+  }
+  return map;
+}
+
+/**
+ * The submission-row ids whose attachments make up one submission "unit": the
+ * row itself for individual mode, or every member row for a group submission
+ * (group files are shared across the team).
+ */
+async function submissionUnitRowIds(
+  c: Context<AppEnv>,
+  submission: typeof assignmentSubmissions.$inferSelect,
+): Promise<string[]> {
+  if (!submission.groupSubmissionId) return [submission.id];
+  const db = c.get('db');
+  const rows = await db
+    .select({ id: assignmentSubmissions.id })
+    .from(assignmentSubmissions)
+    .where(eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId));
+  return rows.map((r) => r.id);
+}
+
+/** Flattened attachment list for a submission unit (union across rows). */
+async function attachmentsForUnit(
+  c: Context<AppEnv>,
+  submission: typeof assignmentSubmissions.$inferSelect,
+): Promise<SubmissionAttachment[]> {
+  const rowIds = await submissionUnitRowIds(c, submission);
+  const map = await loadSubmissionAttachments(c, rowIds);
+  return rowIds.flatMap((id) => map.get(id) ?? []);
 }
 
 async function ensureAssignmentViewable(
@@ -559,7 +637,6 @@ r.get(
         s: assignmentSubmissions,
         student: { id: users.id, name: users.name, email: users.email },
         gsContent: groupSubmissions.content,
-        gsFileAssetId: groupSubmissions.fileAssetId,
         gsSubmittedAt: groupSubmissions.submittedAt,
       })
       .from(assignmentSubmissions)
@@ -570,16 +647,17 @@ r.get(
       )
       .where(eq(assignmentSubmissions.assignmentId, id))
       .orderBy(asc(users.name));
-    const out: SubmissionWithStudent[] = rows.map(({ s, student, gsContent, gsFileAssetId, gsSubmittedAt }) => ({
+    const attachmentsByRow = await loadSubmissionAttachments(
+      c,
+      rows.map((r) => r.s.id),
+    );
+    const out: SubmissionWithStudent[] = rows.map(({ s, student, gsContent, gsSubmittedAt }) => ({
       ...toSubmissionSummary(
         s,
         s.groupSubmissionId
-          ? {
-              content: gsContent ?? null,
-              fileAssetId: gsFileAssetId ?? null,
-              submittedAt: gsSubmittedAt ?? null,
-            }
+          ? { content: gsContent ?? null, submittedAt: gsSubmittedAt ?? null }
           : undefined,
+        attachmentsByRow.get(s.id) ?? [],
       ),
       student,
     }));
@@ -637,7 +715,7 @@ r.get(
           groupId: group.id,
           groupName: group.name,
           sharedContent: gs.content ?? null,
-          sharedFileAssetId: gs.fileAssetId ?? null,
+          attachments: [],
           sharedSubmittedAt: gs.submittedAt ?? null,
           sharedSubmittedById: gs.submittedById ?? null,
           members: [],
@@ -647,11 +725,23 @@ r.get(
       entry.members.push({
         ...toSubmissionSummary(s, {
           content: gs.content ?? null,
-          fileAssetId: gs.fileAssetId ?? null,
           submittedAt: gs.submittedAt ?? null,
         }),
         student,
       });
+    }
+
+    // Group files are shared: a group's attachment list is the union of every
+    // member row's files. Batch-load once, then fan the same list onto the
+    // group entry and each member row.
+    const groupAttachmentsByRow = await loadSubmissionAttachments(
+      c,
+      submissionRows.map((r) => r.s.id),
+    );
+    for (const entry of byGroup.values()) {
+      const groupFiles = entry.members.flatMap((m) => groupAttachmentsByRow.get(m.id) ?? []);
+      entry.attachments = groupFiles;
+      for (const m of entry.members) m.attachments = groupFiles;
     }
 
     // Enrolled students whose group hasn't submitted yet (or who aren't in
@@ -777,14 +867,15 @@ r.post(
         .innerJoin(users, eq(users.id, groupMemberships.studentId))
         .where(eq(groupMemberships.groupId, myGroup.groupId));
 
+      const groupFiles = await attachmentsForUnit(c, myRow);
       const body: MyAssignmentSubmissionResponse = {
-        submission: toSubmissionSummary(myRow, gs ?? undefined),
+        submission: toSubmissionSummary(myRow, gs ?? undefined, groupFiles),
         group: {
           groupId: myGroup.groupId,
           groupName: myGroup.groupName,
           members: memberRows,
           sharedContent: gs?.content ?? null,
-          sharedFileAssetId: gs?.fileAssetId ?? null,
+          attachments: groupFiles,
           sharedSubmittedAt: gs?.submittedAt ?? null,
           sharedSubmittedById: gs?.submittedById ?? null,
         },
@@ -807,7 +898,7 @@ r.post(
     )[0];
     if (existing) {
       const body: MyAssignmentSubmissionResponse = {
-        submission: toSubmissionSummary(existing),
+        submission: toSubmissionSummary(existing, undefined, await attachmentsForUnit(c, existing)),
       };
       return success(c, body);
     }
@@ -871,7 +962,10 @@ r.get('/submissions/:submissionId', requireScopeGroup('submissionsRead'), async 
   }
 
   const gs = await loadGroupSubmissionForRow(c, submission);
-  return success(c, toSubmissionSummary(submission, gs ?? undefined));
+  return success(
+    c,
+    toSubmissionSummary(submission, gs ?? undefined, await attachmentsForUnit(c, submission)),
+  );
 });
 
 r.patch(
@@ -891,28 +985,17 @@ r.patch(
     }
     const input = c.get('validated') as UpdateSubmissionInput;
 
-    // Group submission: write content/file to the SHARED group_submissions
-    // row so every teammate sees the same edit. The individual row's
-    // content/fileAssetId stay null/unused for group rows.
+    // Group submission: write the shared text answer to the group_submissions
+    // row so every teammate sees the same edit. Files are managed separately
+    // via the attachment endpoints below.
     if (submission.groupSubmissionId) {
       const groupPatch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
       if (input.textAnswer !== undefined) groupPatch.content = input.textAnswer;
-      if (input.fileAssetId !== undefined) groupPatch.fileAssetId = input.fileAssetId;
       const [gs] = await db
         .update(groupSubmissions)
         .set(groupPatch)
         .where(eq(groupSubmissions.id, submission.groupSubmissionId))
         .returning();
-      if (input.fileAssetId) {
-        await db
-          .update(fileAssets)
-          .set({
-            relatedType: 'submission',
-            relatedId: submission.id,
-            updatedAt: new Date().toISOString(),
-          })
-          .where(eq(fileAssets.id, input.fileAssetId));
-      }
       // Touch the per-member row's updatedAt so client caches refresh.
       const [updated] = await db
         .update(assignmentSubmissions)
@@ -920,12 +1003,14 @@ r.patch(
         .where(eq(assignmentSubmissions.id, id))
         .returning();
       if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
-      return success(c, toSubmissionSummary(updated, gs ?? undefined));
+      return success(
+        c,
+        toSubmissionSummary(updated, gs ?? undefined, await attachmentsForUnit(c, updated)),
+      );
     }
 
     const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
     if (input.textAnswer !== undefined) patch.content = input.textAnswer;
-    if (input.fileAssetId !== undefined) patch.fileAssetId = input.fileAssetId;
 
     const [updated] = await db
       .update(assignmentSubmissions)
@@ -934,18 +1019,113 @@ r.patch(
       .returning();
     if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
 
-    if (input.fileAssetId) {
-      await db
-        .update(fileAssets)
-        .set({
-          relatedType: 'submission',
-          relatedId: updated.id,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(fileAssets.id, input.fileAssetId));
-    }
+    return success(c, toSubmissionSummary(updated, undefined, await attachmentsForUnit(c, updated)));
+  },
+);
 
-    return success(c, toSubmissionSummary(updated));
+// Attach an already-uploaded file to a submission. The student uploads via
+// POST /files/upload (relatedType='submission'), then links it here. Group
+// members attach to their own row; the file still shows for the whole team
+// because the unit's attachment list unions across member rows.
+r.post(
+  '/submissions/:submissionId/attachments',
+  requireScopeGroup('submissionsWrite'),
+  validateJson(addSubmissionAttachmentSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const id = requireParam(c, 'submissionId');
+    const submission = await loadSubmission(c, id);
+    if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can edit this submission');
+    }
+    if (submission.status !== 'draft' && submission.status !== 'returned') {
+      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Submission can only be edited while DRAFT or RETURNED');
+    }
+    const input = c.get('validated') as AddSubmissionAttachmentInput;
+
+    const [file] = await db
+      .select()
+      .from(fileAssets)
+      .where(eq(fileAssets.id, input.fileAssetId))
+      .limit(1);
+    if (!file || file.status !== 'ready') {
+      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'File not found');
+    }
+    if (file.ownerId !== auth.user.id) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'You can only attach your own uploads');
+    }
+    const unitRowIds = await submissionUnitRowIds(c, submission);
+    // Already attached to this submission unit → idempotent no-op.
+    if (file.relatedType === 'submission' && file.relatedId && unitRowIds.includes(file.relatedId)) {
+      return success(c, await attachmentsForUnit(c, submission));
+    }
+    // Reject files already tied to a different submission.
+    if (file.relatedId && file.relatedType === 'submission') {
+      throw new ApiException(409, ERROR_CODES.CONFLICT, 'File is already attached to another submission');
+    }
+    const existing = await attachmentsForUnit(c, submission);
+    if (existing.length >= MAX_SUBMISSION_FILES) {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        `A submission can have at most ${MAX_SUBMISSION_FILES} files`,
+      );
+    }
+    await db
+      .update(fileAssets)
+      .set({ relatedType: 'submission', relatedId: submission.id, updatedAt: new Date().toISOString() })
+      .where(eq(fileAssets.id, input.fileAssetId));
+    // Touch the member row so caches refresh.
+    await db
+      .update(assignmentSubmissions)
+      .set({ updatedAt: new Date().toISOString() })
+      .where(eq(assignmentSubmissions.id, id));
+    return success(c, await attachmentsForUnit(c, submission), 201);
+  },
+);
+
+// Remove a file from a submission (soft-delete so the R2 cleanup job reclaims
+// it). Any member of a group submission may remove a shared file.
+r.delete(
+  '/submissions/:submissionId/attachments/:fileAssetId',
+  requireScopeGroup('submissionsWrite'),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const id = requireParam(c, 'submissionId');
+    const fileAssetId = requireParam(c, 'fileAssetId');
+    const submission = await loadSubmission(c, id);
+    if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can edit this submission');
+    }
+    if (submission.status !== 'draft' && submission.status !== 'returned') {
+      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Submission can only be edited while DRAFT or RETURNED');
+    }
+    const [file] = await db
+      .select()
+      .from(fileAssets)
+      .where(eq(fileAssets.id, fileAssetId))
+      .limit(1);
+    const unitRowIds = await submissionUnitRowIds(c, submission);
+    if (
+      !file ||
+      file.status !== 'ready' ||
+      file.relatedType !== 'submission' ||
+      !file.relatedId ||
+      !unitRowIds.includes(file.relatedId)
+    ) {
+      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Attachment not found on this submission');
+    }
+    await db
+      .update(fileAssets)
+      .set({ status: 'deleted', updatedAt: new Date().toISOString() })
+      .where(eq(fileAssets.id, fileAssetId));
+    await db
+      .update(assignmentSubmissions)
+      .set({ updatedAt: new Date().toISOString() })
+      .where(eq(assignmentSubmissions.id, id));
+    return success(c, await attachmentsForUnit(c, submission));
   },
 );
 

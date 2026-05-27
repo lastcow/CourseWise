@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Download } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,14 +12,21 @@ import { useToast } from '@/components/ui/toast';
 import {
   getDownloadUrl,
   uploadFile,
+  useAddSubmissionAttachment,
   useAssignment,
   useMySubmission,
+  useRemoveSubmissionAttachment,
   useSubmitSubmission,
   useUpdateSubmission,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
 import { useNow } from '@/lib/useNow';
-import { ALLOWED_UPLOAD_MIME_TYPES, MAX_UPLOAD_BYTES, type SubmissionStatus } from '@coursewise/shared';
+import {
+  ALLOWED_UPLOAD_MIME_TYPES,
+  MAX_SUBMISSION_FILES,
+  MAX_UPLOAD_BYTES,
+  type SubmissionStatus,
+} from '@coursewise/shared';
 
 function statusVariant(s: SubmissionStatus): 'success' | 'destructive' | 'secondary' {
   if (s === 'graded') return 'success';
@@ -36,23 +43,31 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   const submission = useMySubmission(aId);
   const update = useUpdateSubmission(aId);
   const submit = useSubmitSubmission(aId);
+  const addAttachment = useAddSubmissionAttachment(aId);
+  const removeAttachment = useRemoveSubmissionAttachment(aId);
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState('');
-  const [fileAssetId, setFileAssetId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const mySub = submission.data?.submission ?? null;
   const myGroup = submission.data?.group ?? null;
+  const attachments = mySub?.attachments ?? [];
 
+  // Seed the editor from the server once per submission. Attaching/removing a
+  // file refetches my-submission; re-seeding on every refetch would clobber
+  // text the student has typed but not yet saved, so we only seed when the
+  // submission id changes (first load / navigation).
+  const seededFor = useRef<string | null>(null);
   useEffect(() => {
-    if (mySub) {
+    if (mySub && seededFor.current !== mySub.id) {
+      seededFor.current = mySub.id;
       setText(mySub.textAnswer ?? '');
-      setFileAssetId(mySub.fileAssetId);
     }
   }, [mySub]);
 
   const editable = mySub?.status === 'draft' || mySub?.status === 'returned';
+  const atFileLimit = attachments.length >= MAX_SUBMISSION_FILES;
 
   // Window gating: if the assignment hasn't opened yet, replace the
   // submission card with a clear error banner instead of an editable form.
@@ -66,7 +81,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
 
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !mySub) return;
     if (!ALLOWED_UPLOAD_MIME_TYPES.includes(file.type as (typeof ALLOWED_UPLOAD_MIME_TYPES)[number])) {
       toast.push({ title: t('files.invalidType'), tone: 'error' });
       return;
@@ -75,16 +90,31 @@ export function StudentAssignmentDetailPage(): JSX.Element {
       toast.push({ title: t('files.tooLarge'), tone: 'error' });
       return;
     }
+    if (atFileLimit) {
+      toast.push({ title: t('submissions.tooManyFiles', { max: MAX_SUBMISSION_FILES }), tone: 'error' });
+      return;
+    }
     try {
       setUploadProgress(0);
-      const { fileAssetId: newId } = await uploadFile(file, cId, 'submission', setUploadProgress);
-      setFileAssetId(newId);
+      const { fileAssetId } = await uploadFile(file, cId, 'submission', setUploadProgress);
+      await addAttachment.mutateAsync({ id: mySub.id, fileAssetId });
       toast.push({ title: t('materials.uploadComplete'), tone: 'success' });
     } catch (err) {
-      toast.push({ title: t('materials.uploadFailed'), tone: 'error' });
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'materials.uploadFailed';
+      toast.push({ title: t(key), tone: 'error' });
     } finally {
       setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const onRemoveFile = async (fileAssetId: string) => {
+    if (!mySub) return;
+    try {
+      await removeAttachment.mutateAsync({ id: mySub.id, fileAssetId });
+      toast.push({ title: t('submissions.fileRemoved'), tone: 'success' });
+    } catch {
+      toast.push({ title: t('errors.internal'), tone: 'error' });
     }
   };
 
@@ -92,7 +122,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
     if (!mySub) return;
     await update.mutateAsync({
       id: mySub.id,
-      input: { textAnswer: text || null, fileAssetId: fileAssetId ?? null },
+      input: { textAnswer: text || null },
     });
     toast.push({ title: t('submissions.draftSaved'), tone: 'success' });
   };
@@ -262,34 +292,64 @@ export function StudentAssignmentDetailPage(): JSX.Element {
               />
             </div>
             <div>
-              <Label>{t('submissions.attachment')}</Label>
-              <div className="flex items-center gap-2">
-                {editable ? (
-                  <Button asChild variant="outline" size="sm">
-                    <label>
-                      {t('files.uploadFile')}
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        className="hidden"
-                        accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
-                        onChange={onUpload}
-                      />
-                    </label>
-                  </Button>
-                ) : null}
-                {fileAssetId ? (
-                  <ActionIconButton
-                    icon={Download}
-                    label={t('materials.download')}
-                    color="sky"
-                    onClick={() => onDownload(fileAssetId)}
-                  />
-                ) : null}
-                {uploadProgress != null ? (
-                  <span className="text-xs">{t('materials.uploading', { progress: uploadProgress })}</span>
-                ) : null}
-              </div>
+              <Label>{t('submissions.attachments')}</Label>
+              {attachments.length > 0 ? (
+                <ul className="mt-1 space-y-1">
+                  {attachments.map((a) => (
+                    <li
+                      key={a.fileAssetId}
+                      className="flex items-center justify-between gap-2 rounded border bg-background px-2.5 py-1.5 text-sm"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onDownload(a.fileAssetId)}
+                        className="flex min-w-0 items-center gap-2 rounded-sm text-left underline-offset-4 hover:underline"
+                      >
+                        <Download className="h-4 w-4 shrink-0 text-sky-600" aria-hidden />
+                        <span className="truncate">{a.filename ?? t('submissions.unnamedFile')}</span>
+                      </button>
+                      {editable ? (
+                        <ActionIconButton
+                          icon={X}
+                          label={t('common.remove')}
+                          color="red"
+                          size="sm"
+                          onClick={() => onRemoveFile(a.fileAssetId)}
+                        />
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">{t('submissions.noFiles')}</p>
+              )}
+              {editable ? (
+                <div className="mt-2 flex items-center gap-2">
+                  {atFileLimit ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t('submissions.maxFilesReached', { max: MAX_SUBMISSION_FILES })}
+                    </p>
+                  ) : (
+                    <Button asChild variant="outline" size="sm">
+                      <label>
+                        {t('files.uploadFile')}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          className="hidden"
+                          accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
+                          onChange={onUpload}
+                        />
+                      </label>
+                    </Button>
+                  )}
+                  {uploadProgress != null ? (
+                    <span className="text-xs">
+                      {t('materials.uploading', { progress: uploadProgress })}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             {editable ? (
               <div className="flex justify-end gap-2">

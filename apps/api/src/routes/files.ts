@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   ALLOWED_UPLOAD_MIME_TYPES,
@@ -259,7 +259,28 @@ r.get('/files/:fileId/download-url', async (c) => {
             .where(eq(assignmentSubmissions.id, row.relatedId))
             .limit(1)
         )[0];
-        if (!sub || sub.studentId !== auth.user.id) {
+        if (!sub) {
+          throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Cannot download another student submission');
+        }
+        let allowed = sub.studentId === auth.user.id;
+        // Group submissions are shared: any member linked to the same
+        // group_submissions row may download a teammate's attached file.
+        if (!allowed && sub.groupSubmissionId) {
+          const mine = (
+            await db
+              .select({ id: assignmentSubmissions.id })
+              .from(assignmentSubmissions)
+              .where(
+                and(
+                  eq(assignmentSubmissions.groupSubmissionId, sub.groupSubmissionId),
+                  eq(assignmentSubmissions.studentId, auth.user.id),
+                ),
+              )
+              .limit(1)
+          )[0];
+          allowed = !!mine;
+        }
+        if (!allowed) {
           throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Cannot download another student submission');
         }
       } else {
