@@ -67,6 +67,10 @@ export const fr = {
         'Ce lien de réinitialisation de mot de passe est invalide ou a expiré. Demandez-en un nouveau pour continuer.',
       requestNewLink: 'Demander un nouveau lien',
       sendLinkCta: 'Envoyer le lien de réinitialisation du mot de passe',
+      confirmSendTitle: 'Envoyer le lien de réinitialisation ?',
+      confirmSendBody:
+        'Envoyer un lien de réinitialisation du mot de passe à {{name}} ({{email}}) ? La personne pourra l’utiliser pour définir un nouveau mot de passe.',
+      confirmSendCta: 'Envoyer le lien',
       linkSentToast: 'Lien de réinitialisation du mot de passe envoyé.',
       linkCopyTitle: 'Lien de réinitialisation',
       linkCopyBody:
