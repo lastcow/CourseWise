@@ -463,6 +463,17 @@ export const fr = {
     studentModules: {
       emptyModule: 'Rien pour le moment dans ce module.',
     },
+    changelog: {
+      eyebrow: 'Nouveautés',
+      title: 'Quoi de neuf',
+      subtitle: 'Mises à jour et correctifs, livrés en continu. Les plus récents en premier.',
+      empty: 'Aucune modification à afficher pour le moment.',
+      category: {
+        added: 'Ajouté',
+        improved: 'Amélioré',
+        fixed: 'Corrigé',
+      },
+    },
     studentTasks: {
       title: 'À faire et à venir',
       empty: 'Vous êtes à jour.',
@@ -1685,6 +1696,7 @@ export const fr = {
       nav: {
         features: 'Fonctionnalités',
         pricing: 'Tarifs',
+        changelog: 'Nouveautés',
         about: 'À propos',
         contact: 'Contact',
         signin: 'Se connecter',

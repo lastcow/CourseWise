@@ -433,6 +433,17 @@ export const zhCN = {
     studentModules: {
       emptyModule: '该章节暂无内容。',
     },
+    changelog: {
+      eyebrow: '更新日志',
+      title: '最新动态',
+      subtitle: '持续发布的产品更新与修复,最新内容优先显示。',
+      empty: '暂无可显示的更新。',
+      category: {
+        added: '新增',
+        improved: '优化',
+        fixed: '修复',
+      },
+    },
     studentTasks: {
       title: '待办与即将到期',
       empty: '你已全部完成。',
@@ -1598,6 +1609,7 @@ export const zhCN = {
       nav: {
         features: '功能',
         pricing: '定价',
+        changelog: '更新日志',
         about: '关于',
         contact: '联系',
         signin: '登录',
