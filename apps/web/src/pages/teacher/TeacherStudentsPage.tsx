@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Check,
   ChevronRight,
+  Clock,
   Copy,
   KeyRound,
   Lock,
@@ -56,6 +57,41 @@ import {
   type GroupSetSummary,
 } from '@coursewise/shared';
 
+/** Compact identity card for the password-reset dialogs: initials, name, email. */
+function ResetStudentCard({
+  name,
+  email,
+  studentNumber,
+}: {
+  name: string;
+  email: string;
+  studentNumber?: string | null;
+}): JSX.Element {
+  const initials =
+    name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0]!)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?';
+  return (
+    <div className="flex items-center gap-3 rounded-md border bg-muted/40 p-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+        {initials}
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{name}</p>
+        <p className="truncate text-xs text-muted-foreground">{email}</p>
+        {studentNumber ? (
+          <p className="truncate text-xs text-muted-foreground">#{studentNumber}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Course roster + group-set management on one screen. Default view is a
  * flat table of enrolled students. Selecting a group-set filter pivots the
@@ -98,10 +134,15 @@ export function TeacherStudentsPage(): JSX.Element {
   const [editMax, setEditMax] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<GroupSetSummary | null>(null);
   const [copied, setCopied] = useState(false);
-  // Fallback when email delivery is unavailable: hold the reset URL so the
-  // teacher can copy and share it manually. `resetLinkCopied` drives the
-  // dialog's copy-button acknowledgment (mirrors the toolbar `copied` flag).
-  const [resetLink, setResetLink] = useState<string | null>(null);
+  // Fallback when email delivery is unavailable: hold the reset URL plus the
+  // student it belongs to, so the dialog can show who to share it with.
+  // `resetLinkCopied` drives the copy-button acknowledgment (mirrors `copied`).
+  const [resetLink, setResetLink] = useState<{
+    url: string;
+    name: string;
+    email: string;
+    studentNumber?: string | null;
+  } | null>(null);
   const [resetLinkCopied, setResetLinkCopied] = useState(false);
   // Student awaiting confirmation before a reset link is sent. Clicking the
   // row action opens this dialog; the email only goes out once confirmed.
@@ -258,7 +299,12 @@ export function TeacherStudentsPage(): JSX.Element {
         toast.push({ title: t('passwordReset.linkSentToast'), tone: 'success' });
       } else {
         // No email went out — surface the link so the teacher can share it.
-        setResetLink(res.resetUrl);
+        setResetLink({
+          url: res.resetUrl,
+          name: row.studentName,
+          email: row.studentEmail,
+          studentNumber: row.studentNumber,
+        });
       }
     } catch (err) {
       const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
@@ -269,7 +315,7 @@ export function TeacherStudentsPage(): JSX.Element {
   const onCopyResetLink = async () => {
     if (!resetLink) return;
     try {
-      await navigator.clipboard.writeText(resetLink);
+      await navigator.clipboard.writeText(resetLink.url);
       setResetLinkCopied(true);
       window.setTimeout(() => setResetLinkCopied(false), 1500);
     } catch {
@@ -705,12 +751,24 @@ export function TeacherStudentsPage(): JSX.Element {
         title={t('passwordReset.confirmSendTitle')}
       >
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {t('passwordReset.confirmSendBody', {
-              name: resetConfirmTarget?.studentName ?? '',
-              email: resetConfirmTarget?.studentEmail ?? '',
-            })}
-          </p>
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300">
+              <KeyRound className="h-5 w-5" aria-hidden />
+            </span>
+            <p className="text-sm text-muted-foreground">{t('passwordReset.confirmSendLead')}</p>
+          </div>
+          {resetConfirmTarget ? (
+            <ResetStudentCard
+              name={resetConfirmTarget.studentName}
+              email={resetConfirmTarget.studentEmail}
+              studentNumber={resetConfirmTarget.studentNumber}
+            />
+          ) : null}
+          <p className="text-sm text-muted-foreground">{t('passwordReset.confirmSendDetail')}</p>
+          <div className="flex items-center gap-2 rounded-md border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+            <Clock className="h-4 w-4 shrink-0" aria-hidden />
+            <p className="text-xs">{t('passwordReset.expiresHint')}</p>
+          </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setResetConfirmTarget(null)}>
               {t('common.cancel')}
@@ -721,7 +779,7 @@ export function TeacherStudentsPage(): JSX.Element {
               }}
               disabled={sendReset.isPending}
             >
-              {t('passwordReset.confirmSendCta')}
+              <KeyRound className="h-4 w-4" aria-hidden /> {t('passwordReset.confirmSendCta')}
             </Button>
           </div>
         </div>
@@ -737,9 +795,19 @@ export function TeacherStudentsPage(): JSX.Element {
         title={t('passwordReset.linkCopyTitle')}
       >
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">{t('passwordReset.linkCopyBody')}</p>
+          {resetLink ? (
+            <ResetStudentCard
+              name={resetLink.name}
+              email={resetLink.email}
+              studentNumber={resetLink.studentNumber}
+            />
+          ) : null}
+          <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+            <Mail className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <p className="text-xs">{t('passwordReset.linkCopyBody')}</p>
+          </div>
           <div className="flex items-center gap-2">
-            <Input readOnly value={resetLink ?? ''} className="font-mono text-xs" />
+            <Input readOnly value={resetLink?.url ?? ''} className="font-mono text-xs" />
             <Button variant="outline" onClick={onCopyResetLink}>
               {resetLinkCopied ? (
                 <>
@@ -751,6 +819,10 @@ export function TeacherStudentsPage(): JSX.Element {
                 </>
               )}
             </Button>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <p className="text-xs">{t('passwordReset.expiresHint')}</p>
           </div>
           <div className="flex justify-end pt-1">
             <Button

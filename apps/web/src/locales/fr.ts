@@ -68,8 +68,10 @@ export const fr = {
       requestNewLink: 'Demander un nouveau lien',
       sendLinkCta: 'Envoyer le lien de réinitialisation du mot de passe',
       confirmSendTitle: 'Envoyer le lien de réinitialisation ?',
-      confirmSendBody:
-        'Envoyer un lien de réinitialisation du mot de passe à {{name}} ({{email}}) ? La personne pourra l’utiliser pour définir un nouveau mot de passe.',
+      confirmSendLead: 'Vous allez envoyer un lien de réinitialisation du mot de passe à :',
+      confirmSendDetail:
+        'La personne pourra l’utiliser pour choisir un nouveau mot de passe. Nous le lui enverrons par courriel ; en cas d’échec, vous obtiendrez un lien à copier et à partager.',
+      expiresHint: 'Le lien expire 60 minutes après sa création.',
       confirmSendCta: 'Envoyer le lien',
       linkSentToast: 'Lien de réinitialisation du mot de passe envoyé.',
       linkCopyTitle: 'Lien de réinitialisation',
