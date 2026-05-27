@@ -103,6 +103,9 @@ export function TeacherStudentsPage(): JSX.Element {
   // dialog's copy-button acknowledgment (mirrors the toolbar `copied` flag).
   const [resetLink, setResetLink] = useState<string | null>(null);
   const [resetLinkCopied, setResetLinkCopied] = useState(false);
+  // Student awaiting confirmation before a reset link is sent. Clicking the
+  // row action opens this dialog; the email only goes out once confirmed.
+  const [resetConfirmTarget, setResetConfirmTarget] = useState<EnrollmentRow | null>(null);
   // Create-set form state
   const [newName, setNewName] = useState('');
   const [newCount, setNewCount] = useState('4');
@@ -243,7 +246,12 @@ export function TeacherStudentsPage(): JSX.Element {
     }
   };
 
-  const onSendReset = async (row: EnrollmentRow) => {
+  // Row action: ask for confirmation before sending anything.
+  const onSendReset = (row: EnrollmentRow) => setResetConfirmTarget(row);
+
+  // Runs only after the confirm dialog is accepted.
+  const performSendReset = async (row: EnrollmentRow) => {
+    setResetConfirmTarget(null);
     try {
       const res = await sendReset.mutateAsync(row.studentId);
       if (res.emailSent) {
@@ -687,6 +695,35 @@ export function TeacherStudentsPage(): JSX.Element {
           <Button variant="destructive" onClick={onDelete} disabled={deleteSet.isPending}>
             {t('common.delete')}
           </Button>
+        </div>
+      </Dialog>
+
+      {/* --- Confirm before sending a password reset link --- */}
+      <Dialog
+        open={resetConfirmTarget !== null}
+        onClose={() => setResetConfirmTarget(null)}
+        title={t('passwordReset.confirmSendTitle')}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {t('passwordReset.confirmSendBody', {
+              name: resetConfirmTarget?.studentName ?? '',
+              email: resetConfirmTarget?.studentEmail ?? '',
+            })}
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setResetConfirmTarget(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                if (resetConfirmTarget) void performSendReset(resetConfirmTarget);
+              }}
+              disabled={sendReset.isPending}
+            >
+              {t('passwordReset.confirmSendCta')}
+            </Button>
+          </div>
         </div>
       </Dialog>
 

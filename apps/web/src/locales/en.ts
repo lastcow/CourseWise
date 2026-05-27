@@ -66,6 +66,10 @@ export const en = {
         'This password reset link is invalid or has expired. Request a new one to continue.',
       requestNewLink: 'Request a new link',
       sendLinkCta: 'Send password reset link',
+      confirmSendTitle: 'Send password reset link?',
+      confirmSendBody:
+        'Send a password reset link to {{name}} ({{email}})? They can use it to set a new password.',
+      confirmSendCta: 'Send reset link',
       linkSentToast: 'Password reset link sent.',
       linkCopyTitle: 'Reset link',
       linkCopyBody:
