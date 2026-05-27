@@ -9,6 +9,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { TeacherAcceptInvitePage } from '@/pages/TeacherAcceptInvitePage';
 import { FeaturesPage } from '@/pages/public/FeaturesPage';
@@ -96,6 +97,7 @@ export default function App(): JSX.Element {
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/invite/:code" element={<InviteRedeemPage />} />
               <Route path="/teacher/accept-invite" element={<TeacherAcceptInvitePage />} />
