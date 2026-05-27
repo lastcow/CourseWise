@@ -461,6 +461,20 @@ export const fr = {
     studentModules: {
       emptyModule: 'Rien pour le moment dans ce module.',
     },
+    studentTasks: {
+      title: 'À faire et à venir',
+      empty: 'Vous êtes à jour.',
+      due: 'Échéance {{date}}',
+      notSubmitted: 'Non soumis',
+      overdue: 'En retard',
+      returned: 'Retourné',
+      upcoming: 'À venir',
+      kind: {
+        assignment: 'Devoir',
+        quiz: 'Quiz',
+        discussion: 'Discussion',
+      },
+    },
     student: {
       joinCourse: {
         button: 'Rejoindre un cours',

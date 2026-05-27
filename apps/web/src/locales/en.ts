@@ -455,6 +455,20 @@ export const en = {
     studentModules: {
       emptyModule: 'Nothing yet in this module.',
     },
+    studentTasks: {
+      title: 'To do & upcoming',
+      empty: "You're all caught up.",
+      due: 'Due {{date}}',
+      notSubmitted: 'Not submitted',
+      overdue: 'Overdue',
+      returned: 'Returned',
+      upcoming: 'Upcoming',
+      kind: {
+        assignment: 'Assignment',
+        quiz: 'Quiz',
+        discussion: 'Discussion',
+      },
+    },
     student: {
       joinCourse: {
         button: 'Join a course',
