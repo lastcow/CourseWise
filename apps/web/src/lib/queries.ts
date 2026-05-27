@@ -102,6 +102,7 @@ import type {
   StudentAttendanceRow,
   TodayAttendanceSession,
   StudentDashboardResponse,
+  SubmissionAttachment,
   SubmissionSummary,
   SubmissionWithStudent,
   SubmitQuizAttemptInput,
@@ -998,6 +999,37 @@ export function useSubmitSubmission(assignmentId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['my-submission', assignmentId] });
       void qc.invalidateQueries({ queryKey: ['submissions', assignmentId] });
+    },
+  });
+}
+
+export function useAddSubmissionAttachment(assignmentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, fileAssetId }: { id: string; fileAssetId: string }) =>
+      apiCall<SubmissionAttachment[]>(`/api/submissions/${id}/attachments`, {
+        method: 'POST',
+        body: { fileAssetId },
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my-submission', assignmentId] });
+      void qc.invalidateQueries({ queryKey: ['submissions', assignmentId] });
+      void qc.invalidateQueries({ queryKey: ['submissions-grouped', assignmentId] });
+    },
+  });
+}
+
+export function useRemoveSubmissionAttachment(assignmentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, fileAssetId }: { id: string; fileAssetId: string }) =>
+      apiCall<SubmissionAttachment[]>(`/api/submissions/${id}/attachments/${fileAssetId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my-submission', assignmentId] });
+      void qc.invalidateQueries({ queryKey: ['submissions', assignmentId] });
+      void qc.invalidateQueries({ queryKey: ['submissions-grouped', assignmentId] });
     },
   });
 }

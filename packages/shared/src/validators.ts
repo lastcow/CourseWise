@@ -452,9 +452,15 @@ export type UpdateAssignmentInput = z.infer<typeof updateAssignmentSchema>;
 // ---------- M3: Submissions ----------
 export const updateSubmissionSchema = z.object({
   textAnswer: z.string().trim().max(100_000).optional().nullable(),
-  fileAssetId: z.string().uuid().optional().nullable(),
 });
 export type UpdateSubmissionInput = z.infer<typeof updateSubmissionSchema>;
+
+// Attach one already-uploaded file to a submission. Files are uploaded via
+// POST /files/upload first; this links the resulting asset to the submission.
+export const addSubmissionAttachmentSchema = z.object({
+  fileAssetId: z.string().uuid(),
+});
+export type AddSubmissionAttachmentInput = z.infer<typeof addSubmissionAttachmentSchema>;
 
 export const gradeSubmissionSchema = z.object({
   score: z.number().min(0).max(1000),

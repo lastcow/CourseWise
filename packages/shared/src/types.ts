@@ -376,13 +376,25 @@ export interface AssignmentSummary {
   updatedAt: string;
 }
 
+// One file attached to a submission. Carries enough metadata (filename,
+// size, type) to render a downloadable list without a per-file round-trip;
+// the actual bytes come from GET /files/:fileAssetId/download-url.
+export interface SubmissionAttachment {
+  fileAssetId: string;
+  filename: string | null;
+  sizeBytes: number | null;
+  contentType: string | null;
+}
+
 export interface SubmissionSummary {
   id: string;
   assignmentId: string;
   studentId: string;
   status: SubmissionStatus;
   textAnswer: string | null;
-  fileAssetId: string | null;
+  // Files turned in with this submission. For group mode this is the team's
+  // shared set (union across members); individual mode is the student's own.
+  attachments: SubmissionAttachment[];
   submittedAt: string | null;
   score: number | null;
   feedback: string | null;
@@ -416,7 +428,7 @@ export interface MyAssignmentSubmissionResponse {
     groupName: string;
     members: { studentId: string; name: string }[];
     sharedContent: string | null;
-    sharedFileAssetId: string | null;
+    attachments: SubmissionAttachment[];
     sharedSubmittedAt: string | null;
     sharedSubmittedById: string | null;
   };
@@ -427,7 +439,7 @@ export interface GroupSubmissionWithMembers {
   groupId: string;
   groupName: string;
   sharedContent: string | null;
-  sharedFileAssetId: string | null;
+  attachments: SubmissionAttachment[];
   sharedSubmittedAt: string | null;
   sharedSubmittedById: string | null;
   members: SubmissionWithStudent[];
