@@ -198,6 +198,58 @@ describe.skipIf(!hasDb)('M3 — teaching content (integration)', () => {
     await call(`/api/assignments/${assignmentId}`, { method: 'DELETE' }, teacherToken);
   });
 
+  it('resubmitting an already-submitted assignment is idempotent (no 409 conflict)', async () => {
+    // Regression: in group mode one member's submit flips every teammate's
+    // row to submitted, so a teammate (or a double-click) hitting submit again
+    // used to get a 409 "conflict with another change". Submit is now a no-op
+    // for an already-submitted row. The precondition is shared by both modes,
+    // so we exercise it via the simpler individual path.
+    const teacherToken = await login('teacher@example.com', 'Teacher123!');
+    const studentToken = await login('student1@example.com', 'Student123!');
+    const courses = await call<Array<{ id: string; code: string }>>('/api/courses', {}, teacherToken);
+    const courseId = (courses.body.data ?? []).find((c) => c.code === 'MGMT101')!.id;
+
+    const create = await call<{ id: string }>(
+      `/api/courses/${courseId}/assignments`,
+      { method: 'POST', body: JSON.stringify({ title: 'Idempotent submit', description: 'x' }) },
+      teacherToken,
+    );
+    const assignmentId = create.body.data!.id;
+    await call(
+      `/api/assignments/${assignmentId}`,
+      { method: 'PATCH', body: JSON.stringify({ maxScore: 10 }) },
+      teacherToken,
+    );
+    await call(`/api/assignments/${assignmentId}/publish`, { method: 'POST' }, teacherToken);
+
+    const createSub = await call<{ submission: { id: string } }>(
+      `/api/assignments/${assignmentId}/submissions`,
+      { method: 'POST' },
+      studentToken,
+    );
+    const submissionId = createSub.body.data!.submission.id;
+
+    const first = await call<{ status: string }>(
+      `/api/submissions/${submissionId}/submit`,
+      { method: 'POST' },
+      studentToken,
+    );
+    expect(first.status).toBe(200);
+    expect(['submitted', 'late']).toContain(first.body.data!.status);
+
+    // Second submit must NOT 409 — it echoes the current state.
+    const second = await call<{ status: string }>(
+      `/api/submissions/${submissionId}/submit`,
+      { method: 'POST' },
+      studentToken,
+    );
+    expect(second.status).toBe(200);
+    expect(['submitted', 'late']).toContain(second.body.data!.status);
+
+    // Cleanup.
+    await call(`/api/assignments/${assignmentId}`, { method: 'DELETE' }, teacherToken);
+  });
+
   it('discussion: student cannot post on DRAFT; reply threading; grade upsert clamp', async () => {
     const teacherToken = await login('teacher@example.com', 'Teacher123!');
     const studentToken = await login('student1@example.com', 'Student123!');
