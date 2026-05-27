@@ -431,6 +431,20 @@ export const zhCN = {
     studentModules: {
       emptyModule: '该章节暂无内容。',
     },
+    studentTasks: {
+      title: '待办与即将到期',
+      empty: '你已全部完成。',
+      due: '截止 {{date}}',
+      notSubmitted: '未提交',
+      overdue: '已逾期',
+      returned: '已退回',
+      upcoming: '即将到期',
+      kind: {
+        assignment: '作业',
+        quiz: '测验',
+        discussion: '讨论',
+      },
+    },
     student: {
       joinCourse: {
         button: '加入课程',
