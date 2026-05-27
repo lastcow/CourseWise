@@ -409,10 +409,6 @@ export const fr = {
       expandAll: 'Tout déployer',
       collapseAll: 'Tout replier',
       pendingTasksTitle: 'Tâches en attente',
-      pendingTasks: {
-        ungradedAssignments: 'Soumissions de devoirs non notées',
-        ungradedQuizzes: 'Réponses de quiz non notées',
-      },
       summary: {
         materials: '{{count}} supports de lecture',
         presentations: '{{count}} présentations',

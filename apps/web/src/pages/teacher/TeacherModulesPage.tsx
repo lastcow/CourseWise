@@ -9,6 +9,7 @@ import {
   ExternalLink,
   GripVertical,
   ListChecks,
+  MessageSquare,
   Pencil,
   Trash2,
 } from 'lucide-react';
@@ -657,36 +658,6 @@ export function TeacherModulesPage(): JSX.Element {
             {t('modules.pendingTasksTitle')}
           </h3>
           {(() => {
-            // Tasks with zero counts collapse out of the rail entirely;
-            // when nothing is left we surface a single positive
-            // "All caught up" card instead of an empty space.
-            const ungradedAsg = gradingQ.data?.ungradedSubmissions ?? 0;
-            const ungradedQuiz = gradingQ.data?.ungradedQuizAnswers ?? 0;
-            const tasks: Array<{
-              key: string;
-              to: string;
-              icon: LucideIcon;
-              label: string;
-              count: number;
-            }> = [];
-            if (ungradedAsg > 0) {
-              tasks.push({
-                key: 'assignments',
-                to: `/teacher/courses/${id}/assignments`,
-                icon: ClipboardList,
-                label: t('modules.pendingTasks.ungradedAssignments'),
-                count: ungradedAsg,
-              });
-            }
-            if (ungradedQuiz > 0) {
-              tasks.push({
-                key: 'quizzes',
-                to: `/teacher/courses/${id}/quizzes`,
-                icon: ListChecks,
-                label: t('modules.pendingTasks.ungradedQuizzes'),
-                count: ungradedQuiz,
-              });
-            }
             if (gradingQ.isLoading) {
               return (
                 <p className="rounded-md border bg-card px-3 py-2.5 text-sm text-muted-foreground">
@@ -694,6 +665,41 @@ export function TeacherModulesPage(): JSX.Element {
                 </p>
               );
             }
+            // One row per gradable item with an ungraded backlog, ordered
+            // assignments → quizzes → discussions. Each per-item array is
+            // already sorted by backlog size by the API, and each row links
+            // straight to that item's grading page. When everything is graded
+            // the list is empty and we surface a single "All caught up" card.
+            const data = gradingQ.data;
+            const tasks: Array<{
+              key: string;
+              to: string;
+              icon: LucideIcon;
+              label: string;
+              count: number;
+            }> = [
+              ...(data?.assignmentTasks ?? []).map((task) => ({
+                key: `assignment-${task.id}`,
+                to: `/teacher/courses/${id}/assignments/${task.id}/submissions`,
+                icon: ClipboardList,
+                label: task.title,
+                count: task.count,
+              })),
+              ...(data?.quizTasks ?? []).map((task) => ({
+                key: `quiz-${task.id}`,
+                to: `/teacher/courses/${id}/quizzes/${task.id}/attempts`,
+                icon: ListChecks,
+                label: task.title,
+                count: task.count,
+              })),
+              ...(data?.discussionTasks ?? []).map((task) => ({
+                key: `discussion-${task.id}`,
+                to: `/teacher/courses/${id}/discussion/${task.id}`,
+                icon: MessageSquare,
+                label: task.title,
+                count: task.count,
+              })),
+            ];
             if (tasks.length === 0) {
               return (
                 <div className="flex items-center gap-3 rounded-md border border-emerald-500/40 bg-emerald-50/40 px-3 py-2.5 dark:bg-emerald-950/30">

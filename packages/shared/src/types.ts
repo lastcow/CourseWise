@@ -823,12 +823,26 @@ export interface TeacherDashboardResponse {
   recentAlerts: AlertSummary[];
 }
 
-// Per-course "needs grading" counts shown on the teacher course overview.
+// One gradable item (assignment, quiz, or discussion topic) with a backlog
+// of ungraded work, used to render per-item rows in the teacher's pending
+// tasks rail.
+export interface GradingTaskItem {
+  id: string;
+  title: string;
+  count: number;
+}
+
+// Per-course "needs grading" data. The aggregate counts feed the teacher
+// course overview; the per-item arrays feed the Modules page pending-tasks
+// rail so each assignment/quiz/discussion needing grading gets its own row.
 export interface CourseGradingSummary {
   courseId: string;
   ungradedSubmissions: number;
   ungradedQuizAnswers: number;
   ungradedDiscussions: number;
+  assignmentTasks: GradingTaskItem[];
+  quizTasks: GradingTaskItem[];
+  discussionTasks: GradingTaskItem[];
 }
 
 export interface StudentCourseSnapshot {
