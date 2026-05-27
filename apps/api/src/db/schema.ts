@@ -243,6 +243,28 @@ export const refreshTokens = pgTable(
   }),
 );
 
+export const passwordResetTokens = pgTable(
+  'password_reset_tokens',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true, mode: 'string' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    tokenHashIdx: uniqueIndex('password_reset_tokens_token_hash_idx').on(t.tokenHash),
+    userIdx: index('password_reset_tokens_user_idx').on(t.userId),
+  }),
+);
+
+export type PasswordResetTokenRow = typeof passwordResetTokens.$inferSelect;
+
 export const courses = pgTable(
   'courses',
   {
