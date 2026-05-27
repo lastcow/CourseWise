@@ -353,10 +353,19 @@ export function StudentAssignmentDetailPage(): JSX.Element {
             </div>
             {editable ? (
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onSave}>
+                {/* Disable while a save/submit is in flight so a double-click
+                    can't fire a second submit (which the server would reject
+                    once the row has already flipped to submitted). */}
+                <Button
+                  variant="outline"
+                  onClick={onSave}
+                  disabled={update.isPending || submit.isPending}
+                >
                   {t('submissions.saveDraft')}
                 </Button>
-                <Button onClick={onSubmit}>{t('submissions.submitCta')}</Button>
+                <Button onClick={onSubmit} disabled={update.isPending || submit.isPending}>
+                  {t('submissions.submitCta')}
+                </Button>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">{t('submissions.locked')}</p>

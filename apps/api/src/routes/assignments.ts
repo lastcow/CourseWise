@@ -1140,8 +1140,21 @@ r.post(
     if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can submit');
     }
-    if (submission.status !== 'draft' && submission.status !== 'returned') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Submission must be DRAFT or RETURNED');
+    // A graded submission can't be resubmitted without a teacher return.
+    if (submission.status === 'graded') {
+      throw new ApiException(409, ERROR_CODES.CONFLICT, 'A graded submission cannot be resubmitted');
+    }
+    // Idempotent no-op for an already-submitted row. In group mode any member's
+    // submit fans the submitted status out to every teammate's row, so a
+    // teammate (or a double-click) hitting submit afterwards would otherwise
+    // get a confusing "conflict with another change". Echo the current state
+    // instead. Only draft/returned rows fall through to a real submit.
+    if (submission.status === 'submitted' || submission.status === 'late') {
+      const gs = await loadGroupSubmissionForRow(c, submission);
+      return success(
+        c,
+        toSubmissionSummary(submission, gs ?? undefined, await attachmentsForUnit(c, submission)),
+      );
     }
     const assignment = await loadAssignment(c, submission.assignmentId);
     if (assignment.status === 'archived') {
