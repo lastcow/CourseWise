@@ -1033,6 +1033,9 @@ export const fr = {
       lastSubmittedAt: 'Dernière soumission le {{date}}',
       submittedShort: 'soumis',
       notSubmittedYet: 'Pas encore soumis',
+      memberCount_one: '{{count}} membre',
+      memberCount_other: '{{count}} membres',
+      groupGradeNote: 'Cette note et ce commentaire s’appliquent à tous les membres du groupe.',
     },
     discussion: {
       title: 'Discussion',

@@ -1017,6 +1017,9 @@ export const en = {
       lastSubmittedAt: 'Last submitted at {{date}}',
       submittedShort: 'submitted',
       notSubmittedYet: 'Not submitted yet',
+      memberCount_one: '{{count}} member',
+      memberCount_other: '{{count}} members',
+      groupGradeNote: 'This grade and comment apply to all group members.',
     },
     discussion: {
       title: 'Discussion',

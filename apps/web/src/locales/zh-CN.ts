@@ -973,6 +973,8 @@ export const zhCN = {
       lastSubmittedAt: '最后提交于 {{date}}',
       submittedShort: '已提交',
       notSubmittedYet: '尚未提交',
+      memberCount_other: '{{count}} 名成员',
+      groupGradeNote: '此评分与评语将应用于该小组的所有成员。',
     },
     discussion: {
       title: '讨论',
