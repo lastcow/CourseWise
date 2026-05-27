@@ -84,6 +84,11 @@ export interface LoginResponse extends AuthTokens {
   user: AuthUser;
 }
 
+export interface SendResetLinkResponse {
+  resetUrl: string;
+  emailSent: boolean;
+}
+
 export interface ApiTokenSummary {
   id: string;
   name: string;
