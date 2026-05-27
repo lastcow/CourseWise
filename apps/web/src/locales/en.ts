@@ -67,8 +67,10 @@ export const en = {
       requestNewLink: 'Request a new link',
       sendLinkCta: 'Send password reset link',
       confirmSendTitle: 'Send password reset link?',
-      confirmSendBody:
-        'Send a password reset link to {{name}} ({{email}})? They can use it to set a new password.',
+      confirmSendLead: "You're about to send a password reset link to:",
+      confirmSendDetail:
+        "They can use it to choose a new password. We'll email it to them — if delivery fails, you'll get a link to copy and share.",
+      expiresHint: 'The link expires 60 minutes after it is created.',
       confirmSendCta: 'Send reset link',
       linkSentToast: 'Password reset link sent.',
       linkCopyTitle: 'Reset link',
