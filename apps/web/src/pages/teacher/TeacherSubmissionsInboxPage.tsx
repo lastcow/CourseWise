@@ -20,12 +20,28 @@ import {
 } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 import { ApiClientError } from '@/lib/api';
-import type { SubmissionStatus } from '@coursewise/shared';
+import type {
+  GroupSubmissionWithMembers,
+  SubmissionStatus,
+  SubmissionWithStudent,
+} from '@coursewise/shared';
 
 function statusVariant(s: SubmissionStatus): 'success' | 'destructive' | 'secondary' {
   if (s === 'graded') return 'success';
   if (s === 'late') return 'destructive';
   return 'secondary';
+}
+
+function statusLabel(t: (k: string) => string, s: SubmissionStatus): string {
+  return t(`submissions.status${s[0]!.toUpperCase()}${s.slice(1)}`);
+}
+
+// A group is graded as a unit, so any submitted member row carries the
+// canonical score/feedback/status; we surface that representative member for
+// the inbox summary and pre-fill, and grade through its id (the API fans the
+// grade out to every teammate).
+function groupRepresentative(g: GroupSubmissionWithMembers): SubmissionWithStudent | null {
+  return g.members.find((m) => m.status !== 'draft') ?? g.members[0] ?? null;
 }
 
 export function TeacherSubmissionsInboxPage(): JSX.Element {
@@ -40,25 +56,42 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const grade = useGradeSubmission(aId);
   const returnSub = useReturnSubmission(aId);
   const toast = useToast();
+  const maxScore = assignment.data?.maxScore ?? null;
+
+  // Individual mode selects a submission row; group mode selects a whole group
+  // (by its shared group_submissions id) since the team shares one grade.
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [score, setScore] = useState<number | ''>('');
   const [feedback, setFeedback] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
 
-  // Flatten member rows so the existing selected-row UI keeps working in
-  // both individual and group modes.
-  const flatRows = isGroupMode
-    ? (grouped.data?.groups ?? []).flatMap((g) => g.members)
-    : submissions.data ?? [];
-  const selected = flatRows.find((s) => s.id === selectedId) ?? null;
+  const selectedIndividual =
+    !isGroupMode ? (submissions.data ?? []).find((s) => s.id === selectedId) ?? null : null;
+  const selectedGroup =
+    isGroupMode
+      ? (grouped.data?.groups ?? []).find((g) => g.groupSubmissionId === selectedGroupId) ?? null
+      : null;
+  const groupRep = selectedGroup ? groupRepresentative(selectedGroup) : null;
+  // The member who actually submitted is the natural messaging recipient for a
+  // group; if we can't identify them we hide the compose action.
+  const groupSubmitter = selectedGroup
+    ? selectedGroup.members.find((m) => m.student.id === selectedGroup.sharedSubmittedById) ?? null
+    : null;
 
-  const openSelected = (id: string) => {
-    const s = flatRows.find((x) => x.id === id);
+  const openIndividual = (id: string) => {
+    const s = (submissions.data ?? []).find((x) => x.id === id);
     setSelectedId(id);
-    if (s) {
-      setScore(s.score ?? '');
-      setFeedback(s.feedback ?? '');
-    }
+    setScore(s?.score ?? '');
+    setFeedback(s?.feedback ?? '');
+  };
+
+  const openGroup = (groupSubmissionId: string) => {
+    const g = (grouped.data?.groups ?? []).find((x) => x.groupSubmissionId === groupSubmissionId);
+    setSelectedGroupId(groupSubmissionId);
+    const rep = g ? groupRepresentative(g) : null;
+    setScore(rep?.score ?? '');
+    setFeedback(rep?.feedback ?? '');
   };
 
   const onDownload = async (fileId: string) => {
@@ -70,11 +103,15 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
     }
   };
 
+  // The id we grade/return through: a group's representative member (the API
+  // propagates to the rest) or the selected individual row.
+  const targetSubmissionId = isGroupMode ? groupRep?.id ?? null : selectedId;
+
   const onGrade = async () => {
-    if (!selectedId || score === '') return;
+    if (!targetSubmissionId || score === '') return;
     try {
       await grade.mutateAsync({
-        id: selectedId,
+        id: targetSubmissionId,
         input: { score: Number(score), feedback: feedback || null },
       });
       toast.push({ title: t('submissions.graded'), tone: 'success' });
@@ -85,19 +122,30 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   };
 
   const onReturn = async () => {
-    if (!selectedId) return;
+    if (!targetSubmissionId) return;
     await returnSub.mutateAsync({
-      id: selectedId,
+      id: targetSubmissionId,
       input: { feedback: feedback || null },
     });
     toast.push({ title: t('submissions.returned'), tone: 'success' });
   };
 
+  const detailHeading = isGroupMode ? selectedGroup?.groupName : selectedIndividual?.student.name;
+  const detailStatus = isGroupMode ? groupRep?.status : selectedIndividual?.status;
+  const detailText = isGroupMode ? selectedGroup?.sharedContent : selectedIndividual?.textAnswer;
+  const detailFileId = isGroupMode
+    ? selectedGroup?.sharedFileAssetId
+    : selectedIndividual?.fileAssetId;
+  const detailOpen = isGroupMode ? !!selectedGroup : !!selectedIndividual;
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xl font-semibold">
-          <Link to={`/teacher/courses/${cId}/assignments`} className="text-muted-foreground hover:underline">
+          <Link
+            to={`/teacher/courses/${cId}/assignments`}
+            className="text-muted-foreground hover:underline"
+          >
             {t('assignments.title')}
           </Link>
           {' › '}
@@ -107,7 +155,7 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
         </h2>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="grid items-start gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
         <Card>
           <CardHeader className="px-3 py-2">
             <CardTitle className="text-sm">{t('submissions.inbox')}</CardTitle>
@@ -119,46 +167,39 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
               !grouped.data || grouped.data.groups.length === 0 ? (
                 <EmptyState title={t('submissions.empty')} />
               ) : (
-                <div className="space-y-2">
-                  {grouped.data.groups.map((g) => (
-                    <div key={g.groupSubmissionId} className="rounded border">
-                      <div className="border-b bg-muted/30 px-2 py-1 text-xs font-medium">
-                        {g.groupName}
-                        {g.sharedSubmittedAt ? (
-                          <span className="ml-1 text-muted-foreground">
-                            · {t('submissions.submittedShort')}
+                <div className="space-y-0.5">
+                  {grouped.data.groups.map((g) => {
+                    const rep = groupRepresentative(g);
+                    const status = rep?.status ?? 'submitted';
+                    return (
+                      <button
+                        key={g.groupSubmissionId}
+                        type="button"
+                        onClick={() => openGroup(g.groupSubmissionId)}
+                        className={cn(
+                          'flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left text-sm hover:bg-muted',
+                          selectedGroupId === g.groupSubmissionId ? 'bg-muted' : '',
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate font-medium">{g.groupName}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {t('submissions.memberCount', { count: g.members.length })}
                           </span>
-                        ) : null}
-                      </div>
-                      <div className="space-y-0.5 p-1">
-                        {g.members.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => openSelected(s.id)}
-                            className={cn(
-                              'flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left text-sm hover:bg-muted',
-                              selectedId === s.id ? 'bg-muted' : '',
-                            )}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate font-medium">{s.student.name}</span>
-                              <Badge variant={statusVariant(s.status)} className="shrink-0">
-                                {t(`submissions.status${s.status[0]!.toUpperCase()}${s.status.slice(1)}`)}
-                              </Badge>
-                            </div>
-                            <p className="font-mono text-xs text-muted-foreground">
-                              {s.score != null
-                                ? `${s.score} / ${assignment.data?.maxScore ?? '—'}`
-                                : '—'}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge variant={statusVariant(status)} className="shrink-0">
+                            {statusLabel(t, status)}
+                          </Badge>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {rep?.score != null ? `${rep.score} / ${maxScore ?? '—'}` : '—'}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
                   {grouped.data.ungroupedStudents.length > 0 ? (
-                    <div className="rounded border border-dashed p-2 text-xs text-muted-foreground">
+                    <div className="mt-2 rounded border border-dashed p-2 text-xs text-muted-foreground">
                       <p className="font-medium">{t('submissions.notSubmittedYet')}</p>
                       <p className="mt-1">
                         {grouped.data.ungroupedStudents.map((u) => u.name).join(', ')}
@@ -175,7 +216,7 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => openSelected(s.id)}
+                    onClick={() => openIndividual(s.id)}
                     className={cn(
                       'flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left text-sm hover:bg-muted',
                       selectedId === s.id ? 'bg-muted' : '',
@@ -184,13 +225,11 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate font-medium">{s.student.name}</span>
                       <Badge variant={statusVariant(s.status)} className="shrink-0">
-                        {t(`submissions.status${s.status[0]!.toUpperCase()}${s.status.slice(1)}`)}
+                        {statusLabel(t, s.status)}
                       </Badge>
                     </div>
                     <p className="font-mono text-xs text-muted-foreground">
-                      {s.score != null
-                        ? `${s.score} / ${assignment.data?.maxScore ?? '—'}`
-                        : '—'}
+                      {s.score != null ? `${s.score} / ${maxScore ?? '—'}` : '—'}
                     </p>
                   </button>
                 ))}
@@ -199,47 +238,84 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
           </CardContent>
         </Card>
 
-        {selected ? (
-          <Card>
+        {detailOpen ? (
+          <Card className="sticky top-4 self-start">
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base">{selected.student.name}</CardTitle>
-              <ActionIconButton
-                icon={Mail}
-                label={t('messages.composeCta')}
-                color="sky"
-                size="sm"
-                onClick={() => setComposeOpen(true)}
-              />
+              <CardTitle className="text-base">{detailHeading}</CardTitle>
+              {/* Individual mode messages the student; group mode messages the
+                  member who submitted (hidden when that's unknown). */}
+              {isGroupMode ? (
+                groupSubmitter ? (
+                  <ActionIconButton
+                    icon={Mail}
+                    label={t('messages.composeCta')}
+                    color="sky"
+                    size="sm"
+                    onClick={() => setComposeOpen(true)}
+                  />
+                ) : null
+              ) : (
+                <ActionIconButton
+                  icon={Mail}
+                  label={t('messages.composeCta')}
+                  color="sky"
+                  size="sm"
+                  onClick={() => setComposeOpen(true)}
+                />
+              )}
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
                 <Label>{t('submissions.textAnswer')}</Label>
                 <div className="min-h-[80px] whitespace-pre-wrap rounded border bg-muted/20 p-3 text-sm">
-                  {selected.textAnswer ?? <em>{t('submissions.noAnswer')}</em>}
+                  {detailText ? detailText : <em>{t('submissions.noAnswer')}</em>}
                 </div>
               </div>
-              {selected.fileAssetId ? (
+              {detailFileId ? (
                 <div className="flex items-center gap-2">
                   <Label className="m-0">{t('submissions.attachment')}</Label>
                   <ActionIconButton
                     icon={Download}
                     label={t('materials.download')}
                     color="sky"
-                    onClick={() => onDownload(selected.fileAssetId!)}
+                    onClick={() => onDownload(detailFileId)}
                   />
                 </div>
               ) : null}
-              {selected.status !== 'draft' ? (
+
+              {isGroupMode && selectedGroup ? (
+                <div>
+                  <Label>{t('submissions.memberCount', { count: selectedGroup.members.length })}</Label>
+                  <ul className="mt-1 space-y-1">
+                    {selectedGroup.members.map((m) => (
+                      <li
+                        key={m.id}
+                        className="flex items-center justify-between gap-2 rounded border bg-background px-2.5 py-1.5 text-sm"
+                      >
+                        <span className="truncate">{m.student.name}</span>
+                        <Badge variant={statusVariant(m.status)} className="shrink-0">
+                          {statusLabel(t, m.status)}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {detailStatus && detailStatus !== 'draft' ? (
                 <>
+                  {isGroupMode ? (
+                    <p className="text-xs text-muted-foreground">{t('submissions.groupGradeNote')}</p>
+                  ) : null}
                   <div>
                     <Label htmlFor="grade-score">
-                      {t('submissions.scoreLabel')} (0–{assignment.data?.maxScore ?? '—'})
+                      {t('submissions.scoreLabel')} (0–{maxScore ?? '—'})
                     </Label>
                     <Input
                       id="grade-score"
                       type="number"
                       min={0}
-                      max={assignment.data?.maxScore ?? undefined}
+                      max={maxScore ?? undefined}
                       step={0.5}
                       value={score}
                       onChange={(e) => setScore(e.target.value === '' ? '' : Number(e.target.value))}
@@ -273,13 +349,17 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
         )}
       </div>
 
-      {composeOpen && selected ? (
+      {composeOpen && (isGroupMode ? groupSubmitter : selectedIndividual) ? (
         <MessageComposeDialog
           open
           onClose={() => setComposeOpen(false)}
           courseId={cId}
-          recipientId={selected.student.id}
-          recipientName={selected.student.name}
+          recipientId={
+            isGroupMode ? groupSubmitter!.student.id : selectedIndividual!.student.id
+          }
+          recipientName={
+            isGroupMode ? groupSubmitter!.student.name : selectedIndividual!.student.name
+          }
           initialSubject={t('messages.aboutAssignment', {
             title: assignment.data?.title ?? '',
           })}

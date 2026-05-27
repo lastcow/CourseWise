@@ -1095,7 +1095,10 @@ async function returnSubmissionHandler(c: Context<AppEnv>) {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Cannot return a draft submission');
   }
   const input = c.get('validated') as ReturnSubmissionInput;
-  const [updated] = await db
+  const now = new Date().toISOString();
+  // Mirror group grading: returning a group submission resets and re-sends
+  // feedback to every member row at once. Individual submissions touch one row.
+  const updatedRows = await db
     .update(assignmentSubmissions)
     .set({
       status: 'returned',
@@ -1103,10 +1106,15 @@ async function returnSubmissionHandler(c: Context<AppEnv>) {
       gradedAt: null,
       gradedById: null,
       feedback: input.feedback ?? submission.feedback ?? null,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     })
-    .where(eq(assignmentSubmissions.id, id))
+    .where(
+      submission.groupSubmissionId
+        ? eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId)
+        : eq(assignmentSubmissions.id, id),
+    )
     .returning();
+  const updated = updatedRows.find((row) => row.id === id) ?? updatedRows[0];
   if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
 
   await recordAudit(db, {
@@ -1115,8 +1123,12 @@ async function returnSubmissionHandler(c: Context<AppEnv>) {
     actorTokenId: auth.tokenId ?? null,
     action: 'submission.return',
     target: id,
+    metadata: submission.groupSubmissionId
+      ? { groupSubmissionId: submission.groupSubmissionId, memberCount: updatedRows.length }
+      : undefined,
   });
-  return success(c, toSubmissionSummary(updated));
+  const gs = await loadGroupSubmissionForRow(c, updated);
+  return success(c, toSubmissionSummary(updated, gs ?? undefined));
 }
 
 r.post(
@@ -1155,7 +1167,10 @@ async function gradeSubmissionHandler(c: Context<AppEnv>) {
   }
   const clamped = clampScore(input.score, max);
   const now = new Date().toISOString();
-  const [updated] = await db
+  // Group submissions are graded as a unit: fan the score and feedback out to
+  // every member row linked to the same group_submissions row, so the whole
+  // team lands on the same grade. Individual submissions touch just their row.
+  const updatedRows = await db
     .update(assignmentSubmissions)
     .set({
       score: clamped.toString(),
@@ -1165,8 +1180,13 @@ async function gradeSubmissionHandler(c: Context<AppEnv>) {
       gradedById: auth.user.id,
       updatedAt: now,
     })
-    .where(eq(assignmentSubmissions.id, id))
+    .where(
+      submission.groupSubmissionId
+        ? eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId)
+        : eq(assignmentSubmissions.id, id),
+    )
     .returning();
+  const updated = updatedRows.find((row) => row.id === id) ?? updatedRows[0];
   if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
 
   await recordAudit(db, {
@@ -1175,9 +1195,16 @@ async function gradeSubmissionHandler(c: Context<AppEnv>) {
     actorTokenId: auth.tokenId ?? null,
     action: 'submission.grade',
     target: id,
-    metadata: { score: clamped },
+    metadata: submission.groupSubmissionId
+      ? {
+          score: clamped,
+          groupSubmissionId: submission.groupSubmissionId,
+          memberCount: updatedRows.length,
+        }
+      : { score: clamped },
   });
-  return success(c, toSubmissionSummary(updated));
+  const gs = await loadGroupSubmissionForRow(c, updated);
+  return success(c, toSubmissionSummary(updated, gs ?? undefined));
 }
 
 r.patch(
