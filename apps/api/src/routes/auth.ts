@@ -46,6 +46,7 @@ import { validateJson } from '../middleware/validate';
 import { requireJwtAuth } from '../middleware/jwt';
 import { requireAuth } from '../middleware/auth';
 import { requireParam } from '../lib/params';
+import { resolveRequestOrigin } from '../lib/requestOrigin';
 import type { AppEnv } from '../types';
 
 const LOCKOUT_THRESHOLD = 5;
@@ -86,16 +87,8 @@ async function issueTokensForContext(
 
 const DEFAULT_EMAIL_FROM = 'CourseWise <noreply@fsuac.com>';
 
-// Mirrors inviteCreateUrl in routes/teacherInvitations.ts: prefer the request's
-// own origin so the reset link points back at the browser the user is on; fall
-// back to the operator's CORS_ORIGIN, then a dev default.
 function resetUrlFor(c: Context<AppEnv>, token: string): string {
-  const referer = c.req.header('referer');
-  const origin =
-    c.req.header('origin') ??
-    (referer ? new URL(referer).origin : null) ??
-    (c.env.CORS_ORIGIN && c.env.CORS_ORIGIN !== '*' ? c.env.CORS_ORIGIN : 'http://localhost:5173');
-  return `${origin}/reset-password?token=${encodeURIComponent(token)}`;
+  return `${resolveRequestOrigin(c)}/reset-password?token=${encodeURIComponent(token)}`;
 }
 
 /**
