@@ -945,6 +945,8 @@ export const zhCN = {
       updated: '作业已保存',
       published: '作业已发布',
       deleteConfirm: '删除该作业?所有提交将同时删除。',
+      searchPlaceholder: '搜索标题或所属章节',
+      noMatches: '没有匹配的作业。',
       overdue: '已过期',
       statusDraft: '草稿',
       statusPublished: '开放中',

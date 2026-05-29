@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Dialog } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
 import { stripMarkdown } from '@/components/ui/markdown';
 import {
   Table,
@@ -91,8 +91,21 @@ export function TeacherAssignmentsPage(): JSX.Element {
   >(null);
   const [moveTarget, setMoveTarget] = useState<AssignmentSummary | null>(null);
   const [moveModuleId, setMoveModuleId] = useState<string>('');
+  const [search, setSearch] = useState('');
 
   const moduleTitleById = new Map((modulesQ.data ?? []).map((m) => [m.id, m.title]));
+
+  const filteredAssignments = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return list.data ?? [];
+    return (list.data ?? []).filter((a) => {
+      if (a.title.toLowerCase().includes(q)) return true;
+      const moduleTitle = a.moduleId ? moduleTitleById.get(a.moduleId) : undefined;
+      return moduleTitle ? moduleTitle.toLowerCase().includes(q) : false;
+    });
+    // moduleTitleById is rebuilt every render from modulesQ.data, so depend on
+    // the underlying data rather than the Map identity.
+  }, [search, list.data, modulesQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">
@@ -101,7 +114,15 @@ export function TeacherAssignmentsPage(): JSX.Element {
       </header>
 
       <div className="overflow-hidden rounded-md border">
-        <div className="flex items-center justify-end gap-1.5 border-b bg-muted/30 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/30 px-3 py-2">
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('assignments.searchPlaceholder')}
+            className="h-8 w-56"
+          />
+          <div className="ml-auto flex items-center gap-1.5">
           <Button variant="outline" size="sm" asChild>
             <Link to={`/teacher/courses/${id}/assignments/new`}>{t('assignments.newCta')}</Link>
           </Button>
@@ -118,11 +139,16 @@ export function TeacherAssignmentsPage(): JSX.Element {
               aria-hidden
             />
           </Button>
+          </div>
         </div>
         {list.isLoading ? (
           <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
         ) : !list.data || list.data.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">{t('assignments.empty')}</p>
+        ) : filteredAssignments.length === 0 ? (
+          <p className="p-8 text-center text-sm text-muted-foreground">
+            {t('assignments.noMatches')}
+          </p>
         ) : (
           <Table>
             <TableHeader>
@@ -136,7 +162,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.data.map((a) => (
+              {filteredAssignments.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
