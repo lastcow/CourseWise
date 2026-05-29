@@ -79,6 +79,8 @@ POST /api/courses/{courseId}/final-grades/recalculate
   → load grading_policies (or backfill default)
   → for each enrolled student:
       aggregate attendance / assignments / quizzes / discussion / final-project
+      (only *posted* items count — published and past their start date; drafts
+       and not-yet-started items are excluded, so the grade reflects released work)
       weight × normalised score → final score
       letter from policy.lettersJson (or DEFAULT_LETTER_GRADES)
       preserve teacherOverrideScore + reason from existing row
