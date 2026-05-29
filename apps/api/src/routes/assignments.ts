@@ -6,6 +6,7 @@ import {
   gradeSubmissionSchema,
   MAX_SUBMISSION_FILES,
   returnSubmissionSchema,
+  SUBMISSION_GRADING_ORDER,
   updateAssignmentSchema,
   updateSubmissionSchema,
   type AddSubmissionAttachmentInput,
@@ -37,18 +38,10 @@ import {
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
-import {
-  requireAuth,
-  requireCourseAccess,
-  requireTokenCourseAccess,
-} from '../middleware/auth';
+import { requireAuth, requireCourseAccess, requireTokenCourseAccess } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
-import {
-  canWriteCourse,
-  isCourseEnrolled,
-  isCourseTeacher,
-} from '../services/courseAccess';
+import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/courseAccess';
 import {
   ensureGroupSubmissionFannedOut,
   findStudentGroupForAssignment,
@@ -115,9 +108,9 @@ function toSubmissionSummary(
     assignmentId: row.assignmentId,
     studentId: row.studentId,
     status: row.status,
-    textAnswer: groupOverride ? groupOverride.content : row.content ?? null,
+    textAnswer: groupOverride ? groupOverride.content : (row.content ?? null),
     attachments,
-    submittedAt: groupOverride ? groupOverride.submittedAt : row.submittedAt ?? null,
+    submittedAt: groupOverride ? groupOverride.submittedAt : (row.submittedAt ?? null),
     score: num(row.score),
     feedback: row.feedback ?? null,
     gradedAt: row.gradedAt ?? null,
@@ -133,6 +126,18 @@ async function loadAssignment(c: Context<AppEnv>, id: string) {
   const [row] = await db.select().from(assignments).where(eq(assignments.id, id)).limit(1);
   if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Assignment not found');
   return row;
+}
+
+// Sort key for the teacher grading list: orders submission rows by
+// SUBMISSION_GRADING_ORDER (submitted → late → returned → draft → graded) via a
+// CASE expression, so work that needs grading floats to the top. Built from the
+// shared constant so the order stays in lockstep with the client.
+function gradingStatusOrder() {
+  let expr = sql`case`;
+  SUBMISSION_GRADING_ORDER.forEach((status, i) => {
+    expr = sql`${expr} when ${assignmentSubmissions.status}::text = ${status} then ${i}`;
+  });
+  return sql`${expr} else ${SUBMISSION_GRADING_ORDER.length} end`;
 }
 
 /**
@@ -361,16 +366,25 @@ r.post(
           .limit(1)
       )[0];
       if (!mod || mod.courseId !== courseId) {
-        throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'moduleId must belong to this course');
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'moduleId must belong to this course',
+        );
       }
     }
     if (input.attachmentFileId) {
       const fa = (
         await db.select().from(fileAssets).where(eq(fileAssets.id, input.attachmentFileId)).limit(1)
       )[0];
-      if (!fa) throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'attachmentFileId not found');
+      if (!fa)
+        throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'attachmentFileId not found');
       if (fa.courseId && fa.courseId !== courseId) {
-        throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'attachment belongs to a different course');
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'attachment belongs to a different course',
+        );
       }
     }
     if (input.submissionMode === 'group') {
@@ -416,10 +430,11 @@ r.post(
         status: 'draft',
         createdById: auth.user.id,
         submissionMode: input.submissionMode ?? 'individual',
-        groupSetId: input.submissionMode === 'group' ? input.groupSetId ?? null : null,
+        groupSetId: input.submissionMode === 'group' ? (input.groupSetId ?? null) : null,
       })
       .returning();
-    if (!created) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create assignment');
+    if (!created)
+      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create assignment');
 
     if (input.attachmentFileId) {
       await db
@@ -477,15 +492,15 @@ r.patch(
       patch.maxScore = input.maxScore === null ? null : input.maxScore.toString();
     }
     if (input.rubric !== undefined) patch.rubric = input.rubric;
-    if (input.allowLateSubmission !== undefined) patch.allowLateSubmission = input.allowLateSubmission;
+    if (input.allowLateSubmission !== undefined)
+      patch.allowLateSubmission = input.allowLateSubmission;
     if (input.attachmentFileId !== undefined) patch.attachmentFileId = input.attachmentFileId;
     if (input.position !== undefined) patch.position = input.position;
 
     // Switching submissionMode after any submissions exist would orphan or
     // confuse those rows. Refuse instead of silently mutating state.
     const nextMode = input.submissionMode ?? row.submissionMode;
-    const nextSetId =
-      input.groupSetId !== undefined ? input.groupSetId : row.groupSetId ?? null;
+    const nextSetId = input.groupSetId !== undefined ? input.groupSetId : (row.groupSetId ?? null);
     if (input.submissionMode !== undefined && input.submissionMode !== row.submissionMode) {
       const countRows = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -568,10 +583,7 @@ r.delete('/assignments/:assignmentId', requireScopeGroup('assignmentsWrite'), as
   return success(c, { id });
 });
 
-async function transitionAssignment(
-  c: Context<AppEnv>,
-  next: 'published' | 'closed' | 'archived',
-) {
+async function transitionAssignment(c: Context<AppEnv>, next: 'published' | 'closed' | 'archived') {
   const auth = c.get('auth');
   const db = c.get('db');
   const id = requireParam(c, 'assignmentId');
@@ -618,52 +630,48 @@ r.post('/assignments/:assignmentId/archive', requireScopeGroup('assignmentsWrite
 
 // -------- Submissions --------
 
-r.get(
-  '/assignments/:assignmentId/submissions',
-  requireScopeGroup('submissionsRead'),
-  async (c) => {
-    const auth = c.get('auth');
-    const db = c.get('db');
-    const id = requireParam(c, 'assignmentId');
-    const assignment = await loadAssignment(c, id);
-    if (auth.user.role === 'student') {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot list all submissions');
-    }
-    if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, assignment.courseId, auth.user.id))) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
-    }
-    const rows = await db
-      .select({
-        s: assignmentSubmissions,
-        student: { id: users.id, name: users.name, email: users.email },
-        gsContent: groupSubmissions.content,
-        gsSubmittedAt: groupSubmissions.submittedAt,
-      })
-      .from(assignmentSubmissions)
-      .innerJoin(users, eq(assignmentSubmissions.studentId, users.id))
-      .leftJoin(
-        groupSubmissions,
-        eq(groupSubmissions.id, assignmentSubmissions.groupSubmissionId),
-      )
-      .where(eq(assignmentSubmissions.assignmentId, id))
-      .orderBy(asc(users.name));
-    const attachmentsByRow = await loadSubmissionAttachments(
-      c,
-      rows.map((r) => r.s.id),
-    );
-    const out: SubmissionWithStudent[] = rows.map(({ s, student, gsContent, gsSubmittedAt }) => ({
-      ...toSubmissionSummary(
-        s,
-        s.groupSubmissionId
-          ? { content: gsContent ?? null, submittedAt: gsSubmittedAt ?? null }
-          : undefined,
-        attachmentsByRow.get(s.id) ?? [],
-      ),
-      student,
-    }));
-    return success(c, out);
-  },
-);
+r.get('/assignments/:assignmentId/submissions', requireScopeGroup('submissionsRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'assignmentId');
+  const assignment = await loadAssignment(c, id);
+  if (auth.user.role === 'student') {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot list all submissions');
+  }
+  if (
+    auth.user.role === 'teacher' &&
+    !(await isCourseTeacher(db, assignment.courseId, auth.user.id))
+  ) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
+  }
+  const rows = await db
+    .select({
+      s: assignmentSubmissions,
+      student: { id: users.id, name: users.name, email: users.email },
+      gsContent: groupSubmissions.content,
+      gsSubmittedAt: groupSubmissions.submittedAt,
+    })
+    .from(assignmentSubmissions)
+    .innerJoin(users, eq(assignmentSubmissions.studentId, users.id))
+    .leftJoin(groupSubmissions, eq(groupSubmissions.id, assignmentSubmissions.groupSubmissionId))
+    .where(eq(assignmentSubmissions.assignmentId, id))
+    .orderBy(gradingStatusOrder(), asc(users.name));
+  const attachmentsByRow = await loadSubmissionAttachments(
+    c,
+    rows.map((r) => r.s.id),
+  );
+  const out: SubmissionWithStudent[] = rows.map(({ s, student, gsContent, gsSubmittedAt }) => ({
+    ...toSubmissionSummary(
+      s,
+      s.groupSubmissionId
+        ? { content: gsContent ?? null, submittedAt: gsSubmittedAt ?? null }
+        : undefined,
+      attachmentsByRow.get(s.id) ?? [],
+    ),
+    student,
+  }));
+  return success(c, out);
+});
 
 // Grouped view for teacher inbox on a group-mode assignment. Returns one
 // entry per group (with the shared content + each member's per-row grade
@@ -679,7 +687,10 @@ r.get(
     if (auth.user.role === 'student') {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot list all submissions');
     }
-    if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, assignment.courseId, auth.user.id))) {
+    if (
+      auth.user.role === 'teacher' &&
+      !(await isCourseTeacher(db, assignment.courseId, auth.user.id))
+    ) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
     }
     if (assignment.submissionMode !== 'group' || !assignment.groupSetId) {
@@ -799,18 +810,10 @@ r.post(
     // blocks new starts (and submit actions further down).
     const now = Date.now();
     if (assignment.startDate && Date.parse(assignment.startDate) > now) {
-      throw new ApiException(
-        403,
-        ERROR_CODES.FORBIDDEN,
-        'Assignment is not open yet',
-      );
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Assignment is not open yet');
     }
     if (assignment.endDate && Date.parse(assignment.endDate) < now) {
-      throw new ApiException(
-        403,
-        ERROR_CODES.FORBIDDEN,
-        'Assignment window has closed',
-      );
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Assignment window has closed');
     }
 
     if (assignment.submissionMode === 'group') {
@@ -821,11 +824,7 @@ r.post(
           'Group-mode assignment is missing groupSetId',
         );
       }
-      const myGroup = await findStudentGroupForAssignment(
-        db,
-        assignment.groupSetId,
-        auth.user.id,
-      );
+      const myGroup = await findStudentGroupForAssignment(db, assignment.groupSetId, auth.user.id);
       if (!myGroup) {
         // Specific code so the student detail page can swap the submission
         // form for a friendly "join a group first" notice instead of just
@@ -910,7 +909,8 @@ r.post(
         status: 'draft',
       })
       .returning();
-    if (!created) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create submission');
+    if (!created)
+      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create submission');
     const body: MyAssignmentSubmissionResponse = {
       submission: toSubmissionSummary(created),
     };
@@ -978,10 +978,18 @@ r.patch(
     const id = requireParam(c, 'submissionId');
     const submission = await loadSubmission(c, id);
     if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can edit this submission');
+      throw new ApiException(
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'Only the owning student can edit this submission',
+      );
     }
     if (submission.status !== 'draft' && submission.status !== 'returned') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Submission can only be edited while DRAFT or RETURNED');
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'Submission can only be edited while DRAFT or RETURNED',
+      );
     }
     const input = c.get('validated') as UpdateSubmissionInput;
 
@@ -1019,7 +1027,10 @@ r.patch(
       .returning();
     if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
 
-    return success(c, toSubmissionSummary(updated, undefined, await attachmentsForUnit(c, updated)));
+    return success(
+      c,
+      toSubmissionSummary(updated, undefined, await attachmentsForUnit(c, updated)),
+    );
   },
 );
 
@@ -1037,10 +1048,18 @@ r.post(
     const id = requireParam(c, 'submissionId');
     const submission = await loadSubmission(c, id);
     if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can edit this submission');
+      throw new ApiException(
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'Only the owning student can edit this submission',
+      );
     }
     if (submission.status !== 'draft' && submission.status !== 'returned') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Submission can only be edited while DRAFT or RETURNED');
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'Submission can only be edited while DRAFT or RETURNED',
+      );
     }
     const input = c.get('validated') as AddSubmissionAttachmentInput;
 
@@ -1057,12 +1076,20 @@ r.post(
     }
     const unitRowIds = await submissionUnitRowIds(c, submission);
     // Already attached to this submission unit → idempotent no-op.
-    if (file.relatedType === 'submission' && file.relatedId && unitRowIds.includes(file.relatedId)) {
+    if (
+      file.relatedType === 'submission' &&
+      file.relatedId &&
+      unitRowIds.includes(file.relatedId)
+    ) {
       return success(c, await attachmentsForUnit(c, submission));
     }
     // Reject files already tied to a different submission.
     if (file.relatedId && file.relatedType === 'submission') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'File is already attached to another submission');
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'File is already attached to another submission',
+      );
     }
     const existing = await attachmentsForUnit(c, submission);
     if (existing.length >= MAX_SUBMISSION_FILES) {
@@ -1074,7 +1101,11 @@ r.post(
     }
     await db
       .update(fileAssets)
-      .set({ relatedType: 'submission', relatedId: submission.id, updatedAt: new Date().toISOString() })
+      .set({
+        relatedType: 'submission',
+        relatedId: submission.id,
+        updatedAt: new Date().toISOString(),
+      })
       .where(eq(fileAssets.id, input.fileAssetId));
     // Touch the member row so caches refresh.
     await db
@@ -1097,10 +1128,18 @@ r.delete(
     const fileAssetId = requireParam(c, 'fileAssetId');
     const submission = await loadSubmission(c, id);
     if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can edit this submission');
+      throw new ApiException(
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'Only the owning student can edit this submission',
+      );
     }
     if (submission.status !== 'draft' && submission.status !== 'returned') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Submission can only be edited while DRAFT or RETURNED');
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'Submission can only be edited while DRAFT or RETURNED',
+      );
     }
     const [file] = await db
       .select()
@@ -1129,142 +1168,126 @@ r.delete(
   },
 );
 
-r.post(
-  '/submissions/:submissionId/submit',
-  requireScopeGroup('submissionsWrite'),
-  async (c) => {
-    const auth = c.get('auth');
-    const db = c.get('db');
-    const id = requireParam(c, 'submissionId');
-    const submission = await loadSubmission(c, id);
-    if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can submit');
-    }
-    // A graded submission can't be resubmitted without a teacher return.
-    if (submission.status === 'graded') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'A graded submission cannot be resubmitted');
-    }
-    // Idempotent no-op for an already-submitted row. In group mode any member's
-    // submit fans the submitted status out to every teammate's row, so a
-    // teammate (or a double-click) hitting submit afterwards would otherwise
-    // get a confusing "conflict with another change". Echo the current state
-    // instead. Only draft/returned rows fall through to a real submit.
-    if (submission.status === 'submitted' || submission.status === 'late') {
-      const gs = await loadGroupSubmissionForRow(c, submission);
-      return success(
-        c,
-        toSubmissionSummary(submission, gs ?? undefined, await attachmentsForUnit(c, submission)),
-      );
-    }
-    const assignment = await loadAssignment(c, submission.assignmentId);
-    if (assignment.status === 'archived') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is archived');
-    }
-    // Scheduling gate (mirrors the POST /submissions check): refuse submit
-    // before start_date or after end_date. until_date is the absolute
-    // backstop for in-progress drafts started inside the window.
-    const submittedAtMs = Date.now();
-    if (assignment.startDate && Date.parse(assignment.startDate) > submittedAtMs) {
-      throw new ApiException(
-        409,
-        ERROR_CODES.CONFLICT,
-        'Assignment is not open yet',
-      );
-    }
-    if (assignment.endDate && Date.parse(assignment.endDate) < submittedAtMs) {
-      throw new ApiException(
-        409,
-        ERROR_CODES.CONFLICT,
-        'Assignment window has closed',
-      );
-    }
-    if (assignment.untilDate && Date.parse(assignment.untilDate) < submittedAtMs) {
-      throw new ApiException(
-        409,
-        ERROR_CODES.CONFLICT,
-        'Assignment deadline has passed',
-      );
-    }
-    const submittedAt = new Date(submittedAtMs).toISOString();
-    const status = determineSubmissionStatus({
-      submittedAt,
-      dueDate: assignment.dueDate,
-      allowLateSubmission: assignment.allowLateSubmission,
-    });
-    if (assignment.status === 'closed' && status === 'late') {
-      throw new ApiException(
-        409,
-        ERROR_CODES.CONFLICT,
-        'Assignment is closed and does not accept late submissions',
-      );
-    }
+r.post('/submissions/:submissionId/submit', requireScopeGroup('submissionsWrite'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'submissionId');
+  const submission = await loadSubmission(c, id);
+  if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can submit');
+  }
+  // A graded submission can't be resubmitted without a teacher return.
+  if (submission.status === 'graded') {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'A graded submission cannot be resubmitted');
+  }
+  // Idempotent no-op for an already-submitted row. In group mode any member's
+  // submit fans the submitted status out to every teammate's row, so a
+  // teammate (or a double-click) hitting submit afterwards would otherwise
+  // get a confusing "conflict with another change". Echo the current state
+  // instead. Only draft/returned rows fall through to a real submit.
+  if (submission.status === 'submitted' || submission.status === 'late') {
+    const gs = await loadGroupSubmissionForRow(c, submission);
+    return success(
+      c,
+      toSubmissionSummary(submission, gs ?? undefined, await attachmentsForUnit(c, submission)),
+    );
+  }
+  const assignment = await loadAssignment(c, submission.assignmentId);
+  if (assignment.status === 'archived') {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is archived');
+  }
+  // Scheduling gate (mirrors the POST /submissions check): refuse submit
+  // before start_date or after end_date. until_date is the absolute
+  // backstop for in-progress drafts started inside the window.
+  const submittedAtMs = Date.now();
+  if (assignment.startDate && Date.parse(assignment.startDate) > submittedAtMs) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is not open yet');
+  }
+  if (assignment.endDate && Date.parse(assignment.endDate) < submittedAtMs) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment window has closed');
+  }
+  if (assignment.untilDate && Date.parse(assignment.untilDate) < submittedAtMs) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment deadline has passed');
+  }
+  const submittedAt = new Date(submittedAtMs).toISOString();
+  const status = determineSubmissionStatus({
+    submittedAt,
+    dueDate: assignment.dueDate,
+    allowLateSubmission: assignment.allowLateSubmission,
+  });
+  if (assignment.status === 'closed' && status === 'late') {
+    throw new ApiException(
+      409,
+      ERROR_CODES.CONFLICT,
+      'Assignment is closed and does not accept late submissions',
+    );
+  }
 
-    // Group submission: mark the shared row submitted and fan the status
-    // out to every linked per-member row so all teammates flip to
-    // submitted/late together. Returned rows that have since been graded
-    // stay in their current status (we only flip draft/returned rows).
-    if (submission.groupSubmissionId) {
-      await db
-        .update(groupSubmissions)
-        .set({ submittedAt, submittedById: auth.user.id, updatedAt: submittedAt })
-        .where(eq(groupSubmissions.id, submission.groupSubmissionId));
-      await db
-        .update(assignmentSubmissions)
-        .set({ status, submittedAt, updatedAt: submittedAt })
-        .where(
-          and(
-            eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId),
-            inArray(assignmentSubmissions.status, ['draft', 'returned']),
-          ),
-        );
-      const [updated] = await db
-        .select()
-        .from(assignmentSubmissions)
-        .where(eq(assignmentSubmissions.id, id))
-        .limit(1);
-      if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
-      const [gs] = await db
-        .select()
-        .from(groupSubmissions)
-        .where(eq(groupSubmissions.id, submission.groupSubmissionId))
-        .limit(1);
-      await recordAudit(db, {
-        actorType: auth.method === 'jwt' ? 'user' : 'api_token',
-        actorUserId: auth.user.id,
-        actorTokenId: auth.tokenId ?? null,
-        action: 'submission.submit',
-        target: id,
-        metadata: {
-          status,
-          dueDate: assignment.dueDate,
-          groupSubmissionId: submission.groupSubmissionId,
-        },
-      });
-      return success(c, toSubmissionSummary(updated, gs ?? undefined));
-    }
-
-    const [updated] = await db
+  // Group submission: mark the shared row submitted and fan the status
+  // out to every linked per-member row so all teammates flip to
+  // submitted/late together. Returned rows that have since been graded
+  // stay in their current status (we only flip draft/returned rows).
+  if (submission.groupSubmissionId) {
+    await db
+      .update(groupSubmissions)
+      .set({ submittedAt, submittedById: auth.user.id, updatedAt: submittedAt })
+      .where(eq(groupSubmissions.id, submission.groupSubmissionId));
+    await db
       .update(assignmentSubmissions)
-      .set({
-        status,
-        submittedAt,
-        updatedAt: submittedAt,
-      })
+      .set({ status, submittedAt, updatedAt: submittedAt })
+      .where(
+        and(
+          eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId),
+          inArray(assignmentSubmissions.status, ['draft', 'returned']),
+        ),
+      );
+    const [updated] = await db
+      .select()
+      .from(assignmentSubmissions)
       .where(eq(assignmentSubmissions.id, id))
-      .returning();
+      .limit(1);
     if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
-
+    const [gs] = await db
+      .select()
+      .from(groupSubmissions)
+      .where(eq(groupSubmissions.id, submission.groupSubmissionId))
+      .limit(1);
     await recordAudit(db, {
       actorType: auth.method === 'jwt' ? 'user' : 'api_token',
       actorUserId: auth.user.id,
       actorTokenId: auth.tokenId ?? null,
       action: 'submission.submit',
       target: id,
-      metadata: { status, dueDate: assignment.dueDate },
+      metadata: {
+        status,
+        dueDate: assignment.dueDate,
+        groupSubmissionId: submission.groupSubmissionId,
+      },
     });
-    return success(c, toSubmissionSummary(updated));
-  },
-);
+    return success(c, toSubmissionSummary(updated, gs ?? undefined));
+  }
+
+  const [updated] = await db
+    .update(assignmentSubmissions)
+    .set({
+      status,
+      submittedAt,
+      updatedAt: submittedAt,
+    })
+    .where(eq(assignmentSubmissions.id, id))
+    .returning();
+  if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
+
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'submission.submit',
+    target: id,
+    metadata: { status, dueDate: assignment.dueDate },
+  });
+  return success(c, toSubmissionSummary(updated));
+});
 
 // Student-initiated unsubmit: move a SUBMITTED (but not-yet-graded) submission
 // back to DRAFT so the student can edit and resubmit — but only while the
@@ -1273,107 +1296,83 @@ r.post(
 // touches a graded submission and it preserves the student's content/files
 // (only status + submittedAt reset). For a group submission, any member may
 // unsubmit and it resets the whole team's rows, mirroring how /submit fans out.
-r.post(
-  '/submissions/:submissionId/unsubmit',
-  requireScopeGroup('submissionsWrite'),
-  async (c) => {
-    const auth = c.get('auth');
-    const db = c.get('db');
-    const id = requireParam(c, 'submissionId');
-    const submission = await loadSubmission(c, id);
-    if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can unsubmit');
-    }
-    // Already editable → idempotent no-op (tolerates double-clicks and the
-    // group fan-out race, same as /submit does for already-submitted rows).
-    if (submission.status === 'draft' || submission.status === 'returned') {
-      const gs = await loadGroupSubmissionForRow(c, submission);
-      return success(
-        c,
-        toSubmissionSummary(submission, gs ?? undefined, await attachmentsForUnit(c, submission)),
-      );
-    }
-    if (submission.status === 'graded') {
+r.post('/submissions/:submissionId/unsubmit', requireScopeGroup('submissionsWrite'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'submissionId');
+  const submission = await loadSubmission(c, id);
+  if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can unsubmit');
+  }
+  // Already editable → idempotent no-op (tolerates double-clicks and the
+  // group fan-out race, same as /submit does for already-submitted rows).
+  if (submission.status === 'draft' || submission.status === 'returned') {
+    const gs = await loadGroupSubmissionForRow(c, submission);
+    return success(
+      c,
+      toSubmissionSummary(submission, gs ?? undefined, await attachmentsForUnit(c, submission)),
+    );
+  }
+  if (submission.status === 'graded') {
+    throw new ApiException(
+      409,
+      ERROR_CODES.CONFLICT,
+      'A graded submission cannot be unsubmitted — ask your teacher to return it',
+    );
+  }
+  // status is 'submitted' or 'late' from here.
+
+  // Group unit: refuse if ANY member row is already graded — grading has
+  // started for the team, so unsubmitting would strand those grades.
+  if (submission.groupSubmissionId) {
+    const unitRows = await db
+      .select({ status: assignmentSubmissions.status })
+      .from(assignmentSubmissions)
+      .where(eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId));
+    if (unitRows.some((r) => r.status === 'graded')) {
       throw new ApiException(
         409,
         ERROR_CODES.CONFLICT,
-        'A graded submission cannot be unsubmitted — ask your teacher to return it',
+        'This group submission has been graded and cannot be unsubmitted',
       );
     }
-    // status is 'submitted' or 'late' from here.
+  }
 
-    // Group unit: refuse if ANY member row is already graded — grading has
-    // started for the team, so unsubmitting would strand those grades.
-    if (submission.groupSubmissionId) {
-      const unitRows = await db
-        .select({ status: assignmentSubmissions.status })
-        .from(assignmentSubmissions)
-        .where(eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId));
-      if (unitRows.some((r) => r.status === 'graded')) {
-        throw new ApiException(
-          409,
-          ERROR_CODES.CONFLICT,
-          'This group submission has been graded and cannot be unsubmitted',
-        );
-      }
-    }
+  // Window gate: only unsubmit while a resubmit would still succeed, so the
+  // student is never stranded in DRAFT past the deadline. Mirrors the
+  // submit-time scheduling checks (end_date / until_date are hard stops).
+  const assignment = await loadAssignment(c, submission.assignmentId);
+  const now = Date.now();
+  if (assignment.status === 'archived') {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is archived');
+  }
+  if (assignment.endDate && Date.parse(assignment.endDate) < now) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment window has closed');
+  }
+  if (assignment.untilDate && Date.parse(assignment.untilDate) < now) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment deadline has passed');
+  }
+  const nowIso = new Date(now).toISOString();
 
-    // Window gate: only unsubmit while a resubmit would still succeed, so the
-    // student is never stranded in DRAFT past the deadline. Mirrors the
-    // submit-time scheduling checks (end_date / until_date are hard stops).
-    const assignment = await loadAssignment(c, submission.assignmentId);
-    const now = Date.now();
-    if (assignment.status === 'archived') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is archived');
-    }
-    if (assignment.endDate && Date.parse(assignment.endDate) < now) {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment window has closed');
-    }
-    if (assignment.untilDate && Date.parse(assignment.untilDate) < now) {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment deadline has passed');
-    }
-    const nowIso = new Date(now).toISOString();
-
-    if (submission.groupSubmissionId) {
-      await db
-        .update(groupSubmissions)
-        .set({ submittedAt: null, submittedById: null, updatedAt: nowIso })
-        .where(eq(groupSubmissions.id, submission.groupSubmissionId));
-      await db
-        .update(assignmentSubmissions)
-        .set({ status: 'draft', submittedAt: null, updatedAt: nowIso })
-        .where(
-          and(
-            eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId),
-            inArray(assignmentSubmissions.status, ['submitted', 'late']),
-          ),
-        );
-      const [updated] = await db
-        .select()
-        .from(assignmentSubmissions)
-        .where(eq(assignmentSubmissions.id, id))
-        .limit(1);
-      if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
-      await recordAudit(db, {
-        actorType: auth.method === 'jwt' ? 'user' : 'api_token',
-        actorUserId: auth.user.id,
-        actorTokenId: auth.tokenId ?? null,
-        action: 'submission.unsubmit',
-        target: id,
-        metadata: { groupSubmissionId: submission.groupSubmissionId },
-      });
-      const gs = await loadGroupSubmissionForRow(c, updated);
-      return success(
-        c,
-        toSubmissionSummary(updated, gs ?? undefined, await attachmentsForUnit(c, updated)),
-      );
-    }
-
-    const [updated] = await db
+  if (submission.groupSubmissionId) {
+    await db
+      .update(groupSubmissions)
+      .set({ submittedAt: null, submittedById: null, updatedAt: nowIso })
+      .where(eq(groupSubmissions.id, submission.groupSubmissionId));
+    await db
       .update(assignmentSubmissions)
       .set({ status: 'draft', submittedAt: null, updatedAt: nowIso })
+      .where(
+        and(
+          eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId),
+          inArray(assignmentSubmissions.status, ['submitted', 'late']),
+        ),
+      );
+    const [updated] = await db
+      .select()
+      .from(assignmentSubmissions)
       .where(eq(assignmentSubmissions.id, id))
-      .returning();
+      .limit(1);
     if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
     await recordAudit(db, {
       actorType: auth.method === 'jwt' ? 'user' : 'api_token',
@@ -1381,10 +1380,30 @@ r.post(
       actorTokenId: auth.tokenId ?? null,
       action: 'submission.unsubmit',
       target: id,
+      metadata: { groupSubmissionId: submission.groupSubmissionId },
     });
-    return success(c, toSubmissionSummary(updated, undefined, await attachmentsForUnit(c, updated)));
-  },
-);
+    const gs = await loadGroupSubmissionForRow(c, updated);
+    return success(
+      c,
+      toSubmissionSummary(updated, gs ?? undefined, await attachmentsForUnit(c, updated)),
+    );
+  }
+
+  const [updated] = await db
+    .update(assignmentSubmissions)
+    .set({ status: 'draft', submittedAt: null, updatedAt: nowIso })
+    .where(eq(assignmentSubmissions.id, id))
+    .returning();
+  if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'submission.unsubmit',
+    target: id,
+  });
+  return success(c, toSubmissionSummary(updated, undefined, await attachmentsForUnit(c, updated)));
+});
 
 // /return and /grade accept BOTH POST and PATCH. The grade endpoint
 // historically registered only PATCH, which made Hono return a stale-looking
@@ -1401,7 +1420,10 @@ async function returnSubmissionHandler(c: Context<AppEnv>) {
   if (auth.user.role === 'student') {
     throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only a teacher can return a submission');
   }
-  if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, assignment.courseId, auth.user.id))) {
+  if (
+    auth.user.role === 'teacher' &&
+    !(await isCourseTeacher(db, assignment.courseId, auth.user.id))
+  ) {
     throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
   }
   if (submission.status === 'draft') {
@@ -1467,7 +1489,10 @@ async function gradeSubmissionHandler(c: Context<AppEnv>) {
   if (auth.user.role === 'student') {
     throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only a teacher can grade');
   }
-  if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, assignment.courseId, auth.user.id))) {
+  if (
+    auth.user.role === 'teacher' &&
+    !(await isCourseTeacher(db, assignment.courseId, auth.user.id))
+  ) {
     throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
   }
   if (submission.status === 'draft') {

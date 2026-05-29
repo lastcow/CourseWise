@@ -364,7 +364,13 @@ export const ALERT_RULES = {
 
 export const MATERIAL_RELATED_TYPE = 'material';
 
-export const FILE_RELATED_TYPES = ['material', 'assignment', 'submission', 'course', 'presentation'] as const;
+export const FILE_RELATED_TYPES = [
+  'material',
+  'assignment',
+  'submission',
+  'course',
+  'presentation',
+] as const;
 export type FileRelatedType = (typeof FILE_RELATED_TYPES)[number];
 
 export const PRESENTATION_STATUSES = ['draft', 'published', 'archived'] as const;
@@ -375,6 +381,22 @@ export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];
 
 export const SUBMISSION_STATUSES = ['draft', 'submitted', 'late', 'graded', 'returned'] as const;
 export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
+
+// Order a teacher's grading list should follow: work awaiting a grade first
+// (submitted, then late), then returned (sent back, awaiting resubmission),
+// then draft (not turned in yet), then graded (done) last. Index = priority.
+export const SUBMISSION_GRADING_ORDER = [
+  'submitted',
+  'late',
+  'returned',
+  'draft',
+  'graded',
+] as const satisfies readonly SubmissionStatus[];
+
+export function submissionGradingRank(status: SubmissionStatus): number {
+  const i = SUBMISSION_GRADING_ORDER.indexOf(status);
+  return i === -1 ? SUBMISSION_GRADING_ORDER.length : i;
+}
 
 export const DISCUSSION_TOPIC_STATUSES = ['draft', 'published', 'archived'] as const;
 export type DiscussionTopicStatus = (typeof DISCUSSION_TOPIC_STATUSES)[number];
@@ -565,12 +587,7 @@ export const RECORD_CORRECTION_TARGETS = [
 ] as const;
 export type RecordCorrectionTarget = (typeof RECORD_CORRECTION_TARGETS)[number];
 
-export const RECORD_CORRECTION_STATUSES = [
-  'open',
-  'accepted',
-  'declined',
-  'withdrawn',
-] as const;
+export const RECORD_CORRECTION_STATUSES = ['open', 'accepted', 'declined', 'withdrawn'] as const;
 export type RecordCorrectionStatus = (typeof RECORD_CORRECTION_STATUSES)[number];
 
 // ---------- Student groups (Canvas-style group sets) ----------
