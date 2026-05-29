@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { computeFinalScore, isItemPosted } from './finalGrade';
+import { computeFinalScore, isItemPosted, isSessionStarted } from './finalGrade';
+
+describe('isSessionStarted', () => {
+  const now = Date.parse('2026-05-29T12:00:00Z');
+  it('includes sessions whose date has arrived', () => {
+    expect(isSessionStarted('2026-05-29T11:59:00Z', now)).toBe(true);
+    expect(isSessionStarted('2026-05-01T00:00:00Z', now)).toBe(true);
+  });
+  it('excludes sessions scheduled in the future (not started yet)', () => {
+    expect(isSessionStarted('2026-05-29T12:01:00Z', now)).toBe(false);
+    expect(isSessionStarted('2026-06-10T00:00:00Z', now)).toBe(false);
+  });
+});
 
 describe('isItemPosted', () => {
   const now = Date.parse('2026-05-29T12:00:00Z');
@@ -112,6 +124,28 @@ describe('computeFinalScore', () => {
       attendance: { rate: 95, weight: 10 },
     });
     expect(r.score).toBe(95);
+  });
+
+  it('submitted-but-not-graded items (null score) are excluded from the group average', () => {
+    const r = computeFinalScore({
+      groups: [
+        {
+          id: 'g1',
+          name: 'HW',
+          weight: 100,
+          items: [
+            { id: 'i1', type: 'assignment', title: 'HW1 (graded)', score: 90, max: 100 },
+            { id: 'i2', type: 'assignment', title: 'HW2 (submitted, ungraded)', score: null, max: 100 },
+          ],
+        },
+      ],
+      attendance: { rate: null, weight: 0 },
+    });
+    // Only the graded item counts: raw = 90, not (90+0)/2 = 45.
+    expect(r.score).toBe(90);
+    const g = r.groups[0]!;
+    expect(g.itemsScored).toBe(1);
+    expect(g.itemCount).toBe(2);
   });
 
   it('multiple items in one group → group raw is the mean of item percentages', () => {

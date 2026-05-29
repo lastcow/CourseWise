@@ -50,6 +50,16 @@ export function isItemPosted(
   return true;
 }
 
+// An attendance session counts toward the attendance rate only once it has
+// *started* (its sessionDate has arrived). Sessions the teacher has scheduled
+// for the future are not yet markable, so including them would dilute the rate
+// (e.g. present at all 4 held sessions would read 4/10 if 6 future sessions
+// were counted). They are excluded from both the computed rate and the
+// gradebook's session list until they start.
+export function isSessionStarted(sessionDate: string, now: number = Date.now()): boolean {
+  return Date.parse(sessionDate) <= now;
+}
+
 // ---------------------------------------------------------------------------
 // Pure scoring algorithm. Lives at the top so it can be unit-tested without a
 // database. `summarizeFinalGrade` and the route-facing helpers assemble the
@@ -278,10 +288,12 @@ async function loadCourseGradingContext(
     }
   }
 
-  const sessionRows = await db
-    .select({ id: attendanceSessions.id })
-    .from(attendanceSessions)
-    .where(eq(attendanceSessions.courseId, courseId));
+  const sessionRows = (
+    await db
+      .select({ id: attendanceSessions.id, sessionDate: attendanceSessions.sessionDate })
+      .from(attendanceSessions)
+      .where(eq(attendanceSessions.courseId, courseId))
+  ).filter((s) => isSessionStarted(s.sessionDate, now));
 
   return {
     groups,
@@ -678,15 +690,17 @@ export async function buildGradebookStudentDetail(
   const now = Date.now();
 
   // Attendance items (every session in the course, joined to the student's record).
-  const sessions = await db
-    .select({
-      id: attendanceSessions.id,
-      title: attendanceSessions.title,
-      sessionDate: attendanceSessions.sessionDate,
-    })
-    .from(attendanceSessions)
-    .where(eq(attendanceSessions.courseId, courseId))
-    .orderBy(asc(attendanceSessions.sessionDate));
+  const sessions = (
+    await db
+      .select({
+        id: attendanceSessions.id,
+        title: attendanceSessions.title,
+        sessionDate: attendanceSessions.sessionDate,
+      })
+      .from(attendanceSessions)
+      .where(eq(attendanceSessions.courseId, courseId))
+      .orderBy(asc(attendanceSessions.sessionDate))
+  ).filter((s) => isSessionStarted(s.sessionDate, now));
   const recs = sessions.length
     ? await db
         .select()
