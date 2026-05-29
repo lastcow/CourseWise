@@ -1075,6 +1075,10 @@ export const fr = {
       returnedNotice:
         "Votre enseignant a renvoyé cette soumission pour révision — modifiez et resoumettez.",
       locked: "Soumission verrouillée — en attente du retour de l'enseignant.",
+      unsubmitCta: 'Annuler la soumission',
+      unsubmitted: 'Soumission rouverte — vous pouvez la modifier et la renvoyer.',
+      unsubmitHint: 'Repasse la soumission en brouillon pour la modifier et la renvoyer tant que le devoir est ouvert.',
+      unsubmitGroupHint: "Rouvre la soumission pour toute votre équipe : chacun peut la modifier et la renvoyer tant que le devoir est ouvert.",
       notYetSubmitted: "L'étudiant n'a pas encore soumis.",
       statusDraft: 'Brouillon',
       statusSubmitted: 'Soumise',

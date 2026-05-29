@@ -252,6 +252,7 @@ curl -X POST "$API/api/files/upload" \
 | GET    | `/api/submissions/{submissionId}`                          | `submissionsRead`     |
 | PATCH  | `/api/submissions/{submissionId}`                          | `submissionsWrite`    |
 | POST   | `/api/submissions/{submissionId}/submit`                   | `submissionsWrite`    |
+| POST   | `/api/submissions/{submissionId}/unsubmit`                 | `submissionsWrite`    |
 | POST   | `/api/submissions/{submissionId}/grade`                    | `gradesWrite`         |
 | PATCH  | `/api/submissions/{submissionId}/return`                   | `gradesWrite`         |
 
