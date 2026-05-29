@@ -6,9 +6,9 @@ export function AccessibilityPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Accessibility Statement"
-        summary="How [COMPANY LEGAL NAME] designs and tests CourseWise for users of assistive technology."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="How CourseWise LLC designs and tests CourseWise for users of assistive technology."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <h2>Target standard</h2>

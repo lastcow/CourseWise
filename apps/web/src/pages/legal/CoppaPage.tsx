@@ -6,15 +6,15 @@ export function CoppaPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="COPPA Notice"
-        summary="How [COMPANY LEGAL NAME] handles information from students under thirteen, in support of [INSTITUTION NAME]."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="How CourseWise LLC handles information from students under thirteen, in support of your institution."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <h2>Operator role</h2>
       <p>
         Where CourseWise is used with students under the age of thirteen,
-        [COMPANY LEGAL NAME] acts as an "operator" of an online service
+        CourseWise LLC acts as an "operator" of an online service
         directed in part to children under the Children's Online Privacy
         Protection Act, 15 U.S.C. §§ 6501–6506, and its implementing rule at
         16 C.F.R. Part 312 ("COPPA"). CourseWise is designed for use in a
@@ -50,7 +50,7 @@ export function CoppaPage(): JSX.Element {
       <h2>Parental consent (delegated to the school)</h2>
       <p>
         Consistent with FTC guidance on the "school authorization" approach to
-        COPPA, [INSTITUTION NAME] consents on the parent's behalf to our
+        COPPA, your institution consents on the parent's behalf to our
         collection of personal information from students under thirteen for
         the educational purpose the school has authorized. The school is
         responsible for providing notice to parents about the third-party

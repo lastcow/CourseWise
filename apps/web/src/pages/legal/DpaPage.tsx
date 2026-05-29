@@ -6,9 +6,9 @@ export function DpaPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Data Processing Addendum"
-        summary="The standard agreement [COMPANY LEGAL NAME] signs with institutions that need a written DPA for CourseWise."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="The standard agreement CourseWise LLC signs with institutions that need a written DPA for CourseWise."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <h2>Plain-language summary</h2>

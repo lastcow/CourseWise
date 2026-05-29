@@ -6,9 +6,9 @@ export function TermsPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Terms of Service"
-        summary="The agreement between [COMPANY LEGAL NAME] and the people and institutions that use CourseWise."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="The agreement between CourseWise LLC and the people and institutions that use CourseWise."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <h2>Acceptance</h2>
@@ -20,7 +20,7 @@ export function TermsPage(): JSX.Element {
         these Terms. If you are accepting on behalf of an institution, you
         represent that you have authority to bind that institution. Where a
         signed master services agreement, data processing agreement, or
-        institutional order form exists between [COMPANY LEGAL NAME] and an
+        institutional order form exists between CourseWise LLC and an
         institution, that agreement controls in the event of conflict; these
         Terms fill the gaps.
       </p>
@@ -77,9 +77,9 @@ export function TermsPage(): JSX.Element {
 
       <h2>School as controller</h2>
       <p>
-        For accounts provisioned by [INSTITUTION NAME], the institution is the
+        For accounts provisioned by an institution, the institution is the
         controller of the personal information of its students and staff that
-        flows through the Service. [COMPANY LEGAL NAME] processes that
+        flows through the Service. CourseWise LLC processes that
         information as the institution's service provider, on the
         institution's documented instructions, and only for the purposes set
         out in the agreement. The institution remains responsible for
@@ -91,7 +91,7 @@ export function TermsPage(): JSX.Element {
       <h2>Intellectual property</h2>
       <p>
         The Service, including its software, user interface, design,
-        documentation, and trademarks, is owned by [COMPANY LEGAL NAME] and
+        documentation, and trademarks, is owned by CourseWise LLC and
         its licensors. Subject to these Terms, we grant the institution and
         its users a limited, non-exclusive, non-transferable right to access
         and use the Service during the term of the agreement.
@@ -117,7 +117,7 @@ export function TermsPage(): JSX.Element {
       <h2>Fees</h2>
       <p>
         Fees, billing frequency, and payment terms are set in the order form
-        between [COMPANY LEGAL NAME] and [INSTITUTION NAME]. Unless that order
+        between CourseWise LLC and your institution. Unless that order
         form says otherwise, fees are quoted in United States dollars, are due
         net thirty days from the invoice date, and are non-refundable. We may
         revise list pricing on renewal with prior written notice. Personal
@@ -135,7 +135,7 @@ export function TermsPage(): JSX.Element {
         bankruptcy, or ceases ordinary business operations.
       </p>
       <p>
-        On termination, [COMPANY LEGAL NAME] will make institutional data
+        On termination, CourseWise LLC will make institutional data
         available for export for the period set in the agreement (typically
         thirty days) and will then delete it as described in our{' '}
         <Link to="/legal/privacy">Privacy Policy</Link>. Sections of these
@@ -165,9 +165,9 @@ export function TermsPage(): JSX.Element {
 
       <h2>Governing law</h2>
       <p>
-        These Terms are governed by the laws of the State of [STATE], United
+        These Terms are governed by the laws of the State of Maryland, United
         States, without regard to its conflict-of-laws principles. The state
-        and federal courts located in [STATE] have exclusive jurisdiction over
+        and federal courts located in Maryland have exclusive jurisdiction over
         disputes, except that either party may seek injunctive relief in any
         court of competent jurisdiction to protect its intellectual property
         or confidential information. Where a public-sector institution's

@@ -6,15 +6,15 @@ export function SubprocessorsPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Subprocessors"
-        summary="The third-party vendors that [COMPANY LEGAL NAME] uses to deliver CourseWise, and how we change the list."
-        lastUpdated="2026-05-21"
-        version="v0.2-draft"
+        summary="The third-party vendors that CourseWise LLC uses to deliver CourseWise, and how we change the list."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <h2>Current subprocessors</h2>
       <p>
         The vendors below process limited categories of customer data on
-        [COMPANY LEGAL NAME]'s instructions to deliver specific parts of the
+        CourseWise LLC's instructions to deliver specific parts of the
         Service. Each is bound by a written data processing agreement that
         restricts use of the data to the service performed and prohibits
         further disclosure.

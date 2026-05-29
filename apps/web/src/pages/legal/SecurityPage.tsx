@@ -6,9 +6,9 @@ export function SecurityPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Security & Trust"
-        summary="How [COMPANY LEGAL NAME] protects the data that flows through CourseWise."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="How CourseWise LLC protects the data that flows through CourseWise."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <h2>Encryption</h2>
@@ -113,7 +113,7 @@ export function SecurityPage(): JSX.Element {
         and applicable state student-privacy laws (for example, New York
         Education Law § 2-d, California SOPIPA, Illinois SOPPA, and Colorado
         HB 16-1423), and to honor the "school authorization" approach to
-        COPPA for students under thirteen. [COMPANY LEGAL NAME] is working
+        COPPA for students under thirteen. CourseWise LLC is working
         toward an independent SOC 2 Type II attestation and will publish the
         report through its trust process when available. Institutions with
         specific control-mapping or audit requests may request our current

@@ -164,9 +164,9 @@ export function DataRequestsPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Data Requests"
-        summary="How to submit a FERPA records request, and how [COMPANY LEGAL NAME] handles it."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="How to submit a FERPA records request, and how CourseWise LLC handles it."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <h2>Who can submit</h2>
@@ -175,8 +175,8 @@ export function DataRequestsPage(): JSX.Element {
         inspect, amend, or restrict the disclosure of a student's education
         records rests with the institution that maintains those records. The
         appropriate intake for most requests is the registrar or privacy
-        officer at [INSTITUTION NAME]. The form below is for requests
-        directed to [COMPANY LEGAL NAME] in its role as a school official, or
+        officer at your institution. The form below is for requests
+        directed to CourseWise LLC in its role as a school official, or
         for requests an institution's records officer asks us to handle
         directly because the data lives in our systems.
       </p>

@@ -1,13 +1,11 @@
 import { Outlet } from 'react-router-dom';
 import { Container } from '@/components/public/Container';
 import { SectionBand } from '@/components/public/SectionBand';
-import { DraftBanner } from './DraftBanner';
 import { LegalSidebar } from './LegalSidebar';
 
 export function LegalLayout(): JSX.Element {
   return (
     <>
-      <DraftBanner />
       <SectionBand>
         <Container>
           <div className="grid gap-12 md:grid-cols-[220px_1fr]">
