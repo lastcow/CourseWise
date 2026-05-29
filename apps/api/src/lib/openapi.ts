@@ -538,6 +538,13 @@ export const ROUTES: readonly RouteSpec[] = [
     'assignments',
     { scopeGroup: 'submissionsWrite', pathParams: idParams('submissionId') },
   ),
+  r(
+    'post',
+    '/api/submissions/{submissionId}/unsubmit',
+    'Student: revert a submitted, ungraded submission to draft (while the window is open)',
+    'assignments',
+    { scopeGroup: 'submissionsWrite', pathParams: idParams('submissionId') },
+  ),
   r('post', '/api/submissions/{submissionId}/grade', 'Teacher: grade a submission', 'assignments', {
     scopeGroup: 'gradesWrite',
     pathParams: idParams('submissionId'),

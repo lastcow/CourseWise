@@ -17,6 +17,7 @@ import {
   useMySubmission,
   useRemoveSubmissionAttachment,
   useSubmitSubmission,
+  useUnsubmitSubmission,
   useUpdateSubmission,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
@@ -43,6 +44,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   const submission = useMySubmission(aId);
   const update = useUpdateSubmission(aId);
   const submit = useSubmitSubmission(aId);
+  const unsubmit = useUnsubmitSubmission(aId);
   const addAttachment = useAddSubmissionAttachment(aId);
   const removeAttachment = useRemoveSubmissionAttachment(aId);
   const toast = useToast();
@@ -78,6 +80,19 @@ export function StudentAssignmentDetailPage(): JSX.Element {
     ? Date.parse(assignment.data.startDate)
     : null;
   const notYetOpen = startMs !== null && now < startMs;
+
+  // A submitted (ungraded) submission can be pulled back to draft while the
+  // window is still open — past end_date / until_date (or once archived) the
+  // server would refuse a resubmit, so we hide the affordance too. The server
+  // is authoritative; this just decides whether to show the button.
+  const endMs = assignment.data?.endDate ? Date.parse(assignment.data.endDate) : null;
+  const untilMs = assignment.data?.untilDate ? Date.parse(assignment.data.untilDate) : null;
+  const windowClosed =
+    assignment.data?.status === 'archived' ||
+    (endMs !== null && now >= endMs) ||
+    (untilMs !== null && now >= untilMs);
+  const canUnsubmit =
+    (mySub?.status === 'submitted' || mySub?.status === 'late') && !windowClosed;
 
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
@@ -133,6 +148,17 @@ export function StudentAssignmentDetailPage(): JSX.Element {
     try {
       await submit.mutateAsync(mySub.id);
       toast.push({ title: t('submissions.submitted'), tone: 'success' });
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  const onUnsubmit = async () => {
+    if (!mySub) return;
+    try {
+      await unsubmit.mutateAsync(mySub.id);
+      toast.push({ title: t('submissions.unsubmitted'), tone: 'success' });
     } catch (err) {
       const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
       toast.push({ title: t(key), tone: 'error' });
@@ -366,6 +392,17 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                 <Button onClick={onSubmit} disabled={update.isPending || submit.isPending}>
                   {t('submissions.submitCta')}
                 </Button>
+              </div>
+            ) : canUnsubmit ? (
+              <div className="flex flex-col items-end gap-1 border-t pt-3">
+                <Button variant="outline" onClick={onUnsubmit} disabled={unsubmit.isPending}>
+                  {t('submissions.unsubmitCta')}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {myGroup
+                    ? t('submissions.unsubmitGroupHint')
+                    : t('submissions.unsubmitHint')}
+                </p>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">{t('submissions.locked')}</p>

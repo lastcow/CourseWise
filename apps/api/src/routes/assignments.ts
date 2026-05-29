@@ -1266,6 +1266,126 @@ r.post(
   },
 );
 
+// Student-initiated unsubmit: move a SUBMITTED (but not-yet-graded) submission
+// back to DRAFT so the student can edit and resubmit — but only while the
+// assignment window is still open, so they can actually resubmit afterward.
+// This is deliberately narrower than the teacher Return action: it never
+// touches a graded submission and it preserves the student's content/files
+// (only status + submittedAt reset). For a group submission, any member may
+// unsubmit and it resets the whole team's rows, mirroring how /submit fans out.
+r.post(
+  '/submissions/:submissionId/unsubmit',
+  requireScopeGroup('submissionsWrite'),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const id = requireParam(c, 'submissionId');
+    const submission = await loadSubmission(c, id);
+    if (auth.user.role !== 'student' || submission.studentId !== auth.user.id) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the owning student can unsubmit');
+    }
+    // Already editable → idempotent no-op (tolerates double-clicks and the
+    // group fan-out race, same as /submit does for already-submitted rows).
+    if (submission.status === 'draft' || submission.status === 'returned') {
+      const gs = await loadGroupSubmissionForRow(c, submission);
+      return success(
+        c,
+        toSubmissionSummary(submission, gs ?? undefined, await attachmentsForUnit(c, submission)),
+      );
+    }
+    if (submission.status === 'graded') {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'A graded submission cannot be unsubmitted — ask your teacher to return it',
+      );
+    }
+    // status is 'submitted' or 'late' from here.
+
+    // Group unit: refuse if ANY member row is already graded — grading has
+    // started for the team, so unsubmitting would strand those grades.
+    if (submission.groupSubmissionId) {
+      const unitRows = await db
+        .select({ status: assignmentSubmissions.status })
+        .from(assignmentSubmissions)
+        .where(eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId));
+      if (unitRows.some((r) => r.status === 'graded')) {
+        throw new ApiException(
+          409,
+          ERROR_CODES.CONFLICT,
+          'This group submission has been graded and cannot be unsubmitted',
+        );
+      }
+    }
+
+    // Window gate: only unsubmit while a resubmit would still succeed, so the
+    // student is never stranded in DRAFT past the deadline. Mirrors the
+    // submit-time scheduling checks (end_date / until_date are hard stops).
+    const assignment = await loadAssignment(c, submission.assignmentId);
+    const now = Date.now();
+    if (assignment.status === 'archived') {
+      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is archived');
+    }
+    if (assignment.endDate && Date.parse(assignment.endDate) < now) {
+      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment window has closed');
+    }
+    if (assignment.untilDate && Date.parse(assignment.untilDate) < now) {
+      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment deadline has passed');
+    }
+    const nowIso = new Date(now).toISOString();
+
+    if (submission.groupSubmissionId) {
+      await db
+        .update(groupSubmissions)
+        .set({ submittedAt: null, submittedById: null, updatedAt: nowIso })
+        .where(eq(groupSubmissions.id, submission.groupSubmissionId));
+      await db
+        .update(assignmentSubmissions)
+        .set({ status: 'draft', submittedAt: null, updatedAt: nowIso })
+        .where(
+          and(
+            eq(assignmentSubmissions.groupSubmissionId, submission.groupSubmissionId),
+            inArray(assignmentSubmissions.status, ['submitted', 'late']),
+          ),
+        );
+      const [updated] = await db
+        .select()
+        .from(assignmentSubmissions)
+        .where(eq(assignmentSubmissions.id, id))
+        .limit(1);
+      if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
+      await recordAudit(db, {
+        actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+        actorUserId: auth.user.id,
+        actorTokenId: auth.tokenId ?? null,
+        action: 'submission.unsubmit',
+        target: id,
+        metadata: { groupSubmissionId: submission.groupSubmissionId },
+      });
+      const gs = await loadGroupSubmissionForRow(c, updated);
+      return success(
+        c,
+        toSubmissionSummary(updated, gs ?? undefined, await attachmentsForUnit(c, updated)),
+      );
+    }
+
+    const [updated] = await db
+      .update(assignmentSubmissions)
+      .set({ status: 'draft', submittedAt: null, updatedAt: nowIso })
+      .where(eq(assignmentSubmissions.id, id))
+      .returning();
+    if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Submission not found');
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'submission.unsubmit',
+      target: id,
+    });
+    return success(c, toSubmissionSummary(updated, undefined, await attachmentsForUnit(c, updated)));
+  },
+);
+
 // /return and /grade accept BOTH POST and PATCH. The grade endpoint
 // historically registered only PATCH, which made Hono return a stale-looking
 // 404 to any POST attempt instead of the handler's "Submission not found".

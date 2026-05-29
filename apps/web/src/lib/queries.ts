@@ -1004,6 +1004,20 @@ export function useSubmitSubmission(assignmentId: string) {
   });
 }
 
+// Student-initiated unsubmit: revert a submitted, ungraded submission to draft
+// so it can be edited and resubmitted (server enforces open-window + ungraded).
+export function useUnsubmitSubmission(assignmentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<SubmissionSummary>(`/api/submissions/${id}/unsubmit`, { method: 'POST' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my-submission', assignmentId] });
+      void qc.invalidateQueries({ queryKey: ['submissions', assignmentId] });
+    },
+  });
+}
+
 export function useAddSubmissionAttachment(assignmentId: string) {
   const qc = useQueryClient();
   return useMutation({
