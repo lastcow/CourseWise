@@ -989,6 +989,8 @@ export const en = {
       updated: 'Assignment saved',
       published: 'Assignment published',
       deleteConfirm: 'Delete this assignment? Submissions will be removed.',
+      searchPlaceholder: 'Search title or module',
+      noMatches: 'No assignments match your search.',
       overdue: 'Overdue',
       statusDraft: 'Draft',
       statusPublished: 'Open',

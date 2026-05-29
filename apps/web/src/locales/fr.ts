@@ -1003,6 +1003,8 @@ export const fr = {
       updated: 'Devoir enregistré',
       published: 'Devoir publié',
       deleteConfirm: 'Supprimer ce devoir ? Les soumissions seront supprimées.',
+      searchPlaceholder: 'Rechercher un titre ou un module',
+      noMatches: 'Aucun devoir ne correspond à votre recherche.',
       overdue: 'En retard',
       statusDraft: 'Brouillon',
       statusPublished: 'Ouvert',
