@@ -992,6 +992,7 @@ export const fr = {
       publishBlocked: 'Impossible de publier — la note maximale est requise.',
       close: 'Fermer',
       archive: 'Archiver',
+      unarchive: 'Désarchiver',
       created: 'Devoir créé',
       updated: 'Devoir enregistré',
       published: 'Devoir publié',

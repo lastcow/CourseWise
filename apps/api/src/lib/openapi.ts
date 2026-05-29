@@ -512,6 +512,10 @@ export const ROUTES: readonly RouteSpec[] = [
     scopeGroup: 'assignmentsWrite',
     pathParams: idParams('assignmentId'),
   }),
+  r('post', '/api/assignments/{assignmentId}/unarchive', 'Unarchive an assignment (returns it to draft)', 'assignments', {
+    scopeGroup: 'assignmentsWrite',
+    pathParams: idParams('assignmentId'),
+  }),
   r(
     'get',
     '/api/assignments/{assignmentId}/submissions',
