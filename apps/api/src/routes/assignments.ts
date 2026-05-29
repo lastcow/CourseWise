@@ -628,6 +628,36 @@ r.post('/assignments/:assignmentId/archive', requireScopeGroup('assignmentsWrite
   transitionAssignment(c, 'archived'),
 );
 
+// Unarchive restores to `draft` rather than the prior status: we don't track
+// what the row was before archive, and auto-re-publishing could resurrect an
+// assignment whose dates are now stale. Teachers republish in one click.
+r.post('/assignments/:assignmentId/unarchive', requireScopeGroup('assignmentsWrite'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'assignmentId');
+  const row = await loadAssignment(c, id);
+  if (!(await canWriteCourse(db, auth.user, row.courseId))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+  }
+  if (row.status !== 'archived') {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is not archived');
+  }
+  const [updated] = await db
+    .update(assignments)
+    .set({ status: 'draft', archivedAt: null, updatedAt: new Date().toISOString() })
+    .where(eq(assignments.id, id))
+    .returning();
+  if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Assignment not found');
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'assignment.unarchive',
+    target: id,
+  });
+  return success(c, toAssignmentSummary(updated));
+});
+
 // -------- Submissions --------
 
 r.get('/assignments/:assignmentId/submissions', requireScopeGroup('submissionsRead'), async (c) => {

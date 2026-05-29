@@ -927,8 +927,13 @@ export function useUpdateAssignment(courseId: string) {
 export function useTransitionAssignment(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, action }: { id: string; action: 'publish' | 'close' | 'archive' }) =>
-      apiCall<AssignmentSummary>(`/api/assignments/${id}/${action}`, { method: 'POST' }),
+    mutationFn: ({
+      id,
+      action,
+    }: {
+      id: string;
+      action: 'publish' | 'close' | 'archive' | 'unarchive';
+    }) => apiCall<AssignmentSummary>(`/api/assignments/${id}/${action}`, { method: 'POST' }),
     onSuccess: (_d, v) => {
       void qc.invalidateQueries({ queryKey: ['assignments', courseId] });
       void qc.invalidateQueries({ queryKey: ['assignment', v.id] });

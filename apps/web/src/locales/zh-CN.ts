@@ -936,6 +936,7 @@ export const zhCN = {
       publishBlocked: '发布失败 — 必须先填写总分。',
       close: '关闭',
       archive: '归档',
+      unarchive: '取消归档',
       created: '作业已创建',
       updated: '作业已保存',
       published: '作业已发布',

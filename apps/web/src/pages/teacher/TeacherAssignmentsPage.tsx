@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Archive,
+  ArchiveRestore,
   Circle,
   CircleCheck,
   FolderInput,
@@ -234,7 +235,16 @@ export function TeacherAssignmentsPage(): JSX.Element {
                             await transition.mutateAsync({ id: a.id, action: 'archive' });
                           }}
                         />
-                      ) : null}
+                      ) : (
+                        <ActionIconButton
+                          icon={ArchiveRestore}
+                          label={t('assignments.unarchive')}
+                          color="emerald"
+                          onClick={async () => {
+                            await transition.mutateAsync({ id: a.id, action: 'unarchive' });
+                          }}
+                        />
+                      )}
                       <ActionIconButton
                         icon={Trash2}
                         label={t('common.delete')}

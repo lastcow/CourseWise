@@ -978,6 +978,7 @@ export const en = {
       publishBlocked: 'Cannot publish — maxScore is required.',
       close: 'Close',
       archive: 'Archive',
+      unarchive: 'Unarchive',
       created: 'Assignment created',
       updated: 'Assignment saved',
       published: 'Assignment published',
