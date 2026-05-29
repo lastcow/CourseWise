@@ -993,6 +993,12 @@ export const fr = {
       close: 'Fermer',
       archive: 'Archiver',
       unarchive: 'Désarchiver',
+      archiveDialogTitle: 'Archiver le devoir ?',
+      archiveConfirm:
+        'Archiver ce devoir ? Les étudiants ne le verront plus. Vous pourrez le désarchiver plus tard.',
+      unarchiveDialogTitle: 'Désarchiver le devoir ?',
+      unarchiveConfirm:
+        'Désarchiver ce devoir ? Il reviendra à l’état brouillon — republiez-le quand vous serez prêt.',
       created: 'Devoir créé',
       updated: 'Devoir enregistré',
       published: 'Devoir publié',

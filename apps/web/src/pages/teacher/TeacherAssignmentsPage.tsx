@@ -86,6 +86,9 @@ export function TeacherAssignmentsPage(): JSX.Element {
   const toast = useToast();
 
   const [deleteTarget, setDeleteTarget] = useState<AssignmentSummary | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<
+    { assignment: AssignmentSummary; action: 'archive' | 'unarchive' } | null
+  >(null);
   const [moveTarget, setMoveTarget] = useState<AssignmentSummary | null>(null);
   const [moveModuleId, setMoveModuleId] = useState<string>('');
 
@@ -231,18 +234,14 @@ export function TeacherAssignmentsPage(): JSX.Element {
                           icon={Archive}
                           label={t('assignments.archive')}
                           color="orange"
-                          onClick={async () => {
-                            await transition.mutateAsync({ id: a.id, action: 'archive' });
-                          }}
+                          onClick={() => setArchiveTarget({ assignment: a, action: 'archive' })}
                         />
                       ) : (
                         <ActionIconButton
                           icon={ArchiveRestore}
                           label={t('assignments.unarchive')}
                           color="emerald"
-                          onClick={async () => {
-                            await transition.mutateAsync({ id: a.id, action: 'unarchive' });
-                          }}
+                          onClick={() => setArchiveTarget({ assignment: a, action: 'unarchive' })}
                         />
                       )}
                       <ActionIconButton
@@ -288,6 +287,51 @@ export function TeacherAssignmentsPage(): JSX.Element {
             }}
           >
             {t('common.delete')}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={archiveTarget !== null}
+        onClose={() => setArchiveTarget(null)}
+        title={
+          archiveTarget?.action === 'unarchive'
+            ? t('assignments.unarchiveDialogTitle')
+            : t('assignments.archiveDialogTitle')
+        }
+        dismissOnBackdropClick={false}
+      >
+        <p className="text-sm text-muted-foreground">
+          {archiveTarget?.action === 'unarchive'
+            ? t('assignments.unarchiveConfirm')
+            : t('assignments.archiveConfirm')}
+        </p>
+        {archiveTarget ? (
+          <p className="mt-2 text-sm font-medium">{archiveTarget.assignment.title}</p>
+        ) : null}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setArchiveTarget(null)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            disabled={transition.isPending}
+            onClick={async () => {
+              if (!archiveTarget) return;
+              try {
+                await transition.mutateAsync({
+                  id: archiveTarget.assignment.id,
+                  action: archiveTarget.action,
+                });
+                setArchiveTarget(null);
+              } catch (err) {
+                const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                toast.push({ title: t(key), tone: 'error' });
+              }
+            }}
+          >
+            {archiveTarget?.action === 'unarchive'
+              ? t('assignments.unarchive')
+              : t('assignments.archive')}
           </Button>
         </div>
       </Dialog>
