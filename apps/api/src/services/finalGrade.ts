@@ -29,6 +29,28 @@ import {
 import { computeLetterGrade } from './gradingPolicy';
 
 // ---------------------------------------------------------------------------
+// "Posted" gate. A gradable item (assignment / quiz / discussion) counts
+// toward the final grade — and shows up in the gradebook — only once it has
+// been *posted*: it is no longer a draft AND its start date, if one is set,
+// has already arrived. Items the teacher hasn't released yet (drafts) or has
+// scheduled for the future never dilute the grade or the per-category "X of Y
+// graded" progress, so the score reflects only work that has actually been
+// made available to students. Closed/archived items stay in — they were posted
+// and had their window. This mirrors the student-visibility + start-window
+// gates enforced in routes/assignments.ts and routes/quizzes.ts.
+//
+// Discussions have no start field, so `startAt` is null and the rule collapses
+// to "not a draft".
+export function isItemPosted(
+  item: { status: string; startAt: string | null },
+  now: number = Date.now(),
+): boolean {
+  if (item.status === 'draft') return false;
+  if (item.startAt && Date.parse(item.startAt) > now) return false;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Pure scoring algorithm. Lives at the top so it can be unit-tested without a
 // database. `summarizeFinalGrade` and the route-facing helpers assemble the
 // input shape from Drizzle and delegate to this function.
@@ -174,6 +196,8 @@ async function loadCourseGradingContext(
   const quizMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
   const discussionMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
 
+  const now = Date.now();
+
   if (groups.length > 0) {
     const assignRows = await db
       .select({
@@ -181,11 +205,14 @@ async function loadCourseGradingContext(
         title: assignments.title,
         maxScore: assignments.maxScore,
         groupId: assignments.groupId,
+        status: assignments.status,
+        startDate: assignments.startDate,
       })
       .from(assignments)
       .where(and(eq(assignments.courseId, courseId), isNotNull(assignments.groupId)));
     for (const a of assignRows) {
       if (!a.groupId) continue;
+      if (!isItemPosted({ status: a.status, startAt: a.startDate }, now)) continue;
       const g = groupIndex.get(a.groupId);
       if (!g) continue;
       g.assignmentIds.push(a.id);
@@ -202,11 +229,14 @@ async function loadCourseGradingContext(
         title: quizzes.title,
         maxScore: quizzes.maxScore,
         groupId: quizzes.groupId,
+        status: quizzes.status,
+        startTime: quizzes.startTime,
       })
       .from(quizzes)
       .where(and(eq(quizzes.courseId, courseId), isNotNull(quizzes.groupId)));
     for (const q of quizRows) {
       if (!q.groupId) continue;
+      if (!isItemPosted({ status: q.status, startAt: q.startTime }, now)) continue;
       const g = groupIndex.get(q.groupId);
       if (!g) continue;
       g.quizIds.push(q.id);
@@ -224,6 +254,7 @@ async function loadCourseGradingContext(
         maxScore: discussionTopics.maxScore,
         groupId: discussionTopics.groupId,
         isGraded: discussionTopics.isGraded,
+        status: discussionTopics.status,
       })
       .from(discussionTopics)
       .where(
@@ -235,6 +266,7 @@ async function loadCourseGradingContext(
       );
     for (const t of topicRows) {
       if (!t.groupId) continue;
+      if (!isItemPosted({ status: t.status, startAt: null }, now)) continue;
       const g = groupIndex.get(t.groupId);
       if (!g) continue;
       g.discussionIds.push(t.id);
@@ -641,6 +673,10 @@ export async function buildGradebookStudentDetail(
     .limit(1);
   if (!enrollment) return null;
 
+  // Only posted items (published + started) appear in the gradebook, matching
+  // what counts toward the final grade. See isItemPosted.
+  const now = Date.now();
+
   // Attendance items (every session in the course, joined to the student's record).
   const sessions = await db
     .select({
@@ -680,15 +716,19 @@ export async function buildGradebookStudentDetail(
 
   // Every published assignment in the course (incl. those not yet in a group),
   // joined to the student's submission.
-  const courseAssignments = await db
-    .select({
-      id: assignments.id,
-      title: assignments.title,
-      maxScore: assignments.maxScore,
-    })
-    .from(assignments)
-    .where(eq(assignments.courseId, courseId))
-    .orderBy(asc(assignments.title));
+  const courseAssignments = (
+    await db
+      .select({
+        id: assignments.id,
+        title: assignments.title,
+        maxScore: assignments.maxScore,
+        status: assignments.status,
+        startDate: assignments.startDate,
+      })
+      .from(assignments)
+      .where(eq(assignments.courseId, courseId))
+      .orderBy(asc(assignments.title))
+  ).filter((a) => isItemPosted({ status: a.status, startAt: a.startDate }, now));
   const subs = courseAssignments.length
     ? await db
         .select()
@@ -721,15 +761,19 @@ export async function buildGradebookStudentDetail(
   }
 
   // Quizzes in the course + the student's best (or latest) attempt per quiz.
-  const courseQuizzes = await db
-    .select({
-      id: quizzes.id,
-      title: quizzes.title,
-      maxScore: quizzes.maxScore,
-    })
-    .from(quizzes)
-    .where(eq(quizzes.courseId, courseId))
-    .orderBy(asc(quizzes.title));
+  const courseQuizzes = (
+    await db
+      .select({
+        id: quizzes.id,
+        title: quizzes.title,
+        maxScore: quizzes.maxScore,
+        status: quizzes.status,
+        startTime: quizzes.startTime,
+      })
+      .from(quizzes)
+      .where(eq(quizzes.courseId, courseId))
+      .orderBy(asc(quizzes.title))
+  ).filter((q) => isItemPosted({ status: q.status, startAt: q.startTime }, now));
   const attempts = courseQuizzes.length
     ? await db
         .select()
@@ -772,15 +816,18 @@ export async function buildGradebookStudentDetail(
   }
 
   // Discussions: every graded topic in the course + the student's grade.
-  const topics = await db
-    .select({
-      id: discussionTopics.id,
-      title: discussionTopics.title,
-      maxScore: discussionTopics.maxScore,
-    })
-    .from(discussionTopics)
-    .where(and(eq(discussionTopics.courseId, courseId), eq(discussionTopics.isGraded, true)))
-    .orderBy(asc(discussionTopics.title));
+  const topics = (
+    await db
+      .select({
+        id: discussionTopics.id,
+        title: discussionTopics.title,
+        maxScore: discussionTopics.maxScore,
+        status: discussionTopics.status,
+      })
+      .from(discussionTopics)
+      .where(and(eq(discussionTopics.courseId, courseId), eq(discussionTopics.isGraded, true)))
+      .orderBy(asc(discussionTopics.title))
+  ).filter((t) => isItemPosted({ status: t.status, startAt: null }, now));
   const grades = topics.length
     ? await db
         .select()

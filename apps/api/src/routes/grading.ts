@@ -275,6 +275,39 @@ r.get(
   },
 );
 
+// Self-scoped itemized gradebook. A student reads their OWN full breakdown —
+// every assignment, quiz, discussion, and attendance item with their own
+// score. This is FERPA §99.10 self-inspection (a student viewing their own
+// education record), NOT a §99.32 disclosure, so it is deliberately not
+// disclosure-logged. Course staff viewing a *specific* student go through the
+// disclosure-logged /courses/:courseId/students/:studentId/gradebook-detail
+// route instead; this endpoint always resolves to the caller themselves.
+r.get(
+  '/me/courses/:courseId/gradebook-detail',
+  requireScopeGroup('gradesRead'),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    if (auth.user.role !== 'student') {
+      throw new ApiException(
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'Only students can view their own gradebook here',
+      );
+    }
+    if (!(await isCourseEnrolled(db, courseId, auth.user.id))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
+    }
+    const policy = await ensureGradingPolicy(db, courseId);
+    const detail = await buildGradebookStudentDetail(db, courseId, auth.user.id, policy);
+    if (!detail) {
+      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'You are not enrolled in this course');
+    }
+    return success(c, detail);
+  },
+);
+
 // =================== Per-course grading summary ===================
 
 // Counts of items waiting for a teacher to grade. Used by the teacher's

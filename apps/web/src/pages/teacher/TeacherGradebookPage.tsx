@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Pencil } from 'lucide-react';
 import type { FinalGradeSummary } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +19,30 @@ import {
   useRecalculateFinalGrades,
 } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
+
+function StatTile({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: string;
+  tone?: 'default' | 'warning';
+}): JSX.Element {
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2.5">
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div
+        className={cn(
+          'mt-0.5 text-2xl font-semibold tabular-nums',
+          tone === 'warning' ? 'text-amber-600' : 'text-foreground',
+        )}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
 
 export function TeacherGradebookPage(): JSX.Element {
   const { t } = useTranslation();
@@ -67,9 +92,20 @@ export function TeacherGradebookPage(): JSX.Element {
     }
   }
 
+  const rows = useMemo(() => grades.data ?? [], [grades.data]);
+  const stats = useMemo(() => {
+    const scored = rows
+      .map((g) => g.teacherOverrideScore ?? g.score)
+      .filter((s): s is number => s !== null);
+    const average =
+      scored.length > 0 ? scored.reduce((a, b) => a + b, 0) / scored.length : null;
+    const outdated = rows.filter((g) => g.isOutdated).length;
+    return { enrolled: rows.length, graded: scored.length, average, outdated };
+  }, [rows]);
+
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>{t('grading.gradebookTitle')}</CardTitle>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => downloadGradesCsv(cid)}>
@@ -83,28 +119,45 @@ export function TeacherGradebookPage(): JSX.Element {
       <CardContent>
         {grades.isLoading ? (
           <p>{t('common.loading')}</p>
-        ) : !grades.data || grades.data.length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyState
             title={t('grading.gradebookEmpty')}
             description={t('grading.gradebookEmptyHint')}
           />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatTile label={t('grading.summaryEnrolled')} value={String(stats.enrolled)} />
+              <StatTile
+                label={t('grading.summaryGraded')}
+                value={`${stats.graded}/${stats.enrolled}`}
+              />
+              <StatTile
+                label={t('grading.summaryAverage')}
+                value={stats.average !== null ? stats.average.toFixed(1) : '—'}
+              />
+              <StatTile
+                label={t('grading.summaryOutdated')}
+                value={String(stats.outdated)}
+                tone={stats.outdated > 0 ? 'warning' : 'default'}
+              />
+            </div>
+            <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left">
-                  <th className="py-2 pr-3">{t('grading.student')}</th>
-                  <th className="py-2 pr-3">{t('grading.score')}</th>
-                  <th className="py-2 pr-3">{t('grading.letter')}</th>
-                  <th className="py-2 pr-3">{t('grading.override')}</th>
-                  <th className="py-2 pr-3">{t('grading.status')}</th>
+                <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-3 py-2 font-medium">{t('grading.student')}</th>
+                  <th className="px-3 py-2 font-medium">{t('grading.score')}</th>
+                  <th className="px-3 py-2 font-medium">{t('grading.letter')}</th>
+                  <th className="px-3 py-2 font-medium">{t('grading.override')}</th>
+                  <th className="px-3 py-2 font-medium">{t('grading.status')}</th>
                   <th className="py-2"></th>
                 </tr>
               </thead>
               <tbody>
-                {grades.data.map((g) => (
-                  <tr key={g.id} className="border-b last:border-0">
-                    <td className="py-2 pr-3">
+                {rows.map((g) => (
+                  <tr key={g.id} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="px-3 py-2">
                       <Link
                         to={`/teacher/courses/${cid}/gradebook/${g.studentId}`}
                         className="font-medium hover:underline"
@@ -113,14 +166,14 @@ export function TeacherGradebookPage(): JSX.Element {
                       </Link>
                       <div className="text-xs text-muted-foreground">{g.studentEmail}</div>
                     </td>
-                    <td className="py-2 pr-3 font-mono">{g.score?.toFixed(1) ?? '—'}</td>
-                    <td className="py-2 pr-3 font-mono">{g.letterGrade ?? '—'}</td>
-                    <td className="py-2 pr-3 font-mono">
+                    <td className="px-3 py-2 font-mono tabular-nums">{g.score?.toFixed(1) ?? '—'}</td>
+                    <td className="px-3 py-2 font-mono">{g.letterGrade ?? '—'}</td>
+                    <td className="px-3 py-2 font-mono tabular-nums">
                       {g.teacherOverrideScore !== null
                         ? g.teacherOverrideScore.toFixed(1)
                         : '—'}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="px-3 py-2">
                       {g.isOutdated ? (
                         <Badge variant="secondary">{t('grading.outdated')}</Badge>
                       ) : (
@@ -148,7 +201,8 @@ export function TeacherGradebookPage(): JSX.Element {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </CardContent>
       <Dialog

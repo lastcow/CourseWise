@@ -37,6 +37,7 @@ describe('M5 routes — unauthenticated rejections', () => {
       { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: '{}' },
     ],
     ['/api/me/courses/00000000-0000-0000-0000-000000000000/final-grade', {}],
+    ['/api/me/courses/00000000-0000-0000-0000-000000000000/gradebook-detail', {}],
     ['/api/courses/00000000-0000-0000-0000-000000000000/grades/export.csv', {}],
     // Alerts
     ['/api/courses/00000000-0000-0000-0000-000000000000/alerts', {}],

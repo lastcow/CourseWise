@@ -1,5 +1,38 @@
 import { describe, expect, it } from 'vitest';
-import { computeFinalScore } from './finalGrade';
+import { computeFinalScore, isItemPosted } from './finalGrade';
+
+describe('isItemPosted', () => {
+  const now = Date.parse('2026-05-29T12:00:00Z');
+  const past = '2026-05-01T00:00:00Z';
+  const future = '2026-06-15T00:00:00Z';
+
+  it('excludes drafts (not yet posted)', () => {
+    expect(isItemPosted({ status: 'draft', startAt: null }, now)).toBe(false);
+    expect(isItemPosted({ status: 'draft', startAt: past }, now)).toBe(false);
+  });
+
+  it('includes published items with no start date', () => {
+    expect(isItemPosted({ status: 'published', startAt: null }, now)).toBe(true);
+  });
+
+  it('includes published items whose start date has passed', () => {
+    expect(isItemPosted({ status: 'published', startAt: past }, now)).toBe(true);
+  });
+
+  it('excludes published items scheduled to start in the future', () => {
+    expect(isItemPosted({ status: 'published', startAt: future }, now)).toBe(false);
+  });
+
+  it('keeps closed/archived items (they were posted and had their window)', () => {
+    expect(isItemPosted({ status: 'closed', startAt: past }, now)).toBe(true);
+    expect(isItemPosted({ status: 'archived', startAt: null }, now)).toBe(true);
+  });
+
+  it('treats discussions (no start field) as posted once not a draft', () => {
+    expect(isItemPosted({ status: 'published', startAt: null }, now)).toBe(true);
+    expect(isItemPosted({ status: 'draft', startAt: null }, now)).toBe(false);
+  });
+});
 
 describe('computeFinalScore', () => {
   it('returns null when there are no groups and no attendance data', () => {
