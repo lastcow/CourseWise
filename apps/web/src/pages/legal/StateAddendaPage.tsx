@@ -6,9 +6,9 @@ export function StateAddendaPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="State Addenda"
-        summary="State-specific student-privacy commitments that supplement the master agreement between [COMPANY LEGAL NAME] and [INSTITUTION NAME]."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="State-specific student-privacy commitments that supplement the master agreement between CourseWise LLC and your institution."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <p>
@@ -17,7 +17,7 @@ export function StateAddendaPage(): JSX.Element {
         additional duties on vendors who handle K-12 student data. This
         page summarizes how those duties apply to CourseWise. The
         controlling text in any conflict is the executed agreement with
-        [INSTITUTION NAME], not this summary.
+        your institution, not this summary.
       </p>
 
       <nav className="not-prose my-6 flex flex-wrap gap-2 text-sm">
@@ -38,7 +38,7 @@ export function StateAddendaPage(): JSX.Element {
         advertising, do not build non-educational profiles of students,
         and do not sell or rent student information. We use student
         information only for the K-12 purposes authorized by
-        [INSTITUTION NAME], maintain administrative, physical, and
+        your institution, maintain administrative, physical, and
         technical safeguards described in our <Link to="/legal/security">Security</Link>{' '}
         statement, and on the institution's request will delete student
         records that the institution has the authority to remove.
@@ -57,7 +57,7 @@ export function StateAddendaPage(): JSX.Element {
         and that we will notify the district of any unauthorized release
         without unreasonable delay. The district's Parents' Bill of
         Rights and CourseWise-specific supplemental information are
-        published by [INSTITUTION NAME] as required by the statute.
+        published by your institution as required by the statute.
       </p>
 
       <h2 id="illinois">Illinois</h2>
@@ -84,7 +84,7 @@ export function StateAddendaPage(): JSX.Element {
         22-16-101 et seq., commonly "HB 16-1423"). We are a "School
         Service Contract Provider": we use Student Personally
         Identifiable Information only for the purposes authorized by
-        [INSTITUTION NAME], maintain a comprehensive information
+        your institution, maintain a comprehensive information
         security program, do not knowingly retain Student PII beyond the
         contract term except as required by law, and do not sell Student
         PII or use it to engage in targeted advertising. We make our

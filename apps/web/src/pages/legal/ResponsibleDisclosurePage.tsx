@@ -6,9 +6,9 @@ export function ResponsibleDisclosurePage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Responsible Disclosure"
-        summary="How security researchers can report vulnerabilities in CourseWise and what [COMPANY LEGAL NAME] commits in return."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="How security researchers can report vulnerabilities in CourseWise and what CourseWise LLC commits in return."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <p>
@@ -26,7 +26,7 @@ export function ResponsibleDisclosurePage(): JSX.Element {
         we use as subprocessors (please report those directly to the
         service in question — our list is at{' '}
         <Link to="/legal/subprocessors">/legal/subprocessors</Link>),
-        social-engineering attacks against [COMPANY LEGAL NAME] staff or
+        social-engineering attacks against CourseWise LLC staff or
         customer staff, denial-of-service testing at any volume that
         would degrade service for real users, and physical security of
         any facility. Findings that are theoretical only — for example
@@ -36,9 +36,10 @@ export function ResponsibleDisclosurePage(): JSX.Element {
 
       <h2>Reporting</h2>
       <p>
-        Send reports to <code>security@[COMPANY LEGAL NAME]</code> (the
-        live address is published on the Security page and in our
-        security.txt file). Include a clear description of the
+        Send reports through our{' '}
+        <Link to="/contact">contact form</Link> and mark the message as a
+        security report so it routes to our security team. Include a clear
+        description of the
         vulnerability, the steps to reproduce it, the systems and
         accounts you touched, the impact you believe it has, and any
         proof-of-concept artifacts. PGP encryption is welcome but not
@@ -56,7 +57,7 @@ export function ResponsibleDisclosurePage(): JSX.Element {
         demonstrate the issue, you do not exfiltrate or publish data,
         you do not use the vulnerability to harm any user or
         institution, and you give us a reasonable opportunity to fix the
-        issue before public disclosure — [COMPANY LEGAL NAME] will not
+        issue before public disclosure — CourseWise LLC will not
         pursue or support a civil or criminal action against you for
         your research, will consider the research to be authorized
         access under the Computer Fraud and Abuse Act and analogous
@@ -86,9 +87,8 @@ export function ResponsibleDisclosurePage(): JSX.Element {
         resolve are eligible, with their consent, to be listed here.
         We currently do not run a paid bug-bounty program, but we are
         glad to send swag, a written commendation, and a real
-        thank-you. (Hall of fame entries will be added here once
-        researchers have given us things to thank them for. Placeholder
-        until then.)
+        thank-you. Confirmed reporters who opt in will be acknowledged in
+        this section.
       </p>
 
       <h2>Contact</h2>

@@ -6,9 +6,9 @@ export function CookiesPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Cookies and local storage"
-        summary="What [COMPANY LEGAL NAME] stores in your browser — cookies and local storage — and why."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="What CourseWise LLC stores in your browser — cookies and local storage — and why."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <p>

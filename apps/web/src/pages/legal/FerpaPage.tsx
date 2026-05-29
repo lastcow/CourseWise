@@ -6,9 +6,9 @@ export function FerpaPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="FERPA Statement"
-        summary="How [COMPANY LEGAL NAME] operates as a school official under FERPA on behalf of [INSTITUTION NAME]."
-        lastUpdated="2026-05-19"
-        version="v0.1-draft"
+        summary="How CourseWise LLC operates as a school official under FERPA on behalf of your institution."
+        lastUpdated="2026-05-29"
+        version="v1.0"
       />
 
       <h2>School-official designation</h2>
@@ -16,7 +16,7 @@ export function FerpaPage(): JSX.Element {
         CourseWise is sold to educational institutions in the United States
         that are subject to the Family Educational Rights and Privacy Act, 20
         U.S.C. § 1232g, and its implementing regulations at 34 C.F.R. Part 99
-        ("FERPA"). [INSTITUTION NAME] designates [COMPANY LEGAL NAME] as a
+        ("FERPA"). Your institution designates CourseWise LLC as a
         "school official" with a "legitimate educational interest" in the
         education records it makes available through the Service, under the
         exception at 34 C.F.R. § 99.31(a)(1)(i)(B). The institution retains
@@ -94,7 +94,7 @@ export function FerpaPage(): JSX.Element {
       <h2>Audits</h2>
       <p>
         On reasonable advance notice and subject to confidentiality,
-        [INSTITUTION NAME] may audit our compliance with the FERPA
+        your institution may audit our compliance with the FERPA
         commitments in our agreement, either by reviewing the documentation
         we maintain about our security and privacy program or by a third-party
         audit at the institution's cost. We respond to documented questions
