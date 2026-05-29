@@ -1629,6 +1629,19 @@ export function useMyFinalGrade(courseId: string | null) {
   });
 }
 
+// Self-scoped itemized gradebook: the calling student's full per-item
+// breakdown (assignments, quizzes, discussions, attendance). Backed by
+// GET /api/me/courses/:courseId/gradebook-detail, which only ever returns the
+// caller's own records.
+export function useMyGradebookDetail(courseId: string | null) {
+  return useQuery({
+    queryKey: ['my-gradebook-detail', courseId],
+    enabled: !!courseId,
+    queryFn: () =>
+      apiCall<GradebookStudentDetail>(`/api/me/courses/${courseId}/gradebook-detail`),
+  });
+}
+
 // ---------- Assignment groups ----------
 export function useAssignmentGroups(courseId: string | undefined) {
   return useQuery({
