@@ -979,6 +979,12 @@ export const en = {
       close: 'Close',
       archive: 'Archive',
       unarchive: 'Unarchive',
+      archiveDialogTitle: 'Archive assignment?',
+      archiveConfirm:
+        'Archive this assignment? Students will no longer see it. You can unarchive later.',
+      unarchiveDialogTitle: 'Unarchive assignment?',
+      unarchiveConfirm:
+        'Unarchive this assignment? It will return to draft — republish from there when you are ready.',
       created: 'Assignment created',
       updated: 'Assignment saved',
       published: 'Assignment published',
