@@ -13,25 +13,18 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { MarkdownView } from '@/components/ui/markdown';
 import { AttendanceSignInDialog } from '@/components/AttendanceSignInDialog';
+import { courseTimeProgress } from '@/lib/courseProgress';
 import {
   useAssignmentsList,
   useCourse,
   useDiscussionTopicsList,
   useMaterialsList,
   useModulesList,
-  useMyGradebookDetail,
   usePresentationsList,
   useQuizzesList,
   useTodayAttendanceSession,
@@ -61,7 +54,6 @@ export function StudentCourseOverviewPage(): JSX.Element {
   const quizzesQ = useQuizzesList(id);
   const discussionsQ = useDiscussionTopicsList(id);
   const todayQ = useTodayAttendanceSession(id);
-  const gradebookQ = useMyGradebookDetail(id || null);
   const [signOpen, setSignOpen] = useState(false);
 
   useEffect(() => {
@@ -91,16 +83,9 @@ export function StudentCourseOverviewPage(): JSX.Element {
 
   const c = course.data;
 
-  // Course progress = graded items / all gradable items, pooled across every
-  // category. Mirrors the per-category "X of Y graded" bars on the gradebook
-  // detail page, rolled up to a single course-level figure.
-  const gb = gradebookQ.data;
-  const gradeItems = gb
-    ? [...gb.assignments.items, ...gb.finalProject.items, ...gb.quizzes.items, ...gb.discussion.items]
-    : [];
-  const totalItems = gradeItems.length;
-  const scoredItems = gradeItems.filter((it) => it.score !== null).length;
-  const progressPct = totalItems > 0 ? (scoredItems / totalItems) * 100 : 0;
+  // Time-based course progress: how far today sits between the course's start
+  // and end dates. Null (bar hidden) when the course has no schedule set.
+  const progressPct = courseTimeProgress(c.startDate, c.endDate);
 
   const statusKey =
     `courses.status${c.status[0]!.toUpperCase()}${c.status.slice(1)}` as const;
@@ -192,7 +177,7 @@ export function StudentCourseOverviewPage(): JSX.Element {
         />
       ) : null}
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
@@ -212,16 +197,12 @@ export function StudentCourseOverviewPage(): JSX.Element {
             <p className="text-sm text-muted-foreground">—</p>
           )}
         </CardContent>
-        {totalItems > 0 ? (
-          <CardFooter className="flex-col items-stretch gap-1.5 border-t pt-4">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-foreground">{t('course.overview.progress')}</span>
-              <span className="tabular-nums text-muted-foreground">
-                {t('grading.itemsGradedProgress', { scored: scoredItems, total: totalItems })}
-              </span>
-            </div>
-            <Progress value={progressPct} />
-          </CardFooter>
+        {progressPct !== null ? (
+          <Progress
+            value={progressPct}
+            className="rounded-none"
+            barClassName="rounded-none"
+          />
         ) : null}
       </Card>
 

@@ -292,8 +292,6 @@ export const en = {
       },
       overview: {
         quickLinks: 'Quick links',
-        progress: 'Course progress',
-        gradingProgress: 'Grading progress',
         needsGradingTitle: 'Needs grading',
         needsGradingDescription:
           'Items waiting for your review. Click a tile to jump into the queue.',
@@ -392,6 +390,8 @@ export const en = {
       codeHint: 'Letters, digits, hyphens or underscores. 2–32 characters.',
       name: 'Title',
       term: 'Term',
+      startDate: 'Start date',
+      endDate: 'End date',
       status: 'Status',
       teachers: 'Teachers',
       enrollments: 'Enrollments',

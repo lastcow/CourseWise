@@ -273,6 +273,11 @@ export const courses = pgTable(
     title: text('title').notNull(),
     description: text('description'),
     termLabel: text('term_label'),
+    // Course schedule window. Drives the time-based progress bar on the course
+    // home page (elapsed = now between start and end). Both nullable: a course
+    // with no dates simply shows no progress bar.
+    startDate: timestamp('start_date', { withTimezone: true, mode: 'string' }),
+    endDate: timestamp('end_date', { withTimezone: true, mode: 'string' }),
     status: courseStatusEnum('status').notNull().default('active'),
     gradingPolicyJson: jsonb('grading_policy_json'),
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),

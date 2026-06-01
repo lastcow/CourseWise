@@ -55,6 +55,8 @@ function toCourseSummary(
     title: row.title,
     description: row.description ?? null,
     termLabel: row.termLabel ?? null,
+    startDate: row.startDate ?? null,
+    endDate: row.endDate ?? null,
     status: row.status,
     gradingPolicy: (row.gradingPolicyJson as GradingPolicy | null) ?? null,
     archivedAt: row.archivedAt ?? null,
@@ -138,6 +140,8 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       c.title,
       c.description,
       c.term_label AS "termLabel",
+      c.start_date AS "startDate",
+      c.end_date AS "endDate",
       c.status,
       c.grading_policy_json AS "gradingPolicyJson",
       c.archived_at AS "archivedAt",
@@ -172,6 +176,8 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       title: row.title as string,
       description: (row.description ?? null) as string | null,
       termLabel: (row.termLabel ?? null) as string | null,
+      startDate: (row.startDate ?? null) as string | null,
+      endDate: (row.endDate ?? null) as string | null,
       status: row.status as CourseSummary['status'],
       gradingPolicy:
         ((row.gradingPolicyJson as GradingPolicy | null) ?? null) as CourseSummary['gradingPolicy'],
@@ -219,6 +225,8 @@ r.post('/courses', requireScopeGroup('coursesWrite'), validateJson(createCourseS
       title: input.title,
       description: input.description ?? null,
       termLabel: input.termLabel ?? null,
+      startDate: input.startDate ?? null,
+      endDate: input.endDate ?? null,
       status: input.status ?? 'active',
       gradingPolicyJson: policy,
     })
@@ -363,6 +371,8 @@ r.patch(
     if (input.title !== undefined) patch.title = input.title;
     if (input.description !== undefined) patch.description = input.description;
     if (input.termLabel !== undefined) patch.termLabel = input.termLabel;
+    if (input.startDate !== undefined) patch.startDate = input.startDate;
+    if (input.endDate !== undefined) patch.endDate = input.endDate;
     if (input.status !== undefined) {
       patch.status = input.status;
       patch.archivedAt = input.status === 'archived' ? new Date().toISOString() : null;

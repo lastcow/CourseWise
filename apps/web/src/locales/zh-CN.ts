@@ -277,8 +277,6 @@ export const zhCN = {
       },
       overview: {
         quickLinks: '快捷入口',
-        progress: '课程进度',
-        gradingProgress: '评分进度',
         needsGradingTitle: '待批改',
         needsGradingDescription: '等待您评阅的内容。点击对应卡片可直接进入队列。',
         needsGradingEmpty: '当前没有待批改的内容。',
@@ -371,6 +369,8 @@ export const zhCN = {
       codeHint: '仅允许字母、数字、连字符与下划线,共 2–32 个字符。',
       name: '课程名称',
       term: '学期',
+      startDate: '开始日期',
+      endDate: '结束日期',
       status: '状态',
       teachers: '授课教师',
       enrollments: '已加入',

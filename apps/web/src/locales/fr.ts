@@ -295,8 +295,6 @@ export const fr = {
       },
       overview: {
         quickLinks: 'Liens rapides',
-        progress: 'Progression du cours',
-        gradingProgress: 'Progression de la notation',
         needsGradingTitle: 'À noter',
         needsGradingDescription:
           'Éléments en attente de votre évaluation. Cliquez sur une tuile pour ouvrir la file.',
@@ -398,6 +396,8 @@ export const fr = {
       codeHint: 'Lettres, chiffres, tirets ou tirets bas. 2 à 32 caractères.',
       name: 'Titre',
       term: 'Session',
+      startDate: 'Date de début',
+      endDate: 'Date de fin',
       status: 'Statut',
       teachers: 'Enseignants',
       enrollments: 'Inscriptions',

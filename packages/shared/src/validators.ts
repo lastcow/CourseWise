@@ -131,28 +131,51 @@ export const courseCodeSchema = z
     'Course code may contain letters, digits, hyphens and underscores only',
   );
 
-export const createCourseSchema = z.object({
-  code: courseCodeSchema,
-  title: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(2000).optional().nullable(),
-  termLabel: z.string().trim().max(120).optional().nullable(),
-  status: z.enum(COURSE_STATUSES).optional(),
-  teacherId: z.string().uuid().optional(),
-  gradingPolicy: gradingPolicySchema.optional(),
-});
+// start_date must not fall after end_date. Either may be omitted (a one-sided
+// window is allowed); the rule only fires when both are present.
+function courseDatesOrderOk(v: { startDate?: string | null; endDate?: string | null }): boolean {
+  const start = v.startDate ? Date.parse(v.startDate) : null;
+  const end = v.endDate ? Date.parse(v.endDate) : null;
+  if (start !== null && end !== null && start > end) return false;
+  return true;
+}
+
+export const createCourseSchema = z
+  .object({
+    code: courseCodeSchema,
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(2000).optional().nullable(),
+    termLabel: z.string().trim().max(120).optional().nullable(),
+    startDate: isoDateString.optional().nullable(),
+    endDate: isoDateString.optional().nullable(),
+    status: z.enum(COURSE_STATUSES).optional(),
+    teacherId: z.string().uuid().optional(),
+    gradingPolicy: gradingPolicySchema.optional(),
+  })
+  .refine(courseDatesOrderOk, {
+    message: 'startDate must be on or before endDate',
+    path: ['endDate'],
+  });
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 
-export const updateCourseSchema = z.object({
-  code: courseCodeSchema.optional(),
-  title: z.string().trim().min(1).max(200).optional(),
-  description: z.string().trim().max(2000).optional().nullable(),
-  termLabel: z.string().trim().max(120).optional().nullable(),
-  status: z.enum(COURSE_STATUSES).optional(),
-  gradingPolicy: gradingPolicySchema.optional(),
-  bannerFileAssetId: z.string().uuid().nullable().optional(),
-  syllabusMd: z.string().max(50_000).nullable().optional(),
-  syllabusFileAssetId: z.string().uuid().nullable().optional(),
-});
+export const updateCourseSchema = z
+  .object({
+    code: courseCodeSchema.optional(),
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(2000).optional().nullable(),
+    termLabel: z.string().trim().max(120).optional().nullable(),
+    startDate: isoDateString.optional().nullable(),
+    endDate: isoDateString.optional().nullable(),
+    status: z.enum(COURSE_STATUSES).optional(),
+    gradingPolicy: gradingPolicySchema.optional(),
+    bannerFileAssetId: z.string().uuid().nullable().optional(),
+    syllabusMd: z.string().max(50_000).nullable().optional(),
+    syllabusFileAssetId: z.string().uuid().nullable().optional(),
+  })
+  .refine(courseDatesOrderOk, {
+    message: 'startDate must be on or before endDate',
+    path: ['endDate'],
+  });
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
 
 export const enrollStudentSchema = z.object({

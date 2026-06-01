@@ -109,6 +109,9 @@ export interface CourseSummary {
   title: string;
   description: string | null;
   termLabel: string | null;
+  // Schedule window (ISO timestamps). Drive the course-home progress bar.
+  startDate: string | null;
+  endDate: string | null;
   status: CourseStatus;
   gradingPolicy: GradingPolicy | null;
   archivedAt: string | null;
