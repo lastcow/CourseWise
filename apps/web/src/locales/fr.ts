@@ -295,6 +295,7 @@ export const fr = {
       },
       overview: {
         quickLinks: 'Liens rapides',
+        progress: 'Progression du cours',
         needsGradingTitle: 'À noter',
         needsGradingDescription:
           'Éléments en attente de votre évaluation. Cliquez sur une tuile pour ouvrir la file.',

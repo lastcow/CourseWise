@@ -18,6 +18,7 @@ import type {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useMyGradebookDetail } from '@/lib/queries';
 
@@ -342,15 +343,6 @@ function GradeHero({ detail }: { detail: GradebookStudentDetail }): JSX.Element 
   );
 }
 
-function ProgressBar({ value }: { value: number }): JSX.Element {
-  const pct = Math.max(0, Math.min(100, value));
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-      <div className="h-full rounded-full bg-violet-500" style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
-
 function CategoryCard({ category }: { category: CategoryView }): JSX.Element {
   const { t } = useTranslation();
   const progress =
@@ -377,7 +369,7 @@ function CategoryCard({ category }: { category: CategoryView }): JSX.Element {
             })}
           </span>
         </div>
-        <ProgressBar value={progress} />
+        <Progress value={progress} />
       </CardHeader>
       <CardContent className="pt-0">
         {category.rows.length === 0 ? (
