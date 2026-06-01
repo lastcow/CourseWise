@@ -277,6 +277,7 @@ export const zhCN = {
       },
       overview: {
         quickLinks: '快捷入口',
+        progress: '课程进度',
         needsGradingTitle: '待批改',
         needsGradingDescription: '等待您评阅的内容。点击对应卡片可直接进入队列。',
         needsGradingEmpty: '当前没有待批改的内容。',
