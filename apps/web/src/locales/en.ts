@@ -293,6 +293,7 @@ export const en = {
       overview: {
         quickLinks: 'Quick links',
         progress: 'Course progress',
+        gradingProgress: 'Grading progress',
         needsGradingTitle: 'Needs grading',
         needsGradingDescription:
           'Items waiting for your review. Click a tile to jump into the queue.',
