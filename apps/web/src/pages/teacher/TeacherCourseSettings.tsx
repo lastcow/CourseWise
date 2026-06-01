@@ -32,6 +32,8 @@ export function TeacherCourseSettings(): JSX.Element {
   const [title, setTitle] = useState('');
   const [code, setCode] = useState('');
   const [termLabel, setTermLabel] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [description, setDescription] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -47,6 +49,9 @@ export function TeacherCourseSettings(): JSX.Element {
       setTitle(course.data.title);
       setCode(course.data.code);
       setTermLabel(course.data.termLabel ?? '');
+      // <input type="date"> wants YYYY-MM-DD; the API stores full ISO timestamps.
+      setStartDate(course.data.startDate ? course.data.startDate.slice(0, 10) : '');
+      setEndDate(course.data.endDate ? course.data.endDate.slice(0, 10) : '');
       setDescription(course.data.description ?? '');
     }
   }, [course.data]);
@@ -62,6 +67,10 @@ export function TeacherCourseSettings(): JSX.Element {
           title,
           code,
           termLabel: termLabel || null,
+          // Send midnight-UTC ISO so it satisfies the datetime validator; clearing
+          // the field sends null.
+          startDate: startDate ? `${startDate}T00:00:00.000Z` : null,
+          endDate: endDate ? `${endDate}T00:00:00.000Z` : null,
           description: description || null,
         },
       });
@@ -187,6 +196,26 @@ export function TeacherCourseSettings(): JSX.Element {
               <div className="space-y-1">
                 <Label htmlFor="term">{t('courses.term')}</Label>
                 <Input id="term" value={termLabel} onChange={(e) => setTermLabel(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="startDate">{t('courses.startDate')}</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={startDate}
+                  max={endDate || undefined}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="endDate">{t('courses.endDate')}</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
               </div>
             </div>
             <div className="space-y-1">

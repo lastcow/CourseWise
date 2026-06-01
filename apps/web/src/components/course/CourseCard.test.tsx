@@ -12,6 +12,8 @@ const base: CourseSummary = {
   title: 'Test Course',
   description: 'A short description.',
   termLabel: 'Spring 2026',
+  startDate: null,
+  endDate: null,
   status: 'active',
   gradingPolicy: null,
   archivedAt: null,
