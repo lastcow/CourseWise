@@ -17,10 +17,18 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { MarkdownView } from '@/components/ui/markdown';
-import { useCourse, useCourseGradingSummary } from '@/lib/queries';
+import { useCourse, useCourseGradingSummary, useFinalGrades } from '@/lib/queries';
 import { GenerateMaterialsDialog } from '@/components/ai/GenerateMaterialsDialog';
 import { GenerationHistoryCard } from '@/components/ai/GenerationHistoryCard';
 
@@ -101,6 +109,7 @@ export function TeacherCourseOverviewPage(): JSX.Element {
   const id = courseId ?? '';
   const course = useCourse(id);
   const grading = useCourseGradingSummary(id);
+  const finalGrades = useFinalGrades(id || null);
   const [aiOpen, setAiOpen] = useState(false);
 
   if (course.isLoading) return <p>{t('common.loading')}</p>;
@@ -116,6 +125,16 @@ export function TeacherCourseOverviewPage(): JSX.Element {
     (grading.data?.ungradedSubmissions ?? 0) +
     (grading.data?.ungradedQuizAnswers ?? 0) +
     (grading.data?.ungradedDiscussions ?? 0);
+
+  // Class grading progress = students with a computed final grade / enrolled.
+  // A teacher-meaningful analog of the student's course-progress bar; uses the
+  // same final-grades data the gradebook page already summarizes.
+  const finalRows = finalGrades.data ?? [];
+  const enrolled = finalRows.length;
+  const gradedStudents = finalRows.filter(
+    (g) => (g.teacherOverrideScore ?? g.score) !== null,
+  ).length;
+  const gradingProgressPct = enrolled > 0 ? (gradedStudents / enrolled) * 100 : 0;
 
   return (
     <div className="space-y-4">
@@ -149,6 +168,19 @@ export function TeacherCourseOverviewPage(): JSX.Element {
             <p className="text-sm text-muted-foreground">—</p>
           )}
         </CardContent>
+        {enrolled > 0 ? (
+          <CardFooter className="flex-col items-stretch gap-1.5 border-t pt-4">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium text-foreground">
+                {t('course.overview.gradingProgress')}
+              </span>
+              <span className="tabular-nums text-muted-foreground">
+                {gradedStudents}/{enrolled}
+              </span>
+            </div>
+            <Progress value={gradingProgressPct} />
+          </CardFooter>
+        ) : null}
       </Card>
 
       <Card>
