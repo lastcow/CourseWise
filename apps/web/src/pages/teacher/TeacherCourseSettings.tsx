@@ -193,6 +193,8 @@ export function TeacherCourseSettings(): JSX.Element {
                 <Label htmlFor="code">{t('courses.code')}</Label>
                 <Input id="code" required value={code} onChange={(e) => setCode(e.target.value)} />
               </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="space-y-1">
                 <Label htmlFor="term">{t('courses.term')}</Label>
                 <Input id="term" value={termLabel} onChange={(e) => setTermLabel(e.target.value)} />
