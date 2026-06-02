@@ -676,6 +676,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
         open={manageOpen}
         onClose={() => setManageOpen(false)}
         title={t('assignments.manageSetsTitle')}
+        className="max-w-3xl"
       >
         <p className="text-sm text-muted-foreground">{t('assignments.manageSetsHint')}</p>
         {setList.length === 0 ? (
@@ -683,7 +684,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
         ) : (
           <div className="mt-3 space-y-2">
             {setList.map((s) => (
-              <div key={s.id} className="flex flex-wrap items-center gap-2">
+              <div key={s.id} className="flex items-center gap-2">
                 <Input
                   defaultValue={s.name}
                   aria-label={t('assignments.setName')}
@@ -691,11 +692,11 @@ export function TeacherAssignmentsPage(): JSX.Element {
                     const next = e.target.value.trim();
                     if (next && next !== s.name) void onUpdateSetField(s.id, { name: next });
                   }}
-                  className="flex-1 min-w-[10rem]"
+                  className="min-w-0 flex-1"
                 />
                 <select
                   aria-label={t('assignments.setCategory')}
-                  className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-10 w-32 shrink-0 rounded-md border border-input bg-background px-2 text-sm"
                   value={s.groupId ?? ''}
                   onChange={(e) => void onUpdateSetField(s.id, { groupId: e.target.value || null })}
                 >
@@ -708,7 +709,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
                 </select>
                 <select
                   aria-label={t('assignments.setRule')}
-                  className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-10 w-28 shrink-0 rounded-md border border-input bg-background px-2 text-sm"
                   value={s.scoringRule}
                   onChange={(e) =>
                     void onUpdateSetField(s.id, {
@@ -719,12 +720,13 @@ export function TeacherAssignmentsPage(): JSX.Element {
                   <option value="average">{t('grading.setRuleAverage')}</option>
                   <option value="highest">{t('grading.setRuleHighest')}</option>
                 </select>
-                <span className="text-xs text-muted-foreground">
+                <span className="w-20 shrink-0 text-right text-xs text-muted-foreground">
                   {t('assignments.setMembers', { count: s.memberCount ?? 0 })}
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="shrink-0"
                   onClick={() => void onDeleteSet(s.id, s.name)}
                   disabled={deleteSet.isPending}
                 >
