@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import {
   type FinalGradeSummary,
   type GradebookAssignmentItem,
@@ -9,11 +9,13 @@ import {
   type GradebookStudentDetail,
   type GradingPolicySummary,
   type GroupScoreBreakdown,
+  type GroupScoreItem,
   type LetterGradeThreshold,
 } from '@coursewise/shared';
 import type { Db } from '../db/client';
 import {
   assignmentGroups,
+  assignmentSets,
   assignmentSubmissions,
   assignments,
   attendanceRecords,
@@ -73,10 +75,12 @@ interface ComputeFinalScoreInput {
     weight: number;
     items: Array<{
       id: string;
-      type: 'assignment' | 'quiz' | 'discussion';
+      type: 'assignment' | 'quiz' | 'discussion' | 'set';
       title: string;
       score: number | null;
       max: number;
+      // Only for type 'set': the member assignments behind the rolled-up score.
+      members?: GroupScoreItem[];
     }>;
   }>;
   attendance: { rate: number | null; weight: number };
@@ -86,6 +90,19 @@ interface ComputeFinalScoreResult {
   score: number | null;
   groups: GroupScoreBreakdown[];
   attendance: { rate: number; weight: number; weighted: number } | null;
+}
+
+// Roll a set's member percentages up to a single percentage per its rule.
+// `average` = mean of the scored members; `highest` = best-of. Returns null
+// when no member is scored (the set then drops out of its category).
+export function rollUpSetScore(
+  rule: 'average' | 'highest',
+  memberPercents: number[],
+): number | null {
+  if (memberPercents.length === 0) return null;
+  return rule === 'highest'
+    ? Math.max(...memberPercents)
+    : memberPercents.reduce((acc, p) => acc + p, 0) / memberPercents.length;
 }
 
 export function computeFinalScore(input: ComputeFinalScoreInput): ComputeFinalScoreResult {
@@ -112,6 +129,7 @@ export function computeFinalScore(input: ComputeFinalScoreInput): ComputeFinalSc
         title: i.title,
         score: i.score,
         max: i.max,
+        ...(i.members ? { members: i.members } : {}),
       })),
     };
   });
@@ -173,8 +191,19 @@ interface CourseGroupDef {
   discussionIds: string[];
 }
 
+// An assignment set rolls its member assignments up to one score (per `rule`)
+// that counts as a single item inside the category named by `groupId`.
+interface CourseSetDef {
+  id: string;
+  name: string;
+  rule: 'average' | 'highest';
+  groupId: string | null;
+  memberIds: string[];
+}
+
 interface CourseGradingContext {
   groups: CourseGroupDef[];
+  sets: CourseSetDef[];
   assignmentMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
   quizMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
   discussionMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
@@ -202,6 +231,21 @@ async function loadCourseGradingContext(
   }));
   const groupIndex = new Map(groups.map((g) => [g.id, g]));
 
+  // Assignment sets for this course (each rolls up to one item in its category).
+  const setRows = await db
+    .select()
+    .from(assignmentSets)
+    .where(eq(assignmentSets.courseId, courseId))
+    .orderBy(asc(assignmentSets.position));
+  const sets: CourseSetDef[] = setRows.map((s) => ({
+    id: s.id,
+    name: s.name,
+    rule: s.scoringRule,
+    groupId: s.groupId,
+    memberIds: [],
+  }));
+  const setIndex = new Map(sets.map((s) => [s.id, s]));
+
   const assignmentMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
   const quizMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
   const discussionMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
@@ -209,20 +253,40 @@ async function loadCourseGradingContext(
   const now = Date.now();
 
   if (groups.length > 0) {
+    // Pull assignments that belong either directly to a category (groupId) or to
+    // a set (setId). Set members are routed to their set (and excluded from the
+    // category's direct items) so they contribute only via the rolled-up score.
     const assignRows = await db
       .select({
         id: assignments.id,
         title: assignments.title,
         maxScore: assignments.maxScore,
         groupId: assignments.groupId,
+        setId: assignments.setId,
         status: assignments.status,
         startDate: assignments.startDate,
       })
       .from(assignments)
-      .where(and(eq(assignments.courseId, courseId), isNotNull(assignments.groupId)));
+      .where(
+        and(
+          eq(assignments.courseId, courseId),
+          or(isNotNull(assignments.groupId), isNotNull(assignments.setId)),
+        ),
+      );
     for (const a of assignRows) {
-      if (!a.groupId) continue;
       if (!isItemPosted({ status: a.status, startAt: a.startDate }, now)) continue;
+      // setId takes precedence over a direct groupId.
+      const set = a.setId ? setIndex.get(a.setId) : undefined;
+      if (set) {
+        set.memberIds.push(a.id);
+        assignmentMeta.set(a.id, {
+          groupId: set.groupId ?? '',
+          title: a.title,
+          maxScore: a.maxScore !== null ? Number(a.maxScore) : 100,
+        });
+        continue;
+      }
+      if (!a.groupId) continue;
       const g = groupIndex.get(a.groupId);
       if (!g) continue;
       g.assignmentIds.push(a.id);
@@ -297,6 +361,7 @@ async function loadCourseGradingContext(
 
   return {
     groups,
+    sets,
     assignmentMeta,
     quizMeta,
     discussionMeta,
@@ -444,7 +509,7 @@ function buildAlgorithmInput(
   studentScores: StudentItemScores,
   attendanceWeight: number,
 ): ComputeFinalScoreInput {
-  const groups = ctx.groups.map((g) => ({
+  const groups: ComputeFinalScoreInput['groups'] = ctx.groups.map((g) => ({
     id: g.id,
     name: g.name,
     weight: g.weight,
@@ -486,6 +551,41 @@ function buildAlgorithmInput(
       }),
     ],
   }));
+
+  // Append each set as ONE rolled-up item inside its category. The set's score
+  // is the average or best-of its scored members' percentages (members may have
+  // different maxScores, so we roll up on percentages); null if none scored, so
+  // it drops out of the category just like any unscored item.
+  const groupById = new Map(groups.map((g) => [g.id, g]));
+  for (const set of ctx.sets) {
+    if (!set.groupId) continue;
+    const target = groupById.get(set.groupId);
+    if (!target) continue;
+    const members: GroupScoreItem[] = set.memberIds.map((mid) => {
+      const meta = ctx.assignmentMeta.get(mid)!;
+      const score = studentScores.assignment.get(mid);
+      return {
+        itemId: mid,
+        itemType: 'assignment',
+        title: meta.title,
+        score: score !== undefined ? score : null,
+        max: meta.maxScore || 100,
+      };
+    });
+    const percents = members
+      .filter((m) => m.score !== null && m.max > 0)
+      .map((m) => (m.score! / m.max) * 100);
+    const rolled = rollUpSetScore(set.rule, percents);
+    target.items.push({
+      id: set.id,
+      type: 'set',
+      title: set.name,
+      score: rolled,
+      max: 100,
+      members,
+    });
+  }
+
   return {
     groups,
     attendance: { rate: studentScores.attendance.rate, weight: attendanceWeight },

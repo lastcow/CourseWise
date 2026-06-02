@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   BookOpen,
   ClipboardList,
+  Layers,
   MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
@@ -32,19 +34,22 @@ type RowTone = 'success' | 'warning' | 'muted';
 
 interface NormalizedRow {
   key: string;
-  type: 'assignment' | 'quiz' | 'discussion';
+  type: 'assignment' | 'quiz' | 'discussion' | 'set';
   title: string;
   score: number | null;
   max: number | null;
   statusLabel: string;
   statusTone: RowTone;
   feedback: string | null;
+  // Member rows of a set: indented and shown as not-counted context.
+  indent?: boolean;
 }
 
 const TYPE_ICON: Record<NormalizedRow['type'], LucideIcon> = {
   assignment: ClipboardList,
   quiz: BookOpen,
   discussion: MessageSquare,
+  set: Layers,
 };
 
 function fmt(n: number | null | undefined, digits = 1): string {
@@ -129,8 +134,8 @@ export function StudentGradePage(): JSX.Element {
 
   const view = useMemo(() => {
     if (!detail.data) return null;
-    return buildView(detail.data, normalizers);
-  }, [detail.data, normalizers]);
+    return buildView(detail.data, normalizers, t);
+  }, [detail.data, normalizers, t]);
 
   if (detail.isLoading) {
     return <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>;
@@ -222,6 +227,7 @@ function buildView(
     quiz: (q: GradebookQuizItem) => NormalizedRow;
     discussion: (d: GradebookDiscussionItem) => NormalizedRow;
   },
+  t: TFunction,
 ): GradeView {
   const assignments = new Map(d.assignments.items.map((a) => [a.assignmentId, a]));
   const quizzes = new Map(d.quizzes.items.map((q) => [q.quizId, q]));
@@ -246,7 +252,36 @@ function buildView(
     const rows: NormalizedRow[] = [];
     for (const item of g.detail) {
       seen.add(item.itemId);
-      const row = rowFor(item.itemId, item.itemType);
+      if (item.itemType === 'set') {
+        // The set's rolled-up row (this is what counts), followed by its member
+        // assignments as indented, not-counted context.
+        rows.push({
+          key: `set-${item.itemId}`,
+          type: 'set',
+          title: item.title,
+          score: item.score,
+          max: item.max,
+          statusLabel: item.score !== null ? t('grading.graded') : t('grading.awaitingGrade'),
+          statusTone: item.score !== null ? 'success' : 'muted',
+          feedback: null,
+        });
+        for (const m of item.members ?? []) {
+          seen.add(m.itemId);
+          rows.push({
+            key: `setmember-${m.itemId}`,
+            type: 'assignment',
+            title: m.title,
+            score: m.score,
+            max: m.max,
+            statusLabel: m.score !== null ? t('grading.graded') : t('grading.notSubmitted'),
+            statusTone: 'muted',
+            feedback: null,
+            indent: true,
+          });
+        }
+        continue;
+      }
+      const row = rowFor(item.itemId, item.itemType as 'assignment' | 'quiz' | 'discussion');
       if (row) rows.push(row);
     }
     return {
@@ -401,7 +436,7 @@ function ItemTable({ rows }: { rows: NormalizedRow[] }): JSX.Element {
             const pct = percent(row.score, row.max);
             return (
               <tr key={row.key} className="border-b align-top last:border-0">
-                <td className="py-2.5 pr-3">
+                <td className={cn('py-2.5 pr-3', row.indent && 'pl-6')}>
                   <div className="flex items-start gap-2">
                     <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                     <div>

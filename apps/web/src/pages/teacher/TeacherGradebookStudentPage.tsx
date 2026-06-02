@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+import { Layers } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ATTENDANCE_STATUSES, type AttendanceStatus } from '@coursewise/shared';
 import type {
   GradebookAssignmentItem,
@@ -282,6 +284,44 @@ function GroupCard({
               </thead>
               <tbody>
                 {group.detail.map((item) => {
+                  if (item.itemType === 'set') {
+                    // Read-only rolled-up row (this is what counts), followed by
+                    // the member assignments as indented, individually-editable rows.
+                    return (
+                      <Fragment key={`set-${item.itemId}`}>
+                        <tr className="border-b bg-muted/30">
+                          <td className="py-2 pr-3 font-medium">
+                            <span className="inline-flex items-center gap-1.5">
+                              <Layers className="h-4 w-4 text-muted-foreground" />
+                              {item.title}
+                            </span>
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              {t('grading.setRowCounts')}
+                            </span>
+                          </td>
+                          <td className="py-2 pr-3 font-mono tabular-nums">
+                            {item.score !== null ? item.score.toFixed(1) : '—'}
+                          </td>
+                          <td className="py-2 pr-3 font-mono tabular-nums">{item.max}</td>
+                          <td className="py-2 pr-3" />
+                          <td className="py-2" />
+                        </tr>
+                        {(item.members ?? []).map((m) => {
+                          const a = lookups.assignments.get(m.itemId);
+                          if (!a) return null;
+                          return (
+                            <AssignmentRow
+                              key={`a-${m.itemId}`}
+                              studentId={studentId}
+                              item={a}
+                              onSaved={onSaved}
+                              indent
+                            />
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  }
                   if (item.itemType === 'assignment') {
                     const a = lookups.assignments.get(item.itemId);
                     if (!a) return null;
@@ -424,10 +464,12 @@ function AttendanceRow({
 function AssignmentRow({
   item,
   onSaved,
+  indent,
 }: {
   studentId: string;
   item: GradebookAssignmentItem;
   onSaved: () => Promise<void>;
+  indent?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const grade = useGradeSubmission(item.assignmentId);
@@ -465,7 +507,7 @@ function AssignmentRow({
 
   return (
     <tr className="border-b align-top last:border-0">
-      <td className="py-2 pr-3">
+      <td className={cn('py-2 pr-3', indent && 'pl-6')}>
         <div>{item.title}</div>
         {item.feedback || canEdit ? (
           <Input

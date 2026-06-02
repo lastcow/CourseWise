@@ -452,6 +452,7 @@ export const updateAssignmentSchema = z
     description: z.string().trim().max(20_000).optional().nullable(),
     moduleId: z.string().uuid().optional().nullable(),
     groupId: z.string().uuid().nullable().optional(),
+    setId: z.string().uuid().nullable().optional(),
     dueDate: isoDateString.optional().nullable(),
     startDate: isoDateString.optional().nullable(),
     endDate: isoDateString.optional().nullable(),
@@ -1065,6 +1066,25 @@ export const reorderAssignmentGroupsSchema = z.object({
   orderedIds: z.array(z.string().uuid()).min(1),
 });
 export type ReorderAssignmentGroupsInput = z.infer<typeof reorderAssignmentGroupsSchema>;
+
+// ---------- Assignment sets (avg / best-of bundles) ----------
+export const ASSIGNMENT_SET_RULES = ['average', 'highest'] as const;
+
+export const createAssignmentSetSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  groupId: z.string().uuid().nullable().optional(),
+  scoringRule: z.enum(ASSIGNMENT_SET_RULES).optional(),
+  position: z.number().int().min(0).optional(),
+});
+export type CreateAssignmentSetInput = z.infer<typeof createAssignmentSetSchema>;
+
+export const updateAssignmentSetSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  groupId: z.string().uuid().nullable().optional(),
+  scoringRule: z.enum(ASSIGNMENT_SET_RULES).optional(),
+  position: z.number().int().min(0).optional(),
+});
+export type UpdateAssignmentSetInput = z.infer<typeof updateAssignmentSetSchema>;
 
 // ---------- Student groups ----------
 

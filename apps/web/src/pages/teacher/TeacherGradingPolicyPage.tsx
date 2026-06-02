@@ -8,10 +8,14 @@ import { Input, Label } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import {
   useAssignmentGroups,
+  useAssignmentSets,
   useCreateAssignmentGroup,
+  useCreateAssignmentSet,
   useDeleteAssignmentGroup,
+  useDeleteAssignmentSet,
   useGradingPolicy,
   useUpdateAssignmentGroup,
+  useUpdateAssignmentSet,
   useUpdateGradingPolicy,
 } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
@@ -26,6 +30,10 @@ export function TeacherGradingPolicyPage(): JSX.Element {
   const createGroup = useCreateAssignmentGroup(cid);
   const updateGroup = useUpdateAssignmentGroup(cid);
   const deleteGroup = useDeleteAssignmentGroup(cid);
+  const sets = useAssignmentSets(cid || undefined);
+  const createSet = useCreateAssignmentSet(cid);
+  const updateSet = useUpdateAssignmentSet(cid);
+  const deleteSet = useDeleteAssignmentSet(cid);
   const toast = useToast();
 
   const [attendanceWeight, setAttendanceWeight] = useState<number>(10);
@@ -78,6 +86,37 @@ export function TeacherGradingPolicyPage(): JSX.Element {
     if (!confirm(t('grading.groupDeleteConfirm', { name }))) return;
     try {
       await deleteGroup.mutateAsync(groupId);
+    } catch (err) {
+      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+    }
+  }
+
+  const setList = sets.data ?? [];
+
+  async function onAddSet() {
+    try {
+      await createSet.mutateAsync({ name: t('grading.newSetDefaultName'), scoringRule: 'average' });
+    } catch (err) {
+      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+    }
+  }
+
+  async function onUpdateSetField(
+    setId: string,
+    patch: { name?: string; groupId?: string | null; scoringRule?: 'average' | 'highest' },
+  ) {
+    try {
+      await updateSet.mutateAsync({ setId, ...patch });
+    } catch (err) {
+      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+    }
+  }
+
+  async function onDeleteSet(setId: string, name: string) {
+    // eslint-disable-next-line no-alert
+    if (!confirm(t('grading.setDeleteConfirm', { name }))) return;
+    try {
+      await deleteSet.mutateAsync(setId);
     } catch (err) {
       toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
     }
@@ -205,6 +244,86 @@ export function TeacherGradingPolicyPage(): JSX.Element {
                   {t('grading.groupsImbalanced', { total: totalWeight })}
                 </div>
               ) : null}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('grading.setsCardTitle')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {sets.isLoading ? (
+            <p>{t('common.loading')}</p>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{t('grading.setsCardHint')}</p>
+              {setList.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('grading.setsEmpty')}</p>
+              ) : (
+                <div className="space-y-2">
+                  {setList.map((s) => (
+                    <div key={s.id} className="flex flex-wrap items-center gap-2">
+                      <Input
+                        defaultValue={s.name}
+                        aria-label={t('grading.setNameAria')}
+                        onBlur={(e) => {
+                          const next = e.target.value.trim();
+                          if (next && next !== s.name) {
+                            void onUpdateSetField(s.id, { name: next });
+                          }
+                        }}
+                        className="flex-1 min-w-[12rem]"
+                      />
+                      <select
+                        aria-label={t('grading.setCategoryAria')}
+                        className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={s.groupId ?? ''}
+                        onChange={(e) =>
+                          void onUpdateSetField(s.id, { groupId: e.target.value || null })
+                        }
+                      >
+                        <option value="">{t('grading.setNoCategory')}</option>
+                        {groupList.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        aria-label={t('grading.setRuleAria')}
+                        className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={s.scoringRule}
+                        onChange={(e) =>
+                          void onUpdateSetField(s.id, {
+                            scoringRule: e.target.value as 'average' | 'highest',
+                          })
+                        }
+                      >
+                        <option value="average">{t('grading.setRuleAverage')}</option>
+                        <option value="highest">{t('grading.setRuleHighest')}</option>
+                      </select>
+                      <span className="text-sm text-muted-foreground">
+                        {t('grading.setMembers', { count: s.memberCount ?? 0 })}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void onDeleteSet(s.id, s.name)}
+                        disabled={deleteSet.isPending}
+                      >
+                        {t('grading.setDelete')}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div>
+                <Button variant="outline" onClick={onAddSet} disabled={createSet.isPending}>
+                  {t('grading.setAdd')}
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
