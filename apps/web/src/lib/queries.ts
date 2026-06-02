@@ -922,6 +922,11 @@ export function useUpdateAssignment(courseId: string) {
     onSuccess: (_d, v) => {
       void qc.invalidateQueries({ queryKey: ['assignments', courseId] });
       void qc.invalidateQueries({ queryKey: ['assignment', v.id] });
+      // setId changes a set's membership (member counts) and the final-grade
+      // roll-up, so refresh those views too.
+      void qc.invalidateQueries({ queryKey: ['assignment-sets', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
     },
   });
 }
