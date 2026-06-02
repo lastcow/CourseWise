@@ -74,7 +74,7 @@ function StatusIcon({ status }: { status: AssignmentSummary['status'] }): JSX.El
     <span
       aria-label={label}
       title={label}
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-md border bg-transparent ${tone}`}
+      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-transparent ${tone}`}
     >
       <Icon className="h-4 w-4" aria-hidden />
     </span>
@@ -349,6 +349,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
                         icon={FolderInput}
                         label={t('assignments.linkModuleAction')}
                         color="sky"
+                        className="shrink-0"
                         onClick={() => {
                           setMoveModuleId(a.moduleId ?? '');
                           setMoveTarget(a);
