@@ -544,6 +544,38 @@ export const assignmentGroups = pgTable(
 
 export type AssignmentGroupRow = typeof assignmentGroups.$inferSelect;
 
+// Roll-up rule for an assignment set: how its member assignments collapse to a
+// single score that then counts as one item inside a weighted category.
+export const assignmentSetRuleEnum = pgEnum('assignment_set_rule', ['average', 'highest']);
+
+// Assignment set: a bundle of selected assignments whose members are graded
+// individually but contribute ONE rolled-up score (average / best-of) to the
+// weighted category referenced by `groupId`. Distinct from "group sets"
+// (groupSets / groupSetId), which are student collaboration groups.
+export const assignmentSets = pgTable(
+  'assignment_sets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id').references(() => assignmentGroups.id, { onDelete: 'set null' }),
+    name: text('name').notNull(),
+    scoringRule: assignmentSetRuleEnum('scoring_rule').notNull().default('average'),
+    position: integer('position').notNull(),
+    ...timestamps,
+  },
+  (t) => ({
+    courseIdx: index('assignment_sets_course_idx').on(t.courseId),
+    nameUnique: uniqueIndex('assignment_sets_course_name_idx').on(
+      t.courseId,
+      sql`lower(${t.name})`,
+    ),
+  }),
+);
+
+export type AssignmentSetRow = typeof assignmentSets.$inferSelect;
+
 export const assignments = pgTable(
   'assignments',
   {
@@ -553,6 +585,9 @@ export const assignments = pgTable(
       .references(() => courses.id, { onDelete: 'cascade' }),
     moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
     groupId: uuid('group_id').references(() => assignmentGroups.id, { onDelete: 'set null' }),
+    // Membership in an assignment set (mutually exclusive with a direct
+    // `groupId` for grading purposes — when set, the set supplies the category).
+    setId: uuid('set_id').references(() => assignmentSets.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     description: text('description'),
     dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),

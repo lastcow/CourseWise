@@ -344,6 +344,9 @@ export interface AssignmentSummary {
   courseId: string;
   moduleId: string | null;
   groupId: string | null;
+  // Assignment-set membership (mutually exclusive with a direct groupId for
+  // grading); null when the assignment isn't in a set.
+  setId: string | null;
   title: string;
   description: string | null;
   dueDate: string | null;
@@ -705,10 +708,32 @@ export interface AssignmentGroup {
 
 export interface GroupScoreItem {
   itemId: string;
-  itemType: 'assignment' | 'quiz' | 'discussion';
+  // 'set' is a rolled-up assignment set (see AssignmentSet) that contributes a
+  // single score to its category; `members` carries the per-assignment detail.
+  itemType: 'assignment' | 'quiz' | 'discussion' | 'set';
   title: string;
   score: number | null;
   max: number;
+  // Only present when itemType === 'set': the individual member assignments and
+  // their scores, for display beneath the set's rolled-up row.
+  members?: GroupScoreItem[];
+}
+
+// Roll-up rule for an assignment set.
+export type AssignmentSetRule = 'average' | 'highest';
+
+// A bundle of assignments graded individually but contributing ONE rolled-up
+// score (per scoringRule) to the weighted category referenced by groupId.
+export interface AssignmentSet {
+  id: string;
+  courseId: string;
+  groupId: string | null;
+  name: string;
+  scoringRule: AssignmentSetRule;
+  position: number;
+  memberCount?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GroupScoreBreakdown {

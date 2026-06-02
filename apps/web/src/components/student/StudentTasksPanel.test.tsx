@@ -17,6 +17,7 @@ function assignment(over: Partial<AssignmentSummary> = {}): AssignmentSummary {
     courseId: 'c1',
     moduleId: null,
     groupId: null,
+    setId: null,
     title: 'Essay',
     description: null,
     dueDate: FUTURE,

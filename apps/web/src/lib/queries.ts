@@ -3,6 +3,8 @@ import type {
   AdminDashboardResponse,
   AiArtifactKind,
   AssignmentGroup,
+  AssignmentSet,
+  AssignmentSetRule,
   AiModelSummary,
   AiPromptTemplate,
   AiProviderSummary,
@@ -1755,6 +1757,77 @@ export function useReorderAssignmentGroups(courseId: string) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['assignment-groups', courseId] });
+    },
+  });
+}
+
+// ---------- Assignment sets (avg / best-of bundles) ----------
+export function useAssignmentSets(courseId: string | undefined) {
+  return useQuery({
+    queryKey: ['assignment-sets', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<AssignmentSet[]>(`/api/courses/${courseId}/assignment-sets`),
+  });
+}
+
+export function useCreateAssignmentSet(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      name: string;
+      groupId?: string | null;
+      scoringRule?: AssignmentSetRule;
+      position?: number;
+    }) =>
+      apiCall<AssignmentSet>(`/api/courses/${courseId}/assignment-sets`, {
+        method: 'POST',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['assignment-sets', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
+    },
+  });
+}
+
+export function useUpdateAssignmentSet(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      setId,
+      ...patch
+    }: {
+      setId: string;
+      name?: string;
+      groupId?: string | null;
+      scoringRule?: AssignmentSetRule;
+      position?: number;
+    }) =>
+      apiCall<AssignmentSet>(`/api/courses/${courseId}/assignment-sets/${setId}`, {
+        method: 'PATCH',
+        body: patch,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['assignment-sets', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
+    },
+  });
+}
+
+export function useDeleteAssignmentSet(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (setId: string) =>
+      apiCall<{ id: string; orphanedItemCount: number }>(
+        `/api/courses/${courseId}/assignment-sets/${setId}`,
+        { method: 'DELETE' },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['assignment-sets', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
     },
   });
 }

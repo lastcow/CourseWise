@@ -10,6 +10,7 @@ import {
   uploadFile,
   useAssignment,
   useAssignmentGroups,
+  useAssignmentSets,
   useCreateAssignment,
   useGroupSets,
   useUpdateAssignment,
@@ -27,6 +28,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
   const create = useCreateAssignment(cId);
   const update = useUpdateAssignment(cId);
   const groups = useAssignmentGroups(cId);
+  const sets = useAssignmentSets(cId);
   const groupSets = useGroupSets(cId);
   const toast = useToast();
 
@@ -40,6 +42,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
   const [allowLate, setAllowLate] = useState(false);
   const [attachmentFileId, setAttachmentFileId] = useState<string | null>(null);
   const [groupId, setGroupId] = useState<string | null>(null);
+  const [setId, setSetId] = useState<string | null>(null);
   const [submissionMode, setSubmissionMode] = useState<SubmissionMode>('individual');
   const [groupSetId, setGroupSetId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -61,6 +64,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       setAllowLate(existing.data.allowLateSubmission);
       setAttachmentFileId(existing.data.attachmentFileId);
       setGroupId(existing.data.groupId ?? null);
+      setSetId(existing.data.setId ?? null);
       setSubmissionMode(existing.data.submissionMode);
       setGroupSetId(existing.data.groupSetId ?? null);
     }
@@ -122,7 +126,9 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       maxScore: maxScore === '' ? null : Number(maxScore),
       allowLateSubmission: allowLate,
       attachmentFileId: attachmentFileId ?? null,
-      groupId,
+      // A set supplies its own category, so the two are mutually exclusive.
+      groupId: setId ? null : groupId,
+      setId,
       submissionMode,
       groupSetId: submissionMode === 'group' ? groupSetId : null,
     };
@@ -237,17 +243,47 @@ export function TeacherAssignmentFormPage(): JSX.Element {
               <select
                 id="a-group"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={groupId ?? ''}
-                onChange={(e) => setGroupId(e.target.value || null)}
-                disabled={groups.isLoading}
+                // Encode the choice as group:<id> / set:<id> so one dropdown can
+                // pick either a weighted category or an assignment set.
+                value={setId ? `set:${setId}` : groupId ? `group:${groupId}` : ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v.startsWith('set:')) {
+                    setSetId(v.slice(4));
+                    setGroupId(null);
+                  } else if (v.startsWith('group:')) {
+                    setGroupId(v.slice(6));
+                    setSetId(null);
+                  } else {
+                    setGroupId(null);
+                    setSetId(null);
+                  }
+                }}
+                disabled={groups.isLoading || sets.isLoading}
               >
                 <option value="">{t('assignments.unassignedGroup')}</option>
-                {(groups.data ?? []).map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
+                {(groups.data ?? []).length > 0 ? (
+                  <optgroup label={t('assignments.groupOptCategories')}>
+                    {(groups.data ?? []).map((g) => (
+                      <option key={g.id} value={`group:${g.id}`}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
+                {(sets.data ?? []).length > 0 ? (
+                  <optgroup label={t('assignments.groupOptSets')}>
+                    {(sets.data ?? []).map((s) => (
+                      <option key={s.id} value={`set:${s.id}`}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
               </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('assignments.groupSetHint')}
+              </p>
             </div>
             <fieldset className="space-y-2 rounded-md border p-3">
               <legend className="px-1 text-sm font-medium">

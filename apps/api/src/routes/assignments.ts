@@ -28,6 +28,7 @@ import {
   assignments,
   enrollments,
   fileAssets,
+  finalGrades,
   groupMemberships,
   groupSets,
   groupSubmissions,
@@ -70,6 +71,7 @@ function toAssignmentSummary(
     courseId: row.courseId,
     moduleId: row.moduleId ?? null,
     groupId: row.groupId ?? null,
+    setId: row.setId ?? null,
     title: row.title,
     description: row.description ?? null,
     dueDate: row.dueDate ?? null,
@@ -484,6 +486,12 @@ r.patch(
     if (input.description !== undefined) patch.description = input.description;
     if (input.moduleId !== undefined) patch.moduleId = input.moduleId;
     if (input.groupId !== undefined) patch.groupId = input.groupId;
+    if (input.setId !== undefined) {
+      patch.setId = input.setId;
+      // A set supplies its own category; clear any direct group membership so
+      // the assignment doesn't count both directly and via the set's roll-up.
+      if (input.setId !== null) patch.groupId = null;
+    }
     if (input.dueDate !== undefined) patch.dueDate = input.dueDate;
     if (input.startDate !== undefined) patch.startDate = input.startDate;
     if (input.endDate !== undefined) patch.endDate = input.endDate;
@@ -551,6 +559,15 @@ r.patch(
       .where(eq(assignments.id, id))
       .returning();
     if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Assignment not found');
+
+    // Group / set membership changes the rolled-up grade contribution, so flag
+    // the course's final grades stale (recomputed on the next Recalculate).
+    if (patch.setId !== undefined || patch.groupId !== undefined) {
+      await db
+        .update(finalGrades)
+        .set({ isOutdated: true, updatedAt: new Date().toISOString() })
+        .where(eq(finalGrades.courseId, row.courseId));
+    }
 
     await recordAudit(db, {
       actorType: auth.method === 'jwt' ? 'user' : 'api_token',
