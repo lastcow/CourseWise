@@ -8,13 +8,16 @@ import {
   CircleCheck,
   FolderInput,
   Inbox,
+  Layers,
   Lock,
   RefreshCw,
   SquarePen,
   Trash2,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
+import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
 import { Input, Label } from '@/components/ui/input';
 import { stripMarkdown } from '@/components/ui/markdown';
@@ -28,11 +31,16 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import {
+  useAssignmentGroups,
+  useAssignmentSets,
   useAssignmentsList,
+  useCreateAssignmentSet,
   useDeleteAssignment,
+  useDeleteAssignmentSet,
   useModulesList,
   useTransitionAssignment,
   useUpdateAssignment,
+  useUpdateAssignmentSet,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -83,6 +91,11 @@ export function TeacherAssignmentsPage(): JSX.Element {
   const del = useDeleteAssignment(id);
   const update = useUpdateAssignment(id);
   const modulesQ = useModulesList(id || null);
+  const groupsQ = useAssignmentGroups(id || undefined);
+  const setsQ = useAssignmentSets(id || undefined);
+  const createSet = useCreateAssignmentSet(id);
+  const updateSet = useUpdateAssignmentSet(id);
+  const deleteSet = useDeleteAssignmentSet(id);
   const toast = useToast();
 
   const [deleteTarget, setDeleteTarget] = useState<AssignmentSummary | null>(null);
@@ -93,7 +106,20 @@ export function TeacherAssignmentsPage(): JSX.Element {
   const [moveModuleId, setMoveModuleId] = useState<string>('');
   const [search, setSearch] = useState('');
 
+  // Multi-select → assignment-set assignment.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [setMode, setSetMode] = useState<'new' | 'existing'>('new');
+  const [newSetName, setNewSetName] = useState('');
+  const [newSetCategory, setNewSetCategory] = useState('');
+  const [newSetRule, setNewSetRule] = useState<'average' | 'highest'>('average');
+  const [existingSetId, setExistingSetId] = useState('');
+
   const moduleTitleById = new Map((modulesQ.data ?? []).map((m) => [m.id, m.title]));
+  const setById = new Map((setsQ.data ?? []).map((s) => [s.id, s]));
+  const groupList = groupsQ.data ?? [];
+  const setList = setsQ.data ?? [];
 
   const filteredAssignments = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -106,6 +132,89 @@ export function TeacherAssignmentsPage(): JSX.Element {
     // moduleTitleById is rebuilt every render from modulesQ.data, so depend on
     // the underlying data rather than the Map identity.
   }, [search, list.data, modulesQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const allVisibleSelected =
+    filteredAssignments.length > 0 && filteredAssignments.every((a) => selectedIds.has(a.id));
+
+  function toggleRow(aid: string): void {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(aid)) next.delete(aid);
+      else next.add(aid);
+      return next;
+    });
+  }
+
+  function toggleAll(): void {
+    setSelectedIds(allVisibleSelected ? new Set() : new Set(filteredAssignments.map((a) => a.id)));
+  }
+
+  async function onGroupIntoSet(): Promise<void> {
+    try {
+      let targetSetId = existingSetId;
+      if (setMode === 'new') {
+        if (!newSetName.trim()) {
+          toast.push({ title: t('assignments.setNameRequired'), tone: 'error' });
+          return;
+        }
+        const created = await createSet.mutateAsync({
+          name: newSetName.trim(),
+          groupId: newSetCategory || null,
+          scoringRule: newSetRule,
+        });
+        targetSetId = created.id;
+      }
+      if (!targetSetId) {
+        toast.push({ title: t('assignments.setPickRequired'), tone: 'error' });
+        return;
+      }
+      await Promise.all(
+        [...selectedIds].map((aid) => update.mutateAsync({ id: aid, input: { setId: targetSetId } })),
+      );
+      toast.push({ title: t('assignments.setAssigned'), tone: 'success' });
+      setGroupDialogOpen(false);
+      setSelectedIds(new Set());
+      setNewSetName('');
+      setNewSetCategory('');
+      setNewSetRule('average');
+      setExistingSetId('');
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  }
+
+  async function onRemoveFromSet(aid: string): Promise<void> {
+    try {
+      await update.mutateAsync({ id: aid, input: { setId: null } });
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  }
+
+  async function onUpdateSetField(
+    setId: string,
+    patch: { name?: string; groupId?: string | null; scoringRule?: 'average' | 'highest' },
+  ): Promise<void> {
+    try {
+      await updateSet.mutateAsync({ setId, ...patch });
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  }
+
+  async function onDeleteSet(setId: string, name: string): Promise<void> {
+    // eslint-disable-next-line no-alert
+    if (!confirm(t('assignments.setDeleteConfirm', { name }))) return;
+    try {
+      await deleteSet.mutateAsync(setId);
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -122,6 +231,19 @@ export function TeacherAssignmentsPage(): JSX.Element {
             placeholder={t('assignments.searchPlaceholder')}
             className="h-8 w-56"
           />
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={selectedIds.size === 0}
+            onClick={() => setGroupDialogOpen(true)}
+          >
+            <Layers className="h-4 w-4" aria-hidden />
+            {t('assignments.groupIntoSet', { count: selectedIds.size })}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setManageOpen(true)}>
+            {t('assignments.manageSets')}
+          </Button>
           <div className="ml-auto flex items-center gap-1.5">
           <Button variant="outline" size="sm" asChild>
             <Link to={`/teacher/courses/${id}/assignments/new`}>{t('assignments.newCta')}</Link>
@@ -153,7 +275,17 @@ export function TeacherAssignmentsPage(): JSX.Element {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8">
+                  <input
+                    type="checkbox"
+                    aria-label={t('assignments.selectAll')}
+                    checked={allVisibleSelected}
+                    onChange={toggleAll}
+                    className="h-4 w-4 cursor-pointer align-middle"
+                  />
+                </TableHead>
                 <TableHead>{t('assignments.colTitle')}</TableHead>
+                <TableHead>{t('assignments.colSet')}</TableHead>
                 <TableHead>{t('assignments.colDescription')}</TableHead>
                 <TableHead>{t('assignments.colModule')}</TableHead>
                 <TableHead>{t('assignments.colDue')}</TableHead>
@@ -163,7 +295,16 @@ export function TeacherAssignmentsPage(): JSX.Element {
             </TableHeader>
             <TableBody>
               {filteredAssignments.map((a) => (
-                <TableRow key={a.id}>
+                <TableRow key={a.id} data-state={selectedIds.has(a.id) ? 'selected' : undefined}>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      aria-label={t('assignments.selectRow', { title: a.title })}
+                      checked={selectedIds.has(a.id)}
+                      onChange={() => toggleRow(a.id)}
+                      className="h-4 w-4 cursor-pointer align-middle"
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <StatusIcon status={a.status} />
@@ -174,6 +315,25 @@ export function TeacherAssignmentsPage(): JSX.Element {
                         {a.title}
                       </Link>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {a.setId && setById.get(a.setId) ? (
+                      <Badge variant="secondary" className="gap-1">
+                        <Layers className="h-3 w-3" aria-hidden />
+                        {setById.get(a.setId)!.name}
+                        <button
+                          type="button"
+                          aria-label={t('assignments.removeFromSet')}
+                          title={t('assignments.removeFromSet')}
+                          onClick={() => void onRemoveFromSet(a.id)}
+                          className="ml-0.5 rounded hover:text-foreground"
+                        >
+                          <X className="h-3 w-3" aria-hidden />
+                        </button>
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="max-w-[24ch] text-muted-foreground">
                     <span className="line-clamp-1">
@@ -407,6 +567,176 @@ export function TeacherAssignmentsPage(): JSX.Element {
             }}
           >
             {t('common.save')}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={groupDialogOpen}
+        onClose={() => setGroupDialogOpen(false)}
+        title={t('assignments.setDialogTitle', { count: selectedIds.size })}
+        dismissOnBackdropClick={false}
+      >
+        <div className="space-y-3">
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="set-mode"
+                checked={setMode === 'new'}
+                onChange={() => setSetMode('new')}
+              />
+              {t('assignments.setModeNew')}
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="set-mode"
+                checked={setMode === 'existing'}
+                onChange={() => setSetMode('existing')}
+                disabled={setList.length === 0}
+              />
+              {t('assignments.setModeExisting')}
+            </label>
+          </div>
+
+          {setMode === 'new' ? (
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor="set-name">{t('assignments.setName')}</Label>
+                <Input
+                  id="set-name"
+                  value={newSetName}
+                  onChange={(e) => setNewSetName(e.target.value)}
+                  placeholder={t('assignments.setNamePlaceholder')}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="set-category">{t('assignments.setCategory')}</Label>
+                <select
+                  id="set-category"
+                  value={newSetCategory}
+                  onChange={(e) => setNewSetCategory(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">{t('assignments.setNoCategory')}</option>
+                  {groupList.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="set-rule">{t('assignments.setRule')}</Label>
+                <select
+                  id="set-rule"
+                  value={newSetRule}
+                  onChange={(e) => setNewSetRule(e.target.value as 'average' | 'highest')}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="average">{t('grading.setRuleAverage')}</option>
+                  <option value="highest">{t('grading.setRuleHighest')}</option>
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor="set-existing">{t('assignments.setExisting')}</Label>
+              <select
+                id="set-existing"
+                value={existingSetId}
+                onChange={(e) => setExistingSetId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">{t('assignments.setPickPlaceholder')}</option>
+                {setList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setGroupDialogOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            disabled={createSet.isPending || update.isPending}
+            onClick={() => void onGroupIntoSet()}
+          >
+            {t('assignments.setAssignCta')}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        title={t('assignments.manageSetsTitle')}
+      >
+        <p className="text-sm text-muted-foreground">{t('assignments.manageSetsHint')}</p>
+        {setList.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">{t('assignments.setsEmpty')}</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {setList.map((s) => (
+              <div key={s.id} className="flex flex-wrap items-center gap-2">
+                <Input
+                  defaultValue={s.name}
+                  aria-label={t('assignments.setName')}
+                  onBlur={(e) => {
+                    const next = e.target.value.trim();
+                    if (next && next !== s.name) void onUpdateSetField(s.id, { name: next });
+                  }}
+                  className="flex-1 min-w-[10rem]"
+                />
+                <select
+                  aria-label={t('assignments.setCategory')}
+                  className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                  value={s.groupId ?? ''}
+                  onChange={(e) => void onUpdateSetField(s.id, { groupId: e.target.value || null })}
+                >
+                  <option value="">{t('assignments.setNoCategory')}</option>
+                  {groupList.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label={t('assignments.setRule')}
+                  className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                  value={s.scoringRule}
+                  onChange={(e) =>
+                    void onUpdateSetField(s.id, {
+                      scoringRule: e.target.value as 'average' | 'highest',
+                    })
+                  }
+                >
+                  <option value="average">{t('grading.setRuleAverage')}</option>
+                  <option value="highest">{t('grading.setRuleHighest')}</option>
+                </select>
+                <span className="text-xs text-muted-foreground">
+                  {t('assignments.setMembers', { count: s.memberCount ?? 0 })}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void onDeleteSet(s.id, s.name)}
+                  disabled={deleteSet.isPending}
+                >
+                  {t('common.delete')}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={() => setManageOpen(false)}>
+            {t('common.close')}
           </Button>
         </div>
       </Dialog>
