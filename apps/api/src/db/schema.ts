@@ -113,6 +113,12 @@ export const r2CleanupJobStatusEnum = pgEnum('r2_cleanup_job_status', [
   'done',
   'failed',
 ]);
+export const courseExportStatusEnum = pgEnum('course_export_status', [
+  'pending',
+  'running',
+  'done',
+  'failed',
+]);
 export const aiArtifactKindEnum = pgEnum('ai_artifact_kind', [
   'material',
   'presentation',
@@ -1341,6 +1347,41 @@ export const r2CleanupJobs = pgTable(
       .where(sql`${t.status} in ('pending', 'running', 'failed')`),
   }),
 );
+
+// Teacher-requested course export: an async job that builds an organized ZIP
+// (reading materials + gradable items + submissions + scores) into R2, then
+// emails the requester an authenticated download link. The zip object is
+// expired/cleaned by the nightly cron once `expires_at` has passed.
+export const courseExportJobs = pgTable(
+  'course_export_jobs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    requestedById: uuid('requested_by_id').references(() => users.id, { onDelete: 'set null' }),
+    status: courseExportStatusEnum('status').notNull().default('pending'),
+    objectKey: text('object_key'),
+    sizeBytes: integer('size_bytes'),
+    error: text('error'),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
+  },
+  (t) => ({
+    courseCreatedIdx: index('course_export_jobs_course_created_idx').on(t.courseId, t.createdAt),
+    expiresIdx: index('course_export_jobs_expires_idx')
+      .on(t.expiresAt)
+      .where(sql`${t.status} = 'done'`),
+  }),
+);
+
+export type CourseExportJobRow = typeof courseExportJobs.$inferSelect;
 
 // FERPA §99.20: every student can request a record they believe is
 // inaccurate or misleading be corrected. This table is the queue of those

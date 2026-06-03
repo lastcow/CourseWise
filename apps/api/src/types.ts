@@ -40,6 +40,9 @@ export interface AppBindings {
   // env.MATERIAL_GEN_WORKFLOW.create({ params }) and .get(id). Optional so
   // dev/test envs without a Workflows plan can still run.
   MATERIAL_GEN_WORKFLOW?: Workflow;
+  // Cloudflare Workflow that builds a course-export ZIP into R2 and emails the
+  // requester a download link. Created via env.COURSE_EXPORT_WORKFLOW.create().
+  COURSE_EXPORT_WORKFLOW?: Workflow;
   // Outbound email via the Cloudflare Worker `send_email` binding. Configured
   // in wrangler.toml via [[send_email]] with an `allowed_destination_addresses`
   // list — sends to addresses NOT on that list will throw, which we catch and

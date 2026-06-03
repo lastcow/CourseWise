@@ -26,6 +26,7 @@ import type {
   CourseDeletionLogEntry,
   CourseDeletionPreview,
   CourseDetail,
+  CourseExportJob,
   CourseGradingSummary,
   CourseSummary,
   CreateAiModelInput,
@@ -1570,6 +1571,46 @@ export async function downloadAttendanceCsv(courseId: string): Promise<void> {
 
 export async function downloadGradesCsv(courseId: string): Promise<void> {
   await downloadCsv(`/api/courses/${courseId}/grades/export.csv`, `grades-${courseId}.csv`);
+}
+
+// ---------- Course export (async ZIP → emailed link) ----------
+export function useCourseExports(courseId: string | null) {
+  return useQuery({
+    queryKey: ['course-exports', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<CourseExportJob[]>(`/api/courses/${courseId}/exports`),
+    // Poll while any job is still building so the status flips to Done on its own.
+    refetchInterval: (q) => {
+      const data = q.state.data as CourseExportJob[] | undefined;
+      return data?.some((j) => j.status === 'pending' || j.status === 'running') ? 4000 : false;
+    },
+  });
+}
+
+export function useCreateCourseExport(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall<{ jobId: string; status: string }>(`/api/courses/${courseId}/exports`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['course-exports', courseId] });
+    },
+  });
+}
+
+/** Fetch a fresh authenticated download URL for a finished export and start the download. */
+export async function downloadCourseExport(courseId: string, jobId: string): Promise<void> {
+  const { downloadUrl } = await apiCall<{ downloadUrl: string }>(
+    `/api/courses/${courseId}/exports/${jobId}/download-url`,
+  );
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 // ---------- M5: Grading policy ----------

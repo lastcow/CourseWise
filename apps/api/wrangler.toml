@@ -77,6 +77,14 @@ binding = "MATERIAL_GEN_WORKFLOW"
 name = "coursewise-material-gen"
 class_name = "MaterialGenerationWorkflow"
 
+# Cloudflare Workflow that builds a teacher course-export ZIP (reading
+# materials + gradable items + submissions + scores) into R2 and emails the
+# requester an authenticated download link. Class exported from src/index.ts.
+[[workflows]]
+binding = "COURSE_EXPORT_WORKFLOW"
+name = "coursewise-course-export"
+class_name = "CourseExportWorkflow"
+
 # Outbound email binding (teacher invitations + future notifications). Uses
 # Cloudflare Email Service (beta) — NOT the older Email Routing send_email
 # binding. Email Service supports ARBITRARY recipient addresses once the

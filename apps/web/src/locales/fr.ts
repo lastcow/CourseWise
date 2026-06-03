@@ -307,6 +307,21 @@ export const fr = {
           discussions: 'Messages de discussion',
         },
       },
+      export: {
+        title: 'Exporter les données du cours',
+        description:
+          'Génère un ZIP des supports de lecture et de tous les éléments notés — devoirs, quiz, discussions — avec chaque remise et note. Le traitement s’exécute en arrière-plan ; nous vous enverrons un lien par e-mail une fois prêt.',
+        cta: 'Exporter les données du cours',
+        requested: 'Export lancé — nous vous enverrons un lien de téléchargement par e-mail.',
+        download: 'Télécharger',
+        expired: 'Expiré',
+        status: {
+          pending: 'En file',
+          running: 'Génération…',
+          done: 'Prêt',
+          failed: 'Échec',
+        },
+      },
       dangerZone: {
         title: 'Zone sensible',
         description: 'Supprime définitivement ce cours et tout son contenu. Action irréversible.',

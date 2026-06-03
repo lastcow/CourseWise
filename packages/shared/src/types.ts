@@ -339,6 +339,17 @@ export interface SlideSummary {
   updatedAt: string;
 }
 
+// Teacher-requested course export job (async ZIP build → emailed link).
+export interface CourseExportJob {
+  id: string;
+  status: 'pending' | 'running' | 'done' | 'failed';
+  sizeBytes: number | null;
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  expiresAt: string | null;
+}
+
 export interface AssignmentSummary {
   id: string;
   courseId: string;

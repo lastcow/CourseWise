@@ -6,12 +6,16 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Input, Label } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import {
+  downloadCourseExport,
   uploadFile,
   useArchiveCourse,
   useCourse,
+  useCourseExports,
+  useCreateCourseExport,
   useDeletionPreview,
   useUpdateCourse,
 } from '@/lib/queries';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
@@ -236,6 +240,8 @@ export function TeacherCourseSettings(): JSX.Element {
         </form>
       </Card>
 
+      <CourseExportSection courseId={id} />
+
       {/* Danger zone */}
       <section className="mt-12 rounded-md border border-red-300 bg-red-50/50 p-4">
         <h2 className="text-lg font-semibold text-red-800">{t('course.dangerZone.title')}</h2>
@@ -265,5 +271,89 @@ export function TeacherCourseSettings(): JSX.Element {
         />
       ) : null}
     </div>
+  );
+}
+
+function formatBytes(n: number | null): string {
+  if (n === null || n === undefined) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function CourseExportSection({ courseId }: { courseId: string }): JSX.Element {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const exportsQ = useCourseExports(courseId || null);
+  const create = useCreateCourseExport(courseId);
+  const jobs = exportsQ.data ?? [];
+
+  const onRequest = async (): Promise<void> => {
+    try {
+      await create.mutateAsync();
+      toast.push({ title: t('course.export.requested'), tone: 'success' });
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  const onDownload = async (jobId: string): Promise<void> => {
+    try {
+      await downloadCourseExport(courseId, jobId);
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  const statusVariant = (s: string): 'success' | 'warning' | 'destructive' | 'secondary' =>
+    s === 'done' ? 'success' : s === 'failed' ? 'destructive' : 'warning';
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('course.export.title')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">{t('course.export.description')}</p>
+        <Button onClick={onRequest} disabled={create.isPending}>
+          {t('course.export.cta')}
+        </Button>
+        {jobs.length > 0 ? (
+          <div className="space-y-2">
+            {jobs.map((j) => {
+              const expired = !!j.expiresAt && Date.parse(j.expiresAt) < Date.now();
+              const downloadable = j.status === 'done' && !expired;
+              return (
+                <div
+                  key={j.id}
+                  className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                >
+                  <Badge variant={statusVariant(j.status)}>{t(`course.export.status.${j.status}`)}</Badge>
+                  <span className="text-muted-foreground">
+                    {new Date(j.createdAt).toLocaleString()}
+                  </span>
+                  {j.sizeBytes != null ? (
+                    <span className="text-muted-foreground">· {formatBytes(j.sizeBytes)}</span>
+                  ) : null}
+                  <div className="ml-auto">
+                    {downloadable ? (
+                      <Button variant="outline" size="sm" onClick={() => void onDownload(j.id)}>
+                        {t('course.export.download')}
+                      </Button>
+                    ) : expired && j.status === 'done' ? (
+                      <span className="text-xs text-muted-foreground">
+                        {t('course.export.expired')}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

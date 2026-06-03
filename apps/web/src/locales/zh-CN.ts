@@ -288,6 +288,21 @@ export const zhCN = {
           discussions: '讨论贴',
         },
       },
+      export: {
+        title: '导出课程数据',
+        description:
+          '打包课程的阅读材料以及所有可评分项目(作业、测验、讨论)及每位学生的提交与成绩为 ZIP。该任务在后台运行,完成后我们会通过邮件发送下载链接。',
+        cta: '导出课程数据',
+        requested: '导出已开始 — 准备好后我们会通过邮件发送下载链接。',
+        download: '下载',
+        expired: '已过期',
+        status: {
+          pending: '排队中',
+          running: '生成中…',
+          done: '已就绪',
+          failed: '失败',
+        },
+      },
       dangerZone: {
         title: '危险操作',
         description: '永久删除此课程及其所有内容。此操作无法撤销。',

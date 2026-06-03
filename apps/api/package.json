@@ -19,6 +19,7 @@
     "@neondatabase/serverless": "^0.10.1",
     "bcryptjs": "^2.4.3",
     "drizzle-orm": "^0.36.0",
+    "fflate": "^0.8.2",
     "hono": "^4.6.9",
     "jose": "^5.9.6",
     "zod": "^3.23.8"
