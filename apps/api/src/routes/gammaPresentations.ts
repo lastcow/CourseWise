@@ -137,12 +137,18 @@ r.post(
       content: m.content,
     }));
 
-    const inputText = buildInputText(materials);
+    // Prefer the selected materials as the source content. When none were
+    // selected (or they produced no text), fall back to the free-text brief so
+    // a teacher can generate a deck from instructions alone.
+    const trimmedInstructions = input.additionalInstructions?.trim() || null;
+    const materialsText = buildInputText(materials);
+    const usingInstructionsAsSource = materialsText.length === 0;
+    const inputText = usingInstructionsAsSource ? (trimmedInstructions ?? '') : materialsText;
     if (inputText.length === 0) {
       throw new ApiException(
         400,
         ERROR_CODES.VALIDATION_ERROR,
-        'Selected reading materials produced no input text',
+        'Select at least one reading material or provide additional instructions',
       );
     }
 
@@ -154,7 +160,8 @@ r.post(
       textMode: input.textMode,
       title: input.title,
       themeId: input.themeId ?? null,
-      additionalInstructions: input.additionalInstructions ?? null,
+      // When the brief IS the source, don't also resend it as steering.
+      additionalInstructions: usingInstructionsAsSource ? null : trimmedInstructions,
       // Only forward numCards when the teacher set one — letting Gamma decide
       // when omitted gives better defaults than pinning a fixed count.
       ...(input.numCards ? { numCards: input.numCards } : {}),

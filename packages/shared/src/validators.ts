@@ -1015,37 +1015,44 @@ export const courseDeleteBodySchema = z.object({
   confirmCode: z.string().trim().min(1).max(64),
 });
 
-export const generateGammaPresentationSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  moduleId: z.string().uuid().optional().nullable(),
-  materialIds: z.array(z.string().uuid()).min(1).max(50),
-  additionalInstructions: z
-    .string()
-    .trim()
-    .max(GAMMA_MAX_INSTRUCTIONS_CHARS)
-    .optional()
-    .nullable(),
-  themeId: z.string().trim().max(120).optional().nullable(),
-  imageSource: z.enum(GAMMA_IMAGE_SOURCES).default('aiGenerated'),
-  imageStyle: z.string().trim().max(GAMMA_MAX_IMAGE_STYLE_CHARS).optional().nullable(),
-  amount: z.enum(GAMMA_TEXT_AMOUNTS).default('medium'),
-  // Required by Gamma's public API. Default to `condense` since our typical
-  // input is long-form reading material that should become a slide deck.
-  textMode: z.enum(GAMMA_TEXT_MODES).default('condense'),
-  // Number of slides to generate. Optional — Gamma picks a sensible count when
-  // omitted.
-  numCards: z
-    .number()
-    .int()
-    .min(GAMMA_MIN_NUM_CARDS)
-    .max(GAMMA_MAX_NUM_CARDS)
-    .optional()
-    .nullable(),
-  exportAs: z.enum(GAMMA_EXPORT_FORMATS).default('pptx'),
-  // The Gamma artifact format. Defaults to `presentation` to preserve prior
-  // behaviour; teachers can pick `document`, `social`, or `webpage` instead.
-  format: z.enum(GAMMA_FORMATS).default('presentation'),
-});
+export const generateGammaPresentationSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    moduleId: z.string().uuid().optional().nullable(),
+    materialIds: z.array(z.string().uuid()).max(50),
+    additionalInstructions: z
+      .string()
+      .trim()
+      .max(GAMMA_MAX_INSTRUCTIONS_CHARS)
+      .optional()
+      .nullable(),
+    themeId: z.string().trim().max(120).optional().nullable(),
+    imageSource: z.enum(GAMMA_IMAGE_SOURCES).default('aiGenerated'),
+    imageStyle: z.string().trim().max(GAMMA_MAX_IMAGE_STYLE_CHARS).optional().nullable(),
+    amount: z.enum(GAMMA_TEXT_AMOUNTS).default('medium'),
+    // Required by Gamma's public API. Default to `condense` since our typical
+    // input is long-form reading material that should become a slide deck.
+    textMode: z.enum(GAMMA_TEXT_MODES).default('condense'),
+    // Number of slides to generate. Optional — Gamma picks a sensible count when
+    // omitted.
+    numCards: z
+      .number()
+      .int()
+      .min(GAMMA_MIN_NUM_CARDS)
+      .max(GAMMA_MAX_NUM_CARDS)
+      .optional()
+      .nullable(),
+    exportAs: z.enum(GAMMA_EXPORT_FORMATS).default('pptx'),
+    // The Gamma artifact format. Defaults to `presentation` to preserve prior
+    // behaviour; teachers can pick `document`, `social`, or `webpage` instead.
+    format: z.enum(GAMMA_FORMATS).default('presentation'),
+  })
+  // Generate from selected reading materials OR a free-text brief — at least
+  // one source must be present.
+  .refine((v) => v.materialIds.length > 0 || !!v.additionalInstructions?.trim(), {
+    message: 'Select at least one reading material or provide additional instructions',
+    path: ['materialIds'],
+  });
 export type GenerateGammaPresentationInput = z.infer<typeof generateGammaPresentationSchema>;
 
 export const createAssignmentGroupSchema = z.object({

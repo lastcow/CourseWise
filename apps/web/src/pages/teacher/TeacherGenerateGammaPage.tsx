@@ -135,9 +135,13 @@ export function TeacherGenerateGammaPage(): JSX.Element {
     navigate(`/teacher/courses/${cid}/presentations`);
   };
 
+  // Generate from selected reading materials OR a free-text brief — at least
+  // one source must be present (plus a title).
+  const hasSource = selected.size > 0 || instructions.trim().length > 0;
+
   const onSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
-    if (!title.trim() || selected.size === 0) return;
+    if (!title.trim() || !hasSource) return;
     const trimmedCards = numCards.trim();
     const parsedCards = trimmedCards === '' ? null : Number.parseInt(trimmedCards, 10);
     if (parsedCards != null && !Number.isFinite(parsedCards)) return;
@@ -402,7 +406,7 @@ export function TeacherGenerateGammaPage(): JSX.Element {
             </Button>
             <Button
               type="submit"
-              disabled={!title.trim() || selected.size === 0 || create.isPending}
+              disabled={!title.trim() || !hasSource || create.isPending}
             >
               {create.isPending ? t('common.loading') : t('gamma.dialogTitle')}
             </Button>
