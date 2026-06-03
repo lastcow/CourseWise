@@ -304,6 +304,21 @@ export const en = {
           discussions: 'Discussion posts',
         },
       },
+      export: {
+        title: 'Export course data',
+        description:
+          'Build a ZIP of reading materials and all gradable items — assignments, quizzes, discussions — with each submission and score. It runs in the background; we email you a link when it is ready.',
+        cta: 'Export course data',
+        requested: "Export started — we'll email you a download link when it's ready.",
+        download: 'Download',
+        expired: 'Expired',
+        status: {
+          pending: 'Queued',
+          running: 'Building…',
+          done: 'Ready',
+          failed: 'Failed',
+        },
+      },
       dangerZone: {
         title: 'Danger zone',
         description: 'Permanently delete this course and all its content. Cannot be undone.',

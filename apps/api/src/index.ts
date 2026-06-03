@@ -11,6 +11,7 @@ import adminAiRoutes from './routes/admin/ai';
 import teacherInvitationsAdminRoutes from './routes/teacherInvitations';
 import teacherRoutes from './routes/teacher';
 import coursesRoutes from './routes/courses';
+import courseExportsRoutes from './routes/courseExports';
 import modulesRoutes from './routes/modules';
 import invitationsRoutes from './routes/invitations';
 import materialsRoutes from './routes/materials';
@@ -34,10 +35,12 @@ import recordCorrectionsRoutes from './routes/recordCorrections';
 import messagesRoutes from './routes/messages';
 import studentsRoutes from './routes/students';
 import { retryFailedR2CleanupJobs } from './jobs/r2CleanupRetry';
+import { sweepExpiredCourseExports } from './jobs/courseExportSweep';
 import { runRetentionSweep } from './services/retentionSweep';
 import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
 export { MaterialGenerationWorkflow } from './workflows/materialGeneration';
+export { CourseExportWorkflow } from './workflows/courseExport';
 
 export type Env = AppBindings;
 
@@ -116,6 +119,7 @@ app.route('/api/admin/ai', adminAiRoutes);
 app.route('/api/admin', teacherInvitationsAdminRoutes);
 app.route('/api/teacher', teacherRoutes);
 app.route('/api', coursesRoutes);
+app.route('/api', courseExportsRoutes);
 app.route('/api', modulesRoutes);
 app.route('/api', invitationsRoutes);
 app.route('/api', materialsRoutes);
@@ -226,6 +230,14 @@ export default {
             console.log('r2Cleanup.retry.ok', { cron: controller.cron, ...retrySummary });
           } catch (err) {
             console.error('r2Cleanup.retry.failed', { cron: controller.cron, err });
+          }
+
+          // Expire old course-export ZIPs (data minimization).
+          try {
+            const sweep = await sweepExpiredCourseExports(db, env.COURSE_FILES);
+            console.log('course.export.sweep.ok', { cron: controller.cron, ...sweep });
+          } catch (err) {
+            console.error('course.export.sweep.failed', { cron: controller.cron, err });
           }
         }
       })(),
