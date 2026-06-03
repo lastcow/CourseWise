@@ -62,7 +62,60 @@ export interface ApiCallOpts {
   raw?: boolean;
 }
 
-export async function apiCall<T>(path: string, opts: ApiCallOpts = {}): Promise<T> {
+// Single-flight token refresh. Access tokens expire (12h); when an
+// authenticated request comes back 401 we exchange the refresh token for a new
+// pair and retry once. Refresh tokens are single-use (rotated + reuse-detected
+// server-side), so concurrent 401s must share ONE refresh — otherwise the
+// second refresh would look like reuse and revoke the whole session.
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  const stored = getStoredAuth();
+  if (!stored?.refreshToken) return false;
+  try {
+    const res = await fetch(`${getApiBase()}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ refreshToken: stored.refreshToken }),
+    });
+    if (!res.ok) {
+      clearStoredAuth();
+      return false;
+    }
+    const payload = (await res.json()) as ApiResponse<{
+      accessToken: string;
+      refreshToken: string;
+    }>;
+    if (!payload || payload.success === false) {
+      clearStoredAuth();
+      return false;
+    }
+    storeAuth({
+      accessToken: payload.data.accessToken,
+      refreshToken: payload.data.refreshToken,
+      user: stored.user,
+    });
+    return true;
+  } catch {
+    // Network error — leave tokens in place so a later retry can recover.
+    return false;
+  }
+}
+
+function ensureRefreshed(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = refreshAccessToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+export async function apiCall<T>(
+  path: string,
+  opts: ApiCallOpts = {},
+  retryOnAuthFailure = true,
+): Promise<T> {
   const url = `${getApiBase()}${path}`;
   const headers: Record<string, string> = { ...(opts.headers ?? {}) };
   if (opts.body !== undefined && !headers['content-type']) {
@@ -82,6 +135,13 @@ export async function apiCall<T>(path: string, opts: ApiCallOpts = {}): Promise<
     init.body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
   }
   const res = await fetch(url, init);
+  // Access token likely expired — refresh once (shared across concurrent calls)
+  // and retry the original request with the new token.
+  if (res.status === 401 && opts.auth !== false && retryOnAuthFailure) {
+    if (await ensureRefreshed()) {
+      return apiCall<T>(path, opts, false);
+    }
+  }
   if (opts.raw) return res as unknown as T;
   const text = await res.text();
   let payload: ApiResponse<T> | undefined;
