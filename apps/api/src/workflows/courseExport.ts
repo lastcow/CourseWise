@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { createDb } from '../db/client';
 import { courseExportJobs, courses, users } from '../db/schema';
 import {
+  COURSE_EXPORT_TTL_HOURS,
   buildAndStoreZip,
   exportObjectKey,
   gatherCourseExport,
@@ -18,7 +19,6 @@ export interface CourseExportParams {
   appBaseUrl: string;
 }
 
-const EXPORT_TTL_DAYS = 7;
 
 export class CourseExportWorkflow extends WorkflowEntrypoint<AppBindings, CourseExportParams> {
   override async run(event: WorkflowEvent<CourseExportParams>, step: WorkflowStep): Promise<void> {
@@ -52,7 +52,9 @@ export class CourseExportWorkflow extends WorkflowEntrypoint<AppBindings, Course
       await step.do('finalize', async () => {
         const db = createDb(env.DATABASE_URL);
         const now = new Date();
-        const expiresAt = new Date(now.getTime() + EXPORT_TTL_DAYS * 86_400_000).toISOString();
+        const expiresAt = new Date(
+          now.getTime() + COURSE_EXPORT_TTL_HOURS * 3_600_000,
+        ).toISOString();
         await db
           .update(courseExportJobs)
           .set({
@@ -84,7 +86,11 @@ export class CourseExportWorkflow extends WorkflowEntrypoint<AppBindings, Course
           .limit(1);
         if (!u?.email) return;
         const linkUrl = `${appBaseUrl.replace(/\/$/, '')}/teacher/courses/${courseId}/settings?export=${jobId}`;
-        const tmpl = renderCourseExportEmail({ courseName: course?.title ?? 'your course', linkUrl });
+        const tmpl = renderCourseExportEmail({
+          courseName: course?.title ?? 'your course',
+          linkUrl,
+          expiresHours: COURSE_EXPORT_TTL_HOURS,
+        });
         try {
           await sendEmailViaCloudflare(env.SEND_EMAIL, {
             to: u.email,

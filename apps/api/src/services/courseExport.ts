@@ -611,3 +611,8 @@ export async function buildAndStoreZip(
 export function exportObjectKey(courseId: string, jobId: string): string {
   return `courses/${courseId}/exports/${jobId}.zip`;
 }
+
+// How long a generated export ZIP stays downloadable before the nightly cron
+// deletes it from R2 (and clears the job's object key). Keeps storage from
+// accumulating stale archives of student data.
+export const COURSE_EXPORT_TTL_HOURS = 72;

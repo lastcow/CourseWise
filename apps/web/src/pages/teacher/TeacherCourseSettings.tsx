@@ -337,11 +337,20 @@ function CourseExportSection({ courseId }: { courseId: string }): JSX.Element {
                   {j.sizeBytes != null ? (
                     <span className="text-muted-foreground">· {formatBytes(j.sizeBytes)}</span>
                   ) : null}
-                  <div className="ml-auto">
+                  <div className="ml-auto flex items-center gap-2">
                     {downloadable ? (
-                      <Button variant="outline" size="sm" onClick={() => void onDownload(j.id)}>
-                        {t('course.export.download')}
-                      </Button>
+                      <>
+                        {j.expiresAt ? (
+                          <span className="text-xs text-muted-foreground">
+                            {t('course.export.availableUntil', {
+                              date: new Date(j.expiresAt).toLocaleString(),
+                            })}
+                          </span>
+                        ) : null}
+                        <Button variant="outline" size="sm" onClick={() => void onDownload(j.id)}>
+                          {t('course.export.download')}
+                        </Button>
+                      </>
                     ) : expired && j.status === 'done' ? (
                       <span className="text-xs text-muted-foreground">
                         {t('course.export.expired')}
