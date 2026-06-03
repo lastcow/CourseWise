@@ -310,10 +310,11 @@ export const fr = {
       export: {
         title: 'Exporter les données du cours',
         description:
-          'Génère un ZIP des supports de lecture et de tous les éléments notés — devoirs, quiz, discussions — avec chaque remise et note. Le traitement s’exécute en arrière-plan ; nous vous enverrons un lien par e-mail une fois prêt.',
+          'Génère un ZIP des supports de lecture et de tous les éléments notés — devoirs, quiz, discussions — avec chaque remise et note. Le traitement s’exécute en arrière-plan ; nous vous enverrons un lien par e-mail une fois prêt. Pour des raisons de confidentialité, chaque export est automatiquement supprimé 72 heures après sa génération.',
         cta: 'Exporter les données du cours',
         requested: 'Export lancé — nous vous enverrons un lien de téléchargement par e-mail.',
         download: 'Télécharger',
+        availableUntil: 'Disponible jusqu’au {{date}}',
         expired: 'Expiré',
         status: {
           pending: 'En file',

@@ -4,6 +4,8 @@ export interface CourseExportEmailVars {
   courseName: string;
   /** Link to the in-app page where the (logged-in) teacher can download the ZIP. */
   linkUrl: string;
+  /** Hours until the export is automatically deleted. */
+  expiresHours: number;
 }
 
 function escapeHtml(s: string): string {
@@ -72,7 +74,7 @@ export function renderCourseExportEmail(v: CourseExportEmailVars): RenderedEmail
               </p>
               <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;">
               <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6;">
-                You'll need to be signed in as a teacher of this course to download. The download link expires after a few days.
+                You'll need to be signed in as a teacher of this course to download. For privacy, this export is automatically deleted <strong>${v.expiresHours} hours</strong> after it was generated.
               </p>
             </td>
           </tr>
@@ -96,7 +98,7 @@ Sign in to CourseWise and download the ZIP here:
 ${v.linkUrl}
 
 It includes reading materials, assignments and other gradable items with submissions and scores.
-You must be signed in as a teacher of this course to download. The link expires after a few days.
+You must be signed in as a teacher of this course to download. For privacy, this export is automatically deleted ${v.expiresHours} hours after it was generated.
 
 ---
 CourseWise · Course management, reimagined`;

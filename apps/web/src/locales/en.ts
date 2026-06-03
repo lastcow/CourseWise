@@ -307,10 +307,11 @@ export const en = {
       export: {
         title: 'Export course data',
         description:
-          'Build a ZIP of reading materials and all gradable items — assignments, quizzes, discussions — with each submission and score. It runs in the background; we email you a link when it is ready.',
+          'Build a ZIP of reading materials and all gradable items — assignments, quizzes, discussions — with each submission and score. It runs in the background; we email you a link when it is ready. For privacy, each export is automatically deleted 72 hours after it is generated.',
         cta: 'Export course data',
         requested: "Export started — we'll email you a download link when it's ready.",
         download: 'Download',
+        availableUntil: 'Available until {{date}}',
         expired: 'Expired',
         status: {
           pending: 'Queued',
