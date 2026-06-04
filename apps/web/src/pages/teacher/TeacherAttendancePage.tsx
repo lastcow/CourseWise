@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CircleCheck, Save, Trash2 } from 'lucide-react';
+import { CircleCheck, Save, SquarePen, Trash2 } from 'lucide-react';
 import type { AttendanceSessionSummary, AttendanceStatus } from '@coursewise/shared';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
@@ -28,6 +28,7 @@ import {
   useCloseAttendanceSession,
   useCreateAttendanceSession,
   useDeleteAttendanceSession,
+  useUpdateAttendanceSession,
 } from '@/lib/queries';
 import { apiCall, pickI18nKey } from '@/lib/api';
 import type { EnrollmentRow } from '@coursewise/shared';
@@ -66,6 +67,7 @@ export function TeacherAttendancePage(): JSX.Element {
   const cid = courseId ?? '';
   const sessions = useAttendanceSessions(cid);
   const createSession = useCreateAttendanceSession(cid);
+  const updateSession = useUpdateAttendanceSession(cid);
   const delSession = useDeleteAttendanceSession(cid);
   const closeSession = useCloseAttendanceSession(cid);
   const toast = useToast();
@@ -82,13 +84,85 @@ export function TeacherAttendancePage(): JSX.Element {
   >({});
 
   const [openDialog, setOpenDialog] = useState(false);
-  const [draft, setDraft] = useState({
+  // null = the dialog is in "create" mode; a session id = "edit" mode.
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const emptyDraft = {
     title: '',
     description: '',
     sessionDate: '',
     lateAfterMinutes: '15',
     absentAfterMinutes: '30',
-  });
+  };
+  const [draft, setDraft] = useState(emptyDraft);
+
+  // datetime-local wants `YYYY-MM-DDTHH:mm` in local time.
+  const toLocalInput = (iso: string): string => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n: number): string => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const openCreate = (): void => {
+    setEditingSessionId(null);
+    setDraft(emptyDraft);
+    setOpenDialog(true);
+  };
+
+  const openEdit = (s: AttendanceSessionSummary): void => {
+    setEditingSessionId(s.id);
+    setDraft({
+      title: s.title,
+      description: s.description ?? '',
+      sessionDate: toLocalInput(s.sessionDate),
+      lateAfterMinutes: s.lateAfterMinutes != null ? String(s.lateAfterMinutes) : '',
+      absentAfterMinutes: s.absentAfterMinutes != null ? String(s.absentAfterMinutes) : '',
+    });
+    setOpenDialog(true);
+  };
+
+  const closeDialog = (): void => {
+    setOpenDialog(false);
+    setEditingSessionId(null);
+    setDraft(emptyDraft);
+  };
+
+  // Shared create/edit submit. Same validation either way; the only difference
+  // is which mutation runs based on `editingSessionId`.
+  const submitSession = async (): Promise<void> => {
+    if (!draft.title.trim() || !draft.sessionDate) return;
+    const parseMinutes = (raw: string): number | null => {
+      const trimmed = raw.trim();
+      if (!trimmed) return null;
+      const n = Number(trimmed);
+      return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+    };
+    const lateAfter = parseMinutes(draft.lateAfterMinutes);
+    const absentAfter = parseMinutes(draft.absentAfterMinutes);
+    if (lateAfter != null && absentAfter != null && absentAfter < lateAfter) {
+      toast.push({ title: t('attendance.thresholds.orderError'), tone: 'error' });
+      return;
+    }
+    const payload = {
+      title: draft.title.trim(),
+      description: draft.description.trim() || null,
+      sessionDate: new Date(draft.sessionDate).toISOString(),
+      lateAfterMinutes: lateAfter,
+      absentAfterMinutes: absentAfter,
+    };
+    try {
+      if (editingSessionId) {
+        await updateSession.mutateAsync({ id: editingSessionId, input: payload });
+        toast.push({ title: t('attendance.sessionUpdated'), tone: 'success' });
+      } else {
+        await createSession.mutateAsync(payload);
+        toast.push({ title: t('attendance.sessionCreated'), tone: 'success' });
+      }
+      closeDialog();
+    } catch (err) {
+      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+    }
+  };
 
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   useEffect(() => {
@@ -143,7 +217,7 @@ export function TeacherAttendancePage(): JSX.Element {
           >
             {t('attendance.exportCsv')}
           </Button>
-          <Button onClick={() => setOpenDialog(true)}>{t('attendance.newSession')}</Button>
+          <Button onClick={openCreate}>{t('attendance.newSession')}</Button>
         </div>
       </header>
 
@@ -209,6 +283,10 @@ export function TeacherAttendancePage(): JSX.Element {
             }
           }}
           saving={bulkMark.isPending}
+          onEditSession={() => {
+            const s = sessions.data?.find((x) => x.id === selectedSession);
+            if (s) openEdit(s);
+          }}
           onCloseSession={async () => {
             if (!selectedSession) return;
             await closeSession.mutateAsync(selectedSession);
@@ -223,7 +301,11 @@ export function TeacherAttendancePage(): JSX.Element {
         />
       </div>
 
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title={t('attendance.newSession')}>
+      <Dialog
+        open={openDialog}
+        onClose={closeDialog}
+        title={editingSessionId ? t('attendance.editSession') : t('attendance.newSession')}
+      >
         <div className="space-y-3">
           <div>
             <Label>{t('attendance.sessionTitle')}</Label>
@@ -278,50 +360,14 @@ export function TeacherAttendancePage(): JSX.Element {
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setOpenDialog(false)}>
+            <Button variant="outline" onClick={closeDialog}>
               {t('common.cancel')}
             </Button>
             <Button
-              onClick={async () => {
-                if (!draft.title.trim() || !draft.sessionDate) return;
-                const parseMinutes = (raw: string): number | null => {
-                  const trimmed = raw.trim();
-                  if (!trimmed) return null;
-                  const n = Number(trimmed);
-                  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
-                };
-                const lateAfter = parseMinutes(draft.lateAfterMinutes);
-                const absentAfter = parseMinutes(draft.absentAfterMinutes);
-                if (lateAfter != null && absentAfter != null && absentAfter < lateAfter) {
-                  toast.push({
-                    title: t('attendance.thresholds.orderError'),
-                    tone: 'error',
-                  });
-                  return;
-                }
-                try {
-                  await createSession.mutateAsync({
-                    title: draft.title.trim(),
-                    description: draft.description.trim() || null,
-                    sessionDate: new Date(draft.sessionDate).toISOString(),
-                    lateAfterMinutes: lateAfter,
-                    absentAfterMinutes: absentAfter,
-                  });
-                  setOpenDialog(false);
-                  setDraft({
-                    title: '',
-                    description: '',
-                    sessionDate: '',
-                    lateAfterMinutes: '15',
-                    absentAfterMinutes: '30',
-                  });
-                  toast.push({ title: t('attendance.sessionCreated'), tone: 'success' });
-                } catch (err) {
-                  toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
-                }
-              }}
+              onClick={() => void submitSession()}
+              disabled={createSession.isPending || updateSession.isPending}
             >
-              {t('common.create')}
+              {editingSessionId ? t('common.save') : t('common.create')}
             </Button>
           </div>
         </div>
@@ -348,6 +394,7 @@ function RosterCard({
   setMarks,
   onSave,
   saving,
+  onEditSession,
   onCloseSession,
   onDeleteSession,
   deleting,
@@ -359,6 +406,7 @@ function RosterCard({
   setMarks: React.Dispatch<React.SetStateAction<RosterMarks>>;
   onSave: (records: BulkRecord[]) => Promise<void>;
   saving: boolean;
+  onEditSession: () => void;
   onCloseSession: () => Promise<void>;
   onDeleteSession: () => Promise<void>;
   deleting: boolean;
@@ -449,6 +497,13 @@ function RosterCard({
               {t('attendance.markAllPresent')}
             </Button>
             <span className="mx-1 hidden h-5 w-px bg-border sm:inline" aria-hidden />
+            <ActionIconButton
+              icon={SquarePen}
+              label={t('attendance.editSession')}
+              color="yellow"
+              size="sm"
+              onClick={onEditSession}
+            />
             <ActionIconButton
               icon={CircleCheck}
               label={t('attendance.closeSession')}
