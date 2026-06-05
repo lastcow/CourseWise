@@ -59,6 +59,9 @@ export function StudentCourseOverviewPage(): JSX.Element {
   useEffect(() => {
     const today = todayQ.data;
     if (!today) return;
+    // Don't nag before the self-sign window opens — students would otherwise see
+    // a "not open yet" popup on every visit until a few minutes before start.
+    if (today.windowState === 'early') return;
     try {
       if (sessionStorage.getItem(dismissKey(today.session.id)) === '1') return;
     } catch {

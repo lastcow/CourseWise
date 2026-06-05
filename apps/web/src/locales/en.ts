@@ -1412,6 +1412,9 @@ export const en = {
         windowClosedHeading: 'Sign-in window closed',
         windowClosedBody:
           'This class started {{minutes}} minute(s) ago and the self-sign window has closed. Contact your teacher if you attended.',
+        notOpenHeading: 'Sign-in not open yet',
+        notOpenBody:
+          'Self-sign opens {{minutes}} minutes before the session starts — at {{time}}. Please check back then.',
       },
       thresholds: {
         title: 'Self-sign window',

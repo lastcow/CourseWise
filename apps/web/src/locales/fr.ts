@@ -1432,6 +1432,9 @@ export const fr = {
         windowClosedHeading: 'Fenêtre de pointage close',
         windowClosedBody:
           "Ce cours a commencé il y a {{minutes}} minute(s) et la fenêtre d'auto-pointage est close. Contactez votre enseignant si vous étiez présent.",
+        notOpenHeading: 'Pointage pas encore ouvert',
+        notOpenBody:
+          "L'auto-pointage ouvre {{minutes}} minutes avant le début de la séance — à {{time}}. Revenez à ce moment-là.",
       },
       thresholds: {
         title: "Fenêtre d'auto-pointage",
