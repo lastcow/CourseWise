@@ -1147,6 +1147,10 @@ export const fr = {
       lateWarningTitle: 'Soumission en retard',
       lateWarningBody:
         'La date limite est passée. Vous pouvez toujours soumettre, mais la soumission sera marquée en retard et des points pourront être déduits.',
+      closedBadge: 'Fermé',
+      deadlinePassedTitle: 'La date limite est passée.',
+      deadlinePassedBody:
+        "Ce devoir n'accepte plus de soumissions, vous ne pouvez donc plus soumettre. Contactez votre enseignant si vous pensez qu'il s'agit d'une erreur.",
       notInGroupTitle: 'Vous devez être dans un groupe pour soumettre ce devoir.',
       notInGroupHelp:
         "Ce devoir est noté par équipe. Rejoignez un groupe dans la page Étudiants du cours, puis revenez ici pour commencer la soumission d'équipe.",
@@ -1644,6 +1648,7 @@ export const fr = {
       notFound: 'Cette ressource est introuvable.',
       conflict: 'Conflit avec une autre modification.',
       notInGroup: 'Vous devez être dans un groupe pour soumettre ce devoir.',
+      assignmentWindowClosed: "La date limite est passée — ce devoir n'accepte plus de soumissions.",
       rateLimited: 'Trop de requêtes. Réessayez sous peu.',
       accountLocked: 'Votre compte est temporairement verrouillé.',
       accountInactive: "Votre compte n'est pas actif.",
