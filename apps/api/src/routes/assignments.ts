@@ -852,14 +852,19 @@ r.post(
     if (!(await isCourseEnrolled(db, assignment.courseId, auth.user.id))) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
     }
-    // Scheduling gate: students cannot open / start an assignment outside
-    // its [startDate, endDate] window. Per the design call, end_date hard-
-    // blocks new starts (and submit actions further down).
+    // Scheduling gate: students cannot open / start an assignment before its
+    // startDate. After endDate the window is closed UNLESS late submission is
+    // allowed — then the student can still open a draft to submit late (the
+    // submission is flagged 'late' so the teacher can deduct points).
     const now = Date.now();
     if (assignment.startDate && Date.parse(assignment.startDate) > now) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Assignment is not open yet');
     }
-    if (assignment.endDate && Date.parse(assignment.endDate) < now) {
+    if (
+      assignment.endDate &&
+      Date.parse(assignment.endDate) < now &&
+      !assignment.allowLateSubmission
+    ) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Assignment window has closed');
     }
 
@@ -1244,25 +1249,35 @@ r.post('/submissions/:submissionId/submit', requireScopeGroup('submissionsWrite'
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is archived');
   }
   // Scheduling gate (mirrors the POST /submissions check): refuse submit
-  // before start_date or after end_date. until_date is the absolute
-  // backstop for in-progress drafts started inside the window.
+  // before start_date. After end_date / until_date the window is a hard stop
+  // UNLESS late submission is allowed, in which case the student may submit
+  // past the deadline and the row is flagged 'late' below.
   const submittedAtMs = Date.now();
   if (assignment.startDate && Date.parse(assignment.startDate) > submittedAtMs) {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is not open yet');
   }
-  if (assignment.endDate && Date.parse(assignment.endDate) < submittedAtMs) {
+  if (
+    assignment.endDate &&
+    Date.parse(assignment.endDate) < submittedAtMs &&
+    !assignment.allowLateSubmission
+  ) {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment window has closed');
   }
-  if (assignment.untilDate && Date.parse(assignment.untilDate) < submittedAtMs) {
+  if (
+    assignment.untilDate &&
+    Date.parse(assignment.untilDate) < submittedAtMs &&
+    !assignment.allowLateSubmission
+  ) {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment deadline has passed');
   }
   const submittedAt = new Date(submittedAtMs).toISOString();
+  // Flag as 'late' when past the effective deadline (the due date, falling
+  // back to the scheduling window when no explicit due date is set).
   const status = determineSubmissionStatus({
     submittedAt,
-    dueDate: assignment.dueDate,
-    allowLateSubmission: assignment.allowLateSubmission,
+    dueDate: assignment.dueDate ?? assignment.endDate ?? assignment.untilDate,
   });
-  if (assignment.status === 'closed' && status === 'late') {
+  if (assignment.status === 'closed' && status === 'late' && !assignment.allowLateSubmission) {
     throw new ApiException(
       409,
       ERROR_CODES.CONFLICT,
@@ -1387,16 +1402,21 @@ r.post('/submissions/:submissionId/unsubmit', requireScopeGroup('submissionsWrit
 
   // Window gate: only unsubmit while a resubmit would still succeed, so the
   // student is never stranded in DRAFT past the deadline. Mirrors the
-  // submit-time scheduling checks (end_date / until_date are hard stops).
+  // submit-time scheduling checks (end_date / until_date are hard stops),
+  // which are themselves relaxed when late submission is allowed.
   const assignment = await loadAssignment(c, submission.assignmentId);
   const now = Date.now();
   if (assignment.status === 'archived') {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is archived');
   }
-  if (assignment.endDate && Date.parse(assignment.endDate) < now) {
+  if (assignment.endDate && Date.parse(assignment.endDate) < now && !assignment.allowLateSubmission) {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment window has closed');
   }
-  if (assignment.untilDate && Date.parse(assignment.untilDate) < now) {
+  if (
+    assignment.untilDate &&
+    Date.parse(assignment.untilDate) < now &&
+    !assignment.allowLateSubmission
+  ) {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment deadline has passed');
   }
   const nowIso = new Date(now).toISOString();
