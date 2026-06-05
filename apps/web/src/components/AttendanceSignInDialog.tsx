@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, Clock, ShieldAlert, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, Hourglass, ShieldAlert, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { useSignAttendance } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
-import type {
-  AttendanceSessionSummary,
-  AttendanceWindowState,
-  AttendanceStatus,
+import {
+  ATTENDANCE_SELF_SIGN_OPEN_BEFORE_MINUTES,
+  type AttendanceSessionSummary,
+  type AttendanceWindowState,
+  type AttendanceStatus,
 } from '@coursewise/shared';
 
 interface Props {
@@ -39,6 +40,10 @@ export function AttendanceSignInDialog({
   >(undefined);
   const completed = alreadySigned || result !== undefined;
   const closed = windowState === 'closed';
+  const early = windowState === 'early';
+  const opensAt = new Date(
+    new Date(session.sessionDate).getTime() - ATTENDANCE_SELF_SIGN_OPEN_BEFORE_MINUTES * 60_000,
+  );
 
   const onSubmit = async (): Promise<void> => {
     try {
@@ -129,6 +134,27 @@ export function AttendanceSignInDialog({
               </p>
             </div>
           </section>
+        ) : early ? (
+          <section
+            role="status"
+            className="flex items-start gap-3 rounded-md border border-sky-200 bg-sky-50 p-3 text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100"
+          >
+            <Hourglass className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+            <div className="space-y-1">
+              <div className="text-sm font-semibold">
+                {t('attendance.signIn.notOpenHeading')}
+              </div>
+              <p className="text-xs leading-relaxed">
+                {t('attendance.signIn.notOpenBody', {
+                  minutes: ATTENDANCE_SELF_SIGN_OPEN_BEFORE_MINUTES,
+                  time: opensAt.toLocaleTimeString(i18n.language, {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  }),
+                })}
+              </p>
+            </div>
+          </section>
         ) : (
           <>
             {windowState === 'late' ? (
@@ -165,7 +191,7 @@ export function AttendanceSignInDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             {t('attendance.signIn.closeCta')}
           </Button>
-          {completed || closed ? null : (
+          {completed || closed || early ? null : (
             <Button type="button" onClick={onSubmit} disabled={sign.isPending}>
               {sign.isPending
                 ? t('attendance.signIn.submitting')

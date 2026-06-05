@@ -428,6 +428,10 @@ export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 export const ATTENDANCE_SESSION_STATUSES = ['open', 'closed'] as const;
 export type AttendanceSessionStatus = (typeof ATTENDANCE_SESSION_STATUSES)[number];
 
+// Students can self-sign starting this many minutes before the session start
+// time — not earlier. Keeps people from marking themselves present hours ahead.
+export const ATTENDANCE_SELF_SIGN_OPEN_BEFORE_MINUTES = 5;
+
 export const ALLOWED_UPLOAD_MIME_TYPES = [
   'application/pdf',
   'application/msword',

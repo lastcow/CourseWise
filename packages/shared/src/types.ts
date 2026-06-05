@@ -629,7 +629,9 @@ export interface AttendanceSessionSummary {
   updatedAt: string;
 }
 
-export type AttendanceWindowState = 'open' | 'late' | 'closed';
+// 'early' = before the self-sign window opens (more than
+// ATTENDANCE_SELF_SIGN_OPEN_BEFORE_MINUTES before the session start).
+export type AttendanceWindowState = 'early' | 'open' | 'late' | 'closed';
 
 export interface AttendanceRecordRow {
   id: string;

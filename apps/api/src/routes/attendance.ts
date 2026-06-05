@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
+  ATTENDANCE_SELF_SIGN_OPEN_BEFORE_MINUTES,
   bulkMarkAttendanceSchema,
   createAttendanceSessionSchema,
   updateAttendanceSessionSchema,
@@ -63,11 +64,17 @@ function computeWindow(
   row: typeof attendanceSessions.$inferSelect,
   now: Date = new Date(),
 ): {
-  windowState: 'open' | 'late' | 'closed';
+  windowState: 'early' | 'open' | 'late' | 'closed';
   minutesSinceStart: number;
   status: 'present' | 'late';
 } {
   const startMs = new Date(row.sessionDate).getTime();
+  // The self-sign window opens a few minutes before the start time; signing
+  // earlier than that is rejected.
+  const opensAtMs = startMs - ATTENDANCE_SELF_SIGN_OPEN_BEFORE_MINUTES * 60_000;
+  if (now.getTime() < opensAtMs) {
+    return { windowState: 'early', minutesSinceStart: 0, status: 'present' };
+  }
   const minutes = Math.max(0, Math.floor((now.getTime() - startMs) / 60_000));
   if (row.absentAfterMinutes != null && minutes >= row.absentAfterMinutes) {
     return { windowState: 'closed', minutesSinceStart: minutes, status: 'late' };
@@ -572,6 +579,13 @@ r.post(
       );
     }
     const win = computeWindow(session);
+    if (win.windowState === 'early') {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        `Self-sign opens ${ATTENDANCE_SELF_SIGN_OPEN_BEFORE_MINUTES} minutes before the session starts`,
+      );
+    }
     if (win.windowState === 'closed') {
       throw new ApiException(
         409,

@@ -1356,6 +1356,8 @@ export const zhCN = {
         willBeLateBody: '本节课已开始 {{minutes}} 分钟,现在签到将被记为迟到。',
         windowClosedHeading: '签到窗口已关闭',
         windowClosedBody: '本节课已开始 {{minutes}} 分钟,自助签到已关闭。如确实出席,请联系任课老师。',
+        notOpenHeading: '签到尚未开放',
+        notOpenBody: '自助签到将在课程开始前 {{minutes}} 分钟开放,即 {{time}}。请届时再来。',
       },
       thresholds: {
         title: '签到时间窗',
