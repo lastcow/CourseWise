@@ -1127,6 +1127,9 @@ export const en = {
       notYetOpenBadge: 'Not open yet',
       notYetOpenTitle: 'This assignment is not open yet.',
       notYetOpenBody: 'You can start your submission on {{date}}.',
+      lateWarningTitle: 'Late submission',
+      lateWarningBody:
+        'The deadline has passed. You can still submit, but it will be marked late and points may be deducted.',
       notInGroupTitle: 'You must be in a group to submit this assignment.',
       notInGroupHelp:
         'This assignment is graded per team. Join a group in the course Students page, then come back here to start your team submission.',

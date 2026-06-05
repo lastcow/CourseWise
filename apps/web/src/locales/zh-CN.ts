@@ -1078,6 +1078,8 @@ export const zhCN = {
       notYetOpenBadge: '尚未开放',
       notYetOpenTitle: '此作业尚未开放。',
       notYetOpenBody: '你可以在 {{date}} 开始提交。',
+      lateWarningTitle: '迟交提交',
+      lateWarningBody: '截止时间已过。你仍然可以提交,但将被标记为迟交,并可能扣分。',
       notInGroupTitle: '你必须先加入小组才能提交此作业。',
       notInGroupHelp: '此作业按小组评分。请到课程的“学生”页面加入小组,然后回来开始小组提交。',
       notInGroupCta: '前往课程学生页',

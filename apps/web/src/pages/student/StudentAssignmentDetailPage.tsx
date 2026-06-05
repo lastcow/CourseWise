@@ -84,15 +84,23 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   // A submitted (ungraded) submission can be pulled back to draft while the
   // window is still open — past end_date / until_date (or once archived) the
   // server would refuse a resubmit, so we hide the affordance too. The server
-  // is authoritative; this just decides whether to show the button.
+  // is authoritative; this just decides whether to show the button. When the
+  // assignment allows late submission the hard window no longer closes things
+  // off, so the student keeps the unsubmit/resubmit affordance past the date.
+  const allowLate = assignment.data?.allowLateSubmission ?? false;
+  const dueMs = assignment.data?.dueDate ? Date.parse(assignment.data.dueDate) : null;
   const endMs = assignment.data?.endDate ? Date.parse(assignment.data.endDate) : null;
   const untilMs = assignment.data?.untilDate ? Date.parse(assignment.data.untilDate) : null;
   const windowClosed =
     assignment.data?.status === 'archived' ||
-    (endMs !== null && now >= endMs) ||
-    (untilMs !== null && now >= untilMs);
+    (!allowLate && ((endMs !== null && now >= endMs) || (untilMs !== null && now >= untilMs)));
   const canUnsubmit =
     (mySub?.status === 'submitted' || mySub?.status === 'late') && !windowClosed;
+  // Effective deadline after which a new submission counts as late: the due
+  // date, falling back to the scheduling window. Drives the late warning.
+  const deadlineMs = dueMs ?? endMs ?? untilMs;
+  const isLateNow =
+    deadlineMs !== null && now >= deadlineMs && assignment.data?.status !== 'archived';
 
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
@@ -285,6 +293,16 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                     })}
                   </p>
                 ) : null}
+              </div>
+            ) : null}
+            {isLateNow && editable ? (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-950">
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                  {t('submissions.lateWarningTitle')}
+                </p>
+                <p className="mt-1 text-amber-800/90 dark:text-amber-200/80">
+                  {t('submissions.lateWarningBody')}
+                </p>
               </div>
             ) : null}
             {mySub.status === 'returned' ? (

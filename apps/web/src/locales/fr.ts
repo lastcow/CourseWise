@@ -1144,6 +1144,9 @@ export const fr = {
       notYetOpenBadge: 'Pas encore ouvert',
       notYetOpenTitle: "Ce devoir n'est pas encore ouvert.",
       notYetOpenBody: 'Vous pouvez commencer votre soumission le {{date}}.',
+      lateWarningTitle: 'Soumission en retard',
+      lateWarningBody:
+        'La date limite est passée. Vous pouvez toujours soumettre, mais la soumission sera marquée en retard et des points pourront être déduits.',
       notInGroupTitle: 'Vous devez être dans un groupe pour soumettre ce devoir.',
       notInGroupHelp:
         "Ce devoir est noté par équipe. Rejoignez un groupe dans la page Étudiants du cours, puis revenez ici pour commencer la soumission d'équipe.",

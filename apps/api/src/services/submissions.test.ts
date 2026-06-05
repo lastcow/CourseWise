@@ -9,37 +9,24 @@ describe('determineSubmissionStatus', () => {
       determineSubmissionStatus({
         submittedAt: '2026-05-01T11:59:00Z',
         dueDate,
-        allowLateSubmission: false,
       }),
     ).toBe('submitted');
   });
 
-  it('past due, late allowed → SUBMITTED (UI shows badge)', () => {
+  it('past the deadline → LATE (flagged so teachers can deduct)', () => {
     expect(
       determineSubmissionStatus({
         submittedAt: '2026-05-02T00:00:00Z',
         dueDate,
-        allowLateSubmission: true,
-      }),
-    ).toBe('submitted');
-  });
-
-  it('past due, late not allowed → LATE', () => {
-    expect(
-      determineSubmissionStatus({
-        submittedAt: '2026-05-02T00:00:00Z',
-        dueDate,
-        allowLateSubmission: false,
       }),
     ).toBe('late');
   });
 
-  it('null dueDate → SUBMITTED', () => {
+  it('null deadline → SUBMITTED', () => {
     expect(
       determineSubmissionStatus({
         submittedAt: '2026-05-02T00:00:00Z',
         dueDate: null,
-        allowLateSubmission: false,
       }),
     ).toBe('submitted');
   });
