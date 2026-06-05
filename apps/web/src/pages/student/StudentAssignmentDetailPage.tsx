@@ -295,13 +295,24 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                 ) : null}
               </div>
             ) : null}
-            {isLateNow && editable ? (
+            {isLateNow && editable && allowLate ? (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-950">
                 <p className="font-medium text-amber-900 dark:text-amber-200">
                   {t('submissions.lateWarningTitle')}
                 </p>
                 <p className="mt-1 text-amber-800/90 dark:text-amber-200/80">
                   {t('submissions.lateWarningBody')}
+                </p>
+              </div>
+            ) : null}
+            {windowClosed && editable ? (
+              // Leftover draft, but the deadline passed and late submission is
+              // not allowed — explain why submit is disabled rather than
+              // letting them fire a guaranteed-fail submit.
+              <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+                <p className="font-medium">{t('submissions.deadlinePassedTitle')}</p>
+                <p className="mt-1 text-muted-foreground">
+                  {t('submissions.deadlinePassedBody')}
                 </p>
               </div>
             ) : null}
@@ -407,7 +418,12 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                 >
                   {t('submissions.saveDraft')}
                 </Button>
-                <Button onClick={onSubmit} disabled={update.isPending || submit.isPending}>
+                {/* Block submit once the window has closed (deadline passed,
+                    late not allowed) — the server would reject it anyway. */}
+                <Button
+                  onClick={onSubmit}
+                  disabled={update.isPending || submit.isPending || windowClosed}
+                >
                   {t('submissions.submitCta')}
                 </Button>
               </div>
@@ -452,9 +468,28 @@ export function StudentAssignmentDetailPage(): JSX.Element {
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : submission.error instanceof ApiClientError &&
+        submission.error.error.code === 'ASSIGNMENT_WINDOW_CLOSED' ? (
+        // Deadline passed and late submission is not allowed, and the student
+        // has no submission to show — explain why there's no form instead of
+        // leaving them on a stuck spinner.
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">{t('submissions.yourSubmission')}</CardTitle>
+            <Badge variant="destructive">{t('submissions.closedBadge')}</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+              <p className="font-medium">{t('submissions.deadlinePassedTitle')}</p>
+              <p className="mt-1 text-muted-foreground">
+                {t('submissions.deadlinePassedBody')}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : submission.isLoading ? (
         <p>{t('common.loading')}</p>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1130,6 +1130,10 @@ export const en = {
       lateWarningTitle: 'Late submission',
       lateWarningBody:
         'The deadline has passed. You can still submit, but it will be marked late and points may be deducted.',
+      closedBadge: 'Closed',
+      deadlinePassedTitle: 'The deadline has passed.',
+      deadlinePassedBody:
+        'This assignment no longer accepts submissions, so you can no longer submit. Contact your teacher if you think this is a mistake.',
       notInGroupTitle: 'You must be in a group to submit this assignment.',
       notInGroupHelp:
         'This assignment is graded per team. Join a group in the course Students page, then come back here to start your team submission.',
@@ -1621,6 +1625,7 @@ export const en = {
       notFound: 'That resource was not found.',
       conflict: 'There was a conflict with another change.',
       notInGroup: 'You must be in a group to submit this assignment.',
+      assignmentWindowClosed: 'The deadline has passed — this assignment no longer accepts submissions.',
       rateLimited: 'Too many requests. Try again shortly.',
       accountLocked: 'Your account is temporarily locked.',
       accountInactive: 'Your account is not active.',

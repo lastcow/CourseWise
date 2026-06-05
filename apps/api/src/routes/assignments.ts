@@ -853,20 +853,22 @@ r.post(
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
     }
     // Scheduling gate: students cannot open / start an assignment before its
-    // startDate. After endDate the window is closed UNLESS late submission is
-    // allowed — then the student can still open a draft to submit late (the
-    // submission is flagged 'late' so the teacher can deduct points).
+    // startDate. After endDate the window is closed for STARTING NEW work
+    // UNLESS late submission is allowed. We still return an existing
+    // submission past the deadline (so students can view — and teachers grade
+    // — already-submitted work); only the creation of a brand-new draft is
+    // blocked, once we know there's nothing to return. The dedicated
+    // ASSIGNMENT_WINDOW_CLOSED code lets the UI show a clear "deadline passed"
+    // notice instead of a generic error.
     const now = Date.now();
     if (assignment.startDate && Date.parse(assignment.startDate) > now) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Assignment is not open yet');
     }
-    if (
+    const windowClosedForNew = !!(
       assignment.endDate &&
       Date.parse(assignment.endDate) < now &&
       !assignment.allowLateSubmission
-    ) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Assignment window has closed');
-    }
+    );
 
     if (assignment.submissionMode === 'group') {
       if (!assignment.groupSetId) {
@@ -886,6 +888,27 @@ r.post(
           ERROR_CODES.NOT_IN_GROUP,
           'You are not in a group for this assignment',
         );
+      }
+      // Window closed for new work + this student has no row to fan into yet →
+      // there's nothing to return, so block instead of creating a late draft.
+      if (windowClosedForNew) {
+        const [existingRow] = await db
+          .select({ id: assignmentSubmissions.id })
+          .from(assignmentSubmissions)
+          .where(
+            and(
+              eq(assignmentSubmissions.assignmentId, id),
+              eq(assignmentSubmissions.studentId, auth.user.id),
+            ),
+          )
+          .limit(1);
+        if (!existingRow) {
+          throw new ApiException(
+            403,
+            ERROR_CODES.ASSIGNMENT_WINDOW_CLOSED,
+            'Assignment window has closed',
+          );
+        }
       }
       const groupSubId = await ensureGroupSubmissionFannedOut(
         db,
@@ -952,6 +975,15 @@ r.post(
         submission: toSubmissionSummary(existing, undefined, await attachmentsForUnit(c, existing)),
       };
       return success(c, body);
+    }
+    // No submission yet and the window has closed for new work → the student
+    // missed the deadline. Block with the specific code so the UI explains it.
+    if (windowClosedForNew) {
+      throw new ApiException(
+        403,
+        ERROR_CODES.ASSIGNMENT_WINDOW_CLOSED,
+        'Assignment window has closed',
+      );
     }
     const [created] = await db
       .insert(assignmentSubmissions)
@@ -1261,14 +1293,14 @@ r.post('/submissions/:submissionId/submit', requireScopeGroup('submissionsWrite'
     Date.parse(assignment.endDate) < submittedAtMs &&
     !assignment.allowLateSubmission
   ) {
-    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment window has closed');
+    throw new ApiException(409, ERROR_CODES.ASSIGNMENT_WINDOW_CLOSED, 'Assignment window has closed');
   }
   if (
     assignment.untilDate &&
     Date.parse(assignment.untilDate) < submittedAtMs &&
     !assignment.allowLateSubmission
   ) {
-    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment deadline has passed');
+    throw new ApiException(409, ERROR_CODES.ASSIGNMENT_WINDOW_CLOSED, 'Assignment deadline has passed');
   }
   const submittedAt = new Date(submittedAtMs).toISOString();
   // Flag as 'late' when past the effective deadline (the due date, falling
