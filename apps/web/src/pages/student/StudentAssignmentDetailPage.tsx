@@ -101,6 +101,11 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   const deadlineMs = dueMs ?? endMs ?? untilMs;
   const isLateNow =
     deadlineMs !== null && now >= deadlineMs && assignment.data?.status !== 'archived';
+  // The student may edit the answer/attachments only while the row is a draft
+  // AND the window is still open for them. Once closed (deadline passed with
+  // late submission off, or archived) the whole section is greyed out — a
+  // late-allowed assignment keeps `windowClosed` false, so it stays editable.
+  const canEdit = editable && !windowClosed;
 
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
@@ -343,7 +348,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                 rows={6}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                disabled={!editable}
+                disabled={!canEdit}
               />
             </div>
             <div>
@@ -363,7 +368,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                         <Download className="h-4 w-4 shrink-0 text-sky-600" aria-hidden />
                         <span className="truncate">{a.filename ?? t('submissions.unnamedFile')}</span>
                       </button>
-                      {editable ? (
+                      {canEdit ? (
                         <ActionIconButton
                           icon={X}
                           label={t('common.remove')}
@@ -378,7 +383,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
               ) : (
                 <p className="mt-1 text-sm text-muted-foreground">{t('submissions.noFiles')}</p>
               )}
-              {editable ? (
+              {canEdit ? (
                 <div className="mt-2 flex items-center gap-2">
                   {atFileLimit ? (
                     <p className="text-xs text-muted-foreground">
@@ -406,7 +411,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                 </div>
               ) : null}
             </div>
-            {editable ? (
+            {canEdit ? (
               <div className="flex justify-end gap-2">
                 {/* Disable while a save/submit is in flight so a double-click
                     can't fire a second submit (which the server would reject
@@ -418,12 +423,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                 >
                   {t('submissions.saveDraft')}
                 </Button>
-                {/* Block submit once the window has closed (deadline passed,
-                    late not allowed) — the server would reject it anyway. */}
-                <Button
-                  onClick={onSubmit}
-                  disabled={update.isPending || submit.isPending || windowClosed}
-                >
+                <Button onClick={onSubmit} disabled={update.isPending || submit.isPending}>
                   {t('submissions.submitCta')}
                 </Button>
               </div>
@@ -438,6 +438,11 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                     : t('submissions.unsubmitHint')}
                 </p>
               </div>
+            ) : windowClosed && editable ? (
+              // The inline "deadline has passed" notice above already explains
+              // why the section is greyed out; don't double up with the
+              // generic locked line.
+              null
             ) : (
               <p className="text-sm text-muted-foreground">{t('submissions.locked')}</p>
             )}
