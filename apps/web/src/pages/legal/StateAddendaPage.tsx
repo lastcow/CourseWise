@@ -21,11 +21,11 @@ export function StateAddendaPage(): JSX.Element {
       </p>
 
       <nav className="not-prose my-6 flex flex-wrap gap-2 text-sm">
-        <a href="#california" className="rounded-full border px-3 py-1 hover:bg-muted">California</a>
-        <a href="#new-york" className="rounded-full border px-3 py-1 hover:bg-muted">New York</a>
-        <a href="#illinois" className="rounded-full border px-3 py-1 hover:bg-muted">Illinois</a>
-        <a href="#colorado" className="rounded-full border px-3 py-1 hover:bg-muted">Colorado</a>
-        <a href="#connecticut" className="rounded-full border px-3 py-1 hover:bg-muted">Connecticut</a>
+        <a href="#california" className="rounded-md border border-ink/15 px-3 py-1 font-medium text-ink/80 hover:border-evergreen/40 hover:bg-evergreen-100 hover:text-evergreen">California</a>
+        <a href="#new-york" className="rounded-md border border-ink/15 px-3 py-1 font-medium text-ink/80 hover:border-evergreen/40 hover:bg-evergreen-100 hover:text-evergreen">New York</a>
+        <a href="#illinois" className="rounded-md border border-ink/15 px-3 py-1 font-medium text-ink/80 hover:border-evergreen/40 hover:bg-evergreen-100 hover:text-evergreen">Illinois</a>
+        <a href="#colorado" className="rounded-md border border-ink/15 px-3 py-1 font-medium text-ink/80 hover:border-evergreen/40 hover:bg-evergreen-100 hover:text-evergreen">Colorado</a>
+        <a href="#connecticut" className="rounded-md border border-ink/15 px-3 py-1 font-medium text-ink/80 hover:border-evergreen/40 hover:bg-evergreen-100 hover:text-evergreen">Connecticut</a>
       </nav>
 
       <h2 id="california">California</h2>
