@@ -247,30 +247,36 @@ export function TeacherAssignmentFormPage(): JSX.Element {
               <p className="pl-6 text-xs text-muted-foreground">{t('assignments.allowLateHint')}</p>
             </div>
             {allowLate ? (
-              <fieldset className="space-y-3 rounded-md border bg-muted/30 p-3">
+              <fieldset className="grid gap-3 rounded-md border p-3 md:grid-cols-3">
                 <legend className="px-1 text-sm font-medium">
                   {t('assignments.latePenaltyLegend')}
                 </legend>
-                <p className="text-xs text-muted-foreground">{t('assignments.latePenaltyIntro')}</p>
-                <div className="flex flex-wrap items-end gap-2 text-sm">
-                  <span>{t('assignments.latePenaltyDeduct')}</span>
-                  <div className="w-20">
+                <p className="text-xs text-muted-foreground md:col-span-3">
+                  {t('assignments.latePenaltyIntro')}
+                </p>
+                <div>
+                  <Label htmlFor="a-late-pct">{t('assignments.latePenaltyPerPeriodLabel')}</Label>
+                  <Input
+                    id="a-late-pct"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={latePctPerPeriod}
+                    onChange={(e) =>
+                      setLatePctPerPeriod(e.target.value === '' ? '' : Number(e.target.value))
+                    }
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t('assignments.latePenaltyPerPeriodHint')}
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="a-late-period">{t('assignments.latePenaltyPeriodLabel')}</Label>
+                  <div className="flex items-center gap-2">
                     <Input
-                      aria-label={t('assignments.latePenaltyDeduct')}
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={latePctPerPeriod}
-                      onChange={(e) =>
-                        setLatePctPerPeriod(e.target.value === '' ? '' : Number(e.target.value))
-                      }
-                    />
-                  </div>
-                  <span>% {t('assignments.latePenaltyEvery')}</span>
-                  <div className="w-20">
-                    <Input
-                      aria-label={t('assignments.latePenaltyEvery')}
+                      id="a-late-period"
+                      className="flex-1"
                       type="number"
                       min={1}
                       step={1}
@@ -279,35 +285,38 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                         setLatePeriodValue(e.target.value === '' ? '' : Number(e.target.value))
                       }
                     />
+                    <select
+                      aria-label={t('assignments.latePenaltyPeriodUnitLabel')}
+                      className="h-10 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+                      value={latePeriodUnit}
+                      onChange={(e) => setLatePeriodUnit(e.target.value as 'hours' | 'days')}
+                    >
+                      <option value="hours">{t('assignments.unitHours')}</option>
+                      <option value="days">{t('assignments.unitDays')}</option>
+                    </select>
                   </div>
-                  <select
-                    aria-label={t('assignments.latePenaltyEvery')}
-                    className="h-10 rounded-md border border-input bg-background px-2 text-sm"
-                    value={latePeriodUnit}
-                    onChange={(e) => setLatePeriodUnit(e.target.value as 'hours' | 'days')}
-                  >
-                    <option value="hours">{t('assignments.unitHours')}</option>
-                    <option value="days">{t('assignments.unitDays')}</option>
-                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t('assignments.latePenaltyPeriodHint')}
+                  </p>
                 </div>
-                <div className="flex flex-wrap items-end gap-2 text-sm">
-                  <span>{t('assignments.latePenaltyMax')}</span>
-                  <div className="w-20">
-                    <Input
-                      aria-label={t('assignments.latePenaltyMax')}
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={lateMaxPct}
-                      onChange={(e) =>
-                        setLateMaxPct(e.target.value === '' ? '' : Number(e.target.value))
-                      }
-                    />
-                  </div>
-                  <span>%</span>
+                <div>
+                  <Label htmlFor="a-late-max">{t('assignments.latePenaltyMaxLabel')}</Label>
+                  <Input
+                    id="a-late-max"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={lateMaxPct}
+                    onChange={(e) =>
+                      setLateMaxPct(e.target.value === '' ? '' : Number(e.target.value))
+                    }
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t('assignments.latePenaltyMaxHint')}
+                  </p>
                 </div>
-                <p className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+                <p className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground md:col-span-3">
                   {showPenaltyPreview
                     ? t(
                         lateMaxPct === ''

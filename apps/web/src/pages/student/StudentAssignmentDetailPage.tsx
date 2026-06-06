@@ -26,6 +26,7 @@ import {
   ALLOWED_UPLOAD_MIME_TYPES,
   MAX_SUBMISSION_FILES,
   MAX_UPLOAD_BYTES,
+  computeLatePenaltyPercent,
   type SubmissionStatus,
 } from '@coursewise/shared';
 
@@ -106,6 +107,33 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   // late submission off, or archived) the whole section is greyed out — a
   // late-allowed assignment keeps `windowClosed` false, so it stays editable.
   const canEdit = editable && !windowClosed;
+  // Late-penalty policy to surface to a student who's about to submit late, plus
+  // a live estimate of what submitting *right now* would cost. Uses the shared
+  // helper so the estimate matches the deduction the server actually applies.
+  const penaltyPerPeriod = assignment.data?.latePenaltyPercentPerPeriod ?? null;
+  const penaltyPeriodHours = assignment.data?.latePenaltyPeriodHours ?? null;
+  const penaltyMaxPct = assignment.data?.latePenaltyMaxPercent ?? null;
+  const penaltyConfigured = penaltyPerPeriod != null && penaltyPeriodHours != null;
+  const penaltyPeriodValue =
+    penaltyPeriodHours == null
+      ? null
+      : penaltyPeriodHours % 24 === 0
+        ? penaltyPeriodHours / 24
+        : penaltyPeriodHours;
+  const penaltyPeriodUnitLabel = t(
+    penaltyPeriodHours != null && penaltyPeriodHours % 24 === 0
+      ? 'assignments.unitDays'
+      : 'assignments.unitHours',
+  );
+  const nowPenaltyPct = penaltyConfigured
+    ? computeLatePenaltyPercent({
+        submittedAt: now,
+        deadline: deadlineMs,
+        perPeriodPercent: penaltyPerPeriod,
+        periodHours: penaltyPeriodHours,
+        maxPercent: penaltyMaxPct,
+      })
+    : 0;
 
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
@@ -308,6 +336,22 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                 <p className="mt-1 text-amber-800/90 dark:text-amber-200/80">
                   {t('submissions.lateWarningBody')}
                 </p>
+                {penaltyConfigured ? (
+                  <p className="mt-2 font-medium text-amber-900 dark:text-amber-200">
+                    {t(
+                      penaltyMaxPct == null
+                        ? 'assignments.latePenaltyPreviewNoMax'
+                        : 'assignments.latePenaltyPreview',
+                      {
+                        perPeriod: penaltyPerPeriod,
+                        value: penaltyPeriodValue,
+                        unit: penaltyPeriodUnitLabel,
+                        max: penaltyMaxPct ?? 0,
+                      },
+                    )}{' '}
+                    {t('submissions.lateNowPenalty', { pct: nowPenaltyPct })}
+                  </p>
+                ) : null}
               </div>
             ) : null}
             {windowClosed && editable ? (
