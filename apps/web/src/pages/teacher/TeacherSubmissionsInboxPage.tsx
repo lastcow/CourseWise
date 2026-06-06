@@ -20,7 +20,7 @@ import {
 } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 import { ApiClientError } from '@/lib/api';
-import { submissionGradingRank } from '@coursewise/shared';
+import { computeLatePenaltyPercent, submissionGradingRank } from '@coursewise/shared';
 import type {
   GroupSubmissionWithMembers,
   SubmissionStatus,
@@ -43,23 +43,6 @@ function statusLabel(t: (k: string) => string, s: SubmissionStatus): string {
 // grade out to every teammate).
 function groupRepresentative(g: GroupSubmissionWithMembers): SubmissionWithStudent | null {
   return g.members.find((m) => m.status !== 'draft') ?? g.members[0] ?? null;
-}
-
-// Mirror of the server's computeLatePenaltyPercent so the grade dialog can show
-// a live breakdown as the teacher types (the server remains authoritative).
-function clientLatePenaltyPercent(
-  submittedAt: string | null,
-  deadline: string | null | undefined,
-  perPeriodPercent: number | null,
-  periodHours: number | null,
-  maxPercent: number | null,
-): number {
-  if (!submittedAt || !deadline || !perPeriodPercent || !periodHours) return 0;
-  const lateMs = new Date(submittedAt).getTime() - new Date(deadline).getTime();
-  if (lateMs <= 0) return 0;
-  const periods = Math.ceil(lateMs / (periodHours * 3_600_000));
-  const raw = periods * perPeriodPercent;
-  return Math.max(0, maxPercent == null ? raw : Math.min(raw, maxPercent));
 }
 
 export function TeacherSubmissionsInboxPage(): JSX.Element {
@@ -171,13 +154,13 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const effectiveDeadline = ad ? (ad.dueDate ?? ad.endDate ?? ad.untilDate) : null;
   const livePenaltyPct =
     detailIsLate && penaltyConfigured && !waiveLate
-      ? clientLatePenaltyPercent(
-          detailSub?.submittedAt ?? null,
-          effectiveDeadline,
-          ad?.latePenaltyPercentPerPeriod ?? null,
-          ad?.latePenaltyPeriodHours ?? null,
-          ad?.latePenaltyMaxPercent ?? null,
-        )
+      ? computeLatePenaltyPercent({
+          submittedAt: detailSub?.submittedAt ?? null,
+          deadline: effectiveDeadline,
+          perPeriodPercent: ad?.latePenaltyPercentPerPeriod ?? null,
+          periodHours: ad?.latePenaltyPeriodHours ?? null,
+          maxPercent: ad?.latePenaltyMaxPercent ?? null,
+        })
       : 0;
   const lateDays =
     detailSub?.submittedAt && effectiveDeadline

@@ -1110,9 +1110,13 @@ export const fr = {
       latePenaltyLegend: 'Pénalité de retard',
       latePenaltyIntro:
         "Retirer des points pour un travail en retard. Laissez le pourcentage vide pour accepter le retard sans pénalité.",
-      latePenaltyDeduct: 'Retirer',
-      latePenaltyEvery: 'tous les',
-      latePenaltyMax: 'Déduction maximale',
+      latePenaltyPerPeriodLabel: 'Pénalité par période (%)',
+      latePenaltyPerPeriodHint: 'Pourcentage retiré pour chaque période entamée.',
+      latePenaltyPeriodLabel: 'Appliquer la pénalité tous les',
+      latePenaltyPeriodUnitLabel: 'Unité de période',
+      latePenaltyPeriodHint: 'Fréquence de répétition de la pénalité.',
+      latePenaltyMaxLabel: 'Déduction maximale (%)',
+      latePenaltyMaxHint: 'La pénalité ne dépasse jamais cette valeur. Laisser vide pour aucun plafond.',
       unitHours: 'heures',
       unitDays: 'jours',
       latePenaltyNone: 'Les remises en retard sont acceptées sans pénalité.',
@@ -1176,6 +1180,7 @@ export const fr = {
       lateWarningTitle: 'Soumission en retard',
       lateWarningBody:
         'La date limite est passée. Vous pouvez toujours soumettre, mais la soumission sera marquée en retard et des points pourront être déduits.',
+      lateNowPenalty: 'Soumettre maintenant retirerait environ {{pct}}%.',
       closedBadge: 'Fermé',
       deadlinePassedTitle: 'La date limite est passée.',
       deadlinePassedBody:

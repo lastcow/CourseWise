@@ -1093,9 +1093,13 @@ export const en = {
       latePenaltyLegend: 'Late penalty',
       latePenaltyIntro:
         'Deduct points for late work. Leave the percentage blank to accept late work with no penalty.',
-      latePenaltyDeduct: 'Deduct',
-      latePenaltyEvery: 'every',
-      latePenaltyMax: 'Maximum deduction',
+      latePenaltyPerPeriodLabel: 'Penalty per period (%)',
+      latePenaltyPerPeriodHint: 'Percent removed for each started period.',
+      latePenaltyPeriodLabel: 'Apply penalty every',
+      latePenaltyPeriodUnitLabel: 'Period unit',
+      latePenaltyPeriodHint: 'How often the penalty repeats.',
+      latePenaltyMaxLabel: 'Maximum deduction (%)',
+      latePenaltyMaxHint: 'The penalty never exceeds this. Leave empty for no cap.',
       unitHours: 'hours',
       unitDays: 'days',
       latePenaltyNone: 'Late submissions are accepted with no penalty.',
@@ -1158,6 +1162,7 @@ export const en = {
       lateWarningTitle: 'Late submission',
       lateWarningBody:
         'The deadline has passed. You can still submit, but it will be marked late and points may be deducted.',
+      lateNowPenalty: 'Submitting now would lose about {{pct}}%.',
       closedBadge: 'Closed',
       deadlinePassedTitle: 'The deadline has passed.',
       deadlinePassedBody:
