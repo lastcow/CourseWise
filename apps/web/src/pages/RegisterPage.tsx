@@ -3,11 +3,13 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
-import { Container } from '@/components/public/Container';
-import { SectionBand } from '@/components/public/SectionBand';
+import { AuthShell, AuthHeading } from '@/components/public/AuthShell';
 import { useAuth } from '@/lib/authContext';
 import { ApiClientError } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
+
+const FIELD = 'h-11 focus-visible:ring-evergreen';
+const SUBMIT = 'h-11 w-full bg-evergreen text-paper hover:bg-evergreen-dark';
 
 export function RegisterPage(): JSX.Element {
   const { t } = useTranslation();
@@ -39,53 +41,79 @@ export function RegisterPage(): JSX.Element {
   };
 
   return (
-    <SectionBand>
-      <Container>
-        <div className="mx-auto max-w-md rounded-2xl border bg-white p-8">
-          <div className="mb-6 text-center">
-            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Get started
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-              Create your workspace.
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Free for educators. 60 seconds to your first AI-drafted material.
-            </p>
-          </div>
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="name">{t('auth.name')}</Label>
-              <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="email">{t('auth.email')}</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="password">{t('auth.password')}</Label>
-              <Input id="password" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="invitationCode">{t('auth.invitationCode')}</Label>
-              <Input id="invitationCode" required value={invitationCode} onChange={(e) => setInvitationCode(e.target.value)} />
-            </div>
-            {errorKey ? <p className="text-sm text-destructive">{t(errorKey)}</p> : null}
-            <Button disabled={isLoading} type="submit" className="w-full">
-              {isLoading ? t('common.loading') : t('auth.registerCta')}
-            </Button>
-            <Link
-              to={signInHref}
-              className="block text-center text-sm text-muted-foreground hover:underline"
-            >
-              {t('auth.switchToLogin')}
-            </Link>
-          </form>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            <Link to="/features" className="underline">Why CourseWise?</Link>
-          </p>
+    <AuthShell>
+      <AuthHeading
+        eyebrow="Get started"
+        title="Create your workspace."
+        subtitle="Free for educators — a couple of minutes to your first AI-drafted material."
+      />
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="name">{t('auth.name')}</Label>
+          <Input
+            id="name"
+            required
+            autoComplete="name"
+            className={FIELD}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
-      </Container>
-    </SectionBand>
+        <div className="space-y-1.5">
+          <Label htmlFor="email">{t('auth.email')}</Label>
+          <Input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            className={FIELD}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="password">{t('auth.password')}</Label>
+          <Input
+            id="password"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            className={FIELD}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="invitationCode">{t('auth.invitationCode')}</Label>
+          <Input
+            id="invitationCode"
+            required
+            className={FIELD}
+            value={invitationCode}
+            onChange={(e) => setInvitationCode(e.target.value)}
+          />
+        </div>
+        {errorKey ? (
+          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {t(errorKey)}
+          </p>
+        ) : null}
+        <Button disabled={isLoading} type="submit" className={SUBMIT}>
+          {isLoading ? t('common.loading') : t('auth.registerCta')}
+        </Button>
+      </form>
+      <p className="mt-7 text-center text-sm text-ink-400">
+        <Link to={signInHref} className="font-medium text-ink transition-colors hover:text-evergreen">
+          {t('auth.switchToLogin')}
+        </Link>
+        <span className="mx-2 text-ink/40" aria-hidden>
+          ·
+        </span>
+        <Link to="/features" className="transition-colors hover:text-evergreen">
+          Why CourseWise?
+        </Link>
+      </p>
+    </AuthShell>
   );
 }

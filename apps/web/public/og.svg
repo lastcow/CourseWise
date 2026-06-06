@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="CourseWise — the teaching stack your school deserves">
+  <rect width="1200" height="630" fill="#FBFAF7"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#2F5D50"/>
+  <g transform="translate(88, 96)">
+    <rect width="64" height="64" rx="14" fill="#15140F"/>
+    <path d="M44 21 A 16.4 16.4 0 1 0 44 43" fill="none" stroke="#FBFAF7" stroke-width="6.6" stroke-linecap="round" transform="translate(-2,-1)"/>
+    <circle cx="46" cy="32" r="3.8" fill="#2F5D50"/>
+    <text x="84" y="42" font-family="Georgia, 'Times New Roman', serif" font-size="30" font-weight="600" fill="#15140F" letter-spacing="0.5">CourseWise</text>
+  </g>
+  <text x="88" y="330" font-family="Georgia, 'Times New Roman', serif" font-size="84" font-weight="600" fill="#15140F" letter-spacing="-2">The teaching stack</text>
+  <text x="88" y="424" font-family="Georgia, 'Times New Roman', serif" font-size="84" font-weight="600" fill="#2F5D50" letter-spacing="-2" font-style="italic">your school deserves</text>
+  <text x="90" y="520" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="28" fill="#6B6658">Modules, materials, quizzes, attendance, and AI authoring — under one FERPA-first roof.</text>
+</svg>

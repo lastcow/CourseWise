@@ -90,7 +90,7 @@ export function FeaturesPage(): JSX.Element {
               role="tablist"
               aria-label="Audiences"
               onKeyDown={onTablistKeyDown}
-              className="inline-flex rounded-full border bg-white p-1"
+              className="flex flex-wrap gap-1 rounded-lg border border-ink/10 bg-paper-200 p-1 sm:inline-flex"
             >
               {ROLE_ORDER.map((r) => (
                 <button
@@ -103,10 +103,10 @@ export function FeaturesPage(): JSX.Element {
                   tabIndex={active === r ? 0 : -1}
                   onClick={() => setActive(r)}
                   className={
-                    'rounded-full px-4 py-1.5 text-sm transition-colors ' +
+                    'rounded-md px-4 py-1.5 text-sm font-medium transition-colors ' +
                     (active === r
-                      ? 'bg-[#0a0a0a] text-white'
-                      : 'text-muted-foreground hover:text-foreground')
+                      ? 'bg-ink text-paper shadow-warm-sm'
+                      : 'text-ink/55 hover:bg-paper-300 hover:text-ink')
                   }
                 >
                   {TABS[r].label}
@@ -120,36 +120,45 @@ export function FeaturesPage(): JSX.Element {
               id={`features-panel-${active}`}
               aria-labelledby={`features-tab-${active}`}
               tabIndex={0}
-              className="mt-12 grid items-center gap-12 md:grid-cols-2 focus:outline-none"
+              className="mt-12 grid items-center gap-12 focus:outline-none lg:grid-cols-[1.05fr_1fr]"
             >
               <div>
-                <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">{tab.title}</h2>
-                <p className="mt-4 text-base text-muted-foreground md:text-lg">{tab.body}</p>
-                <ul className="mt-6 space-y-2">
+                <h2 className="font-display text-3xl font-semibold leading-[1.1] tracking-[-0.02em] md:text-[2.4rem]">
+                  {tab.title}
+                </h2>
+                <p className="mt-4 max-w-prose text-base leading-relaxed text-ink-400 md:text-lg">
+                  {tab.body}
+                </p>
+                <ul className="mt-8 grid gap-x-6 gap-y-3 sm:grid-cols-2">
                   {tab.checklist.map((c) => (
-                    <li key={c} className="flex items-start gap-2 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
-                      {c}
+                    <li key={c} className="flex items-start gap-2.5 text-sm">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-evergreen" aria-hidden />
+                      <span className="text-ink/80">{c}</span>
                     </li>
                   ))}
                 </ul>
               </div>
-              <div><Mock /></div>
+              <div>
+                <Mock />
+              </div>
             </div>
           </Reveal>
         </Container>
       </SectionBand>
 
       {/* Built on */}
-      <SectionBand tone="dark">
+      <SectionBand tone="dark" grain className="!py-20">
         <Container>
           <Reveal>
-            <div className="text-center text-xs font-medium uppercase tracking-[0.18em] text-[#a3a3a3]">
+            <div className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-evergreen-200">
               Built on
             </div>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <div className="mx-auto mt-7 flex max-w-3xl flex-wrap items-center justify-center gap-2.5">
               {['Cloudflare Workers', 'Cloudflare R2', 'Cloudflare AI Gateway', 'Anthropic Claude', 'Neon Postgres', 'Drizzle ORM', 'Hono', 'React', 'Tailwind'].map((b) => (
-                <span key={b} className="rounded-full border border-[#1f1f1f] bg-[#0a0a0a] px-3 py-1 text-xs text-[#a3a3a3]">
+                <span
+                  key={b}
+                  className="rounded-md border border-paper/15 bg-paper/[0.04] px-3 py-1.5 text-xs text-paper/70"
+                >
                   {b}
                 </span>
               ))}

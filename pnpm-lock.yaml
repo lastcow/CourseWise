@@ -99,6 +99,12 @@ importers:
       '@coursewise/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@fontsource-variable/fraunces':
+        specifier: ^5.2.9
+        version: 5.2.9
+      '@fontsource-variable/geist':
+        specifier: ^5.2.9
+        version: 5.2.9
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.76.0(react@18.3.1))
@@ -1167,6 +1173,12 @@ packages:
   '@fastify/busboy@2.1.1':
     resolution: {integrity: sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA==}
     engines: {node: '>=14'}
+
+  '@fontsource-variable/fraunces@5.2.9':
+    resolution: {integrity: sha512-Y6IjunlN9Ni723np+GIgAaKzCDBrPRrqNi01TZxHs5wtHYROWFM9W6yiT+/gGwSjWIRD18oX17kD/BRWekc/Lw==}
+
+  '@fontsource-variable/geist@5.2.9':
+    resolution: {integrity: sha512-TP+QSBG3wxKGPE33CbMy/L0Nu3qvJ6Fy81Yc4LnQ95xH+i+cfEp8fyU8/kfV14YwszxIFPhnoMTbjL71waVpyQ==}
 
   '@hookform/resolvers@3.10.0':
     resolution: {integrity: sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag==}
@@ -4504,6 +4516,10 @@ snapshots:
   '@exodus/bytes@1.15.1': {}
 
   '@fastify/busboy@2.1.1': {}
+
+  '@fontsource-variable/fraunces@5.2.9': {}
+
+  '@fontsource-variable/geist@5.2.9': {}
 
   '@hookform/resolvers@3.10.0(react-hook-form@7.76.0(react@18.3.1))':
     dependencies:

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Container } from './Container';
+import { BrandMark } from './BrandMark';
 
 const COLUMNS: { headingKey: string; links: { to: string; labelKey: string }[] }[] = [
   {
@@ -46,24 +47,32 @@ const COLUMNS: { headingKey: string; links: { to: string; labelKey: string }[] }
 export function FooterMega(): JSX.Element {
   const { t } = useTranslation();
   return (
-    <footer className="border-t bg-[#fafafa]">
+    <footer className="border-t border-ink/10 bg-paper-200">
       <Container className="py-16">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
           <div className="col-span-2 md:col-span-1">
-            <div className="text-base font-semibold tracking-tight">{t('app.name')}</div>
-            <p className="mt-3 max-w-xs text-xs text-muted-foreground">
+            <Link to="/" className="flex items-center gap-2.5">
+              <BrandMark className="h-6 w-6" />
+              <span className="font-display text-base font-semibold tracking-tight">
+                {t('app.name')}
+              </span>
+            </Link>
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-ink-400">
               {t('public.footer.blurb')}
             </p>
           </div>
           {COLUMNS.map((c) => (
             <div key={c.headingKey}>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-ink-400">
                 {t(c.headingKey)}
               </h2>
-              <ul className="mt-3 space-y-2 text-sm">
+              <ul className="mt-4 space-y-2.5 text-sm">
                 {c.links.map((l) => (
                   <li key={l.to}>
-                    <Link to={l.to} className="hover:underline">
+                    <Link
+                      to={l.to}
+                      className="text-ink/70 transition-colors hover:text-evergreen"
+                    >
                       {t(l.labelKey)}
                     </Link>
                   </li>
@@ -72,10 +81,9 @@ export function FooterMega(): JSX.Element {
             </div>
           ))}
         </div>
-        <div className="mt-12 flex flex-col items-start justify-between gap-3 border-t pt-6 text-xs text-muted-foreground md:flex-row md:items-center">
+        <div className="mt-14 flex flex-col items-start justify-between gap-3 border-t border-ink/10 pt-6 text-xs text-ink-400 md:flex-row md:items-center">
           <div>
-            © {new Date().getFullYear()} {t('app.name')}.{' '}
-            {t('public.footer.rights')}
+            © {new Date().getFullYear()} {t('app.name')}. {t('public.footer.rights')}
           </div>
           <LanguageSwitcher />
         </div>

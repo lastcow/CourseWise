@@ -4,12 +4,14 @@ import { useTranslation } from 'react-i18next';
 import type { TeacherInvitationLookup } from '@coursewise/shared';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
-import { Container } from '@/components/public/Container';
-import { SectionBand } from '@/components/public/SectionBand';
+import { AuthShell, AuthHeading } from '@/components/public/AuthShell';
 import { ApiClientError } from '@/lib/api';
 import { lookupTeacherInvitation } from '@/lib/queries';
 import { useAuth } from '@/lib/authContext';
 import { useToast } from '@/components/ui/toast';
+
+const FIELD = 'h-11 focus-visible:ring-evergreen';
+const SUBMIT = 'h-11 w-full bg-evergreen text-paper hover:bg-evergreen-dark';
 
 type LookupState =
   | { status: 'loading' }
@@ -63,81 +65,84 @@ export function TeacherAcceptInvitePage(): JSX.Element {
   }
 
   return (
-    <SectionBand>
-      <Container>
-        <div className="mx-auto max-w-md rounded-2xl border bg-white p-8">
-          <div className="mb-6 text-center">
-            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Teacher invitation
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-              Join your school on CourseWise.
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Complete the steps below to claim your teacher account.
-            </p>
+    <AuthShell>
+      <AuthHeading
+        eyebrow="Teacher invitation"
+        title="Join your school on CourseWise."
+        subtitle="Complete the steps below to claim your teacher account."
+      />
+      {lookup.status === 'loading' ? (
+        <p className="text-sm text-ink-400">{t('common.loading')}</p>
+      ) : lookup.status === 'error' ? (
+        <div className="space-y-4">
+          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {t(lookup.i18nKey)}
+          </p>
+          <p className="text-sm text-ink-400">{t('teacherInvite.requestNew')}</p>
+          <div className="flex items-center justify-between pt-2 text-sm">
+            <Link to="/" className="text-ink-400 transition-colors hover:text-evergreen">
+              {t('nav.home')}
+            </Link>
+            <Link to="/login" className="font-medium text-ink transition-colors hover:text-evergreen">
+              {t('auth.loginCta')}
+            </Link>
           </div>
-          {lookup.status === 'loading' ? (
-            <p className="mt-8 text-center text-sm text-muted-foreground">{t('common.loading')}</p>
-          ) : lookup.status === 'error' ? (
-            <div className="mt-8 space-y-4">
-              <p className="text-sm text-destructive">{t(lookup.i18nKey)}</p>
-              <p className="text-sm text-muted-foreground">{t('teacherInvite.requestNew')}</p>
-              <div className="flex items-center justify-between">
-                <Link to="/" className="text-sm text-muted-foreground hover:underline">
-                  {t('nav.home')}
-                </Link>
-                <Link to="/login" className="text-sm hover:underline">
-                  {t('auth.loginCta')}
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={onSubmit} className="mt-8 space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {t('teacherInvite.invitedBy', { name: lookup.data.inviterName })}
-              </p>
-              <div className="space-y-1">
-                <Label htmlFor="email">{t('auth.email')}</Label>
-                <Input id="email" type="email" value={lookup.data.email} readOnly disabled />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="name">{t('auth.name')}</Label>
-                <Input
-                  id="name"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoComplete="name"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="password">{t('auth.password')}</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="new-password"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t('teacherInvite.expiresAt', {
-                  date: new Date(lookup.data.expiresAt).toLocaleString(),
-                })}
-              </p>
-              {submitErrorKey ? (
-                <p className="text-sm text-destructive">{t(submitErrorKey)}</p>
-              ) : null}
-              <Button type="submit" disabled={isLoading} className="w-full">
-                {isLoading ? t('common.loading') : t('teacherInvite.cta')}
-              </Button>
-            </form>
-          )}
         </div>
-      </Container>
-    </SectionBand>
+      ) : (
+        <form onSubmit={onSubmit} className="space-y-4">
+          <p className="rounded-md border border-evergreen-200 bg-evergreen-100 px-3 py-2 text-sm text-evergreen">
+            {t('teacherInvite.invitedBy', { name: lookup.data.inviterName })}
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="email">{t('auth.email')}</Label>
+            <Input
+              id="email"
+              type="email"
+              value={lookup.data.email}
+              readOnly
+              disabled
+              className="h-11"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="name">{t('auth.name')}</Label>
+            <Input
+              id="name"
+              required
+              className={FIELD}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="password">{t('auth.password')}</Label>
+            <Input
+              id="password"
+              type="password"
+              required
+              minLength={8}
+              className={FIELD}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          <p className="text-xs text-ink-400">
+            {t('teacherInvite.expiresAt', {
+              date: new Date(lookup.data.expiresAt).toLocaleString(),
+            })}
+          </p>
+          {submitErrorKey ? (
+            <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              {t(submitErrorKey)}
+            </p>
+          ) : null}
+          <Button type="submit" disabled={isLoading} className={SUBMIT}>
+            {isLoading ? t('common.loading') : t('teacherInvite.cta')}
+          </Button>
+        </form>
+      )}
+    </AuthShell>
   );
 }

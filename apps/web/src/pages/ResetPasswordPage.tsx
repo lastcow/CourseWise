@@ -3,13 +3,14 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
-import { Container } from '@/components/public/Container';
-import { SectionBand } from '@/components/public/SectionBand';
+import { AuthShell, AuthHeading } from '@/components/public/AuthShell';
 import { ApiClientError } from '@/lib/api';
 import { useResetPassword } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 
 const MIN_PASSWORD_LENGTH = 8;
+const FIELD = 'h-11 focus-visible:ring-evergreen';
+const SUBMIT = 'h-11 w-full bg-evergreen text-paper hover:bg-evergreen-dark';
 
 // Server token-error codes that mean the reset link can no longer be used.
 // Any of these flips the page into the invalid-link state.
@@ -18,14 +19,14 @@ const INVALID_TOKEN_CODES = new Set(['INVALID_TOKEN', 'TOKEN_EXPIRED', 'TOKEN_RE
 function InvalidLink(): JSX.Element {
   const { t } = useTranslation();
   return (
-    <div className="text-center">
-      <h1 className="text-2xl font-semibold tracking-tight">
-        {t('passwordReset.invalidLinkTitle')}
-      </h1>
-      <p className="mt-2 text-sm text-muted-foreground">{t('passwordReset.invalidLinkBody')}</p>
+    <div>
+      <AuthHeading
+        title={t('passwordReset.invalidLinkTitle')}
+        subtitle={t('passwordReset.invalidLinkBody')}
+      />
       <Link
         to="/forgot-password"
-        className="mt-6 block text-center text-sm text-muted-foreground hover:underline"
+        className="text-sm font-medium text-ink transition-colors hover:text-evergreen"
       >
         {t('passwordReset.requestNewLink')}
       </Link>
@@ -47,13 +48,9 @@ export function ResetPasswordPage(): JSX.Element {
 
   if (!token || invalidLink) {
     return (
-      <SectionBand>
-        <Container>
-          <div className="mx-auto max-w-md rounded-2xl border bg-white p-8">
-            <InvalidLink />
-          </div>
-        </Container>
-      </SectionBand>
+      <AuthShell>
+        <InvalidLink />
+      </AuthShell>
     );
   }
 
@@ -83,43 +80,43 @@ export function ResetPasswordPage(): JSX.Element {
   };
 
   return (
-    <SectionBand>
-      <Container>
-        <div className="mx-auto max-w-md rounded-2xl border bg-white p-8">
-          <div className="mb-6 text-center">
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-              {t('passwordReset.newTitle')}
-            </h1>
-          </div>
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="password">{t('passwordReset.newPasswordLabel')}</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                minLength={MIN_PASSWORD_LENGTH}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="confirm">{t('passwordReset.confirmLabel')}</Label>
-              <Input
-                id="confirm"
-                type="password"
-                required
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-            </div>
-            {errorKey ? <p className="text-sm text-destructive">{t(errorKey)}</p> : null}
-            <Button disabled={resetPassword.isPending} type="submit" className="w-full">
-              {resetPassword.isPending ? t('common.loading') : t('passwordReset.submitCta')}
-            </Button>
-          </form>
+    <AuthShell>
+      <AuthHeading eyebrow="Reset" title={t('passwordReset.newTitle')} />
+      <form onSubmit={onSubmit} className="space-y-5">
+        <div className="space-y-1.5">
+          <Label htmlFor="password">{t('passwordReset.newPasswordLabel')}</Label>
+          <Input
+            id="password"
+            type="password"
+            required
+            minLength={MIN_PASSWORD_LENGTH}
+            autoComplete="new-password"
+            className={FIELD}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </div>
-      </Container>
-    </SectionBand>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirm">{t('passwordReset.confirmLabel')}</Label>
+          <Input
+            id="confirm"
+            type="password"
+            required
+            autoComplete="new-password"
+            className={FIELD}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+        </div>
+        {errorKey ? (
+          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {t(errorKey)}
+          </p>
+        ) : null}
+        <Button disabled={resetPassword.isPending} type="submit" className={SUBMIT}>
+          {resetPassword.isPending ? t('common.loading') : t('passwordReset.submitCta')}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

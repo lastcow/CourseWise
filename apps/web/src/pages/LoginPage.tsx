@@ -3,11 +3,13 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
-import { Container } from '@/components/public/Container';
-import { SectionBand } from '@/components/public/SectionBand';
+import { AuthShell, AuthHeading } from '@/components/public/AuthShell';
 import { useAuth } from '@/lib/authContext';
 import { ApiClientError } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
+
+const FIELD = 'h-11 focus-visible:ring-evergreen';
+const SUBMIT = 'h-11 w-full bg-evergreen text-paper hover:bg-evergreen-dark';
 
 // Only honor redirectTo values that point to same-origin paths. Reject anything
 // that could escape the app (full URLs, protocol-relative `//evil.com`, etc.).
@@ -50,48 +52,55 @@ export function LoginPage(): JSX.Element {
   };
 
   return (
-    <SectionBand>
-      <Container>
-        <div className="mx-auto max-w-md rounded-2xl border bg-white p-8">
-          <div className="mb-6 text-center">
-            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Sign in
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-              Welcome back.
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Use your school email and password.
-            </p>
-          </div>
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="email">{t('auth.email')}</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="password">{t('auth.password')}</Label>
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-              <Link
-                to="/forgot-password"
-                className="block text-center text-sm text-muted-foreground hover:underline"
-              >
-                {t('auth.forgotPasswordLink')}
-              </Link>
-            </div>
-            {errorKey ? <p className="text-sm text-destructive">{t(errorKey)}</p> : null}
-            <Button disabled={isLoading} type="submit" className="w-full">
-              {isLoading ? t('common.loading') : t('auth.loginCta')}
-            </Button>
-            <Link
-              to="/register"
-              className="block text-center text-sm text-muted-foreground hover:underline"
-            >
-              {t('auth.switchToRegister')}
-            </Link>
-          </form>
+    <AuthShell>
+      <AuthHeading eyebrow="Sign in" title="Welcome back." subtitle="Use your school email and password." />
+      <form onSubmit={onSubmit} className="space-y-5">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">{t('auth.email')}</Label>
+          <Input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            className={FIELD}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
-      </Container>
-    </SectionBand>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">{t('auth.password')}</Label>
+            <Link
+              to="/forgot-password"
+              className="text-xs font-medium text-evergreen hover:underline"
+            >
+              {t('auth.forgotPasswordLink')}
+            </Link>
+          </div>
+          <Input
+            id="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            className={FIELD}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+        {errorKey ? (
+          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {t(errorKey)}
+          </p>
+        ) : null}
+        <Button disabled={isLoading} type="submit" className={SUBMIT}>
+          {isLoading ? t('common.loading') : t('auth.loginCta')}
+        </Button>
+      </form>
+      <p className="mt-8 text-center text-sm text-ink-400">
+        <Link to="/register" className="font-medium text-ink transition-colors hover:text-evergreen">
+          {t('auth.switchToRegister')}
+        </Link>
+      </p>
+    </AuthShell>
   );
 }

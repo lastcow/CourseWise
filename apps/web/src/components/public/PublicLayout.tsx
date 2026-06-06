@@ -4,7 +4,7 @@ import { FooterMega } from './FooterMega';
 
 export function PublicLayout(): JSX.Element {
   return (
-    <div className="min-h-screen bg-white text-[#0a0a0a]">
+    <div className="min-h-screen bg-paper text-ink">
       <PublicHeader />
       <main>
         <Outlet />
