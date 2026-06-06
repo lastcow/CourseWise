@@ -20,9 +20,9 @@ export function SubprocessorsPage(): JSX.Element {
         further disclosure.
       </p>
 
-      <div className="not-prose my-6 overflow-x-auto rounded-lg border">
+      <div className="not-prose my-6 overflow-x-auto rounded-lg border border-ink/10">
         <table className="w-full text-left text-sm">
-          <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+          <thead className="bg-paper-200 text-xs uppercase tracking-wide text-ink-400">
             <tr>
               <th className="px-3 py-2 font-medium">Vendor</th>
               <th className="px-3 py-2 font-medium">Service</th>
@@ -45,7 +45,7 @@ export function SubprocessorsPage(): JSX.Element {
                   href="https://www.cloudflare.com/cloudflare-customer-dpa/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-violet-700 underline"
+                  className="font-medium text-evergreen hover:underline"
                 >
                   DPA
                 </a>
@@ -61,7 +61,7 @@ export function SubprocessorsPage(): JSX.Element {
                   href="https://neon.tech/dpa"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-violet-700 underline"
+                  className="font-medium text-evergreen hover:underline"
                 >
                   DPA
                 </a>
@@ -79,7 +79,7 @@ export function SubprocessorsPage(): JSX.Element {
                   href="https://www.anthropic.com/legal/dpa"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-violet-700 underline"
+                  className="font-medium text-evergreen hover:underline"
                 >
                   DPA
                 </a>
@@ -100,7 +100,7 @@ export function SubprocessorsPage(): JSX.Element {
                   href="https://gamma.app/legal/dpa"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-violet-700 underline"
+                  className="font-medium text-evergreen hover:underline"
                 >
                   DPA
                 </a>

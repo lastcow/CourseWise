@@ -58,27 +58,28 @@ export function ContactPage(): JSX.Element {
         <Container className="mt-12 grid gap-12 md:grid-cols-[1fr_360px]">
           <Reveal>
             {done ? (
-              <div className="rounded-2xl border bg-white p-8 text-center">
-                <h2 className="text-xl font-semibold">{t('public.contact.doneTitle')}</h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {t('public.contact.doneBody')}
-                </p>
+              <div className="rounded-2xl border border-ink/10 bg-paper p-8 text-center shadow-warm">
+                <h2 className="font-display text-xl font-semibold">{t('public.contact.doneTitle')}</h2>
+                <p className="mt-2 text-sm text-ink-400">{t('public.contact.doneBody')}</p>
               </div>
             ) : (
-              <form onSubmit={onSubmit} className="space-y-5 rounded-2xl border bg-white p-8">
+              <form
+                onSubmit={onSubmit}
+                className="space-y-5 rounded-2xl border border-ink/10 bg-paper p-8 shadow-warm"
+              >
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <Label htmlFor="c-name">{t('public.contact.nameLabel')}</Label>
-                    <Input id="c-name" name="name" required maxLength={120} />
+                    <Input id="c-name" name="name" required maxLength={120} className="h-11 focus-visible:ring-evergreen" />
                   </div>
                   <div>
                     <Label htmlFor="c-email">{t('public.contact.emailLabel')}</Label>
-                    <Input id="c-email" name="email" type="email" required maxLength={200} />
+                    <Input id="c-email" name="email" type="email" required maxLength={200} className="h-11 focus-visible:ring-evergreen" />
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="c-inst">{t('public.contact.institutionLabel')}</Label>
-                  <Input id="c-inst" name="institution" maxLength={200} />
+                  <Input id="c-inst" name="institution" maxLength={200} className="h-11 focus-visible:ring-evergreen" />
                 </div>
                 <div>
                   <Label htmlFor="c-subject">{t('public.contact.reasonLabel')}</Label>
@@ -86,7 +87,7 @@ export function ContactPage(): JSX.Element {
                     id="c-subject"
                     name="subject"
                     required
-                    className="flex h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evergreen focus-visible:ring-offset-2"
                   >
                     <option value="sales">{t('public.contact.reasonSales')}</option>
                     <option value="support">{t('public.contact.reasonSupport')}</option>
@@ -96,40 +97,40 @@ export function ContactPage(): JSX.Element {
                 </div>
                 <div>
                   <Label htmlFor="c-msg">{t('public.contact.messageLabel')}</Label>
-                  <Textarea id="c-msg" name="message" required rows={6} maxLength={4000} />
+                  <Textarea id="c-msg" name="message" required rows={6} maxLength={4000} className="focus-visible:ring-evergreen" />
                 </div>
-                <Button type="submit" disabled={pending} className="w-full">
+                <Button type="submit" disabled={pending} className="h-11 w-full bg-evergreen text-paper hover:bg-evergreen-dark">
                   {pending ? t('public.contact.sending') : t('public.contact.sendCta')}
                 </Button>
               </form>
             )}
           </Reveal>
-          <aside className="space-y-6 text-sm text-muted-foreground">
+          <aside className="space-y-6 text-sm text-ink-400">
             <div>
-              <div className="text-xs font-medium uppercase tracking-[0.18em]">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-evergreen">
                 {t('public.contact.asideResponseTime')}
               </div>
-              <p className="mt-2">{t('public.contact.asideResponseTimeBody')}</p>
+              <p className="mt-2 leading-relaxed">{t('public.contact.asideResponseTimeBody')}</p>
             </div>
             <div>
-              <div className="text-xs font-medium uppercase tracking-[0.18em]">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-evergreen">
                 {t('public.contact.asideFerpa')}
               </div>
-              <p className="mt-2">
+              <p className="mt-2 leading-relaxed">
                 {t('public.contact.asideFerpaPrefix')}{' '}
-                <Link to="/legal/data-requests" className="underline">
+                <Link to="/legal/data-requests" className="font-medium text-evergreen hover:underline">
                   {t('public.contact.asideFerpaLink')}
                 </Link>
                 .
               </p>
             </div>
             <div>
-              <div className="text-xs font-medium uppercase tracking-[0.18em]">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-evergreen">
                 {t('public.contact.asideSecurity')}
               </div>
-              <p className="mt-2">
+              <p className="mt-2 leading-relaxed">
                 {t('public.contact.asideSecurityPrefix')}{' '}
-                <Link to="/legal/responsible-disclosure" className="underline">
+                <Link to="/legal/responsible-disclosure" className="font-medium text-evergreen hover:underline">
                   {t('public.contact.asideSecurityLink')}
                 </Link>
                 {t('public.contact.asideSecuritySuffix')}

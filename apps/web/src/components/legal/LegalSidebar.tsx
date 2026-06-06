@@ -27,7 +27,7 @@ export function LegalSidebar(): JSX.Element {
         value={pathname}
         onChange={(e) => navigate(e.target.value)}
         aria-label={t('public.legal.sidebarLabel')}
-        className="mb-6 flex h-10 w-full rounded-md border bg-background px-3 text-sm md:hidden"
+        className="mb-6 flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evergreen focus-visible:ring-offset-2 md:hidden"
       >
         {LEGAL_PAGES.map((p) => (
           <option key={p.to} value={p.to}>{t(p.labelKey)}</option>
@@ -41,8 +41,10 @@ export function LegalSidebar(): JSX.Element {
                 to={p.to}
                 className={({ isActive }) =>
                   cn(
-                    'block rounded-md px-3 py-1.5',
-                    isActive ? 'bg-black/5 font-medium text-foreground' : 'text-muted-foreground hover:bg-black/5',
+                    'block rounded-md px-3 py-1.5 transition-colors',
+                    isActive
+                      ? 'bg-evergreen-100 font-medium text-evergreen'
+                      : 'text-ink-400 hover:bg-ink/5 hover:text-ink',
                   )
                 }
               >
