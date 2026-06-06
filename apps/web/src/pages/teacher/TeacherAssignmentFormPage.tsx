@@ -38,6 +38,13 @@ export function TeacherAssignmentFormPage(): JSX.Element {
   const [untilDate, setUntilDate] = useState('');
   const [maxScore, setMaxScore] = useState<number | ''>('');
   const [allowLate, setAllowLate] = useState(false);
+  // Late penalty: deduct `latePctPerPeriod`% for each started period; the period
+  // is `latePeriodValue` × `latePeriodUnit` (stored as hours), capped at
+  // `lateMaxPct`%. Empty percentage ⇒ accept late work with no penalty.
+  const [latePctPerPeriod, setLatePctPerPeriod] = useState<number | ''>('');
+  const [latePeriodValue, setLatePeriodValue] = useState<number | ''>('');
+  const [latePeriodUnit, setLatePeriodUnit] = useState<'hours' | 'days'>('days');
+  const [lateMaxPct, setLateMaxPct] = useState<number | ''>('');
   const [attachmentFileId, setAttachmentFileId] = useState<string | null>(null);
   const [groupId, setGroupId] = useState<string | null>(null);
   const [submissionMode, setSubmissionMode] = useState<SubmissionMode>('individual');
@@ -59,6 +66,18 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       setUntilDate(existing.data.untilDate ? new Date(existing.data.untilDate).toISOString().slice(0, 16) : '');
       setMaxScore(existing.data.maxScore ?? '');
       setAllowLate(existing.data.allowLateSubmission);
+      setLatePctPerPeriod(existing.data.latePenaltyPercentPerPeriod ?? '');
+      setLateMaxPct(existing.data.latePenaltyMaxPercent ?? '');
+      const ph = existing.data.latePenaltyPeriodHours;
+      if (ph != null && ph % 24 === 0) {
+        setLatePeriodUnit('days');
+        setLatePeriodValue(ph / 24);
+      } else if (ph != null) {
+        setLatePeriodUnit('hours');
+        setLatePeriodValue(ph);
+      } else {
+        setLatePeriodValue('');
+      }
       setAttachmentFileId(existing.data.attachmentFileId);
       setGroupId(existing.data.groupId ?? null);
       setSubmissionMode(existing.data.submissionMode);
@@ -112,6 +131,17 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       toast.push({ title: t('assignments.schedulingOrderError'), tone: 'error' });
       return;
     }
+    // A penalty percentage needs a period to accrue over.
+    if (allowLate && latePctPerPeriod !== '' && latePeriodValue === '') {
+      toast.push({ title: t('assignments.latePenaltyPeriodRequired'), tone: 'error' });
+      return;
+    }
+    const periodHours =
+      latePeriodValue === ''
+        ? null
+        : latePeriodUnit === 'days'
+          ? Number(latePeriodValue) * 24
+          : Number(latePeriodValue);
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
@@ -121,6 +151,9 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       untilDate: untilIso,
       maxScore: maxScore === '' ? null : Number(maxScore),
       allowLateSubmission: allowLate,
+      latePenaltyPercentPerPeriod: allowLate && latePctPerPeriod !== '' ? Number(latePctPerPeriod) : null,
+      latePenaltyPeriodHours: allowLate ? periodHours : null,
+      latePenaltyMaxPercent: allowLate && lateMaxPct !== '' ? Number(lateMaxPct) : null,
       attachmentFileId: attachmentFileId ?? null,
       groupId,
       submissionMode,
@@ -141,6 +174,19 @@ export function TeacherAssignmentFormPage(): JSX.Element {
     }
   };
 
+  const periodUnitLabel = t(
+    latePeriodUnit === 'days' ? 'assignments.unitDays' : 'assignments.unitHours',
+  );
+  const showPenaltyPreview = allowLate && latePctPerPeriod !== '' && latePeriodValue !== '';
+  // The deduction after exactly one period late = the per-period %, capped.
+  const examplePct =
+    latePctPerPeriod === ''
+      ? 0
+      : Math.min(
+          Number(latePctPerPeriod),
+          lateMaxPct === '' ? Number.POSITIVE_INFINITY : Number(lateMaxPct),
+        );
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
@@ -149,18 +195,17 @@ export function TeacherAssignmentFormPage(): JSX.Element {
             {t('assignments.title')}
           </Link>
           {' › '}
-          {isNew ? t('assignments.newCta') : existing.data?.title ?? ''}
+          {isNew ? t('assignments.createTitle') : existing.data?.title ?? t('assignments.editTitle')}
         </h2>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {isNew ? t('assignments.createTitle') : t('assignments.editTitle')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-3" onSubmit={onSubmit}>
+      <form className="space-y-4" onSubmit={onSubmit}>
+        {/* Details */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t('assignments.sectionDetails')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
             <div>
               <Label htmlFor="a-title">{t('assignments.titleLabel')}</Label>
               <Input id="a-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -169,27 +214,140 @@ export function TeacherAssignmentFormPage(): JSX.Element {
               <Label htmlFor="a-desc">{t('assignments.descriptionLabel')}</Label>
               <MarkdownEditor id="a-desc" value={description} onChange={setDescription} />
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <Label htmlFor="a-due">{t('assignments.dueLabel')}</Label>
-                <Input
-                  id="a-due"
-                  type="datetime-local"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+          </CardContent>
+        </Card>
+
+        {/* Grading & late policy */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t('assignments.sectionGrading')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="max-w-xs">
+              <Label htmlFor="a-max">{t('assignments.maxScoreLabel')}</Label>
+              <Input
+                id="a-max"
+                type="number"
+                min={0}
+                step={0.5}
+                value={maxScore}
+                onChange={(e) => setMaxScore(e.target.value === '' ? '' : Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="flex items-center gap-2" htmlFor="a-late">
+                <input
+                  id="a-late"
+                  type="checkbox"
+                  checked={allowLate}
+                  onChange={(e) => setAllowLate(e.target.checked)}
                 />
-              </div>
-              <div>
-                <Label htmlFor="a-max">{t('assignments.maxScoreLabel')}</Label>
-                <Input
-                  id="a-max"
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={maxScore}
-                  onChange={(e) => setMaxScore(e.target.value === '' ? '' : Number(e.target.value))}
-                />
-              </div>
+                <span className="text-sm font-medium">{t('assignments.allowLate')}</span>
+              </label>
+              <p className="pl-6 text-xs text-muted-foreground">{t('assignments.allowLateHint')}</p>
+            </div>
+            {allowLate ? (
+              <fieldset className="space-y-3 rounded-md border bg-muted/30 p-3">
+                <legend className="px-1 text-sm font-medium">
+                  {t('assignments.latePenaltyLegend')}
+                </legend>
+                <p className="text-xs text-muted-foreground">{t('assignments.latePenaltyIntro')}</p>
+                <div className="flex flex-wrap items-end gap-2 text-sm">
+                  <span>{t('assignments.latePenaltyDeduct')}</span>
+                  <div className="w-20">
+                    <Input
+                      aria-label={t('assignments.latePenaltyDeduct')}
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={latePctPerPeriod}
+                      onChange={(e) =>
+                        setLatePctPerPeriod(e.target.value === '' ? '' : Number(e.target.value))
+                      }
+                    />
+                  </div>
+                  <span>% {t('assignments.latePenaltyEvery')}</span>
+                  <div className="w-20">
+                    <Input
+                      aria-label={t('assignments.latePenaltyEvery')}
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={latePeriodValue}
+                      onChange={(e) =>
+                        setLatePeriodValue(e.target.value === '' ? '' : Number(e.target.value))
+                      }
+                    />
+                  </div>
+                  <select
+                    aria-label={t('assignments.latePenaltyEvery')}
+                    className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                    value={latePeriodUnit}
+                    onChange={(e) => setLatePeriodUnit(e.target.value as 'hours' | 'days')}
+                  >
+                    <option value="hours">{t('assignments.unitHours')}</option>
+                    <option value="days">{t('assignments.unitDays')}</option>
+                  </select>
+                </div>
+                <div className="flex flex-wrap items-end gap-2 text-sm">
+                  <span>{t('assignments.latePenaltyMax')}</span>
+                  <div className="w-20">
+                    <Input
+                      aria-label={t('assignments.latePenaltyMax')}
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={lateMaxPct}
+                      onChange={(e) =>
+                        setLateMaxPct(e.target.value === '' ? '' : Number(e.target.value))
+                      }
+                    />
+                  </div>
+                  <span>%</span>
+                </div>
+                <p className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+                  {showPenaltyPreview
+                    ? t(
+                        lateMaxPct === ''
+                          ? 'assignments.latePenaltyPreviewNoMax'
+                          : 'assignments.latePenaltyPreview',
+                        {
+                          perPeriod: Number(latePctPerPeriod),
+                          value: Number(latePeriodValue),
+                          unit: periodUnitLabel,
+                          max: lateMaxPct === '' ? 0 : Number(lateMaxPct),
+                        },
+                      ) +
+                      ' ' +
+                      t('assignments.latePenaltyPreviewExample', {
+                        value: Number(latePeriodValue),
+                        unit: periodUnitLabel,
+                        pct: examplePct,
+                      })
+                    : t('assignments.latePenaltyNone')}
+                </p>
+              </fieldset>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        {/* Schedule */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t('assignments.sectionSchedule')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="max-w-xs">
+              <Label htmlFor="a-due">{t('assignments.dueLabel')}</Label>
+              <Input
+                id="a-due"
+                type="datetime-local"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">{t('assignments.dueHint')}</p>
             </div>
             <fieldset className="grid gap-3 rounded-md border p-3 md:grid-cols-3">
               <legend className="px-1 text-sm font-medium">
@@ -232,26 +390,15 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                 </p>
               </div>
             </fieldset>
-            <div>
-              <Label htmlFor="a-group">{t('assignments.groupLabel')}</Label>
-              <select
-                id="a-group"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={groupId ?? ''}
-                onChange={(e) => setGroupId(e.target.value || null)}
-                disabled={groups.isLoading || !!existing.data?.setId}
-              >
-                <option value="">{t('assignments.unassignedGroup')}</option>
-                {(groups.data ?? []).map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-              {existing.data?.setId ? (
-                <p className="mt-1 text-xs text-muted-foreground">{t('assignments.inSetNote')}</p>
-              ) : null}
-            </div>
+          </CardContent>
+        </Card>
+
+        {/* Submission */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t('assignments.sectionSubmission')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
             <fieldset className="space-y-2 rounded-md border p-3">
               <legend className="px-1 text-sm font-medium">
                 {t('assignments.submissionModeLabel')}
@@ -315,14 +462,25 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                 </div>
               ) : null}
             </fieldset>
-            <div className="flex items-center gap-2">
-              <input
-                id="a-late"
-                type="checkbox"
-                checked={allowLate}
-                onChange={(e) => setAllowLate(e.target.checked)}
-              />
-              <Label htmlFor="a-late">{t('assignments.allowLate')}</Label>
+            <div className="max-w-xs">
+              <Label htmlFor="a-group">{t('assignments.groupLabel')}</Label>
+              <select
+                id="a-group"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={groupId ?? ''}
+                onChange={(e) => setGroupId(e.target.value || null)}
+                disabled={groups.isLoading || !!existing.data?.setId}
+              >
+                <option value="">{t('assignments.unassignedGroup')}</option>
+                {(groups.data ?? []).map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+              {existing.data?.setId ? (
+                <p className="mt-1 text-xs text-muted-foreground">{t('assignments.inSetNote')}</p>
+              ) : null}
             </div>
             <div>
               <Label>{t('assignments.attachment')}</Label>
@@ -349,17 +507,18 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                 ) : null}
               </div>
             </div>
-            <div className="flex justify-end gap-2">
-              <Button asChild variant="outline" type="button">
-                <Link to={`/teacher/courses/${cId}/assignments`}>{t('common.cancel')}</Link>
-              </Button>
-              <Button type="submit" disabled={create.isPending || update.isPending}>
-                {isNew ? t('common.create') : t('common.save')}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end gap-2">
+          <Button asChild variant="outline" type="button">
+            <Link to={`/teacher/courses/${cId}/assignments`}>{t('common.cancel')}</Link>
+          </Button>
+          <Button type="submit" disabled={create.isPending || update.isPending}>
+            {isNew ? t('common.create') : t('common.save')}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

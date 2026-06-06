@@ -608,6 +608,17 @@ export const assignments = pgTable(
     maxScore: numeric('max_score', { precision: 6, scale: 2 }),
     rubric: jsonb('rubric'),
     allowLateSubmission: boolean('allow_late_submission').notNull().default(false),
+    // Late-submission penalty policy (migration 0032). Only meaningful when
+    // allowLateSubmission is true; all null ⇒ late allowed with no deduction.
+    // Deduct `late_penalty_percent_per_period`% for each started
+    // `late_penalty_period_hours` window past the deadline, capped at
+    // `late_penalty_max_percent`%.
+    latePenaltyPercentPerPeriod: numeric('late_penalty_percent_per_period', {
+      precision: 5,
+      scale: 2,
+    }),
+    latePenaltyPeriodHours: integer('late_penalty_period_hours'),
+    latePenaltyMaxPercent: numeric('late_penalty_max_percent', { precision: 5, scale: 2 }),
     attachmentFileId: uuid('attachment_file_id').references(() => fileAssets.id, {
       onDelete: 'set null',
     }),
@@ -687,6 +698,12 @@ export const assignmentSubmissions = pgTable(
       onDelete: 'set null',
     }),
     score: numeric('score', { precision: 6, scale: 2 }),
+    // Late-penalty snapshot (migration 0032): `rawScore` is the pre-penalty
+    // score the teacher entered, `latePenaltyPercent` is the deduction applied
+    // at grade time (0 when none/waived), and `score` above is the final value.
+    rawScore: numeric('raw_score', { precision: 6, scale: 2 }),
+    latePenaltyPercent: numeric('late_penalty_percent', { precision: 5, scale: 2 }),
+    latePenaltyWaived: boolean('late_penalty_waived').notNull().default(false),
     feedback: text('feedback'),
     gradedAt: timestamp('graded_at', { withTimezone: true, mode: 'string' }),
     gradedById: uuid('graded_by_id').references(() => users.id, {

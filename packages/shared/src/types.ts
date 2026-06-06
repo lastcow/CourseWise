@@ -371,6 +371,13 @@ export interface AssignmentSummary {
   maxScore: number | null;
   rubric: unknown;
   allowLateSubmission: boolean;
+  // Late-submission penalty policy (only meaningful when allowLateSubmission is
+  // true). All null ⇒ late is allowed with no deduction. The penalty deducts
+  // `latePenaltyPercentPerPeriod`% for each started `latePenaltyPeriodHours`
+  // window past the deadline, capped at `latePenaltyMaxPercent`%.
+  latePenaltyPercentPerPeriod: number | null;
+  latePenaltyPeriodHours: number | null;
+  latePenaltyMaxPercent: number | null;
   attachmentFileId: string | null;
   status: AssignmentStatus;
   publishedAt: string | null;
@@ -393,6 +400,9 @@ export interface AssignmentSummary {
     status: SubmissionStatus;
     submittedAt: string | null;
     score: number | null;
+    rawScore: number | null;
+    latePenaltyPercent: number | null;
+    latePenaltyWaived: boolean;
   } | null;
   createdAt: string;
   updatedAt: string;
@@ -418,7 +428,13 @@ export interface SubmissionSummary {
   // shared set (union across members); individual mode is the student's own.
   attachments: SubmissionAttachment[];
   submittedAt: string | null;
+  // `score` is the FINAL stored grade (after any late penalty). `rawScore` is
+  // the pre-penalty score the teacher entered; `latePenaltyPercent` is the
+  // deduction actually applied (0 when none/waived), snapshotted at grade time.
   score: number | null;
+  rawScore: number | null;
+  latePenaltyPercent: number | null;
+  latePenaltyWaived: boolean;
   feedback: string | null;
   gradedAt: string | null;
   gradedById: string | null;

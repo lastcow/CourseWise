@@ -27,6 +27,9 @@ function assignment(over: Partial<AssignmentSummary> = {}): AssignmentSummary {
     maxScore: 100,
     rubric: null,
     allowLateSubmission: false,
+    latePenaltyPercentPerPeriod: null,
+    latePenaltyPeriodHours: null,
+    latePenaltyMaxPercent: null,
     attachmentFileId: null,
     status: 'published',
     publishedAt: null,
@@ -43,7 +46,15 @@ function assignment(over: Partial<AssignmentSummary> = {}): AssignmentSummary {
 }
 
 function sub(status: SubmissionStatus): AssignmentSummary['mySubmission'] {
-  return { id: 's1', status, submittedAt: null, score: null };
+  return {
+    id: 's1',
+    status,
+    submittedAt: null,
+    score: null,
+    rawScore: null,
+    latePenaltyPercent: null,
+    latePenaltyWaived: false,
+  };
 }
 
 function quiz(over: Partial<QuizSummary> = {}): QuizSummary {
