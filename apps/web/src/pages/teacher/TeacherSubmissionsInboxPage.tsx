@@ -45,6 +45,23 @@ function groupRepresentative(g: GroupSubmissionWithMembers): SubmissionWithStude
   return g.members.find((m) => m.status !== 'draft') ?? g.members[0] ?? null;
 }
 
+// Mirror of the server's computeLatePenaltyPercent so the grade dialog can show
+// a live breakdown as the teacher types (the server remains authoritative).
+function clientLatePenaltyPercent(
+  submittedAt: string | null,
+  deadline: string | null | undefined,
+  perPeriodPercent: number | null,
+  periodHours: number | null,
+  maxPercent: number | null,
+): number {
+  if (!submittedAt || !deadline || !perPeriodPercent || !periodHours) return 0;
+  const lateMs = new Date(submittedAt).getTime() - new Date(deadline).getTime();
+  if (lateMs <= 0) return 0;
+  const periods = Math.ceil(lateMs / (periodHours * 3_600_000));
+  const raw = periods * perPeriodPercent;
+  return Math.max(0, maxPercent == null ? raw : Math.min(raw, maxPercent));
+}
+
 export function TeacherSubmissionsInboxPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId, assignmentId } = useParams();
@@ -65,6 +82,7 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [score, setScore] = useState<number | ''>('');
   const [feedback, setFeedback] = useState('');
+  const [waiveLate, setWaiveLate] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
 
   const selectedIndividual = !isGroupMode
@@ -84,16 +102,20 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const openIndividual = (id: string) => {
     const s = (submissions.data ?? []).find((x) => x.id === id);
     setSelectedId(id);
-    setScore(s?.score ?? '');
+    // Pre-fill the *earned* (pre-penalty) score so re-grading doesn't compound
+    // the deduction; fall back to the stored score for never-late work.
+    setScore(s?.rawScore ?? s?.score ?? '');
     setFeedback(s?.feedback ?? '');
+    setWaiveLate(s?.latePenaltyWaived ?? false);
   };
 
   const openGroup = (groupSubmissionId: string) => {
     const g = (grouped.data?.groups ?? []).find((x) => x.groupSubmissionId === groupSubmissionId);
     setSelectedGroupId(groupSubmissionId);
     const rep = g ? groupRepresentative(g) : null;
-    setScore(rep?.score ?? '');
+    setScore(rep?.rawScore ?? rep?.score ?? '');
     setFeedback(rep?.feedback ?? '');
+    setWaiveLate(rep?.latePenaltyWaived ?? false);
   };
 
   const onDownload = async (fileId: string) => {
@@ -114,7 +136,7 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
     try {
       await grade.mutateAsync({
         id: targetSubmissionId,
-        input: { score: Number(score), feedback: feedback || null },
+        input: { score: Number(score), feedback: feedback || null, waiveLatePenalty: waiveLate },
       });
       toast.push({ title: t('submissions.graded'), tone: 'success' });
     } catch (err) {
@@ -139,6 +161,44 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
     ? (selectedGroup?.attachments ?? [])
     : (selectedIndividual?.attachments ?? []);
   const detailOpen = isGroupMode ? !!selectedGroup : !!selectedIndividual;
+
+  // Late-penalty breakdown for the currently selected submission.
+  const detailSub = isGroupMode ? groupRep : selectedIndividual;
+  const ad = assignment.data;
+  const penaltyConfigured =
+    ad?.latePenaltyPercentPerPeriod != null && ad?.latePenaltyPeriodHours != null;
+  const detailIsLate = detailSub?.status === 'late';
+  const effectiveDeadline = ad ? (ad.dueDate ?? ad.endDate ?? ad.untilDate) : null;
+  const livePenaltyPct =
+    detailIsLate && penaltyConfigured && !waiveLate
+      ? clientLatePenaltyPercent(
+          detailSub?.submittedAt ?? null,
+          effectiveDeadline,
+          ad?.latePenaltyPercentPerPeriod ?? null,
+          ad?.latePenaltyPeriodHours ?? null,
+          ad?.latePenaltyMaxPercent ?? null,
+        )
+      : 0;
+  const lateDays =
+    detailSub?.submittedAt && effectiveDeadline
+      ? Math.max(
+          1,
+          Math.ceil(
+            (new Date(detailSub.submittedAt).getTime() - new Date(effectiveDeadline).getTime()) /
+              86_400_000,
+          ),
+        )
+      : 0;
+  const liveFinal =
+    score === ''
+      ? null
+      : Math.max(
+          0,
+          Math.min(
+            maxScore ?? Number.POSITIVE_INFINITY,
+            Number(score) * (1 - livePenaltyPct / 100),
+          ),
+        );
 
   return (
     <div className="space-y-4">
@@ -336,7 +396,10 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                   ) : null}
                   <div>
                     <Label htmlFor="grade-score">
-                      {t('submissions.scoreLabel')} (0–{maxScore ?? '—'})
+                      {(detailIsLate && penaltyConfigured
+                        ? t('submissions.earnedScoreLabel')
+                        : t('submissions.scoreLabel'))}{' '}
+                      (0–{maxScore ?? '—'})
                     </Label>
                     <Input
                       id="grade-score"
@@ -350,6 +413,30 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                       }
                     />
                   </div>
+                  {detailIsLate ? (
+                    <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-950">
+                      <p className="text-amber-900 dark:text-amber-200">
+                        {penaltyConfigured
+                          ? t('submissions.gradeLateNote', {
+                              days: t('submissions.lateDaysCount', { count: lateDays }),
+                              pct: waiveLate ? 0 : livePenaltyPct,
+                              final: liveFinal == null ? '—' : Math.round(liveFinal * 100) / 100,
+                              max: maxScore ?? '—',
+                            })
+                          : t('submissions.gradeLateNoneNote')}
+                      </p>
+                      {penaltyConfigured ? (
+                        <label className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                          <input
+                            type="checkbox"
+                            checked={waiveLate}
+                            onChange={(e) => setWaiveLate(e.target.checked)}
+                          />
+                          {t('submissions.waiveLatePenalty')}
+                        </label>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div>
                     <Label htmlFor="grade-feedback">{t('submissions.feedbackLabel')}</Label>
                     <Textarea

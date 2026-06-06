@@ -419,6 +419,26 @@ function schedulingOrderOk(v: {
   return true;
 }
 
+// Late-penalty policy fields, shared by create + update. All optional/nullable
+// so a PATCH that omits them is untouched and clearing one to null is allowed.
+const latePenaltyFields = {
+  latePenaltyPercentPerPeriod: z.number().min(0).max(100).optional().nullable(),
+  latePenaltyPeriodHours: z.number().int().min(1).max(8760).optional().nullable(),
+  latePenaltyMaxPercent: z.number().min(0).max(100).optional().nullable(),
+};
+
+function anyLatePenaltySet(v: {
+  latePenaltyPercentPerPeriod?: number | null;
+  latePenaltyPeriodHours?: number | null;
+  latePenaltyMaxPercent?: number | null;
+}): boolean {
+  return (
+    v.latePenaltyPercentPerPeriod != null ||
+    v.latePenaltyPeriodHours != null ||
+    v.latePenaltyMaxPercent != null
+  );
+}
+
 export const createAssignmentSchema = z
   .object({
     title: z.string().trim().min(1).max(200),
@@ -431,6 +451,7 @@ export const createAssignmentSchema = z
     maxScore: z.number().min(0).max(1000).optional().nullable(),
     rubric: z.unknown().optional(),
     allowLateSubmission: z.boolean().optional(),
+    ...latePenaltyFields,
     attachmentFileId: z.string().uuid().optional().nullable(),
     position: z.number().int().min(0).optional(),
     submissionMode: z.enum(SUBMISSION_MODES).optional(),
@@ -439,6 +460,10 @@ export const createAssignmentSchema = z
   .refine((v) => v.submissionMode !== 'group' || !!v.groupSetId, {
     message: 'groupSetId is required when submissionMode is "group"',
     path: ['groupSetId'],
+  })
+  .refine((v) => !anyLatePenaltySet(v) || v.allowLateSubmission === true, {
+    message: 'A late penalty requires allowLateSubmission to be true',
+    path: ['latePenaltyPercentPerPeriod'],
   })
   .refine(schedulingOrderOk, {
     message: 'Dates must satisfy startDate ≤ endDate ≤ untilDate',
@@ -460,10 +485,16 @@ export const updateAssignmentSchema = z
     maxScore: z.number().min(0).max(1000).optional().nullable(),
     rubric: z.unknown().optional(),
     allowLateSubmission: z.boolean().optional(),
+    ...latePenaltyFields,
     attachmentFileId: z.string().uuid().optional().nullable(),
     position: z.number().int().min(0).optional(),
     submissionMode: z.enum(SUBMISSION_MODES).optional(),
     groupSetId: z.string().uuid().nullable().optional(),
+  })
+  .refine((v) => !anyLatePenaltySet(v) || v.allowLateSubmission !== false, {
+    // Lenient on PATCH: only reject when the same payload also turns late off.
+    message: 'A late penalty requires allowLateSubmission to be true',
+    path: ['latePenaltyPercentPerPeriod'],
   })
   .refine(
     (v) => {
@@ -498,8 +529,11 @@ export const addSubmissionAttachmentSchema = z.object({
 export type AddSubmissionAttachmentInput = z.infer<typeof addSubmissionAttachmentSchema>;
 
 export const gradeSubmissionSchema = z.object({
+  // The earned score the teacher enters (pre-penalty). The server applies the
+  // assignment's late penalty unless `waiveLatePenalty` is set.
   score: z.number().min(0).max(1000),
   feedback: z.string().trim().max(20_000).optional().nullable(),
+  waiveLatePenalty: z.boolean().optional(),
 });
 export type GradeSubmissionInput = z.infer<typeof gradeSubmissionSchema>;
 

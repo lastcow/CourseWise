@@ -334,6 +334,14 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                 <p className="font-medium">
                   {t('submissions.scoreLabel')}: {mySub.score} /{' '}
                   {assignment.data?.maxScore ?? '—'}
+                  {mySub.latePenaltyPercent != null && mySub.latePenaltyPercent > 0 ? (
+                    <span className="ml-2 font-normal text-destructive">
+                      {t('submissions.latePenaltyBadge', { pct: mySub.latePenaltyPercent })}
+                      {mySub.rawScore != null
+                        ? ` (${t('submissions.latePenaltyEntered', { raw: mySub.rawScore })})`
+                        : ''}
+                    </span>
+                  ) : null}
                 </p>
                 {mySub.feedback ? (
                   <p className="mt-1 whitespace-pre-wrap">{mySub.feedback}</p>

@@ -47,7 +47,12 @@ import {
   ensureGroupSubmissionFannedOut,
   findStudentGroupForAssignment,
 } from '../services/groupSubmissions';
-import { clampScore, determineSubmissionStatus } from '../services/submissions';
+import {
+  applyLatePenalty,
+  clampScore,
+  computeLatePenaltyPercent,
+  determineSubmissionStatus,
+} from '../services/submissions';
 import { recordAudit } from '../services/audit';
 import type { AppEnv } from '../types';
 
@@ -81,6 +86,9 @@ function toAssignmentSummary(
     maxScore: num(row.maxScore),
     rubric: row.rubric ?? null,
     allowLateSubmission: row.allowLateSubmission,
+    latePenaltyPercentPerPeriod: num(row.latePenaltyPercentPerPeriod),
+    latePenaltyPeriodHours: row.latePenaltyPeriodHours ?? null,
+    latePenaltyMaxPercent: num(row.latePenaltyMaxPercent),
     attachmentFileId: row.attachmentFileId ?? null,
     status: row.status,
     publishedAt: row.publishedAt ?? null,
@@ -114,6 +122,9 @@ function toSubmissionSummary(
     attachments,
     submittedAt: groupOverride ? groupOverride.submittedAt : (row.submittedAt ?? null),
     score: num(row.score),
+    rawScore: num(row.rawScore),
+    latePenaltyPercent: num(row.latePenaltyPercent),
+    latePenaltyWaived: row.latePenaltyWaived,
     feedback: row.feedback ?? null,
     gradedAt: row.gradedAt ?? null,
     gradedById: row.gradedById ?? null,
@@ -338,6 +349,9 @@ r.get(
             status: my.status,
             submittedAt: my.submittedAt ?? null,
             score: num(my.score),
+            rawScore: num(my.rawScore),
+            latePenaltyPercent: num(my.latePenaltyPercent),
+            latePenaltyWaived: my.latePenaltyWaived,
           };
         }
         return summary;
@@ -427,6 +441,18 @@ r.post(
         maxScore: input.maxScore != null ? input.maxScore.toString() : null,
         rubric: (input.rubric as Record<string, unknown> | undefined) ?? null,
         allowLateSubmission: input.allowLateSubmission ?? false,
+        // Penalty policy only applies to late-allowed assignments — drop it
+        // otherwise so a stale value can't linger if late is off.
+        latePenaltyPercentPerPeriod:
+          input.allowLateSubmission && input.latePenaltyPercentPerPeriod != null
+            ? input.latePenaltyPercentPerPeriod.toString()
+            : null,
+        latePenaltyPeriodHours:
+          input.allowLateSubmission ? (input.latePenaltyPeriodHours ?? null) : null,
+        latePenaltyMaxPercent:
+          input.allowLateSubmission && input.latePenaltyMaxPercent != null
+            ? input.latePenaltyMaxPercent.toString()
+            : null,
         attachmentFileId: input.attachmentFileId ?? null,
         position: input.position ?? 0,
         status: 'draft',
@@ -502,6 +528,24 @@ r.patch(
     if (input.rubric !== undefined) patch.rubric = input.rubric;
     if (input.allowLateSubmission !== undefined)
       patch.allowLateSubmission = input.allowLateSubmission;
+    // Late-penalty policy. Turning late submission off clears any penalty;
+    // otherwise apply whichever penalty fields the caller provided.
+    if (input.allowLateSubmission === false) {
+      patch.latePenaltyPercentPerPeriod = null;
+      patch.latePenaltyPeriodHours = null;
+      patch.latePenaltyMaxPercent = null;
+    } else {
+      if (input.latePenaltyPercentPerPeriod !== undefined)
+        patch.latePenaltyPercentPerPeriod =
+          input.latePenaltyPercentPerPeriod === null
+            ? null
+            : input.latePenaltyPercentPerPeriod.toString();
+      if (input.latePenaltyPeriodHours !== undefined)
+        patch.latePenaltyPeriodHours = input.latePenaltyPeriodHours;
+      if (input.latePenaltyMaxPercent !== undefined)
+        patch.latePenaltyMaxPercent =
+          input.latePenaltyMaxPercent === null ? null : input.latePenaltyMaxPercent.toString();
+    }
     if (input.attachmentFileId !== undefined) patch.attachmentFileId = input.attachmentFileId;
     if (input.position !== undefined) patch.position = input.position;
 
@@ -1602,7 +1646,25 @@ async function gradeSubmissionHandler(c: Context<AppEnv>) {
   if (max == null) {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment has no maxScore');
   }
-  const clamped = clampScore(input.score, max);
+  // The teacher enters the earned (pre-penalty) score; for a late submission we
+  // auto-deduct the assignment's late penalty unless the teacher waives it.
+  // `score` stores the final value (used by gradebook rollups); we snapshot the
+  // raw score + applied percentage so the breakdown survives later policy edits.
+  const rawClamped = clampScore(input.score, max);
+  const waived = input.waiveLatePenalty === true;
+  const penaltyPercent =
+    submission.status === 'late' && !waived
+      ? computeLatePenaltyPercent({
+          submittedAt: submission.submittedAt,
+          // Effective deadline mirrors the late-flag fallback so penalty and
+          // late-ness always agree on the reference point.
+          deadline: assignment.dueDate ?? assignment.endDate ?? assignment.untilDate,
+          perPeriodPercent: num(assignment.latePenaltyPercentPerPeriod),
+          periodHours: assignment.latePenaltyPeriodHours,
+          maxPercent: num(assignment.latePenaltyMaxPercent),
+        })
+      : 0;
+  const finalScore = clampScore(applyLatePenalty(rawClamped, penaltyPercent), max);
   const now = new Date().toISOString();
   // Group submissions are graded as a unit: fan the score and feedback out to
   // every member row linked to the same group_submissions row, so the whole
@@ -1610,7 +1672,10 @@ async function gradeSubmissionHandler(c: Context<AppEnv>) {
   const updatedRows = await db
     .update(assignmentSubmissions)
     .set({
-      score: clamped.toString(),
+      score: finalScore.toString(),
+      rawScore: rawClamped.toString(),
+      latePenaltyPercent: penaltyPercent.toString(),
+      latePenaltyWaived: waived,
       feedback: input.feedback ?? null,
       status: 'graded',
       gradedAt: now,
@@ -1634,11 +1699,19 @@ async function gradeSubmissionHandler(c: Context<AppEnv>) {
     target: id,
     metadata: submission.groupSubmissionId
       ? {
-          score: clamped,
+          score: finalScore,
+          rawScore: rawClamped,
+          latePenaltyPercent: penaltyPercent,
+          latePenaltyWaived: waived,
           groupSubmissionId: submission.groupSubmissionId,
           memberCount: updatedRows.length,
         }
-      : { score: clamped },
+      : {
+          score: finalScore,
+          rawScore: rawClamped,
+          latePenaltyPercent: penaltyPercent,
+          latePenaltyWaived: waived,
+        },
   });
   const gs = await loadGroupSubmissionForRow(c, updated);
   return success(c, toSubmissionSummary(updated, gs ?? undefined));
