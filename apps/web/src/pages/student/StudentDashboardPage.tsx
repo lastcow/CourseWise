@@ -1,9 +1,27 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { Bell, BookOpen, CalendarCheck, CalendarClock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useStudentDashboard } from '@/lib/queries';
+import {
+  AlertList,
+  DashboardError,
+  DashboardHeader,
+  DashboardSkeleton,
+  StatCard,
+  StatGrid,
+} from '@/components/dashboard/DashboardKit';
 
 function pct(v: number | null): string {
   if (v === null) return '—';
@@ -18,91 +36,109 @@ function fmt(v: number | null): string {
 export function StudentDashboardPage(): JSX.Element {
   const { t } = useTranslation();
   const dashboard = useStudentDashboard();
+  const courses = useMemo(() => dashboard.data?.courses ?? [], [dashboard.data]);
+  const stats = useMemo(() => {
+    const withAtt = courses.filter((c) => c.attendanceRate !== null);
+    const attAvg = withAtt.length
+      ? `${Math.round((withAtt.reduce((s, c) => s + (c.attendanceRate ?? 0), 0) / withAtt.length) * 100)}%`
+      : '—';
+    return {
+      courses: courses.length,
+      attendance: attAvg,
+      upcoming: courses.reduce((s, c) => s + c.upcomingAssignments, 0),
+      alerts: courses.reduce((s, c) => s + c.openAlerts, 0),
+    };
+  }, [courses]);
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-semibold">{t('dashboard.studentTitle')}</h2>
+    <div className="space-y-6">
+      <DashboardHeader title={t('dashboard.studentTitle')} subtitle={t('dashboard.subtitle')} />
+
       {dashboard.isLoading ? (
-        <p>{t('common.loading')}</p>
+        <DashboardSkeleton stats={4} />
       ) : !dashboard.data ? (
-        <p>{t('common.error')}</p>
+        <DashboardError onRetry={() => void dashboard.refetch()} />
       ) : (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('dashboard.myCourses')}</CardTitle>
+          <StatGrid>
+            <StatCard icon={BookOpen} label={t('dashboard.totalCourses')} value={stats.courses} />
+            <StatCard icon={CalendarCheck} label={t('dashboard.attendance')} value={stats.attendance} />
+            <StatCard icon={CalendarClock} label={t('dashboard.upcoming')} value={stats.upcoming} />
+            <StatCard icon={Bell} tone="danger" label={t('dashboard.openAlerts')} value={stats.alerts} />
+          </StatGrid>
+
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b">
+              <CardTitle className="text-base">{t('dashboard.myCourses')}</CardTitle>
             </CardHeader>
-            <CardContent>
-              {dashboard.data.courses.length === 0 ? (
-                <EmptyState title={t('courses.emptyStudent')} />
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left">
-                        <th className="py-2 pr-3">{t('dashboard.course')}</th>
-                        <th className="py-2 pr-3">{t('dashboard.attendance')}</th>
-                        <th className="py-2 pr-3">{t('dashboard.assignmentAvg')}</th>
-                        <th className="py-2 pr-3">{t('dashboard.quizAvg')}</th>
-                        <th className="py-2 pr-3">{t('dashboard.upcoming')}</th>
-                        <th className="py-2 pr-3">{t('dashboard.finalScore')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dashboard.data.courses.map((c) => (
-                        <tr key={c.courseId} className="border-b last:border-0">
-                          <td className="py-2 pr-3">
-                            <Link
-                              to={`/student/courses/${c.courseId}`}
-                              className="font-medium underline-offset-4 hover:underline"
-                            >
-                              {c.courseTitle}
-                            </Link>
-                            <div className="font-mono text-xs text-muted-foreground">
-                              {c.courseCode}
-                            </div>
-                          </td>
-                          <td className="py-2 pr-3 font-mono">{pct(c.attendanceRate)}</td>
-                          <td className="py-2 pr-3 font-mono">{fmt(c.assignmentAverage)}</td>
-                          <td className="py-2 pr-3 font-mono">{fmt(c.quizAverage)}</td>
-                          <td className="py-2 pr-3">{c.upcomingAssignments}</td>
-                          <td className="py-2 pr-3 font-mono">
-                            {c.finalScore !== null
-                              ? `${c.finalScore.toFixed(1)} (${c.letterGrade ?? '—'})`
-                              : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('dashboard.alerts')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {dashboard.data.recentAlerts.length === 0 ? (
-                <EmptyState title={t('alerts.emptyTitle')} />
-              ) : (
-                <ul className="space-y-2">
-                  {dashboard.data.recentAlerts.map((a) => (
-                    <li key={a.id} className="rounded-md border p-3 text-sm">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge>{t(`alerts.severity.${a.severity}`)}</Badge>
-                        <Badge variant="outline">{t(`alerts.type.${a.type}`)}</Badge>
-                        <span className="font-medium">{a.title}</span>
-                      </div>
-                      {a.body ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{a.body}</p>
-                      ) : null}
-                    </li>
+            {courses.length === 0 ? (
+              <CardContent className="pt-6">
+                <EmptyState icon={<BookOpen className="h-6 w-6" />} title={t('courses.emptyStudent')} />
+              </CardContent>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('dashboard.course')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.attendance')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.assignmentAvg')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.quizAvg')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.upcoming')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.finalScore')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {courses.map((c) => (
+                    <TableRow key={c.courseId}>
+                      <TableCell>
+                        <Link
+                          to={`/student/courses/${c.courseId}`}
+                          className="font-medium hover:underline"
+                        >
+                          {c.courseTitle}
+                        </Link>
+                        <div className="font-mono text-xs text-muted-foreground">{c.courseCode}</div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {pct(c.attendanceRate)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {fmt(c.assignmentAverage)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{fmt(c.quizAverage)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {c.upcomingAssignments}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {c.finalScore !== null ? (
+                          <span className="inline-flex items-center justify-end gap-1.5">
+                            {c.finalScore.toFixed(1)}
+                            {c.letterGrade ? (
+                              <Badge variant="secondary">{c.letterGrade}</Badge>
+                            ) : null}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </ul>
-              )}
-            </CardContent>
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b">
+              <CardTitle className="text-base">{t('dashboard.alerts')}</CardTitle>
+            </CardHeader>
+            {dashboard.data.recentAlerts.length === 0 ? (
+              <CardContent className="pt-6">
+                <EmptyState icon={<Bell className="h-6 w-6" />} title={t('alerts.emptyTitle')} />
+              </CardContent>
+            ) : (
+              <AlertList alerts={dashboard.data.recentAlerts} />
+            )}
           </Card>
         </>
       )}
