@@ -13,8 +13,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
 import { ModuleContentSummary } from '@/components/ModuleContentSummary';
 import { StudentTasksPanel } from '@/components/student/StudentTasksPanel';
+import { CourseHeader } from '@/components/course/CourseHeader';
 import {
   useAssignmentsList,
+  useCourse,
   useDiscussionTopicsList,
   useMaterialsList,
   useModulesList,
@@ -96,6 +98,7 @@ export function StudentModulesPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId } = useParams();
   const id = courseId ?? '';
+  const course = useCourse(id);
   const modulesQ = useModulesList(id);
   const materialsQ = useMaterialsList(id);
   const presentationsQ = usePresentationsList(id);
@@ -245,11 +248,10 @@ export function StudentModulesPage(): JSX.Element {
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="min-w-0 space-y-4">
-      <header>
-        <h2 className="text-xl font-semibold">{t('modules.title')}</h2>
-      </header>
+    <div className="space-y-4">
+      {course.data ? <CourseHeader course={course.data} role="student" /> : null}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-4">
 
       {modulesQ.isLoading ? (
         <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
@@ -316,15 +318,16 @@ export function StudentModulesPage(): JSX.Element {
           })}
         </Accordion>
       )}
-      </div>
+        </div>
 
-      <StudentTasksPanel
-        courseId={id}
-        assignments={assignmentsQ.data ?? []}
-        quizzes={quizzesQ.data ?? []}
-        discussions={discussionsQ.data ?? []}
-        loading={assignmentsQ.isLoading || quizzesQ.isLoading || discussionsQ.isLoading}
-      />
+        <StudentTasksPanel
+          courseId={id}
+          assignments={assignmentsQ.data ?? []}
+          quizzes={quizzesQ.data ?? []}
+          discussions={discussionsQ.data ?? []}
+          loading={assignmentsQ.isLoading || quizzesQ.isLoading || discussionsQ.isLoading}
+        />
+      </div>
     </div>
   );
 }

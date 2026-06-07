@@ -13,12 +13,10 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MarkdownView } from '@/components/ui/markdown';
 import { AttendanceSignInDialog } from '@/components/AttendanceSignInDialog';
-import { courseTimeProgress } from '@/lib/courseProgress';
+import { CourseHeader } from '@/components/course/CourseHeader';
 import {
   useAssignmentsList,
   useCourse,
@@ -85,15 +83,6 @@ export function StudentCourseOverviewPage(): JSX.Element {
   if (!course.data) return <p>{t('common.error')}</p>;
 
   const c = course.data;
-
-  // Time-based course progress: how far today sits between the course's start
-  // and end dates. Null (bar hidden) when the course has no schedule set.
-  const progressPct = courseTimeProgress(c.startDate, c.endDate);
-
-  const statusKey =
-    `courses.status${c.status[0]!.toUpperCase()}${c.status.slice(1)}` as const;
-  const statusVariant =
-    c.status === 'active' ? 'success' : c.status === 'archived' ? 'secondary' : 'outline';
 
   // Cards mirror the teacher overview's quickLinks shape so the two
   // pages read as the same screen with role-specific destinations.
@@ -180,34 +169,15 @@ export function StudentCourseOverviewPage(): JSX.Element {
         />
       ) : null}
 
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <CardTitle>{c.title}</CardTitle>
-              <CardDescription className="font-mono text-xs">
-                {c.code}
-                {c.termLabel ? ` · ${c.termLabel}` : ''}
-              </CardDescription>
-            </div>
-            <Badge variant={statusVariant}>{t(statusKey)}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {c.description ? (
+      <CourseHeader course={c} role="student" />
+
+      {c.description ? (
+        <Card>
+          <CardContent className="pt-6">
             <MarkdownView source={c.description} className="text-muted-foreground" />
-          ) : (
-            <p className="text-sm text-muted-foreground">—</p>
-          )}
-        </CardContent>
-        {progressPct !== null ? (
-          <Progress
-            value={progressPct}
-            className="rounded-none"
-            barClassName="rounded-none"
-          />
-        ) : null}
-      </Card>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

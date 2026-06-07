@@ -275,6 +275,10 @@ export const zhCN = {
           manage: '管理',
         },
       },
+      header: {
+        studentsCount: '{{count}} 名学生',
+        modulesCount: '{{count}} 个模块',
+      },
       overview: {
         quickLinks: '快捷入口',
         needsGradingTitle: '待批改',

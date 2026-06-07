@@ -293,6 +293,10 @@ export const fr = {
           manage: 'Gérer',
         },
       },
+      header: {
+        studentsCount: '{{count}} étudiants',
+        modulesCount: '{{count}} modules',
+      },
       overview: {
         quickLinks: 'Liens rapides',
         needsGradingTitle: 'À noter',
