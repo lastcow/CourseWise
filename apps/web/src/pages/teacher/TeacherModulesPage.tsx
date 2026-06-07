@@ -31,8 +31,10 @@ import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { stripMarkdown } from '@/components/ui/markdown';
 import { EmptyState } from '@/components/ui/empty';
 import { ModuleContentSummary } from '@/components/ModuleContentSummary';
+import { CourseHeader } from '@/components/course/CourseHeader';
 import {
   useAssignmentsList,
+  useCourse,
   useCourseGradingSummary,
   useCreateModule,
   useDeleteModule,
@@ -122,6 +124,7 @@ export function TeacherModulesPage(): JSX.Element {
   const { courseId } = useParams();
   const id = courseId ?? '';
   const navigate = useNavigate();
+  const course = useCourse(id);
   const list = useModulesList(id);
   const materialsQ = useMaterialsList(id);
   const presentationsQ = usePresentationsList(id);
@@ -223,26 +226,31 @@ export function TeacherModulesPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between gap-2">
-        <h2 className="text-xl font-semibold">{t('modules.title')}</h2>
-        <div className="flex items-center gap-2">
-          {/* One toggle: "Collapse all" while anything is open, otherwise
-              "Expand all". Disabled when there are no modules to act on. */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setOpenIds(
-                openIds.length > 0 ? [] : (list.data ?? []).map((m) => m.id),
-              )
-            }
-            disabled={!list.data || list.data.length === 0}
-          >
-            {openIds.length > 0 ? t('modules.collapseAll') : t('modules.expandAll')}
-          </Button>
-          <Button onClick={() => setOpenCreate(true)}>{t('modules.newCta')}</Button>
-        </div>
-      </header>
+      {course.data ? (
+        <CourseHeader
+          course={course.data}
+          role="teacher"
+          actions={
+            <>
+              {/* One toggle: "Collapse all" while anything is open, otherwise
+                  "Expand all". Disabled when there are no modules to act on. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setOpenIds(openIds.length > 0 ? [] : (list.data ?? []).map((m) => m.id))
+                }
+                disabled={!list.data || list.data.length === 0}
+              >
+                {openIds.length > 0 ? t('modules.collapseAll') : t('modules.expandAll')}
+              </Button>
+              <Button size="sm" onClick={() => setOpenCreate(true)}>
+                {t('modules.newCta')}
+              </Button>
+            </>
+          }
+        />
+      ) : null}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">
       {list.isLoading ? (

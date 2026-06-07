@@ -13,7 +13,7 @@ import {
   useQuizzesList,
 } from '@/lib/queries';
 import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
-import { gradientFor } from '@/lib/courseGradient';
+import { CourseHeader } from '@/components/course/CourseHeader';
 import { useNow } from '@/lib/useNow';
 
 export function StudentSyllabusPage(): JSX.Element {
@@ -80,39 +80,16 @@ export function StudentSyllabusPage(): JSX.Element {
         }
       `}</style>
 
-      <header className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">{t('syllabus.title')}</h2>
-        <div className="flex gap-2">
+      <CourseHeader
+        course={c}
+        role="student"
+        actions={
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="mr-1 h-4 w-4" />
             {t('syllabus.print')}
           </Button>
-        </div>
-      </header>
-
-      {/* Hero card */}
-      <Card>
-        <div
-          className="h-32 w-full rounded-t-md"
-          style={
-            c.bannerUrl
-              ? {
-                  backgroundImage: `url(${c.bannerUrl})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                }
-              : { background: gradientFor(c.code) }
-          }
-          aria-hidden
-        />
-        <CardContent className="pt-3">
-          <div className="font-mono text-sm text-muted-foreground">{c.code}</div>
-          <h1 className="text-2xl font-semibold">{c.title}</h1>
-          {c.termLabel ? (
-            <p className="text-sm text-muted-foreground">{c.termLabel}</p>
-          ) : null}
-        </CardContent>
-      </Card>
+        }
+      />
 
       {/* Authored section */}
       <Card>
@@ -139,20 +116,18 @@ export function StudentSyllabusPage(): JSX.Element {
           </p>
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
-            <tbody>
-              <tr className="border-b">
-                <td className="py-1.5">{t('syllabus.section.attendance')}</td>
-                <td className="py-1.5 text-right tabular-nums">{attendanceWeight}%</td>
-              </tr>
-              {(groups.data ?? []).map((g) => (
-                <tr key={g.id} className="border-b">
-                  <td className="py-1.5">{g.name}</td>
-                  <td className="py-1.5 text-right tabular-nums">{g.weight}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <ul className="divide-y text-sm">
+            <li className="flex items-center justify-between py-2">
+              <span>{t('syllabus.section.attendance')}</span>
+              <span className="font-medium tabular-nums">{attendanceWeight}%</span>
+            </li>
+            {(groups.data ?? []).map((g) => (
+              <li key={g.id} className="flex items-center justify-between py-2">
+                <span>{g.name}</span>
+                <span className="font-medium tabular-nums">{g.weight}%</span>
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
 

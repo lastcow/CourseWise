@@ -19,9 +19,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { MarkdownView } from '@/components/ui/markdown';
-import { courseTimeProgress } from '@/lib/courseProgress';
+import { CourseHeader } from '@/components/course/CourseHeader';
 import { useCourse, useCourseGradingSummary } from '@/lib/queries';
 import { GenerateMaterialsDialog } from '@/components/ai/GenerateMaterialsDialog';
 import { GenerationHistoryCard } from '@/components/ai/GenerationHistoryCard';
@@ -109,60 +108,32 @@ export function TeacherCourseOverviewPage(): JSX.Element {
   if (!course.data) return <p>{t('common.error')}</p>;
 
   const c = course.data;
-  const statusKey =
-    `courses.status${c.status[0]!.toUpperCase()}${c.status.slice(1)}` as const;
-  const statusVariant =
-    c.status === 'active' ? 'success' : c.status === 'archived' ? 'secondary' : 'outline';
 
   const gradingTotal =
     (grading.data?.ungradedSubmissions ?? 0) +
     (grading.data?.ungradedQuizAnswers ?? 0) +
     (grading.data?.ungradedDiscussions ?? 0);
 
-  // Time-based course progress: today's position in the course's start–end
-  // window. Null (bar hidden) when the course has no schedule set.
-  const progressPct = courseTimeProgress(c.startDate, c.endDate);
-
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <CardTitle>{c.title}</CardTitle>
-              <CardDescription className="font-mono text-xs">
-                {c.code}
-                {c.termLabel ? ` · ${c.termLabel}` : ''}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={statusVariant}>{t(statusKey)}</Badge>
-              <Button
-                disabled
-                title={t('ai.generate.disabledHint')}
-                className="gap-1.5"
-              >
-                <Sparkles className="h-4 w-4" aria-hidden />
-                {t('ai.generate.cta')}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {c.description ? (
+      <CourseHeader
+        course={c}
+        role="teacher"
+        actions={
+          <Button disabled title={t('ai.generate.disabledHint')} className="gap-1.5">
+            <Sparkles className="h-4 w-4" aria-hidden />
+            {t('ai.generate.cta')}
+          </Button>
+        }
+      />
+
+      {c.description ? (
+        <Card>
+          <CardContent className="pt-6">
             <MarkdownView source={c.description} className="text-muted-foreground" />
-          ) : (
-            <p className="text-sm text-muted-foreground">—</p>
-          )}
-        </CardContent>
-        {progressPct !== null ? (
-          <Progress
-            value={progressPct}
-            className="rounded-none"
-            barClassName="rounded-none"
-          />
-        ) : null}
-      </Card>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="pb-3">

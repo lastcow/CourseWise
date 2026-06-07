@@ -290,6 +290,10 @@ export const en = {
           manage: 'Manage',
         },
       },
+      header: {
+        studentsCount: '{{count}} students',
+        modulesCount: '{{count}} modules',
+      },
       overview: {
         quickLinks: 'Quick links',
         needsGradingTitle: 'Needs grading',
