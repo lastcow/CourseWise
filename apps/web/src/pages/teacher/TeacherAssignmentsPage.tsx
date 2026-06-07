@@ -6,6 +6,7 @@ import {
   ArchiveRestore,
   Circle,
   CircleCheck,
+  ClipboardList,
   FolderInput,
   Inbox,
   Layers,
@@ -19,6 +20,8 @@ import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { Input, Label } from '@/components/ui/input';
 import { stripMarkdown } from '@/components/ui/markdown';
 import {
@@ -218,64 +221,76 @@ export function TeacherAssignmentsPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h2 className="text-xl font-semibold">{t('assignments.title')}</h2>
-      </header>
+      <CourseSectionHeader
+        title={t('assignments.title')}
+        count={list.data?.length}
+        actions={
+          <>
+            <Button size="sm" asChild>
+              <Link to={`/teacher/courses/${id}/assignments/new`}>{t('assignments.newCta')}</Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void list.refetch()}
+              disabled={list.isFetching}
+              aria-label={t('common.refresh')}
+              title={t('common.refresh')}
+            >
+              <RefreshCw
+                className={list.isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
+                aria-hidden
+              />
+            </Button>
+          </>
+        }
+      />
 
-      <div className="overflow-hidden rounded-md border">
-        <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/30 px-3 py-2">
-          <Input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('assignments.searchPlaceholder')}
-            className="h-8 w-56"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            disabled={selectedIds.size === 0}
-            onClick={() => setGroupDialogOpen(true)}
-          >
-            <Layers className="h-4 w-4" aria-hidden />
-            {t('assignments.groupIntoSet', { count: selectedIds.size })}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => setManageOpen(true)}>
-            {t('assignments.manageSets')}
-          </Button>
-          <div className="ml-auto flex items-center gap-1.5">
-          <Button variant="outline" size="sm" asChild>
-            <Link to={`/teacher/courses/${id}/assignments/new`}>{t('assignments.newCta')}</Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void list.refetch()}
-            disabled={list.isFetching}
-            aria-label={t('common.refresh')}
-            title={t('common.refresh')}
-          >
-            <RefreshCw
-              className={list.isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
-              aria-hidden
+      {list.isLoading ? (
+        <ListSkeleton />
+      ) : !list.data || list.data.length === 0 ? (
+        <EmptyState
+          icon={<ClipboardList className="h-6 w-6" />}
+          title={t('assignments.empty')}
+          action={
+            <Button asChild>
+              <Link to={`/teacher/courses/${id}/assignments/new`}>{t('assignments.newCta')}</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-3">
+          {/* Filter + bulk-select tools sit next to the table they act on. */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('assignments.searchPlaceholder')}
+              className="h-9 w-full sm:w-64"
             />
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={selectedIds.size === 0}
+              onClick={() => setGroupDialogOpen(true)}
+            >
+              <Layers className="h-4 w-4" aria-hidden />
+              {t('assignments.groupIntoSet', { count: selectedIds.size })}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setManageOpen(true)}>
+              {t('assignments.manageSets')}
+            </Button>
           </div>
-        </div>
-        {list.isLoading ? (
-          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
-        ) : !list.data || list.data.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">{t('assignments.empty')}</p>
-        ) : filteredAssignments.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            {t('assignments.noMatches')}
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8">
+          {filteredAssignments.length === 0 ? (
+            <EmptyState title={t('assignments.noMatches')} />
+          ) : (
+            <div className="overflow-hidden rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8">
                   <input
                     type="checkbox"
                     aria-label={t('assignments.selectAll')}
@@ -441,9 +456,11 @@ export function TeacherAssignmentsPage(): JSX.Element {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
-        )}
-      </div>
+              </Table>
+            </div>
+          )}
+        </div>
+      )}
 
       <Dialog
         open={deleteTarget !== null}

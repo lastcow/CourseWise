@@ -1,8 +1,10 @@
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, Circle, CircleCheck, Lock, RefreshCw } from 'lucide-react';
+import { Archive, Circle, CircleCheck, ClipboardList, Lock, RefreshCw } from 'lucide-react';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { stripMarkdown } from '@/components/ui/markdown';
 import {
   Table,
@@ -77,14 +79,10 @@ export function StudentAssignmentsPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h2 className="text-xl font-semibold">{t('assignments.title')}</h2>
-      </header>
-
-      <div className="overflow-hidden rounded-md border">
-        {/* Toolbar — refresh only; students have no create / mutate actions
-            on the list page (they act from the detail page). */}
-        <div className="flex items-center justify-end gap-1.5 border-b bg-muted/30 px-3 py-2">
+      <CourseSectionHeader
+        title={t('assignments.title')}
+        count={list.data?.length}
+        actions={
           <ActionIconButton
             icon={RefreshCw}
             label={t('common.refresh')}
@@ -94,15 +92,18 @@ export function StudentAssignmentsPage(): JSX.Element {
             disabled={list.isFetching}
             className={cn(list.isFetching && '[&_svg]:animate-spin')}
           />
-        </div>
+        }
+      />
 
-        {list.isLoading ? (
-          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
-        ) : !list.data || list.data.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            {t('assignments.emptyStudent')}
-          </p>
-        ) : (
+      {list.isLoading ? (
+        <ListSkeleton />
+      ) : !list.data || list.data.length === 0 ? (
+        <EmptyState
+          icon={<ClipboardList className="h-6 w-6" />}
+          title={t('assignments.emptyStudent')}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -173,8 +174,8 @@ export function StudentAssignmentsPage(): JSX.Element {
               })}
             </TableBody>
           </Table>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
