@@ -1,92 +1,127 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
+import { Bell, BookOpen, ClipboardCheck, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useTeacherDashboard } from '@/lib/queries';
+import {
+  AlertList,
+  DashboardError,
+  DashboardHeader,
+  DashboardSkeleton,
+  StatCard,
+  StatGrid,
+} from '@/components/dashboard/DashboardKit';
+
+/** A queue count: highlighted when there's work waiting, muted at zero. */
+function Queue({ n, tone }: { n: number; tone: 'amber' | 'red' }): JSX.Element {
+  if (n === 0) return <span className="text-muted-foreground">0</span>;
+  return (
+    <span className={tone === 'red' ? 'font-medium text-destructive' : 'font-medium text-amber-600'}>
+      {n}
+    </span>
+  );
+}
 
 export function TeacherDashboardPage(): JSX.Element {
   const { t } = useTranslation();
   const dashboard = useTeacherDashboard();
+  const courses = useMemo(() => dashboard.data?.courses ?? [], [dashboard.data]);
+  const stats = useMemo(
+    () => ({
+      courses: courses.length,
+      enrolled: courses.reduce((s, c) => s + c.enrollmentCount, 0),
+      toGrade: courses.reduce((s, c) => s + c.ungradedSubmissions + c.ungradedQuizAnswers, 0),
+      alerts: courses.reduce((s, c) => s + c.openAlerts, 0),
+    }),
+    [courses],
+  );
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-semibold">{t('dashboard.teacherTitle')}</h2>
+    <div className="space-y-6">
+      <DashboardHeader title={t('dashboard.teacherTitle')} subtitle={t('dashboard.subtitle')} />
+
       {dashboard.isLoading ? (
-        <p>{t('common.loading')}</p>
+        <DashboardSkeleton stats={4} />
       ) : !dashboard.data ? (
-        <p>{t('common.error')}</p>
+        <DashboardError onRetry={() => void dashboard.refetch()} />
       ) : (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('dashboard.myCourses')}</CardTitle>
+          <StatGrid>
+            <StatCard icon={BookOpen} label={t('dashboard.totalCourses')} value={stats.courses} />
+            <StatCard icon={Users} label={t('dashboard.enrolled')} value={stats.enrolled} />
+            <StatCard icon={ClipboardCheck} tone="alert" label={t('dashboard.toGradeLabel')} value={stats.toGrade} />
+            <StatCard icon={Bell} tone="danger" label={t('dashboard.openAlerts')} value={stats.alerts} />
+          </StatGrid>
+
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b">
+              <CardTitle className="text-base">{t('dashboard.myCourses')}</CardTitle>
             </CardHeader>
-            <CardContent>
-              {dashboard.data.courses.length === 0 ? (
-                <EmptyState title={t('courses.emptyTeacher')} />
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left">
-                        <th className="py-2 pr-3">{t('dashboard.course')}</th>
-                        <th className="py-2 pr-3">{t('dashboard.enrolled')}</th>
-                        <th className="py-2 pr-3">{t('dashboard.ungradedSubmissions')}</th>
-                        <th className="py-2 pr-3">{t('dashboard.ungradedQuizAnswers')}</th>
-                        <th className="py-2 pr-3">{t('dashboard.openAlerts')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dashboard.data.courses.map((c) => (
-                        <tr key={c.courseId} className="border-b last:border-0">
-                          <td className="py-2 pr-3">
-                            <Link
-                              to={`/teacher/courses/${c.courseId}`}
-                              className="font-medium underline-offset-4 hover:underline"
-                            >
-                              {c.courseTitle}
-                            </Link>
-                            <div className="font-mono text-xs text-muted-foreground">
-                              {c.courseCode}
-                            </div>
-                          </td>
-                          <td className="py-2 pr-3 font-mono">{c.enrollmentCount}</td>
-                          <td className="py-2 pr-3 font-mono">{c.ungradedSubmissions}</td>
-                          <td className="py-2 pr-3 font-mono">{c.ungradedQuizAnswers}</td>
-                          <td className="py-2 pr-3 font-mono">{c.openAlerts}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('dashboard.recentAlerts')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {dashboard.data.recentAlerts.length === 0 ? (
-                <EmptyState title={t('alerts.emptyTitle')} />
-              ) : (
-                <ul className="space-y-2">
-                  {dashboard.data.recentAlerts.map((a) => (
-                    <li key={a.id} className="rounded-md border p-3 text-sm">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge>{t(`alerts.severity.${a.severity}`)}</Badge>
-                        <Badge variant="outline">{t(`alerts.type.${a.type}`)}</Badge>
-                        <span className="font-medium">{a.title}</span>
-                      </div>
-                      {a.body ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{a.body}</p>
-                      ) : null}
-                    </li>
+            {courses.length === 0 ? (
+              <CardContent className="pt-6">
+                <EmptyState icon={<BookOpen className="h-6 w-6" />} title={t('courses.emptyTeacher')} />
+              </CardContent>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('dashboard.course')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.enrolled')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.ungradedSubmissions')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.ungradedQuizAnswers')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.openAlerts')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {courses.map((c) => (
+                    <TableRow key={c.courseId}>
+                      <TableCell>
+                        <Link
+                          to={`/teacher/courses/${c.courseId}`}
+                          className="font-medium hover:underline"
+                        >
+                          {c.courseTitle}
+                        </Link>
+                        <div className="font-mono text-xs text-muted-foreground">{c.courseCode}</div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{c.enrollmentCount}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <Queue n={c.ungradedSubmissions} tone="amber" />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <Queue n={c.ungradedQuizAnswers} tone="amber" />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <Queue n={c.openAlerts} tone="red" />
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </ul>
-              )}
-            </CardContent>
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b">
+              <CardTitle className="text-base">{t('dashboard.recentAlerts')}</CardTitle>
+            </CardHeader>
+            {dashboard.data.recentAlerts.length === 0 ? (
+              <CardContent className="pt-6">
+                <EmptyState icon={<Bell className="h-6 w-6" />} title={t('alerts.emptyTitle')} />
+              </CardContent>
+            ) : (
+              <AlertList alerts={dashboard.data.recentAlerts} />
+            )}
           </Card>
         </>
       )}
