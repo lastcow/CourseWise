@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AlertStatus } from '@coursewise/shared';
+import { Bell } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { useAdminDashboard, useResolveAlert } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
@@ -36,11 +37,9 @@ export function AdminAlertsPage(): JSX.Element {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('alerts.adminCenterTitle')}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-4">
+      <CourseSectionHeader title={t('alerts.adminCenterTitle')} count={items.length} />
+      <div>
         <div className="mb-3 flex gap-2">
           {STATUS_TABS.map((s) => (
             <button
@@ -58,9 +57,9 @@ export function AdminAlertsPage(): JSX.Element {
           ))}
         </div>
         {dashboard.isLoading ? (
-          <p>{t('common.loading')}</p>
+          <ListSkeleton rows={4} />
         ) : items.length === 0 ? (
-          <EmptyState title={t('alerts.emptyTitle')} />
+          <EmptyState icon={<Bell className="h-6 w-6" />} title={t('alerts.emptyTitle')} />
         ) : (
           <ul className="space-y-2">
             {items.map((a) => (
@@ -94,7 +93,7 @@ export function AdminAlertsPage(): JSX.Element {
             ))}
           </ul>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

@@ -330,14 +330,14 @@ function GradeHero({ detail }: { detail: GradebookStudentDetail }): JSX.Element 
   const score = fg?.teacherOverrideScore ?? fg?.score ?? null;
   return (
     <Card className="overflow-hidden">
-      <div className="bg-gradient-to-br from-violet-600 to-indigo-600 p-6 text-white">
-        <div className="text-sm font-medium uppercase tracking-wide text-white/80">
+      <div className="bg-primary p-6 text-primary-foreground">
+        <div className="text-sm font-medium uppercase tracking-wide text-primary-foreground/75">
           {t('grading.myGradebookTitle')}
         </div>
-        <p className="mt-1 text-sm text-white/80">{t('grading.myGradebookSubtitle')}</p>
+        <p className="mt-1 text-sm text-primary-foreground/75">{t('grading.myGradebookSubtitle')}</p>
         <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
           <div>
-            <div className="text-xs uppercase tracking-wide text-white/70">
+            <div className="text-xs uppercase tracking-wide text-primary-foreground/70">
               {t('grading.overallGrade')}
             </div>
             <div className="flex items-baseline gap-3">
@@ -345,7 +345,7 @@ function GradeHero({ detail }: { detail: GradebookStudentDetail }): JSX.Element 
                 {score !== null ? score.toFixed(1) : '—'}
               </span>
               {fg?.letterGrade ? (
-                <span className="rounded-md bg-white/20 px-2.5 py-1 text-2xl font-semibold">
+                <span className="rounded-md bg-primary-foreground/15 px-2.5 py-1 text-2xl font-semibold">
                   {fg.letterGrade}
                 </span>
               ) : null}
