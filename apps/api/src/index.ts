@@ -36,6 +36,7 @@ import messagesRoutes from './routes/messages';
 import studentsRoutes from './routes/students';
 import { retryFailedR2CleanupJobs } from './jobs/r2CleanupRetry';
 import { sweepExpiredCourseExports } from './jobs/courseExportSweep';
+import { closeExpiredAttendanceSessions } from './jobs/attendanceSessionSweep';
 import { runRetentionSweep } from './services/retentionSweep';
 import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
@@ -189,8 +190,10 @@ app.onError((err, c) => {
 
 // Cloudflare Workers entrypoint. We export both `fetch` (HTTP requests
 // routed through Hono) and `scheduled` (cron triggers, see wrangler.toml
-// `[triggers]`). The retention sweep is intentionally the only scheduled
-// job today; future cron work should branch on `controller.cron`.
+// `[triggers]`). A single nightly trigger fans out to several independent
+// sweeps; since they all want the same daily cadence the handler doesn't
+// branch on `controller.cron` yet — add a second crons entry and branch here
+// if a future job needs a different schedule.
 //
 // `request` is re-exposed so the existing integration tests (which call
 // `app.request(...)` — a Hono test helper) keep working unchanged.
@@ -218,6 +221,16 @@ export default {
           // rather than fail the Worker invocation entirely. The audit row
           // is only written on success.
           console.error('retention.sweep.failed', { cron: controller.cron, err });
+        }
+
+        // Close attendance sessions left open well past their start (more than
+        // a day). Own try/catch so it neither aborts nor is aborted by the
+        // other sweeps; needs no R2, so it runs outside the bucket guard below.
+        try {
+          const attendance = await closeExpiredAttendanceSessions(db);
+          console.log('attendance.autoClose.ok', { cron: controller.cron, ...attendance });
+        } catch (err) {
+          console.error('attendance.autoClose.failed', { cron: controller.cron, err });
         }
 
         // R2-cleanup retry runs alongside the retention sweep. Decoupled try/
