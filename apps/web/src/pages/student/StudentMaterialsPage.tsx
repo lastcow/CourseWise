@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Download, ExternalLink, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, FileText, RefreshCw } from 'lucide-react';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
 import { stripMarkdown } from '@/components/ui/markdown';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import {
   Table,
   TableBody,
@@ -51,12 +52,10 @@ export function StudentMaterialsPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{t('materials.title')}</h1>
-      </header>
-      <div className="overflow-hidden rounded-md border">
-        {/* Toolbar attached to the table — refresh only for students. */}
-        <div className="flex items-center justify-end gap-1.5 border-b bg-muted/30 px-3 py-2">
+      <CourseSectionHeader
+        title={t('materials.title')}
+        count={materialsQ.data?.length}
+        actions={
           <ActionIconButton
             icon={RefreshCw}
             label={t('common.refresh')}
@@ -66,12 +65,14 @@ export function StudentMaterialsPage(): JSX.Element {
             disabled={materialsQ.isFetching}
             className={cn(materialsQ.isFetching && '[&_svg]:animate-spin')}
           />
-        </div>
-        {materialsQ.isLoading ? (
-          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
-        ) : rows.length === 0 ? (
-          <EmptyState title={t('materials.empty')} />
-        ) : (
+        }
+      />
+      {materialsQ.isLoading ? (
+        <ListSkeleton />
+      ) : rows.length === 0 ? (
+        <EmptyState icon={<FileText className="h-6 w-6" />} title={t('materials.empty')} />
+      ) : (
+        <div className="overflow-hidden rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -150,8 +151,8 @@ export function StudentMaterialsPage(): JSX.Element {
               ))}
             </TableBody>
           </Table>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

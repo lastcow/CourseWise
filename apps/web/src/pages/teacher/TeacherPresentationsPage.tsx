@@ -8,6 +8,7 @@ import {
   CircleCheck,
   ExternalLink,
   FolderInput,
+  Presentation,
   RefreshCw,
   Trash2,
   Upload,
@@ -15,6 +16,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Dialog } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { Input, Label } from '@/components/ui/input';
 import {
   Table,
@@ -219,9 +222,46 @@ export function TeacherPresentationsPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h2 className="text-xl font-semibold">{t('presentations.title')}</h2>
-      </header>
+      <CourseSectionHeader
+        title={t('presentations.title')}
+        count={list.data?.length}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setUploadTitle('');
+                setUploadModuleId('');
+                setUploadFileObj(null);
+                setUploadOpen(true);
+              }}
+            >
+              <Upload className="mr-1 h-4 w-4" aria-hidden />
+              {t('presentations.uploadButton')}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => navigate(`/teacher/courses/${id}/presentations/new-gamma`)}
+            >
+              {t('gamma.generateButton')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void list.refetch()}
+              disabled={list.isFetching}
+              aria-label={t('common.refresh')}
+              title={t('common.refresh')}
+            >
+              <RefreshCw
+                className={list.isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
+                aria-hidden
+              />
+            </Button>
+          </>
+        }
+      />
 
       {/* Invisible job watchers; one per active jobId. */}
       {activeJobIds.map((jobId) => (
@@ -234,49 +274,12 @@ export function TeacherPresentationsPage(): JSX.Element {
         />
       ))}
 
-      <div className="overflow-hidden rounded-md border">
-        <div className="flex items-center justify-end gap-1.5 border-b bg-muted/30 px-3 py-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setUploadTitle('');
-              setUploadModuleId('');
-              setUploadFileObj(null);
-              setUploadOpen(true);
-            }}
-          >
-            <Upload className="mr-1 h-4 w-4" aria-hidden />
-            {t('presentations.uploadButton')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/teacher/courses/${id}/presentations/new-gamma`)}
-          >
-            {t('gamma.generateButton')}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void list.refetch()}
-            disabled={list.isFetching}
-            aria-label={t('common.refresh')}
-            title={t('common.refresh')}
-          >
-            <RefreshCw
-              className={list.isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
-              aria-hidden
-            />
-          </Button>
-        </div>
-        {list.isLoading ? (
-          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
-        ) : !list.data || list.data.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            {t('presentations.empty')}
-          </p>
-        ) : (
+      {list.isLoading ? (
+        <ListSkeleton />
+      ) : !list.data || list.data.length === 0 ? (
+        <EmptyState icon={<Presentation className="h-6 w-6" />} title={t('presentations.empty')} />
+      ) : (
+        <div className="overflow-hidden rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -395,9 +398,8 @@ export function TeacherPresentationsPage(): JSX.Element {
               })}
             </TableBody>
           </Table>
-        )}
-      </div>
-
+        </div>
+      )}
 
       <Dialog
         open={deleteTarget !== null}

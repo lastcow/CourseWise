@@ -6,6 +6,7 @@ import {
   CircleCheck,
   Download,
   ExternalLink,
+  FileText,
   Pencil,
   RefreshCw,
   Trash2,
@@ -17,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { cn } from '@/lib/utils';
 import { downloadMaterialAsMarkdown } from '@/lib/materialDownload';
 import {
@@ -130,9 +132,43 @@ export function TeacherMaterialsPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h2 className="text-xl font-semibold">{t('materials.title')}</h2>
-      </header>
+      <CourseSectionHeader
+        title={t('materials.title')}
+        count={materialsQ.data?.length}
+        actions={
+          <>
+            {/* The hidden file input lives inside the upload button label so
+                picking a file triggers the existing onUpload handler. */}
+            <Button asChild variant="outline" size="sm">
+              <label>
+                {t('materials.uploadCta')}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
+                  onChange={onUpload}
+                />
+              </label>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowCreate('external_link')}>
+              {t('materials.linkCta')}
+            </Button>
+            <Button size="sm" onClick={() => setShowCreate('manual_text')}>
+              {t('materials.textCta')}
+            </Button>
+            <ActionIconButton
+              icon={RefreshCw}
+              label={t('common.refresh')}
+              color="sky"
+              size="sm"
+              onClick={() => void materialsQ.refetch()}
+              disabled={materialsQ.isFetching}
+              className={cn(materialsQ.isFetching && '[&_svg]:animate-spin')}
+            />
+          </>
+        }
+      />
 
       {uploadProgress !== null ? (
         <div className="rounded-md border bg-muted/30 p-3 text-sm">
@@ -143,45 +179,12 @@ export function TeacherMaterialsPage(): JSX.Element {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-md border">
-        {/* Toolbar attached to the table — create actions on the left,
-            refresh on the right. The hidden file input is kept inside
-            the upload button label so picking a file triggers the
-            existing onUpload handler unchanged. */}
-        <div className="flex flex-wrap items-center justify-end gap-1.5 border-b bg-muted/30 px-3 py-2">
-          <Button asChild variant="outline" size="sm">
-            <label>
-              {t('materials.uploadCta')}
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
-                onChange={onUpload}
-              />
-            </label>
-          </Button>
-          <Button size="sm" onClick={() => setShowCreate('external_link')}>
-            {t('materials.linkCta')}
-          </Button>
-          <Button size="sm" onClick={() => setShowCreate('manual_text')}>
-            {t('materials.textCta')}
-          </Button>
-          <ActionIconButton
-            icon={RefreshCw}
-            label={t('common.refresh')}
-            color="sky"
-            size="sm"
-            onClick={() => void materialsQ.refetch()}
-            disabled={materialsQ.isFetching}
-            className={cn(materialsQ.isFetching && '[&_svg]:animate-spin')}
-          />
-        </div>
-        {materialsQ.isLoading ? (
-          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
-        ) : rows.length === 0 ? (
-          <EmptyState title={t('materials.empty')} />
-        ) : (
+      {materialsQ.isLoading ? (
+        <ListSkeleton />
+      ) : rows.length === 0 ? (
+        <EmptyState icon={<FileText className="h-6 w-6" />} title={t('materials.empty')} />
+      ) : (
+        <div className="overflow-hidden rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -285,8 +288,8 @@ export function TeacherMaterialsPage(): JSX.Element {
               ))}
             </TableBody>
           </Table>
-        )}
-      </div>
+        </div>
+      )}
 
       {showCreate ? (
         <CreateMaterialDialog

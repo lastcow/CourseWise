@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty';
 import { MarkdownView } from '@/components/ui/markdown';
 import { getDownloadUrl, useMaterial, useModulesList } from '@/lib/queries';
@@ -81,29 +82,31 @@ export function StudentMaterialDetailPage(): JSX.Element {
         ) : null}
       </header>
 
-      <div>
-        {mat.sourceType === 'manual_text' ? (
-          mat.content ? (
-            <MarkdownView source={mat.content} />
+      <Card>
+        <CardContent className="pt-6">
+          {mat.sourceType === 'manual_text' ? (
+            mat.content ? (
+              <MarkdownView source={mat.content} />
+            ) : (
+              <EmptyState title={t('materials.emptyContent')} />
+            )
+          ) : mat.sourceType === 'external_link' && mat.externalUrl ? (
+            <Button asChild>
+              <a href={mat.externalUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-4 w-4" />
+                {t('materials.openLink')}
+              </a>
+            </Button>
+          ) : mat.sourceType === 'upload' && mat.fileAssetId ? (
+            <Button onClick={onDownload} disabled={downloading}>
+              <Download className="mr-1.5 h-4 w-4" />
+              {downloading ? t('common.loading') : t('common.download')}
+            </Button>
           ) : (
             <EmptyState title={t('materials.emptyContent')} />
-          )
-        ) : mat.sourceType === 'external_link' && mat.externalUrl ? (
-          <Button asChild>
-            <a href={mat.externalUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="mr-1.5 h-4 w-4" />
-              {t('materials.openLink')}
-            </a>
-          </Button>
-        ) : mat.sourceType === 'upload' && mat.fileAssetId ? (
-          <Button onClick={onDownload} disabled={downloading}>
-            <Download className="mr-1.5 h-4 w-4" />
-            {downloading ? t('common.loading') : t('common.download')}
-          </Button>
-        ) : (
-          <EmptyState title={t('materials.emptyContent')} />
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
