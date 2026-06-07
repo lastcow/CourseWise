@@ -1,8 +1,17 @@
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { UserCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { useMyAttendance } from '@/lib/queries';
 
 function formatDate(iso: string | null): string {
@@ -21,55 +30,52 @@ export function StudentAttendancePage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">{t('attendance.myTitle')}</h2>
+      <CourseSectionHeader title={t('attendance.myTitle')} count={list.data?.length} />
       {list.isLoading ? (
-        <p>{t('common.loading')}</p>
+        <ListSkeleton />
       ) : !list.data || list.data.length === 0 ? (
-        <EmptyState title={t('attendance.studentEmpty')} />
+        <EmptyState icon={<UserCheck className="h-6 w-6" />} title={t('attendance.studentEmpty')} />
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('attendance.sessionsListTitle')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="py-2">{t('attendance.sessionTitle')}</th>
-                  <th>{t('attendance.sessionDate')}</th>
-                  <th>{t('attendance.status')}</th>
-                  <th>{t('attendance.notes')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.data.map((row) => (
-                  <tr key={row.sessionId} className="border-t">
-                    <td className="py-2">{row.sessionTitle}</td>
-                    <td>{formatDate(row.sessionDate)}</td>
-                    <td>
-                      {row.status ? (
-                        <Badge
-                          variant={
-                            row.status === 'present' || row.status === 'excused'
-                              ? 'success'
-                              : row.status === 'late'
-                                ? 'secondary'
-                                : 'destructive'
-                          }
-                        >
-                          {t(`attendance.${row.status}`)}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td>{row.notes ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+        <div className="overflow-hidden rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('attendance.sessionTitle')}</TableHead>
+                <TableHead>{t('attendance.sessionDate')}</TableHead>
+                <TableHead>{t('attendance.status')}</TableHead>
+                <TableHead>{t('attendance.notes')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.data.map((row) => (
+                <TableRow key={row.sessionId}>
+                  <TableCell className="font-medium">{row.sessionTitle}</TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {formatDate(row.sessionDate)}
+                  </TableCell>
+                  <TableCell>
+                    {row.status ? (
+                      <Badge
+                        variant={
+                          row.status === 'present' || row.status === 'excused'
+                            ? 'success'
+                            : row.status === 'late'
+                              ? 'secondary'
+                              : 'destructive'
+                        }
+                      >
+                        {t(`attendance.${row.status}`)}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{row.notes ?? '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );

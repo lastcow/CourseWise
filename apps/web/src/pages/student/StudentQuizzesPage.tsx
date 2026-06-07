@@ -1,7 +1,9 @@
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, Circle, CircleCheck, Lock, Play, RefreshCw } from 'lucide-react';
+import { Archive, Circle, CircleCheck, ListChecks, Lock, Play, RefreshCw } from 'lucide-react';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
+import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { stripMarkdown } from '@/components/ui/markdown';
 import {
   Table,
@@ -139,14 +141,10 @@ export function StudentQuizzesPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h2 className="text-xl font-semibold">{t('quizzes.title')}</h2>
-      </header>
-
-      <div className="overflow-hidden rounded-md border">
-        {/* Toolbar — students get refresh only; the take-quiz action lives
-            in each row, not at the top. */}
-        <div className="flex items-center justify-end gap-1.5 border-b bg-muted/30 px-3 py-2">
+      <CourseSectionHeader
+        title={t('quizzes.title')}
+        count={list.data?.length}
+        actions={
           <ActionIconButton
             icon={RefreshCw}
             label={t('common.refresh')}
@@ -156,15 +154,15 @@ export function StudentQuizzesPage(): JSX.Element {
             disabled={list.isFetching}
             className={cn(list.isFetching && '[&_svg]:animate-spin')}
           />
-        </div>
+        }
+      />
 
-        {list.isLoading ? (
-          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
-        ) : !list.data || list.data.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            {t('quizzes.studentEmpty')}
-          </p>
-        ) : (
+      {list.isLoading ? (
+        <ListSkeleton />
+      ) : !list.data || list.data.length === 0 ? (
+        <EmptyState icon={<ListChecks className="h-6 w-6" />} title={t('quizzes.studentEmpty')} />
+      ) : (
+        <div className="overflow-hidden rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -228,8 +226,8 @@ export function StudentQuizzesPage(): JSX.Element {
               ))}
             </TableBody>
           </Table>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

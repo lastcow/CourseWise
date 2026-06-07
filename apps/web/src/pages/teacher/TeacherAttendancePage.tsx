@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader } from '@/components/course/CourseSectionHeader';
 import {
   Table,
   TableBody,
@@ -202,24 +203,30 @@ export function TeacherAttendancePage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xl font-semibold">{t('attendance.title')}</h2>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={async () => {
-              try {
-                await downloadAttendanceCsv(cid);
-              } catch (err) {
-                toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
-              }
-            }}
-          >
-            {t('attendance.exportCsv')}
-          </Button>
-          <Button onClick={openCreate}>{t('attendance.newSession')}</Button>
-        </div>
-      </header>
+      <CourseSectionHeader
+        title={t('attendance.title')}
+        count={sessions.data?.length}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await downloadAttendanceCsv(cid);
+                } catch (err) {
+                  toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+                }
+              }}
+            >
+              {t('attendance.exportCsv')}
+            </Button>
+            <Button size="sm" onClick={openCreate}>
+              {t('attendance.newSession')}
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
         <Card>
