@@ -6,6 +6,8 @@ import { ApiClientError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { CapacityHint } from '@/components/groups/CapacityHint';
 import { Input, Label } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
@@ -79,20 +81,21 @@ export function TeacherGroupSetsPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-start justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{t('groups.title')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('groups.helpTeacher')}</p>
-        </div>
-        <Button onClick={() => setOpenCreate(true)}>{t('groups.newSetCta')}</Button>
-      </header>
+      <CourseSectionHeader
+        title={t('groups.title')}
+        count={sets.length}
+        description={t('groups.helpTeacher')}
+        actions={
+          <Button size="sm" onClick={() => setOpenCreate(true)}>
+            {t('groups.newSetCta')}
+          </Button>
+        }
+      />
 
       {list.isLoading ? (
-        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+        <ListSkeleton rows={4} />
       ) : sets.length === 0 ? (
-        <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
-          {t('groups.emptySetsTeacher')}
-        </div>
+        <EmptyState icon={<Users className="h-6 w-6" />} title={t('groups.emptySetsTeacher')} />
       ) : (
         <ul className="space-y-2">
           {sets.map((s) => (

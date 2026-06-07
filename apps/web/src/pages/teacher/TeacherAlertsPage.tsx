@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, CircleCheck, Mail } from 'lucide-react';
+import { Bell, ChevronRight, CircleCheck, Mail } from 'lucide-react';
 import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import {
   ALERT_TYPES,
@@ -12,9 +12,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import {
@@ -178,24 +178,21 @@ export function TeacherAlertsPage(): JSX.Element {
   }, [filtered]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div>
-          <CardTitle>{t('alerts.title')}</CardTitle>
-          {course.data ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {t('alerts.scopedToCourse', {
-                code: course.data.code,
-                title: course.data.title,
-              })}
-            </p>
-          ) : null}
-        </div>
-        <Button onClick={onGenerate} disabled={generate.isPending}>
-          {t('alerts.runRules')}
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <div className="space-y-4">
+      <CourseSectionHeader
+        title={t('alerts.title')}
+        description={
+          course.data
+            ? t('alerts.scopedToCourse', { code: course.data.code, title: course.data.title })
+            : undefined
+        }
+        actions={
+          <Button size="sm" onClick={onGenerate} disabled={generate.isPending}>
+            {t('alerts.runRules')}
+          </Button>
+        }
+      />
+      <div className="space-y-3">
         {/* Status tabs — Open / Resolved / Dismissed */}
         <div className="flex flex-wrap gap-2">
           {STATUS_TABS.map((s) => (
@@ -256,9 +253,10 @@ export function TeacherAlertsPage(): JSX.Element {
         </div>
 
         {alerts.isLoading ? (
-          <p>{t('common.loading')}</p>
+          <ListSkeleton rows={4} />
         ) : filtered.length === 0 ? (
           <EmptyState
+            icon={<Bell className="h-6 w-6" />}
             title={t('alerts.emptyTitle')}
             description={t('alerts.emptyDescription')}
           />
@@ -403,7 +401,7 @@ export function TeacherAlertsPage(): JSX.Element {
             })}
           </ul>
         )}
-      </CardContent>
+      </div>
       <Dialog
         open={!!resolving}
         onClose={() => setResolving(null)}
@@ -442,6 +440,6 @@ export function TeacherAlertsPage(): JSX.Element {
           contextLine={messageTarget.context}
         />
       ) : null}
-    </Card>
+    </div>
   );
 }

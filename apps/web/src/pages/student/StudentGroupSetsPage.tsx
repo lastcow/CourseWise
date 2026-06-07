@@ -1,9 +1,12 @@
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
+import { Users } from 'lucide-react';
 import { ApiClientError, apiCall, getStoredAuth } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { useToast } from '@/components/ui/toast';
 import {
   useGroupSets,
@@ -35,22 +38,20 @@ export function StudentGroupSetsPage(): JSX.Element {
     })),
   });
 
-  if (list.isLoading) {
-    return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
-  }
   const sets = list.data ?? [];
 
   return (
     <div className="space-y-4">
-      <header>
-        <h2 className="text-xl font-semibold">{t('groups.title')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t('groups.helpStudent')}</p>
-      </header>
+      <CourseSectionHeader
+        title={t('groups.title')}
+        count={list.data ? sets.length : undefined}
+        description={t('groups.helpStudent')}
+      />
 
-      {sets.length === 0 ? (
-        <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
-          {t('groups.emptySetsStudent')}
-        </div>
+      {list.isLoading ? (
+        <ListSkeleton rows={3} />
+      ) : sets.length === 0 ? (
+        <EmptyState icon={<Users className="h-6 w-6" />} title={t('groups.emptySetsStudent')} />
       ) : (
         <div className="space-y-6">
           {sets.map((s, i) => {

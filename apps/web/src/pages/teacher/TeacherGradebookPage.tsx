@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Pencil } from 'lucide-react';
+import { GraduationCap, Pencil } from 'lucide-react';
 import type { FinalGradeSummary } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
+import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import {
@@ -104,29 +104,32 @@ export function TeacherGradebookPage(): JSX.Element {
   }, [rows]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle>{t('grading.gradebookTitle')}</CardTitle>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => downloadGradesCsv(cid)}>
-            {t('grading.exportCsv')}
-          </Button>
-          <Button onClick={onRecalc} disabled={recalculate.isPending}>
-            {t('grading.recalculate')}
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {grades.isLoading ? (
-          <p>{t('common.loading')}</p>
-        ) : rows.length === 0 ? (
-          <EmptyState
-            title={t('grading.gradebookEmpty')}
-            description={t('grading.gradebookEmptyHint')}
-          />
-        ) : (
+    <div className="space-y-4">
+      <CourseSectionHeader
+        title={t('grading.gradebookTitle')}
+        count={grades.data?.length}
+        actions={
           <>
-            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Button variant="outline" size="sm" onClick={() => downloadGradesCsv(cid)}>
+              {t('grading.exportCsv')}
+            </Button>
+            <Button size="sm" onClick={onRecalc} disabled={recalculate.isPending}>
+              {t('grading.recalculate')}
+            </Button>
+          </>
+        }
+      />
+      {grades.isLoading ? (
+        <ListSkeleton />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon={<GraduationCap className="h-6 w-6" />}
+          title={t('grading.gradebookEmpty')}
+          description={t('grading.gradebookEmptyHint')}
+        />
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <StatTile label={t('grading.summaryEnrolled')} value={String(stats.enrolled)} />
               <StatTile
                 label={t('grading.summaryGraded')}
@@ -202,9 +205,8 @@ export function TeacherGradebookPage(): JSX.Element {
               </tbody>
             </table>
             </div>
-          </>
+          </div>
         )}
-      </CardContent>
       <Dialog
         open={!!editing}
         onClose={() => setEditing(null)}
@@ -247,6 +249,6 @@ export function TeacherGradebookPage(): JSX.Element {
           </div>
         ) : null}
       </Dialog>
-    </Card>
+    </div>
   );
 }

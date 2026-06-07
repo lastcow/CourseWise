@@ -6,6 +6,7 @@ import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialo
 import { StudentProfileDialog } from '@/components/students/StudentProfileDialog';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
+import { CourseSectionHeader } from '@/components/course/CourseSectionHeader';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
@@ -112,10 +113,10 @@ export function StudentStudentsPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h2 className="text-xl font-semibold">{t('students.title')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t('students.helpStudent')}</p>
-      </header>
+      <CourseSectionHeader
+        title={t('students.title')}
+        description={t('students.helpStudent')}
+      />
 
       <div className="overflow-hidden rounded-md border">
         {/* Toolbar — layout mirrors the teacher Students page so the two
