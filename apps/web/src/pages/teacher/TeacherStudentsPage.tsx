@@ -352,14 +352,24 @@ export function TeacherStudentsPage(): JSX.Element {
     return `${name} ${email}`.toLowerCase().includes(s);
   };
 
-  // Pick the most-recently-created active invitation code to surface in the
-  // toolbar. If multiple are active the newest one is what teachers most
-  // commonly share; the full list is still available on /invitations.
+  // Pick the most-recently-created *usable* invitation code to surface in the
+  // toolbar. If multiple are usable the newest one is what teachers most
+  // commonly share; the full list is still available on /invitations. We guard
+  // expiry and usage client-side on top of `status` so a code that's already
+  // past its expiry (or used up) but still reports status='active' — the server
+  // may not have re-stamped it yet — is treated as invalid and hidden, rather
+  // than surfacing a dead "expires in 0 days" code.
   const activeInvite = useMemo(() => {
+    const now = Date.now();
     const list = invitesQ.data ?? [];
     return (
       list
-        .filter((i) => i.status === 'active')
+        .filter((i) => {
+          if (i.status !== 'active') return false;
+          if (i.expiresAt && Date.parse(i.expiresAt) <= now) return false;
+          if (i.maxUses != null && i.usedCount >= i.maxUses) return false;
+          return true;
+        })
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
     );
   }, [invitesQ.data]);
