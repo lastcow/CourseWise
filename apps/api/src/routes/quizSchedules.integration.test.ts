@@ -11,7 +11,7 @@
  * the per-wave maxAttempts override, mutual-exclusivity/move, the
  * one-remainder-per-quiz rule, and student-forbidden management.
  */
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import app from '../index';
 import type { Env } from '../index';
@@ -20,8 +20,10 @@ import {
   courseTeachers,
   courses,
   enrollments,
+  quizAttempts,
   quizQuestions,
   quizScheduleMembers,
+  quizSchedules,
   quizzes,
 } from '../db/schema';
 
@@ -92,20 +94,21 @@ async function userId(token: string): Promise<string> {
   return body.data.user.id;
 }
 
-interface Seed {
-  courseId: string;
-  quizId: string;
+interface Ids {
+  teacherId: string;
   s1: string;
   s2: string;
   s3: string;
 }
 
-async function seed(): Promise<Seed> {
+interface Seed {
+  courseId: string;
+  quizId: string;
+}
+
+async function seed(ids: Ids): Promise<Seed> {
   const db = createDb(env.DATABASE_URL);
-  const teacherId = await userId(await login(TEACHER.email, TEACHER.password));
-  const s1 = await userId(await login(S1.email, S1.password));
-  const s2 = await userId(await login(S2.email, S2.password));
-  const s3 = await userId(await login(S3.email, S3.password));
+  const { teacherId, s1, s2, s3 } = ids;
 
   const [course] = await db
     .insert(courses)
@@ -145,7 +148,7 @@ async function seed(): Promise<Seed> {
     position: 0,
   });
 
-  return { courseId, quizId, s1, s2, s3 };
+  return { courseId, quizId };
 }
 
 async function cleanFixtures() {
@@ -186,70 +189,87 @@ async function startAttempt(quizId: string, token: string) {
 }
 
 describe.skipIf(!hasDb)('Quiz tester schedules (integration, requires DATABASE_URL)', () => {
-  let s: Seed;
+  let ids: Ids;
+  let quizId: string;
   let teacher: string;
   let t1: string;
   let t2: string;
   let t3: string;
 
-  beforeEach(async () => {
-    await cleanFixtures();
+  // Log in and seed the course/quiz ONCE for the whole suite. Re-logging in or
+  // re-seeding per test multiplies round-trips to the remote DB (and trips the
+  // auth rate limiter); instead each test resets only the per-quiz wave +
+  // attempt state in beforeEach.
+  beforeAll(async () => {
     teacher = await login(TEACHER.email, TEACHER.password);
     t1 = await login(S1.email, S1.password);
     t2 = await login(S2.email, S2.password);
     t3 = await login(S3.email, S3.password);
-    s = await seed();
-  });
+    ids = {
+      teacherId: await userId(teacher),
+      s1: await userId(t1),
+      s2: await userId(t2),
+      s3: await userId(t3),
+    };
+    await cleanFixtures();
+    quizId = (await seed(ids)).quizId;
+  }, 30000);
+
+  beforeEach(async () => {
+    const db = createDb(env.DATABASE_URL);
+    await db.delete(quizSchedules).where(eq(quizSchedules.quizId, quizId)); // cascades members
+    await db.delete(quizAttempts).where(eq(quizAttempts.quizId, quizId));
+  }, 30000);
 
   afterAll(async () => {
     await cleanFixtures();
   });
 
   it('backward compat — with no schedules every enrolled student can start', async () => {
-    const r = await startAttempt(s.quizId, t1);
+    const r = await startAttempt(quizId, t1);
     expect(r.status).toBe(201);
-  });
+  }, 30000);
 
   it('gating — a student in no wave (and no remainder) is blocked', async () => {
-    const waveA = await createWave(s.quizId, teacher, { name: 'Wave A' });
-    await setMembers(s.quizId, waveA, teacher, [s.s2]);
+    const waveA = await createWave(quizId, teacher, { name: 'Wave A' });
+    await setMembers(quizId, waveA, teacher, [ids.s2]);
 
-    const blocked = await startAttempt(s.quizId, t1);
+    const blocked = await startAttempt(quizId, t1);
     expect(blocked.status).toBe(403);
     expect(blocked.body.error?.code).toBe('FORBIDDEN');
 
-    const allowed = await startAttempt(s.quizId, t2);
+    const allowed = await startAttempt(quizId, t2);
     expect(allowed.status).toBe(201);
-  });
+  }, 30000);
 
   it('dynamic remainder — absorbs every student not in an explicit wave', async () => {
-    const waveA = await createWave(s.quizId, teacher, { name: 'Wave A' });
-    await setMembers(s.quizId, waveA, teacher, [s.s2]);
-    await createWave(s.quizId, teacher, { name: 'The rest', isRemainder: true });
+    const waveA = await createWave(quizId, teacher, { name: 'Wave A' });
+    await setMembers(quizId, waveA, teacher, [ids.s2]);
+    await createWave(quizId, teacher, { name: 'The rest', isRemainder: true });
 
     // s1 and s3 are not in wave A → resolve to the remainder → can start.
-    expect((await startAttempt(s.quizId, t1)).status).toBe(201);
-    expect((await startAttempt(s.quizId, t3)).status).toBe(201);
-  });
+    expect((await startAttempt(quizId, t1)).status).toBe(201);
+    expect((await startAttempt(quizId, t3)).status).toBe(201);
+  }, 30000);
 
   it('per-wave untilDate flows into the attempt expiry (min-of)', async () => {
     const until = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    const wave = await createWave(s.quizId, teacher, { name: 'Wave A', untilDate: until });
-    await setMembers(s.quizId, wave, teacher, [s.s2]);
+    const wave = await createWave(quizId, teacher, { name: 'Wave A', untilDate: until });
+    await setMembers(quizId, wave, teacher, [ids.s2]);
 
-    const r = await startAttempt(s.quizId, t2);
+    const r = await startAttempt(quizId, t2);
     expect(r.status).toBe(201);
     expect(r.body.data?.expiresAt).toBeTruthy();
     // expiry == min(no time-limit, far endTime, wave untilDate) == untilDate.
     const diff = Math.abs(Date.parse(r.body.data!.expiresAt!) - Date.parse(until));
     expect(diff).toBeLessThan(2000);
-  });
+  }, 30000);
 
   it('per-wave maxAttempts override lets a student start a second attempt', async () => {
-    const wave = await createWave(s.quizId, teacher, { name: 'Wave A', maxAttempts: 2 });
-    await setMembers(s.quizId, wave, teacher, [s.s2]);
+    const wave = await createWave(quizId, teacher, { name: 'Wave A', maxAttempts: 2 });
+    await setMembers(quizId, wave, teacher, [ids.s2]);
 
-    const first = await startAttempt(s.quizId, t2);
+    const first = await startAttempt(quizId, t2);
     expect(first.status).toBe(201);
     const submit = await call(
       `/api/quiz-attempts/${first.body.data!.id}/submit`,
@@ -259,59 +279,59 @@ describe.skipIf(!hasDb)('Quiz tester schedules (integration, requires DATABASE_U
     expect(submit.status).toBe(200);
 
     // Quiz maxAttempts is 1; the wave override (2) is what allows the second.
-    const second = await startAttempt(s.quizId, t2);
+    const second = await startAttempt(quizId, t2);
     expect(second.status).toBe(201);
-  });
+  }, 30000);
 
   it('mutual exclusivity — moving a student leaves exactly one membership', async () => {
-    const a = await createWave(s.quizId, teacher, { name: 'Wave A' });
-    const b = await createWave(s.quizId, teacher, { name: 'Wave B' });
-    await setMembers(s.quizId, a, teacher, [s.s2]);
-    await setMembers(s.quizId, b, teacher, [s.s2]); // move s2 from A to B
+    const a = await createWave(quizId, teacher, { name: 'Wave A' });
+    const b = await createWave(quizId, teacher, { name: 'Wave B' });
+    await setMembers(quizId, a, teacher, [ids.s2]);
+    await setMembers(quizId, b, teacher, [ids.s2]); // move s2 from A to B
 
     const db = createDb(env.DATABASE_URL);
     const rows = await db
       .select({ scheduleId: quizScheduleMembers.scheduleId })
       .from(quizScheduleMembers)
-      .where(eq(quizScheduleMembers.studentId, s.s2));
+      .where(eq(quizScheduleMembers.studentId, ids.s2));
     expect(rows.length).toBe(1);
     expect(rows[0]!.scheduleId).toBe(b);
 
     const list = await call<{
       schedules: Array<{ id: string; members: Array<{ studentId: string }> }>;
-    }>(`/api/quizzes/${s.quizId}/schedules`, {}, teacher);
+    }>(`/api/quizzes/${quizId}/schedules`, {}, teacher);
     const waveA = list.body.data!.schedules.find((x) => x.id === a)!;
     expect(waveA.members.length).toBe(0);
-  });
+  }, 30000);
 
   it('one remainder per quiz — a second remainder wave is rejected', async () => {
-    await createWave(s.quizId, teacher, { name: 'The rest', isRemainder: true });
+    await createWave(quizId, teacher, { name: 'The rest', isRemainder: true });
     const dup = await call(
-      `/api/quizzes/${s.quizId}/schedules`,
+      `/api/quizzes/${quizId}/schedules`,
       { method: 'POST', body: JSON.stringify({ name: 'The rest 2', isRemainder: true }) },
       teacher,
     );
     expect(dup.status).toBe(409);
-  });
+  }, 30000);
 
   it('remainder preview counts the unscheduled students', async () => {
-    const a = await createWave(s.quizId, teacher, { name: 'Wave A' });
-    await setMembers(s.quizId, a, teacher, [s.s2]);
+    const a = await createWave(quizId, teacher, { name: 'Wave A' });
+    await setMembers(quizId, a, teacher, [ids.s2]);
     const list = await call<{ remainderPreview: { count: number } }>(
-      `/api/quizzes/${s.quizId}/schedules`,
+      `/api/quizzes/${quizId}/schedules`,
       {},
       teacher,
     );
     // s1 + s3 are unscheduled.
     expect(list.body.data?.remainderPreview.count).toBe(2);
-  });
+  }, 30000);
 
   it('management is teacher-only — a student cannot create a schedule', async () => {
     const res = await call(
-      `/api/quizzes/${s.quizId}/schedules`,
+      `/api/quizzes/${quizId}/schedules`,
       { method: 'POST', body: JSON.stringify({ name: 'Nope' }) },
       t1,
     );
     expect(res.status).toBe(403);
-  });
+  }, 30000);
 });
