@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Archive,
+  ArchiveRestore,
   Circle,
   CircleCheck,
   FolderInput,
@@ -108,6 +109,7 @@ export function TeacherQuizzesPage(): JSX.Element {
   const [openCreate, setOpenCreate] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', timeLimitMinutes: '' });
   const [deleteTarget, setDeleteTarget] = useState<QuizSummary | null>(null);
+  const [unarchiveTarget, setUnarchiveTarget] = useState<QuizSummary | null>(null);
   const [moveTarget, setMoveTarget] = useState<QuizSummary | null>(null);
   const [moveModuleId, setMoveModuleId] = useState<string>('');
   const [manageOpen, setManageOpen] = useState(false);
@@ -402,7 +404,14 @@ export function TeacherQuizzesPage(): JSX.Element {
                             toast.push({ title: t('quizzes.archived'), tone: 'success' });
                           }}
                         />
-                      ) : null}
+                      ) : (
+                        <ActionIconButton
+                          icon={ArchiveRestore}
+                          label={t('quizzes.unarchive')}
+                          color="emerald"
+                          onClick={() => setUnarchiveTarget(q)}
+                        />
+                      )}
                       <ActionIconButton
                         icon={Trash2}
                         label={t('common.delete')}
@@ -508,6 +517,39 @@ export function TeacherQuizzesPage(): JSX.Element {
             }}
           >
             {t('common.delete')}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={unarchiveTarget !== null}
+        onClose={() => setUnarchiveTarget(null)}
+        title={t('quizzes.unarchiveDialogTitle')}
+        dismissOnBackdropClick={false}
+      >
+        <p className="text-sm text-muted-foreground">{t('quizzes.unarchiveConfirm')}</p>
+        {unarchiveTarget ? (
+          <p className="mt-2 text-sm font-medium">{unarchiveTarget.title}</p>
+        ) : null}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setUnarchiveTarget(null)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            disabled={transition.isPending}
+            onClick={async () => {
+              if (!unarchiveTarget) return;
+              try {
+                await transition.mutateAsync({ id: unarchiveTarget.id, action: 'unarchive' });
+                toast.push({ title: t('quizzes.unarchived'), tone: 'success' });
+                setUnarchiveTarget(null);
+              } catch (err) {
+                const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                toast.push({ title: t(key), tone: 'error' });
+              }
+            }}
+          >
+            {t('quizzes.unarchive')}
           </Button>
         </div>
       </Dialog>

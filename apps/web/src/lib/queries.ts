@@ -1366,8 +1366,13 @@ export function useSetScheduleMembers(quizId: string) {
 export function useTransitionQuiz(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, action }: { id: string; action: 'publish' | 'close' | 'archive' }) =>
-      apiCall<QuizSummary>(`/api/quizzes/${id}/${action}`, { method: 'POST' }),
+    mutationFn: ({
+      id,
+      action,
+    }: {
+      id: string;
+      action: 'publish' | 'close' | 'archive' | 'unarchive';
+    }) => apiCall<QuizSummary>(`/api/quizzes/${id}/${action}`, { method: 'POST' }),
     onSuccess: (_d, v) => {
       void qc.invalidateQueries({ queryKey: ['quizzes', courseId] });
       void qc.invalidateQueries({ queryKey: ['quiz', v.id] });

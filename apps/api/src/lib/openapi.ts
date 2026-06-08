@@ -685,6 +685,10 @@ export const ROUTES: readonly RouteSpec[] = [
     scopeGroup: 'quizzesWrite',
     pathParams: idParams('quizId'),
   }),
+  r('post', '/api/quizzes/{quizId}/unarchive', 'Unarchive a quiz (returns it to draft)', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('quizId'),
+  }),
   r('get', '/api/quizzes/{quizId}/questions', 'List questions', 'quizzes', {
     scopeGroup: 'quizzesRead',
     pathParams: idParams('quizId'),
