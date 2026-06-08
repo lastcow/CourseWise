@@ -204,9 +204,10 @@ category, exactly like an assignment set (which is also absent from the snapshot
   values. Chosen deliberately for decoupling (per the "separate" decision);
   reusing `assignment_set_rule` was the alternative and would save one
   `CREATE TYPE` at the cost of coupling the two features.
-- **`set_id` + `group_id` both populated.** A quiz can carry both columns; grading
-  prefers the set (matches assignments). The UI must make this obvious (the set
-  supplies the category) to avoid teacher confusion.
+- **`set_id` vs `group_id`.** Assigning a quiz to a set clears its direct
+  `group_id` (the quiz PATCH nulls it, mirroring the assignments route), and
+  `finalGrade` still prefers `set_id` defensively if both were ever set. The quiz
+  editor shows a hint that the set supplies the category.
 - **Gradebook member-row type.** The existing `'set'` member renderer assumes
   assignment members; quiz members need the read-only QuizRow treatment. Small,
   but easy to miss — covered by a component check.

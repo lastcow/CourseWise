@@ -27,7 +27,15 @@ import {
   type UpdateQuizQuestionInput,
 } from '@coursewise/shared';
 import type { Db } from '../db/client';
-import { modules, quizAnswers, quizAttempts, quizQuestions, quizzes, users } from '../db/schema';
+import {
+  finalGrades,
+  modules,
+  quizAnswers,
+  quizAttempts,
+  quizQuestions,
+  quizzes,
+  users,
+} from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -378,7 +386,12 @@ r.patch(
     if (input.description !== undefined) patch.description = input.description;
     if (input.moduleId !== undefined) patch.moduleId = input.moduleId;
     if (input.groupId !== undefined) patch.groupId = input.groupId;
-    if (input.setId !== undefined) patch.setId = input.setId;
+    if (input.setId !== undefined) {
+      patch.setId = input.setId;
+      // A set supplies its own category; clear any direct group membership so
+      // the quiz doesn't count both directly and via the set's roll-up.
+      if (input.setId !== null) patch.groupId = null;
+    }
     if (input.startTime !== undefined) patch.startTime = input.startTime;
     if (input.endTime !== undefined) patch.endTime = input.endTime;
     if (input.untilDate !== undefined) patch.untilDate = input.untilDate;
@@ -405,6 +418,15 @@ r.patch(
       .where(eq(quizzes.id, id))
       .returning();
     if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Quiz not found');
+
+    // Group / set membership changes the rolled-up grade contribution, so flag
+    // the course's final grades stale (recomputed on the next Recalculate).
+    if (patch.setId !== undefined || patch.groupId !== undefined) {
+      await db
+        .update(finalGrades)
+        .set({ isOutdated: true, updatedAt: new Date().toISOString() })
+        .where(eq(finalGrades.courseId, row.courseId));
+    }
     return success(c, toQuizSummary(updated));
   },
 );
