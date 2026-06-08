@@ -86,7 +86,14 @@ export function buildStudentTasks({
 
   for (const q of quizzes) {
     if (q.status !== 'published') continue;
-    const closeAt = q.endTime ?? q.untilDate;
+    // Honour a per-student tester schedule when present: a blocked student has
+    // no task, and an assigned student's deadline is their wave's, not the
+    // quiz default. (The list endpoint omits mySchedule today, so this falls
+    // back to the global window there.)
+    const sched = q.mySchedule ?? null;
+    if (sched?.blocked) continue;
+    const closeAt =
+      sched && !sched.blocked ? (sched.endTime ?? sched.untilDate) : (q.endTime ?? q.untilDate);
     // No per-student attempt data here, so only surface quizzes that still
     // have an upcoming deadline; closed/past windows are dropped.
     if (closeAt == null || Date.parse(closeAt) < now) continue;
