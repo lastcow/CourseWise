@@ -95,6 +95,7 @@ export const alertTypeEnum = pgEnum('alert_type', [
   'quiz_average_low',
   'inactivity',
   'manual',
+  'quiz_schedule_open',
 ]);
 export const alertSeverityEnum = pgEnum('alert_severity', ['info', 'warning', 'critical']);
 export const alertStatusEnum = pgEnum('alert_status', ['open', 'resolved', 'dismissed']);
@@ -875,10 +876,17 @@ export const quizAttempts = pgTable(
     teacherReviewed: boolean('teacher_reviewed').notNull().default(false),
     gradedAt: timestamp('graded_at', { withTimezone: true, mode: 'string' }),
     gradedById: uuid('graded_by_id').references(() => users.id, { onDelete: 'set null' }),
+    // Which tester schedule (wave) governed this attempt's window. null for
+    // ungated quizzes or attempts created before schedules existed. set null on
+    // wave delete so attempt history survives.
+    scheduleId: uuid('schedule_id').references(() => quizSchedules.id, {
+      onDelete: 'set null',
+    }),
     ...timestamps,
   },
   (t) => ({
     quizStudentIdx: index('quiz_attempts_quiz_student_idx').on(t.quizId, t.studentId),
+    scheduleIdx: index('quiz_attempts_schedule_idx').on(t.scheduleId),
   }),
 );
 
@@ -906,6 +914,71 @@ export const quizAnswers = pgTable(
       t.attemptId,
       t.questionId,
     ),
+  }),
+);
+
+// ---------- Quiz tester schedules (staggered / waved availability) ----------
+// When a quiz has ≥1 schedule row, access is GATED: only students assigned to a
+// wave (or absorbed by the remainder wave) may start an attempt. Zero schedules
+// = today's global-window behavior, unchanged. Each wave may override any of the
+// quiz's window/limit fields; null = inherit the quiz value.
+export const quizSchedules = pgTable(
+  'quiz_schedules',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    quizId: uuid('quiz_id')
+      .notNull()
+      .references(() => quizzes.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    position: integer('position').notNull().default(0),
+    // The remainder wave's membership is DYNAMIC: all enrolled students with no
+    // explicit member row. At most one per quiz (partial unique below).
+    isRemainder: boolean('is_remainder').notNull().default(false),
+    // Per-wave overrides. null => inherit the quiz-level value.
+    startTime: timestamp('start_time', { withTimezone: true, mode: 'string' }),
+    endTime: timestamp('end_time', { withTimezone: true, mode: 'string' }),
+    untilDate: timestamp('until_date', { withTimezone: true, mode: 'string' }),
+    timeLimitMinutes: integer('time_limit_minutes'),
+    maxAttempts: integer('max_attempts'),
+    createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (t) => ({
+    quizIdx: index('quiz_schedules_quiz_idx').on(t.quizId),
+    // At most one remainder wave per quiz.
+    oneRemainderPerQuiz: uniqueIndex('quiz_schedules_one_remainder_idx')
+      .on(t.quizId)
+      .where(sql`${t.isRemainder} = true`),
+  }),
+);
+
+export const quizScheduleMembers = pgTable(
+  'quiz_schedule_members',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    scheduleId: uuid('schedule_id')
+      .notNull()
+      .references(() => quizSchedules.id, { onDelete: 'cascade' }),
+    // quizId denormalized so "one wave per (quiz, student)" can be a DB
+    // constraint (mirrors groupMemberships denormalizing group_set_id).
+    quizId: uuid('quiz_id')
+      .notNull()
+      .references(() => quizzes.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    // Wave-open notification idempotency marker. Set by the cron sweep; reset to
+    // null when the member moves waves or the wave's window changes.
+    notifiedAt: timestamp('notified_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    scheduleIdx: index('quiz_schedule_members_schedule_idx').on(t.scheduleId),
+    quizStudentUnique: uniqueIndex('quiz_schedule_members_quiz_student_idx').on(
+      t.quizId,
+      t.studentId,
+    ),
+    notifyIdx: index('quiz_schedule_members_notify_idx').on(t.notifiedAt),
   }),
 );
 

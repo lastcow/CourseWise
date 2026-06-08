@@ -337,6 +337,8 @@ export const ALERT_TYPES = [
   'quiz_average_low',
   'inactivity',
   'manual',
+  // System-generated when a student's quiz tester schedule (wave) opens.
+  'quiz_schedule_open',
 ] as const;
 export type AlertType = (typeof ALERT_TYPES)[number];
 
