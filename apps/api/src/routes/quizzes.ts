@@ -496,6 +496,37 @@ r.post('/quizzes/:quizId/archive', requireScopeGroup('quizzesWrite'), (c) =>
   transitionQuiz(c, 'archived'),
 );
 
+// Unarchive restores to `draft` rather than the prior status: we don't track
+// what the row was before archive, and auto-re-publishing could resurrect a
+// quiz whose window is now stale. Teachers republish in one click. Mirrors
+// the assignment unarchive route.
+r.post('/quizzes/:quizId/unarchive', requireScopeGroup('quizzesWrite'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'quizId');
+  const row = await loadQuiz(c, id);
+  if (!(await canWriteCourse(db, auth.user, row.courseId))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+  }
+  if (row.status !== 'archived') {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Quiz is not archived');
+  }
+  const [updated] = await db
+    .update(quizzes)
+    .set({ status: 'draft', archivedAt: null, updatedAt: new Date().toISOString() })
+    .where(eq(quizzes.id, id))
+    .returning();
+  if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Quiz not found');
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'quiz.unarchive',
+    target: id,
+  });
+  return success(c, toQuizSummary(updated));
+});
+
 // =================== Quiz questions ===================
 
 r.get('/quizzes/:quizId/questions', requireScopeGroup('quizzesRead'), async (c) => {
