@@ -55,7 +55,7 @@ export const fr = {
       requestCta: 'Envoyer le lien de réinitialisation',
       requestDoneTitle: 'Vérifiez votre courriel',
       requestDoneBody:
-        "Si un compte existe pour ce courriel, nous avons envoyé un lien pour réinitialiser votre mot de passe. Le lien expire dans 60 minutes.",
+        'Si un compte existe pour ce courriel, nous avons envoyé un lien pour réinitialiser votre mot de passe. Le lien expire dans 60 minutes.',
       newTitle: 'Choisissez un nouveau mot de passe',
       newPasswordLabel: 'Nouveau mot de passe',
       confirmLabel: 'Confirmer le nouveau mot de passe',
@@ -168,9 +168,9 @@ export const fr = {
         profile: 'Informations de profil',
         other: 'Autre',
       },
-      targetIdLabel: "Identifiant du dossier (facultatif)",
+      targetIdLabel: 'Identifiant du dossier (facultatif)',
       targetIdPlaceholder:
-        "Tout élément permettant de localiser le dossier — date, nom du devoir, etc.",
+        'Tout élément permettant de localiser le dossier — date, nom du devoir, etc.',
       descriptionLabel: "Qu'est-ce qui est inexact, et que faut-il indiquer ?",
       descriptionPlaceholder:
         'Décrivez le dossier concerné, ce que vous estimez inexact et la modification demandée.',
@@ -185,7 +185,7 @@ export const fr = {
         withdrawn: 'Retirée',
       },
       resolutionFrom: 'Traitée par {{name}}',
-      unknownResolver: "(équipe pédagogique)",
+      unknownResolver: '(équipe pédagogique)',
       createdAt: 'Ouverte {{when}}',
       resolvedAt: 'clôturée {{when}}',
       createdToast: 'Demande de correction envoyée',
@@ -193,7 +193,7 @@ export const fr = {
       // Staff-side
       staffTitle: 'Demandes de correction',
       staffDescription:
-        "Examinez les demandes des étudiants pour corriger leurs dossiers scolaires en vertu de FERPA §99.20.",
+        'Examinez les demandes des étudiants pour corriger leurs dossiers scolaires en vertu de FERPA §99.20.',
       staffEmptyTitle: 'Aucune demande de correction',
       staffEmptyBody: 'Aucune demande ne correspond au filtre actuel.',
       filterStatus: 'Filtre',
@@ -217,7 +217,7 @@ export const fr = {
       disclosures: {
         title: 'Divulgations de dossier',
         description:
-          "Journal de chaque consultation ou exportation de vos dossiers scolaires par une personne ayant accès au cours. Vous pouvez demander une copie écrite au service de scolarité à tout moment.",
+          'Journal de chaque consultation ou exportation de vos dossiers scolaires par une personne ayant accès au cours. Vous pouvez demander une copie écrite au service de scolarité à tout moment.',
         emptyTitle: 'Aucune divulgation enregistrée',
         emptyBody:
           "Rien n'a encore été journalisé. Les divulgations apparaissent ici lorsqu'un enseignant ou un administrateur consulte ou exporte vos notes, présences ou soumissions.",
@@ -331,8 +331,7 @@ export const fr = {
         title: 'Zone sensible',
         description: 'Supprime définitivement ce cours et tout son contenu. Action irréversible.',
         deleteCta: 'Supprimer ce cours',
-        notAllowed:
-          "Seul l'enseignant principal ou un administrateur peut supprimer ce cours.",
+        notAllowed: "Seul l'enseignant principal ou un administrateur peut supprimer ce cours.",
         dialog: {
           title: 'Supprimer « {{title}} » ({{code}}) ?',
           body: 'Cette action supprime définitivement le cours et tout son contenu. Elle est irréversible.',
@@ -370,10 +369,9 @@ export const fr = {
     },
     share: {
       notFoundTitle: 'Lien de partage introuvable',
-      notFoundBody:
-        "Ce lien a peut-être été désactivé par l'enseignant ou l'URL est incorrecte.",
+      notFoundBody: "Ce lien a peut-être été désactivé par l'enseignant ou l'URL est incorrecte.",
       noEmbed:
-        "Ce diaporama ne peut pas être intégré directement. Utilisez « Ouvrir dans Gamma » ou téléchargez le .pptx ci-dessus.",
+        'Ce diaporama ne peut pas être intégré directement. Utilisez « Ouvrir dans Gamma » ou téléchargez le .pptx ci-dessus.',
     },
     ferpaNotice: {
       title: 'Vos droits FERPA',
@@ -381,10 +379,9 @@ export const fr = {
         'Vos dossiers scolaires sont protégés par la loi FERPA. Chaque année scolaire ({{year}}), nous vous demandons de confirmer que vous avez pris connaissance de ces droits :',
       bullet: {
         inspect: 'Vous pouvez consulter et examiner vos dossiers scolaires.',
-        amend:
-          "Vous pouvez demander une correction si un dossier est inexact ou trompeur.",
+        amend: 'Vous pouvez demander une correction si un dossier est inexact ou trompeur.',
         consent:
-          "Vos dossiers ne sont pas divulgués à des tiers sans votre consentement, sauf dans les cas autorisés par la loi.",
+          'Vos dossiers ne sont pas divulgués à des tiers sans votre consentement, sauf dans les cas autorisés par la loi.',
         complaint:
           "Vous pouvez déposer une plainte auprès du Département de l'Éducation des États-Unis si vous estimez que ces droits ont été violés.",
       },
@@ -428,7 +425,7 @@ export const fr = {
       archive: 'Archiver',
       activate: 'Activer',
       deleteConfirm: 'Supprimer ce cours ? Cette action est irréversible.',
-      cannotDelete: 'Vous ne pouvez supprimer un cours que s\'il n\'a aucune inscription.',
+      cannotDelete: "Vous ne pouvez supprimer un cours que s'il n'a aucune inscription.",
       created: 'Cours créé',
       updated: 'Cours mis à jour',
       archived: 'Cours archivé',
@@ -543,8 +540,7 @@ export const fr = {
       },
       notStudent: {
         title: 'Changez de compte pour rejoindre',
-        body:
-          "Les codes d'invitation sont réservés aux comptes étudiants. Passez à un compte étudiant pour rejoindre.",
+        body: "Les codes d'invitation sont réservés aux comptes étudiants. Passez à un compte étudiant pour rejoindre.",
         back: 'Retour',
       },
       fallbackCourseLabel: 'ce cours',
@@ -567,7 +563,7 @@ export const fr = {
       enrollmentYearLabel: "Année d'inscription",
       languageLabel: 'Langue préférée',
       enrollmentsHeading: 'Inscrit à {{count}} cours',
-      noEnrollments: "Inscrit à aucun cours pour le moment.",
+      noEnrollments: 'Inscrit à aucun cours pour le moment.',
       enrolledAt: 'Inscrit le {{date}}',
       saved: "Détails de l'étudiant mis à jour",
       dangerZoneTitle: 'Zone sensible',
@@ -696,17 +692,16 @@ export const fr = {
       generateCta: 'Générer un code',
       generateTitle: "Générer un code d'invitation",
       generateHint:
-        "Laissez les deux champs vides pour un code illimité et sans expiration. Le lien partageable est copié dans votre presse-papiers.",
+        'Laissez les deux champs vides pour un code illimité et sans expiration. Le lien partageable est copié dans votre presse-papiers.',
       copyCode: 'Copier le code',
       copyLink: "Copier le lien d'invitation",
       linkCopied: "Lien d'invitation copié",
       maxUsesLabel: 'Utilisations max.',
       maxUsesPlaceholder: 'Sans limite',
       maxUsesHint: 'Facultatif. Laissez vide pour des utilisations illimitées.',
-      maxUsesInvalid: 'Le nombre maximal d\'utilisations doit être un entier positif.',
+      maxUsesInvalid: "Le nombre maximal d'utilisations doit être un entier positif.",
       expiresAtLabel: 'Expire le',
-      expiresAtHint:
-        'Facultatif. Le code cesse de fonctionner à minuit UTC à cette date.',
+      expiresAtHint: 'Facultatif. Le code cesse de fonctionner à minuit UTC à cette date.',
       deactivateTitle: "Désactiver le code d'invitation ?",
       deactivateConfirm:
         "Les étudiants ne pourront plus s'inscrire avec ce code. Action irréversible.",
@@ -716,7 +711,7 @@ export const fr = {
       helpTeacher:
         "Liste des inscrits. Utilisez les filtres pour pivoter par ensemble de groupes ; l'ensemble actif permet d'assigner, verrouiller les inscriptions, renommer ou supprimer.",
       helpStudent:
-        "Parcourez les groupes créés par votre enseignant. Rejoignez un groupe ouvert tant que les inscriptions le sont ; quittez pour changer.",
+        'Parcourez les groupes créés par votre enseignant. Rejoignez un groupe ouvert tant que les inscriptions le sont ; quittez pour changer.',
       searchPlaceholder: 'Rechercher un nom ou un courriel…',
       filterAll: 'Tous',
       filterByGroupSet: 'Filtrer par {{name}}',
@@ -742,7 +737,7 @@ export const fr = {
     groups: {
       title: 'Groupes',
       helpTeacher:
-        "Créez des ensembles de groupes pour que les étudiants travaillent ensemble sur les devoirs et les projets. Chaque ensemble a un nombre fixe de groupes plafonnés à la même taille.",
+        'Créez des ensembles de groupes pour que les étudiants travaillent ensemble sur les devoirs et les projets. Chaque ensemble a un nombre fixe de groupes plafonnés à la même taille.',
       helpStudent: 'Parcourez et rejoignez les groupes créés par votre enseignant pour ce cours.',
       newSetCta: 'Nouvel ensemble de groupes',
       newSetTitle: 'Créer un ensemble de groupes',
@@ -760,7 +755,7 @@ export const fr = {
       unlockSignup: 'Déverrouiller les inscriptions',
       groupCountLabel: '{{count}} groupes',
       memberCountLabel: '{{count}} membres',
-      emptySetsTeacher: "Aucun ensemble de groupes pour le moment.",
+      emptySetsTeacher: 'Aucun ensemble de groupes pour le moment.',
       emptySetsStudent: "Votre enseignant n'a créé aucun ensemble de groupes pour ce cours.",
       setCreated: 'Ensemble de groupes créé',
       setDeleted: 'Ensemble de groupes supprimé',
@@ -777,20 +772,19 @@ export const fr = {
       memberJoined: 'A rejoint',
       memberRemoved: 'Retiré',
       signupLockedNotice:
-        "Les inscriptions sont verrouillées. Demandez à votre enseignant de les déverrouiller pour changer de groupe.",
+        'Les inscriptions sont verrouillées. Demandez à votre enseignant de les déverrouiller pour changer de groupe.',
       teacherAssignedNotice:
         "Cet ensemble est assigné par l'enseignant. Attendez qu'il vous place dans un groupe.",
       deleteSetTitle: "Supprimer l'ensemble de groupes ?",
       deleteSetConfirm:
-        "Cette action supprime tous les groupes et appartenances de cet ensemble. PR2 vous avertira si des devoirs en dépendent.",
+        'Cette action supprime tous les groupes et appartenances de cet ensemble. PR2 vous avertira si des devoirs en dépendent.',
       renameGroupTitle: 'Renommer le groupe',
       editSetTitle: "Modifier l'ensemble de groupes",
       shrinkHint:
-        "Réduire la taille conserve les groupes déjà peuplés tels quels. Seuls les groupes vides en fin de liste sont supprimés.",
+        'Réduire la taille conserve les groupes déjà peuplés tels quels. Seuls les groupes vides en fin de liste sont supprimés.',
       addAnyway: 'Ajouter quand même ({{next}})',
       addAnywayHint: "Augmente le plafond de ce groupe à {{next}} et admet l'étudiant.",
-      capacityHint:
-        '{{groups}} groupes × {{max}} max = jusqu\'à {{total}} étudiants au total.',
+      capacityHint: "{{groups}} groupes × {{max}} max = jusqu'à {{total}} étudiants au total.",
       groupNameLabel: 'Nom du groupe',
       currentlyInGroup: 'Vous êtes dans {{groupName}}.',
     },
@@ -817,8 +811,7 @@ export const fr = {
       invitationResent: 'Invitation renvoyée avec un nouveau lien',
       invitationEmailed: "Courriel d'invitation envoyé à {{email}}",
       invitationRevoked: 'Invitation révoquée',
-      confirmRevoke:
-        'Révoquer cette invitation ? Le lien actuel cessera de fonctionner.',
+      confirmRevoke: 'Révoquer cette invitation ? Le lien actuel cessera de fonctionner.',
       revoke: 'Révoquer',
       resend: 'Renvoyer',
       inviteLinkReady: "Lien d'invitation prêt — partagez-le avec l'enseignant :",
@@ -898,15 +891,14 @@ export const fr = {
         title: 'Titre',
         module: 'Module',
         materials: 'Supports de lecture',
-        materialsHint:
-          'Choisissez les supports que Gamma utilisera comme contenu source.',
+        materialsHint: 'Choisissez les supports que Gamma utilisera comme contenu source.',
         instructions: 'Instructions complémentaires',
         instructionsHint:
           "Facultatif. Exemple : « Ouvrir par l'ordre du jour, terminer par des questions de discussion. »",
         theme: 'Thème',
         format: 'Type de document',
         formatHint:
-          "Ce que Gamma produit. « Présentation » est la valeur par défaut ; choisissez-en une autre pour un document long, une publication sociale ou un site monopage.",
+          'Ce que Gamma produit. « Présentation » est la valeur par défaut ; choisissez-en une autre pour un document long, une publication sociale ou un site monopage.',
         imageSource: 'Source des images',
         imageStyle: 'Style des images',
         imageStyleHint: "Indication de style visuel envoyée au générateur d'images de Gamma.",
@@ -934,7 +926,7 @@ export const fr = {
       },
       imageSource: {
         aiGenerated: 'Généré par IA',
-        webFreeToUse: 'Web (libre d\'utilisation)',
+        webFreeToUse: "Web (libre d'utilisation)",
         webFreeToUseCommercially: 'Web (libre pour usage commercial)',
         pictographic: 'Pictographique',
         themeAccent: 'Accent du thème',
@@ -972,7 +964,8 @@ export const fr = {
         button: 'Partager',
         dialogTitle: 'Partager la présentation',
         enable: 'Activer le lien de partage public',
-        enabledHint: 'Toute personne disposant de ce lien peut voir le diaporama. Aucune connexion requise.',
+        enabledHint:
+          'Toute personne disposant de ce lien peut voir le diaporama. Aucune connexion requise.',
         disabledHint: 'Le partage est désactivé. Activez-le pour générer un lien public.',
         copy: 'Copier le lien',
         copied: 'Lien copié',
@@ -1093,7 +1086,7 @@ export const fr = {
       submissionModeIndividual: 'Individuelle',
       submissionModeGroup: 'En groupe',
       groupSetLabel: 'Ensemble de groupes',
-      noGroupSets: "Aucun ensemble de groupes pour le moment",
+      noGroupSets: 'Aucun ensemble de groupes pour le moment',
       noGroupSetsHint:
         "Créez d'abord un ensemble de groupes dans ce cours (Participation → Groupes), puis revenez pour basculer ce devoir en mode groupe.",
       groupSetRequired: 'Choisissez un ensemble de groupes pour ce devoir en groupe.',
@@ -1101,15 +1094,14 @@ export const fr = {
         'Impossible de changer le mode de remise après que des étudiants ont déjà soumis.',
       schedulingLegend: 'Planification',
       startDateLabel: 'Date de début',
-      startDateHint: "Le moment le plus tôt où les étudiants peuvent ouvrir / commencer.",
+      startDateHint: 'Le moment le plus tôt où les étudiants peuvent ouvrir / commencer.',
       endDateLabel: 'Date de fin',
       endDateHint:
-        "Le moment le plus tard où les étudiants peuvent ouvrir / soumettre. Blocage strict ensuite.",
+        'Le moment le plus tard où les étudiants peuvent ouvrir / soumettre. Blocage strict ensuite.',
       untilDateLabel: 'Date limite de remise',
       untilDateHint:
-        "Limite absolue. Les brouillons en cours doivent être envoyés avant ; pour les quiz, le minuteur de la tentative est plafonné ici.",
-      schedulingOrderError:
-        'Les dates doivent respecter Début ≤ Fin ≤ Date limite de remise.',
+        'Limite absolue. Les brouillons en cours doivent être envoyés avant ; pour les quiz, le minuteur de la tentative est plafonné ici.',
+      schedulingOrderError: 'Les dates doivent respecter Début ≤ Fin ≤ Date limite de remise.',
       opensOn: 'Ouvre le {{date}}',
       closesOn: 'Ferme le {{date}}',
       submitByLabel: 'À remettre avant le {{date}}',
@@ -1122,14 +1114,15 @@ export const fr = {
         "Les étudiants peuvent remettre après l'échéance (les remises sont marquées en retard).",
       latePenaltyLegend: 'Pénalité de retard',
       latePenaltyIntro:
-        "Retirer des points pour un travail en retard. Laissez le pourcentage vide pour accepter le retard sans pénalité.",
+        'Retirer des points pour un travail en retard. Laissez le pourcentage vide pour accepter le retard sans pénalité.',
       latePenaltyPerPeriodLabel: 'Pénalité par période (%)',
       latePenaltyPerPeriodHint: 'Pourcentage retiré pour chaque période entamée.',
       latePenaltyPeriodLabel: 'Appliquer la pénalité tous les',
       latePenaltyPeriodUnitLabel: 'Unité de période',
       latePenaltyPeriodHint: 'Fréquence de répétition de la pénalité.',
       latePenaltyMaxLabel: 'Déduction maximale (%)',
-      latePenaltyMaxHint: 'La pénalité ne dépasse jamais cette valeur. Laisser vide pour aucun plafond.',
+      latePenaltyMaxHint:
+        'La pénalité ne dépasse jamais cette valeur. Laisser vide pour aucun plafond.',
       unitHours: 'heures',
       unitDays: 'jours',
       latePenaltyNone: 'Les remises en retard sont acceptées sans pénalité.',
@@ -1137,7 +1130,7 @@ export const fr = {
         'Retire {{perPeriod}}% par tranche de {{value}} {{unit}} de retard, jusqu’à {{max}}%.',
       latePenaltyPreviewNoMax: 'Retire {{perPeriod}}% par tranche de {{value}} {{unit}} de retard.',
       latePenaltyPreviewExample: 'Par exemple, {{value}} {{unit}} de retard → −{{pct}}%.',
-      latePenaltyPeriodRequired: "Définissez la fréquence de la pénalité de retard (la période).",
+      latePenaltyPeriodRequired: 'Définissez la fréquence de la pénalité de retard (la période).',
     },
     submissions: {
       title: 'Soumissions',
@@ -1159,7 +1152,7 @@ export const fr = {
       feedbackLabel: 'Commentaire',
       waiveLatePenalty: 'Annuler la pénalité de retard',
       gradeLateNote: '{{days}} de retard → −{{pct}}% · note finale {{final}} / {{max}}',
-      gradeLateNoneNote: "Aucune pénalité de retard configurée pour ce devoir.",
+      gradeLateNoneNote: 'Aucune pénalité de retard configurée pour ce devoir.',
       latePenaltyBadge: '−{{pct}}% retard',
       latePenaltyEntered: 'saisi {{raw}}',
       lateDaysCount_one: '{{count}} jour',
@@ -1173,12 +1166,14 @@ export const fr = {
       graded: 'Note enregistrée',
       returned: "Renvoyé à l'étudiant",
       returnedNotice:
-        "Votre enseignant a renvoyé cette soumission pour révision — modifiez et resoumettez.",
+        'Votre enseignant a renvoyé cette soumission pour révision — modifiez et resoumettez.',
       locked: "Soumission verrouillée — en attente du retour de l'enseignant.",
       unsubmitCta: 'Annuler la soumission',
       unsubmitted: 'Soumission rouverte — vous pouvez la modifier et la renvoyer.',
-      unsubmitHint: 'Repasse la soumission en brouillon pour la modifier et la renvoyer tant que le devoir est ouvert.',
-      unsubmitGroupHint: "Rouvre la soumission pour toute votre équipe : chacun peut la modifier et la renvoyer tant que le devoir est ouvert.",
+      unsubmitHint:
+        'Repasse la soumission en brouillon pour la modifier et la renvoyer tant que le devoir est ouvert.',
+      unsubmitGroupHint:
+        'Rouvre la soumission pour toute votre équipe : chacun peut la modifier et la renvoyer tant que le devoir est ouvert.',
       notYetSubmitted: "L'étudiant n'a pas encore soumis.",
       statusDraft: 'Brouillon',
       statusSubmitted: 'Soumise',
@@ -1270,7 +1265,7 @@ export const fr = {
       save: 'Enregistrer',
       cancel: 'Annuler',
       saved: 'Plan de cours enregistré',
-      emptyTeacher: "Aucun plan de cours — cliquez sur Modifier pour en ajouter un.",
+      emptyTeacher: 'Aucun plan de cours — cliquez sur Modifier pour en ajouter un.',
       emptyStudent: "Votre instructeur n'a pas encore publié de plan de cours.",
       editorPlaceholder:
         "Décrivez le cours, les objectifs d'apprentissage, les supports requis, les règles et comment vous joindre.",
@@ -1281,10 +1276,10 @@ export const fr = {
         viewFullPolicy: 'Voir la politique de notation complète →',
         attendance: 'Présences',
         schedule: 'Calendrier',
-        scheduleHint: 'Modules dans l\'ordre, avec devoirs et quiz intégrés.',
+        scheduleHint: "Modules dans l'ordre, avec devoirs et quiz intégrés.",
         scheduleEmpty: 'Aucun module pour le moment.',
         upcoming: 'À venir (30 prochains jours)',
-        upcomingEmpty: "Rien à rendre dans les 30 prochains jours.",
+        upcomingEmpty: 'Rien à rendre dans les 30 prochains jours.',
       },
       assignmentLabel: 'Devoir',
       quizLabel: 'Quiz',
@@ -1315,7 +1310,7 @@ export const fr = {
       timeLimitDisplay: 'Limite de {{minutes}} min',
       noTimeLimit: 'Sans limite de temps',
       untilDateHint:
-        "Limite absolue. Les tentatives en cours sont automatiquement finalisées ici (le minuteur de la tentative est plafonné au plus tôt).",
+        'Limite absolue. Les tentatives en cours sont automatiquement finalisées ici (le minuteur de la tentative est plafonné au plus tôt).',
       questionsCount: '{{count}} questions',
       pointsValue: '{{points}} pts',
       pointsLabel: 'Points',
@@ -1325,8 +1320,7 @@ export const fr = {
       questionAdded: 'Question ajoutée',
       questionSaved: 'Question enregistrée',
       deleteQuestionConfirm: 'Supprimer cette question ?',
-      noQuestionsYet:
-        'Aucune question pour le moment — ajoutez la première ci-dessous.',
+      noQuestionsYet: 'Aucune question pour le moment — ajoutez la première ci-dessous.',
       settingsTitle: 'Paramètres du quiz',
       settingsSaved: 'Quiz mis à jour',
       prompt: 'Énoncé',
@@ -1396,6 +1390,48 @@ export const fr = {
       takeQuiz: 'Passer le quiz',
       notAvailable: 'Non disponible pour le moment',
       completedTitle: 'Votre tentative',
+      // Vue « briefing » avant le démarrage
+      briefingKicker: "Briefing de l'évaluation",
+      briefingHeading: 'Briefing',
+      noDescription: "Aucun briefing n'a été fourni pour cette évaluation.",
+      metaQuestions: 'Questions',
+      metaTimeLimit: 'Limite de temps',
+      metaMinutes: '{{minutes}} min',
+      metaNoLimit: 'Sans limite',
+      metaPoints: 'Total des points',
+      metaPassing: 'Note de passage',
+      metaAttempts: 'Tentatives',
+      statusReady: 'Prêt',
+      statusOpensIn: 'Ouvre dans {{time}}',
+      windowClosedPill: 'Fermé',
+      unavailablePill: 'Indisponible',
+      lockedTitle: "Cette évaluation n'est pas encore ouverte",
+      lockedBody:
+        'Vous pouvez lire le briefing complet dès maintenant. Le bouton Commencer se débloque le {{date}}.',
+      countdownLabel: 'Ouvre dans',
+      countdownDays: 'j',
+      countdownHours: 'h',
+      countdownMinutes: 'min',
+      countdownSeconds: 's',
+      groundRulesTitle: 'Avant de commencer',
+      ruleTimer:
+        'Votre minuteur de {{minutes}} minutes démarre dès que vous appuyez sur Commencer.',
+      ruleTimerNoLimit: "Ce quiz n'a pas de limite de temps — à remettre avant la date butoir.",
+      ruleNoPause: 'Le minuteur continue si vous quittez la page ; il n’y a pas de pause.',
+      ruleAttempts: 'Vous disposez de {{count}} tentative(s) pour ce quiz.',
+      ruleAutoSubmit: 'Toute tentative encore ouverte le {{date}} est envoyée automatiquement.',
+      startReady: 'Vous pouvez enregistrer un brouillon et modifier vos réponses jusqu’à l’envoi.',
+      closedTitle: 'Cette évaluation est fermée',
+      closedBody:
+        'La fenêtre s’est fermée le {{date}}. Plus aucune nouvelle tentative ne peut être démarrée.',
+      unavailableTitle: 'Pas encore disponible',
+      unavailableBody:
+        "Ce quiz n'a pas encore été publié. Revenez plus tard ou contactez votre enseignant.",
+      timelineHeading: 'Disponibilité',
+      timelineOpens: 'Ouvre',
+      timelineCloses: 'Ferme',
+      timelineSubmitBy: 'À remettre avant',
+      timelineNoWindow: 'Disponible à tout moment — aucune fenêtre planifiée.',
       type: {
         single_choice: 'Choix unique',
         multiple_choice: 'Choix multiples',
@@ -1423,7 +1459,7 @@ export const fr = {
       sessionUpdated: 'Séance mise à jour',
       sessionClosed: 'Séance fermée',
       sessionsListTitle: 'Séances',
-      pickSession: 'Choisissez une séance pour faire l\'appel.',
+      pickSession: "Choisissez une séance pour faire l'appel.",
       records: '{{count}} marqués',
       rosterTitle: 'Liste des inscrits',
       rosterCount: '{{count}} étudiant(s)',
@@ -1482,7 +1518,7 @@ export const fr = {
         absentThresholdLabel: 'Pointage clos après {{minutes}} min',
         willBeLateHeading: 'Vous serez marqué en retard',
         willBeLateBody:
-          "Le cours a commencé il y a {{minutes}} minute(s). Vous pointer maintenant vous enregistrera comme en retard plutôt que présent.",
+          'Le cours a commencé il y a {{minutes}} minute(s). Vous pointer maintenant vous enregistrera comme en retard plutôt que présent.',
         windowClosedHeading: 'Fenêtre de pointage close',
         windowClosedBody:
           "Ce cours a commencé il y a {{minutes}} minute(s) et la fenêtre d'auto-pointage est close. Contactez votre enseignant si vous étiez présent.",
@@ -1496,15 +1532,14 @@ export const fr = {
         lateAfter: 'Marquer en retard après (min)',
         absentAfter: 'Fermer le pointage après (min)',
         noLimit: 'Sans limite',
-        orderError:
-          "« Fermer le pointage » doit être supérieur ou égal à « Marquer en retard ».",
+        orderError: '« Fermer le pointage » doit être supérieur ou égal à « Marquer en retard ».',
       },
     },
     grading: {
       policyTabTitle: 'Politique',
       policyTitle: 'Politique de notation',
       policyDescription:
-        "La somme des pondérations doit faire 100. Une mise à jour publie une nouvelle version et marque les notes finales existantes comme obsolètes.",
+        'La somme des pondérations doit faire 100. Une mise à jour publie une nouvelle version et marque les notes finales existantes comme obsolètes.',
       weightAttendance: 'Présences',
       attendanceCardTitle: 'Présences',
       attendanceWeightLabel: 'Pondération des présences (%)',
@@ -1514,8 +1549,9 @@ export const fr = {
       attendanceSaved: 'Pondération des présences enregistrée',
       groupsCardTitle: 'Catégories de devoirs',
       groupsCardHint:
-        "Regroupez devoirs, quiz et discussions en catégories pondérées. La somme des présences et des pondérations de catégories doit faire 100 %.",
-      groupsEmpty: "Aucune catégorie pour le moment. Ajoutez-en une pour commencer à regrouper des éléments.",
+        'Regroupez devoirs, quiz et discussions en catégories pondérées. La somme des présences et des pondérations de catégories doit faire 100 %.',
+      groupsEmpty:
+        'Aucune catégorie pour le moment. Ajoutez-en une pour commencer à regrouper des éléments.',
       groupAdd: '+ Ajouter une catégorie',
       groupDelete: 'Supprimer',
       groupNameAria: 'Nom de la catégorie',
@@ -1549,7 +1585,7 @@ export const fr = {
       outdated: 'Obsolète',
       current: 'À jour',
       editOverride: 'Modifier la note manuelle',
-      overrideTitle: 'Note manuelle de l\'enseignant',
+      overrideTitle: "Note manuelle de l'enseignant",
       overrideScore: 'Note manuelle (0–100)',
       overrideScorePlaceholder: 'Laissez vide pour effacer',
       overrideReason: 'Motif de la note manuelle',
@@ -1557,7 +1593,7 @@ export const fr = {
       overrideSaved: 'Note manuelle enregistrée',
       myGradeTitle: 'Ma note finale',
       myGradePending: "La note finale n'a pas encore été calculée.",
-      overrideApplied: 'Note manuelle de l\'enseignant : {{score}}',
+      overrideApplied: "Note manuelle de l'enseignant : {{score}}",
       breakdown: 'Détail par catégorie',
       category: 'Catégorie',
       raw: '% brut',
@@ -1597,7 +1633,8 @@ export const fr = {
       myGradebookSubtitle: 'Vos résultats pour chaque élément noté de ce cours.',
       overallGrade: 'Note globale',
       noItemsYet: 'Aucun élément noté',
-      noItemsYetHint: 'Votre enseignant n’a pas encore configuré d’éléments notés pour ce cours. Revenez plus tard.',
+      noItemsYetHint:
+        'Votre enseignant n’a pas encore configuré d’éléments notés pour ce cours. Revenez plus tard.',
       item: 'Élément',
       yourScore: 'Votre note',
       percent: '%',
@@ -1635,7 +1672,7 @@ export const fr = {
       unassignedGroup: 'Non assigné',
       alertCount: '{{count}} alerte(s)',
       emptyTitle: 'Aucune alerte',
-      emptyDescription: "Tout est à jour. Les alertes de risque apparaîtront ici.",
+      emptyDescription: 'Tout est à jour. Les alertes de risque apparaîtront ici.',
       runRules: 'Exécuter les règles',
       generated: '{{count}} nouvelles alertes générées',
       resolveCta: 'Résoudre',
@@ -1698,7 +1735,8 @@ export const fr = {
       notFound: 'Cette ressource est introuvable.',
       conflict: 'Conflit avec une autre modification.',
       notInGroup: 'Vous devez être dans un groupe pour soumettre ce devoir.',
-      assignmentWindowClosed: "La date limite est passée — ce devoir n'accepte plus de soumissions.",
+      assignmentWindowClosed:
+        "La date limite est passée — ce devoir n'accepte plus de soumissions.",
       rateLimited: 'Trop de requêtes. Réessayez sous peu.',
       accountLocked: 'Votre compte est temporairement verrouillé.',
       accountInactive: "Votre compte n'est pas actif.",
@@ -1727,7 +1765,7 @@ export const fr = {
     ai: {
       adminTitle: 'Fournisseurs IA',
       adminSubtitle:
-        "Configurez quels fournisseurs et modèles sont disponibles pour la génération par IA dans les cours.",
+        'Configurez quels fournisseurs et modèles sont disponibles pour la génération par IA dans les cours.',
       providersTitle: 'Fournisseurs',
       providersDescription:
         'Chaque fournisseur est accessible via Cloudflare AI Gateway. Stockez la clé API en tant que secret Worker et référencez-la ici par son nom.',
@@ -1760,7 +1798,7 @@ export const fr = {
       modelDeleted: 'Modèle supprimé',
       generate: {
         cta: "Générer avec l'IA",
-        disabledHint: "La génération par IA est temporairement désactivée.",
+        disabledHint: 'La génération par IA est temporairement désactivée.',
         title: 'Générer des supports de lecture',
         model: 'Modèle',
         modules: 'Modules',
@@ -1800,7 +1838,7 @@ export const fr = {
       activity: {
         title: 'Activité',
         showRealtime: "Afficher l'activité en direct",
-        empty: "Aucun événement pour le moment.",
+        empty: 'Aucun événement pour le moment.',
         metadataToggle: 'Détails',
         relative: {
           justNow: "à l'instant",
@@ -1921,12 +1959,10 @@ export const fr = {
       },
       dataRequestsForm: {
         nameEmailRequired: 'Veuillez indiquer vos nom et courriel.',
-        categoryRequired: "Sélectionnez au moins une catégorie de dossier.",
-        descriptionMinLength:
-          'Veuillez décrire la demande plus en détail (10 caractères ou plus).',
+        categoryRequired: 'Sélectionnez au moins une catégorie de dossier.',
+        descriptionMinLength: 'Veuillez décrire la demande plus en détail (10 caractères ou plus).',
         descriptionMaxLength: 'Description trop longue (max 4000 caractères).',
-        submitFailed:
-          "Une erreur s'est produite. Veuillez réessayer ou nous envoyer un courriel.",
+        submitFailed: "Une erreur s'est produite. Veuillez réessayer ou nous envoyer un courriel.",
         doneTitle: 'Demande reçue.',
         doneBody:
           'Nous répondons sous 7 jours calendaires et vous enverrons un accusé de réception par courriel.',
@@ -1938,16 +1974,16 @@ export const fr = {
         requesterTypeLegend: 'Type de demandeur',
         relationshipLabel: "Lien avec l'établissement",
         relationshipPlaceholder: "ex. : Parent de l'élève Jeanne Dupont, 4e",
-        recordCategoryLegend: 'Catégorie de dossier (sélectionnez toutes celles qui s\'appliquent)',
+        recordCategoryLegend: "Catégorie de dossier (sélectionnez toutes celles qui s'appliquent)",
         actionRequestedLegend: 'Action demandée',
         descriptionLabel: 'Description',
         descriptionPlaceholder:
-          "Identifiez le ou les étudiants, la période et tout dossier ou événement précis dont vous demandez la consultation, la modification ou la suppression.",
+          'Identifiez le ou les étudiants, la période et tout dossier ou événement précis dont vous demandez la consultation, la modification ou la suppression.',
         descriptionHint: 'Entre 10 et 4000 caractères.',
         submitCta: 'Envoyer la demande',
         submitting: 'Envoi…',
         submitDisclaimer:
-          "En envoyant ce formulaire, vous confirmez que les informations ci-dessus sont exactes. Nous vous enverrons un accusé de réception par courriel et reviendrons vers vous au sujet de la vérification.",
+          'En envoyant ce formulaire, vous confirmez que les informations ci-dessus sont exactes. Nous vous enverrons un accusé de réception par courriel et reviendrons vers vous au sujet de la vérification.',
         requester: {
           parent: 'Parent ou tuteur légal',
           eligibleStudent: 'Étudiant éligible (18 ans et plus ou dans le supérieur)',
@@ -1955,9 +1991,8 @@ export const fr = {
           other: 'Autre',
         },
         category: {
-          educationRecords:
-            'Dossiers scolaires (travaux, notes, progression)',
-          aiGenerationHistory: "Historique de génération IA (prompts, réponses)",
+          educationRecords: 'Dossiers scolaires (travaux, notes, progression)',
+          aiGenerationHistory: 'Historique de génération IA (prompts, réponses)',
           account: 'Informations de compte (nom, courriel, rôle)',
           discussionPosts: 'Messages et commentaires de discussion',
           other: 'Autre (à préciser ci-dessous)',

@@ -205,8 +205,7 @@ export const en = {
       declineBody:
         'Declining records that you reviewed the request but did not make the requested change. The student will see your note.',
       resolutionNote: 'Note for the student (optional)',
-      resolutionNotePlaceholder:
-        'Briefly explain what you decided and any next steps.',
+      resolutionNotePlaceholder: 'Briefly explain what you decided and any next steps.',
       acceptedToast: 'Request accepted',
       declinedToast: 'Request declined',
       targetIdRow: 'Record ID: {{id}}',
@@ -573,8 +572,7 @@ export const en = {
       deleteConfirmTypeLabel: 'Type {{email}} to confirm',
       deleteConfirmAction: 'Delete permanently',
       deleteSuccess: 'Student account deleted and notification email sent.',
-      deleteEmailFailed:
-        'Student account deleted, but the notification email could not be sent.',
+      deleteEmailFailed: 'Student account deleted, but the notification email could not be sent.',
       reasonLabel: 'Reason (optional)',
     },
     messages: {
@@ -770,7 +768,8 @@ export const en = {
       memberRemoved: 'Removed',
       signupLockedNotice:
         'Signup is locked. Ask your teacher to unlock it if you need to switch groups.',
-      teacherAssignedNotice: 'This group set is teacher-assigned. Wait for your teacher to place you in a group.',
+      teacherAssignedNotice:
+        'This group set is teacher-assigned. Wait for your teacher to place you in a group.',
       deleteSetTitle: 'Delete group set?',
       deleteSetConfirm:
         'This removes all groups and memberships in this set. PR2 will warn if assignments depend on it.',
@@ -780,8 +779,7 @@ export const en = {
         'Reducing the size keeps existing populated groups as-is. Only empty trailing groups are removed.',
       addAnyway: 'Add anyway ({{next}})',
       addAnywayHint: 'Bumps this group cap to {{next}} and admits the student.',
-      capacityHint:
-        '{{groups}} groups × {{max}} max = up to {{total}} students total.',
+      capacityHint: '{{groups}} groups × {{max}} max = up to {{total}} students total.',
       groupNameLabel: 'Group name',
       currentlyInGroup: 'You are in {{groupName}}.',
     },
@@ -1036,8 +1034,7 @@ export const en = {
       colMaxScore: 'Max score',
       colSubmissions: 'Submissions',
       viewSubmissionsAction: 'View submissions ({{count}})',
-      viewSubmissionsActionWithUngraded:
-        'View submissions ({{count}}) — {{ungraded}} ungraded',
+      viewSubmissionsActionWithUngraded: 'View submissions ({{count}}) — {{ungraded}} ungraded',
       colActions: 'Actions',
       colMyStatus: 'My status',
       colMyGrade: 'My grade',
@@ -1083,8 +1080,7 @@ export const en = {
       noGroupSetsHint:
         'Create a group set in this course first (Engagement → Groups), then come back to switch this assignment to group mode.',
       groupSetRequired: 'Choose a group set for this group assignment.',
-      modeLockedHint:
-        'Cannot change submission mode after students have submitted.',
+      modeLockedHint: 'Cannot change submission mode after students have submitted.',
       schedulingLegend: 'Scheduling',
       startDateLabel: 'Start date',
       startDateHint: 'Earliest moment students can open / start.',
@@ -1159,8 +1155,10 @@ export const en = {
       locked: 'Submission locked — waiting for teacher feedback.',
       unsubmitCta: 'Unsubmit',
       unsubmitted: 'Submission reopened — you can edit and resubmit.',
-      unsubmitHint: 'Pulls this back to a draft so you can edit and resubmit while the assignment is open.',
-      unsubmitGroupHint: 'Reopens the submission for your whole team so anyone can edit and resubmit while the assignment is open.',
+      unsubmitHint:
+        'Pulls this back to a draft so you can edit and resubmit while the assignment is open.',
+      unsubmitGroupHint:
+        'Reopens the submission for your whole team so anyone can edit and resubmit while the assignment is open.',
       notYetSubmitted: 'Student has not submitted yet.',
       statusDraft: 'Draft',
       statusSubmitted: 'Submitted',
@@ -1375,6 +1373,45 @@ export const en = {
       takeQuiz: 'Take quiz',
       notAvailable: 'Not available right now',
       completedTitle: 'Your attempt',
+      // Pre-start "assessment briefing" view
+      briefingKicker: 'Assessment briefing',
+      briefingHeading: 'Briefing',
+      noDescription: 'No briefing was provided for this assessment.',
+      metaQuestions: 'Questions',
+      metaTimeLimit: 'Time limit',
+      metaMinutes: '{{minutes}} min',
+      metaNoLimit: 'No limit',
+      metaPoints: 'Total points',
+      metaPassing: 'Passing score',
+      metaAttempts: 'Attempts',
+      statusReady: 'Ready',
+      statusOpensIn: 'Opens in {{time}}',
+      windowClosedPill: 'Closed',
+      unavailablePill: 'Unavailable',
+      lockedTitle: 'This assessment is not open yet',
+      lockedBody: 'You can read the full briefing now. The Start button unlocks on {{date}}.',
+      countdownLabel: 'Opens in',
+      countdownDays: 'days',
+      countdownHours: 'hrs',
+      countdownMinutes: 'min',
+      countdownSeconds: 'sec',
+      groundRulesTitle: 'Before you start',
+      ruleTimer: 'Your {{minutes}}-minute timer starts the moment you press Start.',
+      ruleTimerNoLimit: 'This quiz has no time limit — submit any time before the cutoff.',
+      ruleNoPause: 'The clock keeps running if you leave the page; there is no pause.',
+      ruleAttempts: 'You have {{count}} attempt(s) for this quiz.',
+      ruleAutoSubmit: 'Any attempt still open at {{date}} is submitted automatically.',
+      startReady: 'You can save a draft and revise answers until you submit.',
+      closedTitle: 'This assessment has closed',
+      closedBody: 'The window closed on {{date}}. New attempts can no longer be started.',
+      unavailableTitle: 'Not available yet',
+      unavailableBody:
+        "This quiz hasn't been published yet. Check back later or contact your instructor.",
+      timelineHeading: 'Availability',
+      timelineOpens: 'Opens',
+      timelineCloses: 'Closes',
+      timelineSubmitBy: 'Submit by',
+      timelineNoWindow: 'Available anytime — no scheduled window.',
       type: {
         single_choice: 'Single choice',
         multiple_choice: 'Multiple choice',
@@ -1573,7 +1610,8 @@ export const en = {
       myGradebookSubtitle: 'Your scores for every graded item in this course.',
       overallGrade: 'Overall grade',
       noItemsYet: 'No graded items yet',
-      noItemsYetHint: 'Your teacher has not set up graded items for this course yet. Check back later.',
+      noItemsYetHint:
+        'Your teacher has not set up graded items for this course yet. Check back later.',
       item: 'Item',
       yourScore: 'Your score',
       percent: '%',
@@ -1674,7 +1712,8 @@ export const en = {
       notFound: 'That resource was not found.',
       conflict: 'There was a conflict with another change.',
       notInGroup: 'You must be in a group to submit this assignment.',
-      assignmentWindowClosed: 'The deadline has passed — this assignment no longer accepts submissions.',
+      assignmentWindowClosed:
+        'The deadline has passed — this assignment no longer accepts submissions.',
       rateLimited: 'Too many requests. Try again shortly.',
       accountLocked: 'Your account is temporarily locked.',
       accountInactive: 'Your account is not active.',
@@ -1893,12 +1932,9 @@ export const en = {
       dataRequestsForm: {
         nameEmailRequired: 'Please provide your name and email.',
         categoryRequired: 'Select at least one record category.',
-        descriptionMinLength:
-          'Please describe the request in more detail (10+ characters).',
-        descriptionMaxLength:
-          'Description is too long (max 4000 characters).',
-        submitFailed:
-          'Something went wrong. Please try again or email us.',
+        descriptionMinLength: 'Please describe the request in more detail (10+ characters).',
+        descriptionMaxLength: 'Description is too long (max 4000 characters).',
+        submitFailed: 'Something went wrong. Please try again or email us.',
         doneTitle: 'Request received.',
         doneBody: 'We respond within 7 calendar days and will email a receipt.',
         contactInformation: 'Your contact information',
@@ -1926,8 +1962,7 @@ export const en = {
           other: 'Other',
         },
         category: {
-          educationRecords:
-            'Education records (coursework, scores, progress)',
+          educationRecords: 'Education records (coursework, scores, progress)',
           aiGenerationHistory: 'AI generation history (prompts, responses)',
           account: 'Account information (name, email, role)',
           discussionPosts: 'Discussion posts and comments',
