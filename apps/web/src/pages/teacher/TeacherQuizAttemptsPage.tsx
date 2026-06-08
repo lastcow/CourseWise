@@ -272,7 +272,7 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
                 </div>
 
                 {/* Fact tiles */}
-                <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                   <Fact
                     icon={Percent}
                     label={t('quizzes.resultPercent')}
@@ -291,7 +291,8 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
                   <Fact
                     icon={CalendarClock}
                     label={t('quizzes.resultSubmitted')}
-                    value={d.submittedAt ? new Date(d.submittedAt).toLocaleString() : '—'}
+                    value={d.submittedAt ? formatSubmittedAt(d.submittedAt) : '—'}
+                    className="sm:col-span-2"
                   />
                 </dl>
               </CardContent>
@@ -331,17 +332,29 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
   );
 }
 
+// Compact date + h:mm (no seconds), e.g. "Jun 6, 9:35 AM".
+function formatSubmittedAt(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function Fact({
   icon: Icon,
   label,
   value,
+  className,
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
+  className?: string;
 }): JSX.Element {
   return (
-    <div className="rounded-md border bg-card p-3">
+    <div className={cn('rounded-md border bg-card p-3', className)}>
       <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <Icon className="h-3.5 w-3.5" aria-hidden />
         {label}

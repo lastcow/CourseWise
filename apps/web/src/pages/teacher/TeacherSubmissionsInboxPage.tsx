@@ -1,11 +1,22 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Download, Mail } from 'lucide-react';
+import {
+  CalendarClock,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock,
+  Download,
+  Mail,
+  Paperclip,
+  Percent,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty';
@@ -27,9 +38,12 @@ import type {
   SubmissionWithStudent,
 } from '@coursewise/shared';
 
-function statusVariant(s: SubmissionStatus): 'success' | 'destructive' | 'secondary' {
+const needsGrading = (s: SubmissionStatus): boolean => s === 'submitted' || s === 'late';
+
+function statusVariant(s: SubmissionStatus): 'success' | 'destructive' | 'secondary' | 'warning' {
   if (s === 'graded') return 'success';
-  if (s === 'late') return 'destructive';
+  if (s === 'late') return 'warning';
+  if (s === 'submitted') return 'warning';
   return 'secondary';
 }
 
@@ -183,6 +197,18 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
           ),
         );
 
+  // Roster summary counts (whichever mode is active).
+  const rosterStatuses: SubmissionStatus[] = isGroupMode
+    ? (grouped.data?.groups ?? []).map((g) => groupRepresentative(g)?.status ?? 'submitted')
+    : (submissions.data ?? []).map((s) => s.status);
+  const rosterCount = rosterStatuses.length;
+  const toGradeCount = rosterStatuses.filter(needsGrading).length;
+
+  // Stored grade for the hero (final, post-penalty).
+  const storedScore = detailSub?.score ?? null;
+  const heroPct =
+    storedScore !== null && maxScore && maxScore > 0 ? (storedScore / maxScore) * 100 : null;
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
@@ -201,13 +227,25 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
       </header>
 
       <div className="grid items-start gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
-        <Card>
-          <CardHeader className="px-3 py-2">
-            <CardTitle className="text-sm">{t('submissions.inbox')}</CardTitle>
-          </CardHeader>
+        {/* Roster */}
+        <Card className="overflow-hidden">
+          <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2.5">
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              {t('submissions.inbox')}
+            </span>
+            {toGradeCount > 0 ? (
+              <Badge variant="warning">
+                {t('submissions.toGradeCount', { count: toGradeCount })}
+              </Badge>
+            ) : rosterCount > 0 ? (
+              <Badge variant="success" className="gap-1">
+                <CheckCircle2 className="h-3 w-3" aria-hidden /> {t('submissions.allGraded')}
+              </Badge>
+            ) : null}
+          </div>
           <CardContent className="p-1">
             {(isGroupMode ? grouped.isLoading : submissions.isLoading) ? (
-              <p className="px-2 py-1 text-sm">{t('common.loading')}</p>
+              <p className="px-2 py-2 text-sm text-muted-foreground">{t('common.loading')}</p>
             ) : isGroupMode ? (
               !grouped.data || grouped.data.groups.length === 0 ? (
                 <EmptyState title={t('submissions.empty')} />
@@ -223,30 +261,16 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                       const rep = groupRepresentative(g);
                       const status = rep?.status ?? 'submitted';
                       return (
-                        <button
+                        <RosterRow
                           key={g.groupSubmissionId}
-                          type="button"
+                          title={g.groupName}
+                          subtitle={t('submissions.memberCount', { count: g.members.length })}
+                          status={status}
+                          score={rep?.score ?? null}
+                          maxScore={maxScore}
+                          selected={selectedGroupId === g.groupSubmissionId}
                           onClick={() => openGroup(g.groupSubmissionId)}
-                          className={cn(
-                            'flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left text-sm hover:bg-muted',
-                            selectedGroupId === g.groupSubmissionId ? 'bg-muted' : '',
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="truncate font-medium">{g.groupName}</span>
-                            <span className="shrink-0 text-xs text-muted-foreground">
-                              {t('submissions.memberCount', { count: g.members.length })}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between gap-2">
-                            <Badge variant={statusVariant(status)} className="shrink-0">
-                              {statusLabel(t, status)}
-                            </Badge>
-                            <span className="font-mono text-xs text-muted-foreground">
-                              {rep?.score != null ? `${rep.score} / ${maxScore ?? '—'}` : '—'}
-                            </span>
-                          </div>
-                        </button>
+                        />
                       );
                     })}
                   {grouped.data.ungroupedStudents.length > 0 ? (
@@ -264,39 +288,59 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
             ) : (
               <div className="space-y-0.5">
                 {submissions.data.map((s) => (
-                  <button
+                  <RosterRow
                     key={s.id}
-                    type="button"
+                    title={s.student.name}
+                    status={s.status}
+                    score={s.score ?? null}
+                    maxScore={maxScore}
+                    selected={selectedId === s.id}
                     onClick={() => openIndividual(s.id)}
-                    className={cn(
-                      'flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left text-sm hover:bg-muted',
-                      selectedId === s.id ? 'bg-muted' : '',
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-medium">{s.student.name}</span>
-                      <Badge variant={statusVariant(s.status)} className="shrink-0">
-                        {statusLabel(t, s.status)}
-                      </Badge>
-                    </div>
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {s.score != null ? `${s.score} / ${maxScore ?? '—'}` : '—'}
-                    </p>
-                  </button>
+                  />
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {detailOpen ? (
-          <Card className="sticky top-4 self-start">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base">{detailHeading}</CardTitle>
-              {/* Individual mode messages the student; group mode messages the
-                  member who submitted (hidden when that's unknown). */}
-              {isGroupMode ? (
-                groupSubmitter ? (
+        {/* Detail */}
+        {!detailOpen ? (
+          <Card>
+            <CardContent className="py-12">
+              <EmptyState
+                icon={<ClipboardCheck className="h-6 w-6" />}
+                title={t('submissions.title')}
+                description={t('submissions.selectPrompt')}
+              />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="sticky top-4 self-start overflow-hidden">
+            {/* Header band */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-6 py-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  <ClipboardCheck className="h-3.5 w-3.5" aria-hidden />
+                  {t('submissions.gradingKicker')}
+                </div>
+                <p className="mt-0.5 truncate text-lg font-semibold">{detailHeading}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {detailStatus ? (
+                  needsGrading(detailStatus) ? (
+                    <Badge variant="warning" className="gap-1.5">
+                      <Clock className="h-3.5 w-3.5" aria-hidden /> {t('submissions.needsGrading')}
+                    </Badge>
+                  ) : detailStatus === 'graded' ? (
+                    <Badge variant="success" className="gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />{' '}
+                      {t('submissions.statusGraded')}
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">{statusLabel(t, detailStatus)}</Badge>
+                  )
+                ) : null}
+                {(isGroupMode ? groupSubmitter : selectedIndividual) ? (
                   <ActionIconButton
                     icon={Mail}
                     label={t('messages.composeCta')}
@@ -304,37 +348,107 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                     size="sm"
                     onClick={() => setComposeOpen(true)}
                   />
-                ) : null
-              ) : (
-                <ActionIconButton
-                  icon={Mail}
-                  label={t('messages.composeCta')}
-                  color="sky"
-                  size="sm"
-                  onClick={() => setComposeOpen(true)}
-                />
-              )}
-            </CardHeader>
-            <CardContent className="space-y-3">
+                ) : null}
+              </div>
+            </div>
+
+            <CardContent className="space-y-6 pt-6">
+              {detailStatus && detailStatus !== 'draft' ? (
+                <>
+                  {/* Score hero */}
+                  <div>
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-4xl font-semibold tabular-nums">
+                        {storedScore ?? '—'}
+                        <span className="text-2xl text-muted-foreground"> / {maxScore ?? '—'}</span>
+                      </span>
+                      {heroPct !== null ? (
+                        <span className="text-lg font-medium tabular-nums text-muted-foreground">
+                          {heroPct.toFixed(0)}%
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn(
+                          'h-full rounded-full',
+                          storedScore === null ? 'bg-amber-400' : 'bg-emerald-500',
+                        )}
+                        style={{ width: `${Math.max(0, Math.min(100, heroPct ?? 0))}%` }}
+                      />
+                    </div>
+                    {storedScore === null ? (
+                      <p className="mt-2 text-sm text-amber-700">
+                        {t('submissions.awaitingGrade')}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {/* Fact tiles */}
+                  <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    <Fact
+                      icon={Percent}
+                      label={t('submissions.tilePercent')}
+                      value={heroPct !== null ? `${heroPct.toFixed(0)}%` : '—'}
+                    />
+                    <Fact
+                      icon={CalendarClock}
+                      label={t('submissions.tileSubmitted')}
+                      className="sm:col-span-2"
+                      value={
+                        detailSub?.submittedAt ? formatSubmittedAt(detailSub.submittedAt) : '—'
+                      }
+                    />
+                    <Fact
+                      icon={Paperclip}
+                      label={t('submissions.tileFiles')}
+                      value={String(detailAttachments.length)}
+                    />
+                    {isGroupMode && selectedGroup ? (
+                      <Fact
+                        icon={Users}
+                        label={t('submissions.tileMembers')}
+                        value={String(selectedGroup.members.length)}
+                      />
+                    ) : (
+                      <Fact
+                        icon={Clock}
+                        label={t('submissions.tileLate')}
+                        value={
+                          detailIsLate
+                            ? waiveLate
+                              ? t('submissions.penaltyWaived')
+                              : `−${livePenaltyPct}%`
+                            : t('submissions.tileOnTime')
+                        }
+                      />
+                    )}
+                  </dl>
+                </>
+              ) : null}
+
+              {/* Submission content */}
               <div>
-                <Label>{t('submissions.textAnswer')}</Label>
-                <div className="min-h-[80px] whitespace-pre-wrap rounded border bg-muted/20 p-3 text-sm">
-                  {detailText ? detailText : <em>{t('submissions.noAnswer')}</em>}
+                <Label className="text-muted-foreground">{t('submissions.textAnswer')}</Label>
+                <div className="mt-1 min-h-[80px] whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">
+                  {detailText ? (
+                    detailText
+                  ) : (
+                    <span className="italic text-muted-foreground">{t('submissions.noAnswer')}</span>
+                  )}
                 </div>
               </div>
+
               <div>
-                <Label>{t('submissions.attachments')}</Label>
+                <Label className="text-muted-foreground">{t('submissions.attachments')}</Label>
                 {detailAttachments.length > 0 ? (
                   <ul className="mt-1 space-y-1">
                     {detailAttachments.map((a) => (
-                      <li
-                        key={a.fileAssetId}
-                        className="rounded border bg-background px-2.5 py-1.5 text-sm"
-                      >
+                      <li key={a.fileAssetId}>
                         <button
                           type="button"
                           onClick={() => onDownload(a.fileAssetId)}
-                          className="flex w-full min-w-0 items-center gap-2 rounded-sm text-left underline-offset-4 hover:underline"
+                          className="flex w-full min-w-0 items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-left text-sm underline-offset-4 hover:bg-muted hover:underline"
                         >
                           <Download className="h-4 w-4 shrink-0 text-sky-600" aria-hidden />
                           <span className="truncate">
@@ -351,14 +465,14 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
 
               {isGroupMode && selectedGroup ? (
                 <div>
-                  <Label>
+                  <Label className="text-muted-foreground">
                     {t('submissions.memberCount', { count: selectedGroup.members.length })}
                   </Label>
                   <ul className="mt-1 space-y-1">
                     {selectedGroup.members.map((m) => (
                       <li
                         key={m.id}
-                        className="flex items-center justify-between gap-2 rounded border bg-background px-2.5 py-1.5 text-sm"
+                        className="flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm"
                       >
                         <span className="truncate">{m.student.name}</span>
                         <Badge variant={statusVariant(m.status)} className="shrink-0">
@@ -369,82 +483,87 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                   </ul>
                 </div>
               ) : null}
+            </CardContent>
 
-              {detailStatus && detailStatus !== 'draft' ? (
-                <>
-                  {isGroupMode ? (
-                    <p className="text-xs text-muted-foreground">
-                      {t('submissions.groupGradeNote')}
+            {/* Grading controls (footer) */}
+            {detailStatus && detailStatus !== 'draft' ? (
+              <CardFooter className="flex-col items-stretch gap-3 border-t bg-muted/20 pt-4">
+                {isGroupMode ? (
+                  <p className="text-xs text-muted-foreground">{t('submissions.groupGradeNote')}</p>
+                ) : null}
+
+                {/* Late-penalty context */}
+                {detailIsLate ? (
+                  <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-950">
+                    <p className="text-amber-900 dark:text-amber-200">
+                      {penaltyConfigured
+                        ? t('submissions.gradeLateNote', {
+                            days: t('submissions.lateDaysCount', { count: lateDays }),
+                            pct: waiveLate ? 0 : livePenaltyPct,
+                            final: liveFinal == null ? '—' : Math.round(liveFinal * 100) / 100,
+                            max: maxScore ?? '—',
+                          })
+                        : t('submissions.gradeLateNoneNote')}
                     </p>
-                  ) : null}
-                  <div>
-                    <Label htmlFor="grade-score">
-                      {(detailIsLate && penaltyConfigured
-                        ? t('submissions.earnedScoreLabel')
-                        : t('submissions.scoreLabel'))}{' '}
-                      (0–{maxScore ?? '—'})
-                    </Label>
-                    <Input
-                      id="grade-score"
-                      type="number"
-                      min={0}
-                      max={maxScore ?? undefined}
-                      step={0.5}
-                      value={score}
-                      onChange={(e) =>
-                        setScore(e.target.value === '' ? '' : Number(e.target.value))
-                      }
-                    />
+                    {penaltyConfigured ? (
+                      <label className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                        <input
+                          type="checkbox"
+                          checked={waiveLate}
+                          onChange={(e) => setWaiveLate(e.target.checked)}
+                        />
+                        {t('submissions.waiveLatePenalty')}
+                      </label>
+                    ) : null}
                   </div>
-                  {detailIsLate ? (
-                    <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-950">
-                      <p className="text-amber-900 dark:text-amber-200">
-                        {penaltyConfigured
-                          ? t('submissions.gradeLateNote', {
-                              days: t('submissions.lateDaysCount', { count: lateDays }),
-                              pct: waiveLate ? 0 : livePenaltyPct,
-                              final: liveFinal == null ? '—' : Math.round(liveFinal * 100) / 100,
-                              max: maxScore ?? '—',
-                            })
-                          : t('submissions.gradeLateNoneNote')}
-                      </p>
-                      {penaltyConfigured ? (
-                        <label className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
-                          <input
-                            type="checkbox"
-                            checked={waiveLate}
-                            onChange={(e) => setWaiveLate(e.target.checked)}
-                          />
-                          {t('submissions.waiveLatePenalty')}
-                        </label>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <div>
-                    <Label htmlFor="grade-feedback">{t('submissions.feedbackLabel')}</Label>
-                    <Textarea
-                      id="grade-feedback"
-                      rows={4}
-                      value={feedback}
-                      onChange={(e) => setFeedback(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={onReturn}>
+                ) : null}
+
+                {/* Feedback — full width */}
+                <div>
+                  <Label htmlFor="grade-feedback">{t('submissions.feedbackLabel')}</Label>
+                  <Textarea
+                    id="grade-feedback"
+                    rows={4}
+                    className="w-full"
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                  />
+                </div>
+
+                {/* Score + actions */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label htmlFor="grade-score" className="shrink-0">
+                    {detailIsLate && penaltyConfigured
+                      ? t('submissions.earnedScoreLabel')
+                      : t('submissions.scoreLabel')}
+                  </Label>
+                  <Input
+                    id="grade-score"
+                    type="number"
+                    min={0}
+                    max={maxScore ?? undefined}
+                    step={0.5}
+                    className="w-24"
+                    value={score}
+                    onChange={(e) => setScore(e.target.value === '' ? '' : Number(e.target.value))}
+                  />
+                  <span className="text-sm text-muted-foreground">/ {maxScore ?? '—'}</span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={onReturn}>
                       {t('submissions.returnCta')}
                     </Button>
-                    <Button onClick={onGrade} disabled={score === ''}>
+                    <Button size="sm" onClick={onGrade} disabled={score === ''}>
                       {t('submissions.gradeCta')}
                     </Button>
                   </div>
-                </>
-              ) : (
+                </div>
+              </CardFooter>
+            ) : (
+              <CardFooter className="border-t pt-4">
                 <p className="text-sm text-muted-foreground">{t('submissions.notYetSubmitted')}</p>
-              )}
-            </CardContent>
+              </CardFooter>
+            )}
           </Card>
-        ) : (
-          <EmptyState title={t('submissions.selectPrompt')} />
         )}
       </div>
 
@@ -457,14 +576,89 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
           recipientName={
             isGroupMode ? groupSubmitter!.student.name : selectedIndividual!.student.name
           }
-          initialSubject={t('messages.aboutAssignment', {
-            title: assignment.data?.title ?? '',
-          })}
-          contextLine={t('messages.contextAssignment', {
-            title: assignment.data?.title ?? '',
-          })}
+          initialSubject={t('messages.aboutAssignment', { title: assignment.data?.title ?? '' })}
+          contextLine={t('messages.contextAssignment', { title: assignment.data?.title ?? '' })}
         />
       ) : null}
+    </div>
+  );
+}
+
+function RosterRow({
+  title,
+  subtitle,
+  status,
+  score,
+  maxScore,
+  selected,
+  onClick,
+}: {
+  title: string;
+  subtitle?: string;
+  status: SubmissionStatus;
+  score: number | null;
+  maxScore: number | null;
+  selected: boolean;
+  onClick: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const ng = needsGrading(status);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full flex-col gap-1 rounded-md border-l-2 px-2.5 py-2 text-left text-sm hover:bg-muted',
+        selected ? 'bg-muted' : '',
+        ng ? 'border-l-amber-400' : 'border-l-transparent',
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate font-medium">{title}</span>
+        <Badge variant={statusVariant(status)} className="shrink-0">
+          {statusLabel(t, status)}
+        </Badge>
+      </div>
+      <div className="flex items-center justify-between gap-2 font-mono text-xs text-muted-foreground">
+        <span>
+          {score != null ? `${score} / ${maxScore ?? '—'}` : '—'}
+        </span>
+        {subtitle ? <span className="font-sans">{subtitle}</span> : null}
+      </div>
+    </button>
+  );
+}
+
+// Compact date + h:mm (no seconds), e.g. "Jun 6, 9:35 AM".
+function formatSubmittedAt(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function Fact({
+  icon: Icon,
+  label,
+  value,
+  className,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  className?: string;
+}): JSX.Element {
+  return (
+    <div className={cn('rounded-md border bg-card p-3', className)}>
+      <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+        {label}
+      </dt>
+      <dd className="mt-1 truncate text-base font-semibold tabular-nums text-foreground">
+        {value}
+      </dd>
     </div>
   );
 }
