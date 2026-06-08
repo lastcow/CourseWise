@@ -146,16 +146,22 @@ mirroring how `groupId` is already PATCH-settable on a quiz.
 
 ### UI — `apps/web`
 
-Mirror the assignment-set UI (which lives on `TeacherAssignmentsPage.tsx`):
+Mirror the assignment-set UI exactly (which lives on `TeacherAssignmentsPage.tsx`
++ `TeacherAssignmentFormPage.tsx`):
 
-- **Manage quiz sets** dialog on `TeacherQuizzesPage.tsx`: create / rename / pick
-  category (`groupId`) / pick `scoringRule` (`average`|`highest`) / delete,
-  cloning the assignment "Manage sets" dialog.
-- **Set selector** on `TeacherQuizEditorPage.tsx` settings card, next to the
-  existing `groupId` `<select>` (which already reuses `useAssignmentGroups`):
-  a "Set" `<select>` from `useQuizSets(courseId)` with an "Unassigned" option,
-  plus a hint that a set supplies the grading category (so its `group_id`, not
-  the quiz's, governs grading).
+- **Multi-select → group into set** on `TeacherQuizzesPage.tsx`: a checkbox column
+  (select-all + per-row), a "Set" column showing a removable badge, and a "Group
+  into set ({{count}})" dialog with **new** mode (name + category + `scoringRule`)
+  or **existing** mode (pick a set) that PATCHes each selected quiz's `setId`.
+  This is the canonical add-to-set flow — cloned from the assignment "group into
+  set" dialog.
+- **Manage quiz sets** dialog on the same page: rename / pick category / pick
+  `scoringRule` / delete existing sets (no create — sets are born from the group
+  flow), mirroring the assignment "Manage sets" dialog.
+- **Quiz editor** (`TeacherQuizEditorPage.tsx`): no set selector. When the quiz is
+  in a set, the category `<select>` is **disabled** with an "in a set" note —
+  exactly how `TeacherAssignmentFormPage` handles a set-member assignment (the set
+  supplies the category).
 - **Gradebook**: `TeacherGradebookStudentPage.tsx` already renders rolled
   `'set'` rows with indented members. Quiz-set members arrive with
   `itemType: 'quiz'`, so the member row must render like a `QuizRow` (read-only

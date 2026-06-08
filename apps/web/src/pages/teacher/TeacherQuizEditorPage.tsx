@@ -20,7 +20,6 @@ import {
   useDeleteQuizQuestion,
   useQuiz,
   useQuizQuestions,
-  useQuizSets,
   useUpdateQuiz,
   useUpdateQuizQuestion,
 } from '@/lib/queries';
@@ -70,7 +69,6 @@ export function TeacherQuizEditorPage(): JSX.Element {
   const updateQ = useUpdateQuizQuestion(id);
   const delQ = useDeleteQuizQuestion(id);
   const groups = useAssignmentGroups(cid);
-  const sets = useQuizSets(cid);
   const toast = useToast();
 
   const [meta, setMeta] = useState({
@@ -78,7 +76,6 @@ export function TeacherQuizEditorPage(): JSX.Element {
     description: '',
     timeLimitMinutes: '',
     groupId: null as string | null,
-    setId: null as string | null,
     // Scheduling window (datetime-local strings). startTime + endTime
     // gate when students can open an attempt; untilDate caps an
     // in-progress attempt to min(startedAt + timeLimit, untilDate).
@@ -97,7 +94,6 @@ export function TeacherQuizEditorPage(): JSX.Element {
         timeLimitMinutes:
           quiz.data.timeLimitMinutes != null ? String(quiz.data.timeLimitMinutes) : '',
         groupId: quiz.data.groupId ?? null,
-        setId: quiz.data.setId ?? null,
         startTime: quiz.data.startTime
           ? new Date(quiz.data.startTime).toISOString().slice(0, 16)
           : '',
@@ -218,7 +214,7 @@ export function TeacherQuizEditorPage(): JSX.Element {
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               value={meta.groupId ?? ''}
               onChange={(e) => setMeta({ ...meta, groupId: e.target.value || null })}
-              disabled={groups.isLoading}
+              disabled={groups.isLoading || !!quiz.data?.setId}
             >
               <option value="">{t('quizzes.unassignedGroup')}</option>
               {(groups.data ?? []).map((g) => (
@@ -227,27 +223,8 @@ export function TeacherQuizEditorPage(): JSX.Element {
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <Label htmlFor="quiz-set">{t('quizzes.setLabel')}</Label>
-            <select
-              id="quiz-set"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={meta.setId ?? ''}
-              onChange={(e) => setMeta({ ...meta, setId: e.target.value || null })}
-              disabled={sets.isLoading}
-            >
-              <option value="">{t('quizzes.noSet')}</option>
-              {(sets.data ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            {meta.setId ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t('quizzes.setSuppliesCategoryHint')}
-              </p>
+            {quiz.data?.setId ? (
+              <p className="mt-1 text-xs text-muted-foreground">{t('quizzes.inSetNote')}</p>
             ) : null}
           </div>
           <fieldset className="grid gap-3 rounded-md border p-3 md:grid-cols-3">
@@ -320,7 +297,6 @@ export function TeacherQuizEditorPage(): JSX.Element {
                       ? Number.parseInt(meta.timeLimitMinutes, 10)
                       : null,
                     groupId: meta.groupId,
-                    setId: meta.setId,
                     startTime: startIso,
                     endTime: endIso,
                     untilDate: untilIso,

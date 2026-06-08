@@ -6,15 +6,18 @@ import {
   Circle,
   CircleCheck,
   FolderInput,
+  Layers,
   ListChecks,
   Lock,
   RefreshCw,
   SquarePen,
   Trash2,
   Users,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
+import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
@@ -108,19 +111,77 @@ export function TeacherQuizzesPage(): JSX.Element {
   const [moveTarget, setMoveTarget] = useState<QuizSummary | null>(null);
   const [moveModuleId, setMoveModuleId] = useState<string>('');
   const [manageOpen, setManageOpen] = useState(false);
+
+  // Multi-select → quiz-set assignment (mirrors the assignments page).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [setMode, setSetMode] = useState<'new' | 'existing'>('new');
   const [newSetName, setNewSetName] = useState('');
+  const [newSetCategory, setNewSetCategory] = useState('');
+  const [newSetRule, setNewSetRule] = useState<'average' | 'highest'>('average');
+  const [existingSetId, setExistingSetId] = useState('');
 
   const moduleTitleById = new Map((modulesQ.data ?? []).map((m) => [m.id, m.title]));
   const groupList = groupsQ.data ?? [];
   const setList = setsQ.data ?? [];
+  const setById = new Map(setList.map((s) => [s.id, s]));
+  const quizList = list.data ?? [];
 
-  async function onAddSet(): Promise<void> {
-    const name = newSetName.trim();
-    if (!name) return;
+  const allVisibleSelected =
+    quizList.length > 0 && quizList.every((q) => selectedIds.has(q.id));
+
+  function toggleRow(qid: string): void {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(qid)) next.delete(qid);
+      else next.add(qid);
+      return next;
+    });
+  }
+
+  function toggleAll(): void {
+    setSelectedIds(allVisibleSelected ? new Set() : new Set(quizList.map((q) => q.id)));
+  }
+
+  async function onGroupIntoSet(): Promise<void> {
     try {
-      await createSet.mutateAsync({ name });
+      let targetSetId = existingSetId;
+      if (setMode === 'new') {
+        if (!newSetName.trim()) {
+          toast.push({ title: t('quizzes.sets.nameRequired'), tone: 'error' });
+          return;
+        }
+        const created = await createSet.mutateAsync({
+          name: newSetName.trim(),
+          groupId: newSetCategory || null,
+          scoringRule: newSetRule,
+        });
+        targetSetId = created.id;
+      }
+      if (!targetSetId) {
+        toast.push({ title: t('quizzes.sets.pickRequired'), tone: 'error' });
+        return;
+      }
+      await Promise.all(
+        [...selectedIds].map((qid) =>
+          update.mutateAsync({ id: qid, input: { setId: targetSetId } }),
+        ),
+      );
+      toast.push({ title: t('quizzes.sets.assigned'), tone: 'success' });
+      setGroupDialogOpen(false);
+      setSelectedIds(new Set());
       setNewSetName('');
-      toast.push({ title: t('quizzes.sets.created'), tone: 'success' });
+      setNewSetCategory('');
+      setNewSetRule('average');
+      setExistingSetId('');
+    } catch (err) {
+      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+    }
+  }
+
+  async function onRemoveFromSet(qid: string): Promise<void> {
+    try {
+      await update.mutateAsync({ id: qid, input: { setId: null } });
     } catch (err) {
       toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
     }
@@ -157,9 +218,6 @@ export function TeacherQuizzesPage(): JSX.Element {
             <Button size="sm" onClick={() => setOpenCreate(true)}>
               {t('quizzes.newCta')}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setManageOpen(true)}>
-              {t('quizzes.manageSets')}
-            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -182,11 +240,38 @@ export function TeacherQuizzesPage(): JSX.Element {
       ) : !list.data || list.data.length === 0 ? (
         <EmptyState icon={<ListChecks className="h-6 w-6" />} title={t('quizzes.empty')} />
       ) : (
-        <div className="overflow-hidden rounded-md border">
+        <div className="space-y-3">
+          {/* Bulk-select tools sit next to the table they act on. */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={selectedIds.size === 0}
+              onClick={() => setGroupDialogOpen(true)}
+            >
+              <Layers className="h-4 w-4" aria-hidden />
+              {t('quizzes.sets.groupIntoSet', { count: selectedIds.size })}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setManageOpen(true)}>
+              {t('quizzes.manageSets')}
+            </Button>
+          </div>
+          <div className="overflow-hidden rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8">
+                  <input
+                    type="checkbox"
+                    aria-label={t('quizzes.sets.selectAll')}
+                    checked={allVisibleSelected}
+                    onChange={toggleAll}
+                    className="h-4 w-4 cursor-pointer align-middle"
+                  />
+                </TableHead>
                 <TableHead>{t('quizzes.colTitle')}</TableHead>
+                <TableHead>{t('quizzes.sets.colSet')}</TableHead>
                 <TableHead>{t('quizzes.colDescription')}</TableHead>
                 <TableHead>{t('quizzes.colModule')}</TableHead>
                 <TableHead className="text-right">{t('quizzes.colQuestions')}</TableHead>
@@ -196,8 +281,17 @@ export function TeacherQuizzesPage(): JSX.Element {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.data.map((q) => (
-                <TableRow key={q.id}>
+              {quizList.map((q) => (
+                <TableRow key={q.id} data-state={selectedIds.has(q.id) ? 'selected' : undefined}>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      aria-label={t('quizzes.sets.selectRow', { title: q.title })}
+                      checked={selectedIds.has(q.id)}
+                      onChange={() => toggleRow(q.id)}
+                      className="h-4 w-4 cursor-pointer align-middle"
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <StatusIcon status={q.status} />
@@ -208,6 +302,25 @@ export function TeacherQuizzesPage(): JSX.Element {
                         {q.title}
                       </Link>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {q.setId && setById.get(q.setId) ? (
+                      <Badge variant="secondary" className="gap-1">
+                        <Layers className="h-3 w-3" aria-hidden />
+                        {setById.get(q.setId)!.name}
+                        <button
+                          type="button"
+                          aria-label={t('quizzes.sets.removeFromSet')}
+                          title={t('quizzes.sets.removeFromSet')}
+                          onClick={() => void onRemoveFromSet(q.id)}
+                          className="ml-0.5 rounded hover:text-foreground"
+                        >
+                          <X className="h-3 w-3" aria-hidden />
+                        </button>
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="max-w-[24ch] text-muted-foreground">
                     <span className="line-clamp-1">{q.description ?? '—'}</span>
@@ -302,6 +415,7 @@ export function TeacherQuizzesPage(): JSX.Element {
               ))}
             </TableBody>
           </Table>
+          </div>
         </div>
       )}
 
@@ -454,25 +568,6 @@ export function TeacherQuizzesPage(): JSX.Element {
         className="max-w-3xl"
       >
         <p className="text-sm text-muted-foreground">{t('quizzes.sets.manageHint')}</p>
-        <div className="mt-3 flex items-center gap-2">
-          <Input
-            value={newSetName}
-            placeholder={t('quizzes.sets.namePlaceholder')}
-            aria-label={t('quizzes.sets.name')}
-            onChange={(e) => setNewSetName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void onAddSet();
-            }}
-            className="min-w-0 flex-1"
-          />
-          <Button
-            className="shrink-0"
-            disabled={!newSetName.trim() || createSet.isPending}
-            onClick={() => void onAddSet()}
-          >
-            {t('quizzes.sets.add')}
-          </Button>
-        </div>
         {setList.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">{t('quizzes.sets.empty')}</p>
         ) : (
@@ -533,6 +628,107 @@ export function TeacherQuizzesPage(): JSX.Element {
         <div className="mt-4 flex justify-end">
           <Button variant="outline" onClick={() => setManageOpen(false)}>
             {t('common.close')}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={groupDialogOpen}
+        onClose={() => setGroupDialogOpen(false)}
+        title={t('quizzes.sets.dialogTitle', { count: selectedIds.size })}
+        dismissOnBackdropClick={false}
+      >
+        <div className="space-y-3">
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="quiz-set-mode"
+                checked={setMode === 'new'}
+                onChange={() => setSetMode('new')}
+              />
+              {t('quizzes.sets.modeNew')}
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="quiz-set-mode"
+                checked={setMode === 'existing'}
+                onChange={() => setSetMode('existing')}
+                disabled={setList.length === 0}
+              />
+              {t('quizzes.sets.modeExisting')}
+            </label>
+          </div>
+
+          {setMode === 'new' ? (
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor="quiz-set-name">{t('quizzes.sets.name')}</Label>
+                <Input
+                  id="quiz-set-name"
+                  value={newSetName}
+                  onChange={(e) => setNewSetName(e.target.value)}
+                  placeholder={t('quizzes.sets.namePlaceholder')}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="quiz-set-category">{t('quizzes.sets.category')}</Label>
+                <select
+                  id="quiz-set-category"
+                  value={newSetCategory}
+                  onChange={(e) => setNewSetCategory(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">{t('quizzes.sets.noCategory')}</option>
+                  {groupList.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="quiz-set-rule">{t('quizzes.sets.rule')}</Label>
+                <select
+                  id="quiz-set-rule"
+                  value={newSetRule}
+                  onChange={(e) => setNewSetRule(e.target.value as 'average' | 'highest')}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="average">{t('grading.setRuleAverage')}</option>
+                  <option value="highest">{t('grading.setRuleHighest')}</option>
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor="quiz-set-existing">{t('quizzes.sets.existing')}</Label>
+              <select
+                id="quiz-set-existing"
+                value={existingSetId}
+                onChange={(e) => setExistingSetId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">{t('quizzes.sets.pickPlaceholder')}</option>
+                {setList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setGroupDialogOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            disabled={createSet.isPending || update.isPending}
+            onClick={() => void onGroupIntoSet()}
+          >
+            {t('quizzes.sets.assignCta')}
           </Button>
         </div>
       </Dialog>

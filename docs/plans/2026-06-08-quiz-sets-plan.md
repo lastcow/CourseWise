@@ -62,14 +62,16 @@ body into the quiz update (mirror the existing `groupId` mapping).
 Commit: `api: accept set_id on quiz update`.
 
 ## Task 7 — teacher UI
-`apps/web/src/pages/teacher/TeacherQuizzesPage.tsx`: "Manage quiz sets" dialog
-(create/rename/category/rule/delete) cloning the assignment manage-sets dialog.
-`TeacherQuizEditorPage.tsx`: a "Set" `<select>` (from `useQuizSets`) on the
-settings card next to the `groupId` select + category hint. `lib/queries.ts`:
-`useQuizSets`/`useCreateQuizSet`/`useUpdateQuizSet`/`useDeleteQuizSet`
-(invalidate `['quiz-sets',courseId]`, `['final-grades',courseId]`,
-`['my-final-grade']`).
-Commit: `web: manage quiz sets + per-quiz set selector`.
+`apps/web/src/pages/teacher/TeacherQuizzesPage.tsx`: multi-select checkboxes +
+"Set" column (removable badge) + a "Group into set" dialog (new/existing mode)
+that PATCHes each selected quiz's `setId`, plus a "Manage quiz sets" dialog
+(rename/category/rule/delete) — cloning the assignment list page.
+`TeacherQuizEditorPage.tsx`: no set selector; disable the category select + show
+an "in a set" note when the quiz has a `setId` (mirrors `TeacherAssignmentFormPage`).
+`lib/queries.ts`: `useQuizSets`/`useCreateQuizSet`/`useUpdateQuizSet`/
+`useDeleteQuizSet` (invalidate `['quiz-sets',courseId]`, `['final-grades',courseId]`,
+`['my-final-grade']`); `useUpdateQuiz` also invalidates those.
+Commit: `web: manage quiz sets + multi-select group-into-set`.
 
 ## Task 8 — gradebook set members
 `apps/web/src/pages/teacher/TeacherGradebookStudentPage.tsx`: render a `'set'`
