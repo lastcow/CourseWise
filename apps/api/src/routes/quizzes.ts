@@ -378,6 +378,7 @@ r.patch(
     if (input.description !== undefined) patch.description = input.description;
     if (input.moduleId !== undefined) patch.moduleId = input.moduleId;
     if (input.groupId !== undefined) patch.groupId = input.groupId;
+    if (input.setId !== undefined) patch.setId = input.setId;
     if (input.startTime !== undefined) patch.startTime = input.startTime;
     if (input.endTime !== undefined) patch.endTime = input.endTime;
     if (input.untilDate !== undefined) patch.untilDate = input.untilDate;
