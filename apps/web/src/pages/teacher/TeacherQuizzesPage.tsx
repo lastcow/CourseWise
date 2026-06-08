@@ -356,6 +356,7 @@ export function TeacherQuizzesPage(): JSX.Element {
                     <div className="flex items-center justify-end gap-1.5">
                       <ViewAttemptsButton
                         label={t('quizzes.viewAttempts')}
+                        pending={q.pendingReviewCount ?? 0}
                         total={q.attemptCount ?? 0}
                         onClick={() => navigate(`/teacher/courses/${id}/quizzes/${q.id}/attempts`)}
                       />
@@ -780,27 +781,33 @@ export function TeacherQuizzesPage(): JSX.Element {
 
 function ViewAttemptsButton({
   label,
+  pending,
   total,
   onClick,
 }: {
   label: string;
+  pending: number;
   total: number;
   onClick: () => void;
 }): JSX.Element {
-  const tone = total > 0 ? 'emerald' : 'teal';
+  const tone = pending > 0 ? 'amber' : total > 0 ? 'emerald' : 'teal';
   const borderTone = {
+    amber: 'border-amber-500/60 hover:bg-amber-500/10',
     emerald: 'border-emerald-500/50 hover:bg-emerald-500/10',
     teal: 'border-teal-500/40 hover:bg-teal-500/10',
   }[tone];
   const iconTone = {
+    amber: 'text-amber-600 dark:text-amber-300',
     emerald: 'text-emerald-600 dark:text-emerald-300',
     teal: 'text-teal-500',
   }[tone];
   const dividerTone = {
+    amber: 'border-amber-500/60',
     emerald: 'border-emerald-500/50',
     teal: 'border-teal-500/40',
   }[tone];
   const countTone = {
+    amber: 'bg-amber-500/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200',
     emerald: 'bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200',
     teal: 'bg-teal-500/10 text-teal-700 dark:bg-teal-500/15 dark:text-teal-200',
   }[tone];
@@ -820,7 +827,7 @@ function ViewAttemptsButton({
         <Inbox className="h-3.5 w-3.5" aria-hidden />
       </span>
       <span className={cn('inline-flex items-center border-l px-2', dividerTone, countTone)}>
-        {total}
+        {pending}/{total}
       </span>
     </button>
   );

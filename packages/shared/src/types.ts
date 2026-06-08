@@ -561,6 +561,7 @@ export interface QuizSummary {
   archivedAt: string | null;
   questionCount?: number;
   attemptCount?: number;
+  pendingReviewCount?: number;
   /** True when this quiz has ≥1 tester schedule (access is gated by wave). */
   hasSchedules?: boolean;
   /**

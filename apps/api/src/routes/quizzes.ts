@@ -76,6 +76,7 @@ function toQuizSummary(
   row: typeof quizzes.$inferSelect,
   questionCount?: number,
   attemptCount?: number,
+  pendingReviewCount?: number,
 ): QuizSummary {
   return {
     id: row.id,
@@ -98,6 +99,7 @@ function toQuizSummary(
     archivedAt: row.archivedAt ?? null,
     questionCount,
     attemptCount,
+    pendingReviewCount,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -246,6 +248,7 @@ r.get(
     const ids = rows.map((q) => q.id);
     const counts = new Map<string, number>();
     const attempts = new Map<string, number>();
+    const pending = new Map<string, number>();
     if (ids.length > 0) {
       const qcounts = await db
         .select({ quizId: quizQuestions.quizId, c: sql<number>`count(*)::int` })
@@ -259,8 +262,30 @@ r.get(
         .where(inArray(quizAttempts.quizId, ids))
         .groupBy(quizAttempts.quizId);
       for (const a of acounts) attempts.set(a.quizId, a.c);
+      const pcounts = await db
+        .select({ quizId: quizAttempts.quizId, c: sql<number>`count(*)::int` })
+        .from(quizAttempts)
+        .where(
+          and(
+            inArray(quizAttempts.quizId, ids),
+            inArray(quizAttempts.status, ['submitted', 'expired']),
+            eq(quizAttempts.teacherReviewed, false),
+          ),
+        )
+        .groupBy(quizAttempts.quizId);
+      for (const p of pcounts) pending.set(p.quizId, p.c);
     }
-    return success(c, rows.map((row) => toQuizSummary(row, counts.get(row.id) ?? 0, attempts.get(row.id) ?? 0)));
+    return success(
+      c,
+      rows.map((row) =>
+        toQuizSummary(
+          row,
+          counts.get(row.id) ?? 0,
+          attempts.get(row.id) ?? 0,
+          pending.get(row.id) ?? 0,
+        ),
+      ),
+    );
   },
 );
 
