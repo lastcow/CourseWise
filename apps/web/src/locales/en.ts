@@ -1372,6 +1372,28 @@ export const en = {
       moduleUpdated: 'Module updated',
       groupLabel: 'Group',
       unassignedGroup: 'Unassigned',
+      setLabel: 'Quiz set',
+      noSet: 'No set',
+      setSuppliesCategoryHint:
+        'This set supplies the grading category — it rolls these quizzes into one score.',
+      manageSets: 'Manage sets',
+      sets: {
+        manageTitle: 'Quiz sets',
+        manageHint:
+          'Bundle quizzes into a set that rolls up to one score (average or best-of) inside its category. Add a quiz to a set from the quiz editor.',
+        namePlaceholder: 'New set name',
+        name: 'Set name',
+        add: 'Add set',
+        created: 'Set created',
+        empty: 'No quiz sets yet.',
+        category: 'Category',
+        noCategory: 'No category',
+        rule: 'Scoring rule',
+        members_one: '{{count}} quiz',
+        members_other: '{{count}} quizzes',
+        deleteConfirm:
+          'Delete the set "{{name}}"? Its quizzes return to the gradebook individually.',
+      },
       noAttempts: 'No attempts yet.',
       attemptsListTitle: 'Attempts',
       attemptsFor: 'Attempts — {{title}}',

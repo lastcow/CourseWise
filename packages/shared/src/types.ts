@@ -543,6 +543,8 @@ export interface QuizSummary {
   courseId: string;
   moduleId: string | null;
   groupId: string | null;
+  /** Quiz-set membership; when set, the set supplies the grading category. */
+  setId: string | null;
   title: string;
   description: string | null;
   status: QuizStatus;
@@ -812,6 +814,24 @@ export interface AssignmentSet {
   groupId: string | null;
   name: string;
   scoringRule: AssignmentSetRule;
+  position: number;
+  memberCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Roll-up rule for a quiz set (parallel to AssignmentSetRule).
+export type QuizSetRule = 'average' | 'highest';
+
+// A bundle of quizzes graded individually but contributing ONE rolled-up score
+// (per scoringRule) to the weighted category referenced by groupId. The quiz
+// twin of AssignmentSet.
+export interface QuizSet {
+  id: string;
+  courseId: string;
+  groupId: string | null;
+  name: string;
+  scoringRule: QuizSetRule;
   position: number;
   memberCount?: number;
   createdAt: string;

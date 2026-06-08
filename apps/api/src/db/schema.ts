@@ -799,6 +799,36 @@ export const discussionGrades = pgTable(
   }),
 );
 
+// Roll-up rule for a quiz set: how its member quizzes collapse to a single
+// score that then counts as one item inside a weighted category. Parallel to
+// assignmentSetRuleEnum; kept separate so the two can diverge later.
+export const quizSetRuleEnum = pgEnum('quiz_set_rule', ['average', 'highest']);
+
+// Quiz set: a bundle of selected quizzes graded individually but contributing
+// ONE rolled-up score (average / best-of) to the weighted category referenced
+// by `groupId`. The quiz twin of `assignmentSets`. Distinct from `quizSchedules`
+// (tester waves) and `groupSets` (student collaboration groups).
+export const quizSets = pgTable(
+  'quiz_sets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id').references(() => assignmentGroups.id, { onDelete: 'set null' }),
+    name: text('name').notNull(),
+    scoringRule: quizSetRuleEnum('scoring_rule').notNull().default('average'),
+    position: integer('position').notNull(),
+    ...timestamps,
+  },
+  (t) => ({
+    courseIdx: index('quiz_sets_course_idx').on(t.courseId),
+    nameUnique: uniqueIndex('quiz_sets_course_name_idx').on(t.courseId, sql`lower(${t.name})`),
+  }),
+);
+
+export type QuizSetRow = typeof quizSets.$inferSelect;
+
 export const quizzes = pgTable(
   'quizzes',
   {
@@ -808,6 +838,9 @@ export const quizzes = pgTable(
       .references(() => courses.id, { onDelete: 'cascade' }),
     moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'set null' }),
     groupId: uuid('group_id').references(() => assignmentGroups.id, { onDelete: 'set null' }),
+    // Membership in a quiz set (mutually exclusive with a direct `groupId` for
+    // grading purposes — when set, the set supplies the category).
+    setId: uuid('set_id').references(() => quizSets.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     description: text('description'),
     status: quizStatusEnum('status').notNull().default('draft'),

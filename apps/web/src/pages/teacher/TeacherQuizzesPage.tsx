@@ -29,12 +29,17 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import {
+  useAssignmentGroups,
   useCreateQuiz,
+  useCreateQuizSet,
   useDeleteQuiz,
+  useDeleteQuizSet,
   useModulesList,
+  useQuizSets,
   useQuizzesList,
   useTransitionQuiz,
   useUpdateQuiz,
+  useUpdateQuizSet,
 } from '@/lib/queries';
 import { ApiClientError, pickI18nKey } from '@/lib/api';
 import type { QuizSummary } from '@coursewise/shared';
@@ -90,6 +95,11 @@ export function TeacherQuizzesPage(): JSX.Element {
   const del = useDeleteQuiz(id);
   const update = useUpdateQuiz(id);
   const modulesQ = useModulesList(id || null);
+  const groupsQ = useAssignmentGroups(id || undefined);
+  const setsQ = useQuizSets(id || undefined);
+  const createSet = useCreateQuizSet(id);
+  const updateSet = useUpdateQuizSet(id);
+  const deleteSet = useDeleteQuizSet(id);
   const toast = useToast();
 
   const [openCreate, setOpenCreate] = useState(false);
@@ -97,8 +107,45 @@ export function TeacherQuizzesPage(): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<QuizSummary | null>(null);
   const [moveTarget, setMoveTarget] = useState<QuizSummary | null>(null);
   const [moveModuleId, setMoveModuleId] = useState<string>('');
+  const [manageOpen, setManageOpen] = useState(false);
+  const [newSetName, setNewSetName] = useState('');
 
   const moduleTitleById = new Map((modulesQ.data ?? []).map((m) => [m.id, m.title]));
+  const groupList = groupsQ.data ?? [];
+  const setList = setsQ.data ?? [];
+
+  async function onAddSet(): Promise<void> {
+    const name = newSetName.trim();
+    if (!name) return;
+    try {
+      await createSet.mutateAsync({ name });
+      setNewSetName('');
+      toast.push({ title: t('quizzes.sets.created'), tone: 'success' });
+    } catch (err) {
+      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+    }
+  }
+
+  async function onUpdateSetField(
+    setId: string,
+    patch: { name?: string; groupId?: string | null; scoringRule?: 'average' | 'highest' },
+  ): Promise<void> {
+    try {
+      await updateSet.mutateAsync({ setId, ...patch });
+    } catch (err) {
+      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+    }
+  }
+
+  async function onDeleteSet(setId: string, name: string): Promise<void> {
+    // eslint-disable-next-line no-alert
+    if (!confirm(t('quizzes.sets.deleteConfirm', { name }))) return;
+    try {
+      await deleteSet.mutateAsync(setId);
+    } catch (err) {
+      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -109,6 +156,9 @@ export function TeacherQuizzesPage(): JSX.Element {
           <>
             <Button size="sm" onClick={() => setOpenCreate(true)}>
               {t('quizzes.newCta')}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setManageOpen(true)}>
+              {t('quizzes.manageSets')}
             </Button>
             <Button
               variant="ghost"
@@ -393,6 +443,96 @@ export function TeacherQuizzesPage(): JSX.Element {
             }}
           >
             {t('common.save')}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        title={t('quizzes.sets.manageTitle')}
+        className="max-w-3xl"
+      >
+        <p className="text-sm text-muted-foreground">{t('quizzes.sets.manageHint')}</p>
+        <div className="mt-3 flex items-center gap-2">
+          <Input
+            value={newSetName}
+            placeholder={t('quizzes.sets.namePlaceholder')}
+            aria-label={t('quizzes.sets.name')}
+            onChange={(e) => setNewSetName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void onAddSet();
+            }}
+            className="min-w-0 flex-1"
+          />
+          <Button
+            className="shrink-0"
+            disabled={!newSetName.trim() || createSet.isPending}
+            onClick={() => void onAddSet()}
+          >
+            {t('quizzes.sets.add')}
+          </Button>
+        </div>
+        {setList.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">{t('quizzes.sets.empty')}</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {setList.map((s) => (
+              <div key={s.id} className="flex items-center gap-2">
+                <Input
+                  defaultValue={s.name}
+                  aria-label={t('quizzes.sets.name')}
+                  onBlur={(e) => {
+                    const next = e.target.value.trim();
+                    if (next && next !== s.name) void onUpdateSetField(s.id, { name: next });
+                  }}
+                  className="min-w-0 flex-1"
+                />
+                <select
+                  aria-label={t('quizzes.sets.category')}
+                  className="h-10 w-32 shrink-0 rounded-md border border-input bg-background px-2 text-sm"
+                  value={s.groupId ?? ''}
+                  onChange={(e) => void onUpdateSetField(s.id, { groupId: e.target.value || null })}
+                >
+                  <option value="">{t('quizzes.sets.noCategory')}</option>
+                  {groupList.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label={t('quizzes.sets.rule')}
+                  className="h-10 w-28 shrink-0 rounded-md border border-input bg-background px-2 text-sm"
+                  value={s.scoringRule}
+                  onChange={(e) =>
+                    void onUpdateSetField(s.id, {
+                      scoringRule: e.target.value as 'average' | 'highest',
+                    })
+                  }
+                >
+                  <option value="average">{t('grading.setRuleAverage')}</option>
+                  <option value="highest">{t('grading.setRuleHighest')}</option>
+                </select>
+                <span className="w-20 shrink-0 text-right text-xs text-muted-foreground">
+                  {t('quizzes.sets.members', { count: s.memberCount ?? 0 })}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => void onDeleteSet(s.id, s.name)}
+                  disabled={deleteSet.isPending}
+                >
+                  {t('common.delete')}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={() => setManageOpen(false)}>
+            {t('common.close')}
           </Button>
         </div>
       </Dialog>
