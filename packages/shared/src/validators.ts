@@ -635,6 +635,9 @@ export const updateQuizSchema = z
     description: z.string().trim().max(20_000).optional().nullable(),
     moduleId: z.string().uuid().optional().nullable(),
     groupId: z.string().uuid().nullable().optional(),
+    // Membership in a quiz set (mutually exclusive with a direct `groupId` for
+    // grading purposes — when set, the set supplies the category).
+    setId: z.string().uuid().nullable().optional(),
     startTime: isoDateString.optional().nullable(),
     endTime: isoDateString.optional().nullable(),
     untilDate: isoDateString.optional().nullable(),
@@ -1180,6 +1183,28 @@ export const updateAssignmentSetSchema = z.object({
   position: z.number().int().min(0).optional(),
 });
 export type UpdateAssignmentSetInput = z.infer<typeof updateAssignmentSetSchema>;
+
+// ---------- Quiz sets (avg / best-of bundles of quizzes) ----------
+// Parallel to assignment sets: a bundle of quizzes whose members roll up to ONE
+// score (per scoringRule) that counts as a single item inside the weighted
+// category referenced by groupId. Own enum so it can diverge from assignments.
+export const QUIZ_SET_RULES = ['average', 'highest'] as const;
+
+export const createQuizSetSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  groupId: z.string().uuid().nullable().optional(),
+  scoringRule: z.enum(QUIZ_SET_RULES).optional(),
+  position: z.number().int().min(0).optional(),
+});
+export type CreateQuizSetInput = z.infer<typeof createQuizSetSchema>;
+
+export const updateQuizSetSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  groupId: z.string().uuid().nullable().optional(),
+  scoringRule: z.enum(QUIZ_SET_RULES).optional(),
+  position: z.number().int().min(0).optional(),
+});
+export type UpdateQuizSetInput = z.infer<typeof updateQuizSetSchema>;
 
 // ---------- Student groups ----------
 
