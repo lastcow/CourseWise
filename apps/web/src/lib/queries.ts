@@ -1290,6 +1290,11 @@ export function useUpdateQuiz(courseId: string) {
     onSuccess: (_d, v) => {
       void qc.invalidateQueries({ queryKey: ['quizzes', courseId] });
       void qc.invalidateQueries({ queryKey: ['quiz', v.id] });
+      // setId changes a quiz set's membership (member counts) and the
+      // final-grade roll-up, so refresh those views too.
+      void qc.invalidateQueries({ queryKey: ['quiz-sets', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
     },
   });
 }
