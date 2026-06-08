@@ -47,14 +47,17 @@ EMAIL_FROM = "CourseWise <noreply@fsuac.com>"
 [observability]
 enabled = true
 
-# Nightly cron that runs the retention sweep (apps/api/src/services/
-# retentionSweep.ts). Anonymises IP/UA fingerprints on audit_logs,
-# attendance_records, refresh_tokens once they're 90 days old; hard-deletes
-# expired/revoked refresh tokens 30 days past expiry; hard-deletes AI/Gamma
-# generation jobs 1 year past creation. Runs at 04:00 UTC daily — pick a
-# low-traffic window since it's all small UPDATEs/DELETEs by date predicate.
+# Two cron triggers (the scheduled() handler in src/index.ts branches on
+# controller.cron):
+#  - "0 4 * * *"     nightly retention + attendance auto-close + R2/export sweeps
+#                    (small UPDATEs/DELETEs by date predicate; low-traffic window).
+#  - "*/15 * * * *"  frequent wave-open notification sweep
+#                    (jobs/quizScheduleOpenSweep.ts): emails + in-app alerts each
+#                    student whose quiz tester schedule has just opened. 15-min
+#                    cadence bounds open-notification latency; access itself is
+#                    evaluated live at attempt time, so this is convenience only.
 [triggers]
-crons = ["0 4 * * *"]
+crons = ["0 4 * * *", "*/15 * * * *"]
 
 [[r2_buckets]]
 binding = "COURSE_FILES"
