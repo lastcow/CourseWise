@@ -307,6 +307,22 @@ function GroupCard({
                           <td className="py-2" />
                         </tr>
                         {(item.members ?? []).map((m) => {
+                          // A set's members are either assignments or quizzes
+                          // (quiz sets), each rendered indented under the
+                          // rolled-up row. Quiz members are read-only (best
+                          // attempt); assignment members stay inline-editable.
+                          if (m.itemType === 'quiz') {
+                            const q = lookups.quizzes.get(m.itemId);
+                            if (!q) return null;
+                            return (
+                              <QuizRow
+                                key={`q-${m.itemId}`}
+                                courseId={courseId}
+                                item={q}
+                                indent
+                              />
+                            );
+                          }
                           const a = lookups.assignments.get(m.itemId);
                           if (!a) return null;
                           return (
@@ -548,14 +564,16 @@ function AssignmentRow({
 function QuizRow({
   courseId,
   item,
+  indent,
 }: {
   courseId: string;
   item: GradebookQuizItem;
+  indent?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
     <tr className="border-b last:border-0">
-      <td className="py-2 pr-3">{item.title}</td>
+      <td className={cn('py-2 pr-3', indent && 'pl-6')}>{item.title}</td>
       <td className="py-2 pr-3 font-mono">{formatNum(item.score)}</td>
       <td className="py-2 pr-3 font-mono text-muted-foreground">{item.maxScore ?? '—'}</td>
       <td className="py-2 pr-3 text-xs text-muted-foreground">
