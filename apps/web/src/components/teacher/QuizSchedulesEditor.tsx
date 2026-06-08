@@ -16,9 +16,12 @@ import {
   useUpdateQuizSchedule,
 } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
+import { toDatetimeLocalValue } from '@/lib/utils';
 
+// Show wave windows in the teacher's local time (the box is parsed back as local
+// on save via toIso). See toDatetimeLocalValue for why the naive slice is wrong.
 function toLocal(iso: string | null): string {
-  return iso ? new Date(iso).toISOString().slice(0, 16) : '';
+  return toDatetimeLocalValue(iso);
 }
 function toIso(local: string): string | null {
   return local ? new Date(local).toISOString() : null;

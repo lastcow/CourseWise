@@ -15,6 +15,7 @@ import {
   useUpdateAssignment,
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
+import { toDatetimeLocalValue } from '@/lib/utils';
 import { ALLOWED_UPLOAD_MIME_TYPES, MAX_UPLOAD_BYTES, type SubmissionMode } from '@coursewise/shared';
 
 export function TeacherAssignmentFormPage(): JSX.Element {
@@ -60,10 +61,10 @@ export function TeacherAssignmentFormPage(): JSX.Element {
     if (!isNew && existing.data) {
       setTitle(existing.data.title);
       setDescription(existing.data.description ?? '');
-      setDueDate(existing.data.dueDate ? new Date(existing.data.dueDate).toISOString().slice(0, 16) : '');
-      setStartDate(existing.data.startDate ? new Date(existing.data.startDate).toISOString().slice(0, 16) : '');
-      setEndDate(existing.data.endDate ? new Date(existing.data.endDate).toISOString().slice(0, 16) : '');
-      setUntilDate(existing.data.untilDate ? new Date(existing.data.untilDate).toISOString().slice(0, 16) : '');
+      setDueDate(toDatetimeLocalValue(existing.data.dueDate));
+      setStartDate(toDatetimeLocalValue(existing.data.startDate));
+      setEndDate(toDatetimeLocalValue(existing.data.endDate));
+      setUntilDate(toDatetimeLocalValue(existing.data.untilDate));
       setMaxScore(existing.data.maxScore ?? '');
       setAllowLate(existing.data.allowLateSubmission);
       setLatePctPerPeriod(existing.data.latePenaltyPercentPerPeriod ?? '');
