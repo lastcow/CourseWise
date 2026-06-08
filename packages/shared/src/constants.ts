@@ -448,6 +448,7 @@ export const ALLOWED_UPLOAD_MIME_TYPES = [
   'image/jpg',
   'text/plain',
   'text/markdown',
+  'application/zip',
 ] as const;
 export type AllowedUploadMimeType = (typeof ALLOWED_UPLOAD_MIME_TYPES)[number];
 
