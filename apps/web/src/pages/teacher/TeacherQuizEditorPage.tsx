@@ -13,6 +13,7 @@ import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { QuizSchedulesEditor } from '@/components/teacher/QuizSchedulesEditor';
 import {
   useAssignmentGroups,
   useCreateQuizQuestion,
@@ -306,6 +307,8 @@ export function TeacherQuizEditorPage(): JSX.Element {
           </div>
         </CardContent>
       </Card>
+
+      {id ? <QuizSchedulesEditor quizId={id} courseId={cid} quiz={quiz.data} /> : null}
 
       <Card>
         <CardHeader>
