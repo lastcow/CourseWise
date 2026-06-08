@@ -25,6 +25,7 @@ import {
   enrollments,
   finalGrades,
   quizAttempts,
+  quizSets,
   quizzes,
   users,
 } from '../db/schema';
@@ -201,9 +202,21 @@ interface CourseSetDef {
   memberIds: string[];
 }
 
+// A quiz set rolls its member quizzes up to one score (per `rule`) that counts
+// as a single item inside the category named by `groupId`. The quiz twin of
+// CourseSetDef.
+interface CourseQuizSetDef {
+  id: string;
+  name: string;
+  rule: 'average' | 'highest';
+  groupId: string | null;
+  memberQuizIds: string[];
+}
+
 interface CourseGradingContext {
   groups: CourseGroupDef[];
   sets: CourseSetDef[];
+  quizSets: CourseQuizSetDef[];
   assignmentMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
   quizMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
   discussionMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
@@ -245,6 +258,22 @@ async function loadCourseGradingContext(
     memberIds: [],
   }));
   const setIndex = new Map(sets.map((s) => [s.id, s]));
+
+  // Quiz sets for this course (the quiz twin of assignment sets — each rolls up
+  // to one item in its category).
+  const quizSetRows = await db
+    .select()
+    .from(quizSets)
+    .where(eq(quizSets.courseId, courseId))
+    .orderBy(asc(quizSets.position));
+  const quizSetDefs: CourseQuizSetDef[] = quizSetRows.map((s) => ({
+    id: s.id,
+    name: s.name,
+    rule: s.scoringRule,
+    groupId: s.groupId,
+    memberQuizIds: [],
+  }));
+  const quizSetIndex = new Map(quizSetDefs.map((s) => [s.id, s]));
 
   const assignmentMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
   const quizMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
@@ -297,20 +326,41 @@ async function loadCourseGradingContext(
       });
     }
 
+    // Pull quizzes that belong either directly to a category (groupId) or to a
+    // quiz set (setId). Set members are routed to their set (and excluded from
+    // the category's direct items) so they contribute only via the rolled-up
+    // score — mirroring assignment-set membership above.
     const quizRows = await db
       .select({
         id: quizzes.id,
         title: quizzes.title,
         maxScore: quizzes.maxScore,
         groupId: quizzes.groupId,
+        setId: quizzes.setId,
         status: quizzes.status,
         startTime: quizzes.startTime,
       })
       .from(quizzes)
-      .where(and(eq(quizzes.courseId, courseId), isNotNull(quizzes.groupId)));
+      .where(
+        and(
+          eq(quizzes.courseId, courseId),
+          or(isNotNull(quizzes.groupId), isNotNull(quizzes.setId)),
+        ),
+      );
     for (const q of quizRows) {
-      if (!q.groupId) continue;
       if (!isItemPosted({ status: q.status, startAt: q.startTime }, now)) continue;
+      // setId takes precedence over a direct groupId (the set supplies category).
+      const quizSet = q.setId ? quizSetIndex.get(q.setId) : undefined;
+      if (quizSet) {
+        quizSet.memberQuizIds.push(q.id);
+        quizMeta.set(q.id, {
+          groupId: quizSet.groupId ?? '',
+          title: q.title,
+          maxScore: q.maxScore !== null ? Number(q.maxScore) : 100,
+        });
+        continue;
+      }
+      if (!q.groupId) continue;
       const g = groupIndex.get(q.groupId);
       if (!g) continue;
       g.quizIds.push(q.id);
@@ -362,6 +412,7 @@ async function loadCourseGradingContext(
   return {
     groups,
     sets,
+    quizSets: quizSetDefs,
     assignmentMeta,
     quizMeta,
     discussionMeta,
@@ -570,6 +621,40 @@ function buildAlgorithmInput(
         title: meta.title,
         score: score !== undefined ? score : null,
         max: meta.maxScore || 100,
+      };
+    });
+    const percents = members
+      .filter((m) => m.score !== null && m.max > 0)
+      .map((m) => (m.score! / m.max) * 100);
+    const rolled = rollUpSetScore(set.rule, percents);
+    target.items.push({
+      id: set.id,
+      type: 'set',
+      title: set.name,
+      score: rolled,
+      max: 100,
+      members,
+    });
+  }
+
+  // Append each quiz set as ONE rolled-up item inside its category, mirroring
+  // assignment sets. Members are the set's quizzes (best attempt per student);
+  // we roll up on percentages because quizzes can have different maxScores.
+  for (const set of ctx.quizSets) {
+    if (!set.groupId) continue;
+    const target = groupById.get(set.groupId);
+    if (!target) continue;
+    const members: GroupScoreItem[] = set.memberQuizIds.map((qid) => {
+      const meta = ctx.quizMeta.get(qid)!;
+      const attempt = studentScores.quiz.get(qid);
+      return {
+        itemId: qid,
+        itemType: 'quiz',
+        title: meta.title,
+        score: attempt ? attempt.score : null,
+        // Prefer the attempt's maxScore (source of truth for that attempt's
+        // possible points); fall back to the quiz's configured max.
+        max: attempt ? attempt.maxScore || meta.maxScore || 100 : meta.maxScore || 100,
       };
     });
     const percents = members

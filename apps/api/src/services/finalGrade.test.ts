@@ -239,3 +239,103 @@ describe('computeFinalScore — assignment sets', () => {
     expect(r.groups[0]!.itemsScored).toBe(1);
   });
 });
+
+describe('computeFinalScore — quiz sets', () => {
+  // A quiz set is injected (by buildAlgorithmInput) exactly like an assignment
+  // set: a single item (type 'set') carrying its rolled-up percentage, with quiz
+  // members. It must behave like one item in its category — counted once, with
+  // the quiz members surfaced for display but never re-counted.
+  it('a best-of quiz set contributes one item equal to its rolled score', () => {
+    const r = computeFinalScore({
+      groups: [
+        {
+          id: 'g1',
+          name: 'Quizzes',
+          weight: 100,
+          items: [
+            {
+              id: 'qs1',
+              type: 'set',
+              title: 'Weekly quizzes',
+              score: 90, // best-of(60,90) — pre-rolled by buildAlgorithmInput
+              max: 100,
+              members: [
+                { itemId: 'q1', itemType: 'quiz', title: 'Week 1', score: 6, max: 10 },
+                { itemId: 'q2', itemType: 'quiz', title: 'Week 2', score: 18, max: 20 },
+              ],
+            },
+            { id: 'q3', type: 'quiz', title: 'Midterm', score: 74, max: 100 },
+          ],
+        },
+      ],
+      attendance: { rate: null, weight: 0 },
+    });
+    // Category mean of [90 (set), 74 (midterm)] = 82 — members do not dilute it.
+    expect(r.score).toBe(82);
+    const g = r.groups[0]!;
+    expect(g.itemCount).toBe(2);
+    expect(g.itemsScored).toBe(2);
+    const set = g.detail.find((d) => d.itemId === 'qs1');
+    expect(set?.itemType).toBe('set');
+    expect(set?.members?.map((m) => m.itemType)).toEqual(['quiz', 'quiz']);
+  });
+
+  it('an average quiz set rolls members up on percentages, then counts once', () => {
+    // Members have different maxScores, so the rollup is on percentages:
+    // average(60%, 90%) = 75. The set is then the sole scored item → score 75.
+    const r = computeFinalScore({
+      groups: [
+        {
+          id: 'g1',
+          name: 'Quizzes',
+          weight: 100,
+          items: [
+            {
+              id: 'qs1',
+              type: 'set',
+              title: 'Weekly quizzes',
+              score: 75,
+              max: 100,
+              members: [
+                { itemId: 'q1', itemType: 'quiz', title: 'Week 1', score: 6, max: 10 },
+                { itemId: 'q2', itemType: 'quiz', title: 'Week 2', score: 18, max: 20 },
+              ],
+            },
+          ],
+        },
+      ],
+      attendance: { rate: null, weight: 0 },
+    });
+    expect(r.score).toBe(75);
+    expect(r.groups[0]!.itemsScored).toBe(1);
+  });
+
+  it('an unscored quiz set (no member attempts) drops out of its category', () => {
+    const r = computeFinalScore({
+      groups: [
+        {
+          id: 'g1',
+          name: 'Quizzes',
+          weight: 100,
+          items: [
+            {
+              id: 'qs1',
+              type: 'set',
+              title: 'Weekly quizzes',
+              score: null, // no member has a graded attempt
+              max: 100,
+              members: [
+                { itemId: 'q1', itemType: 'quiz', title: 'Week 1', score: null, max: 10 },
+                { itemId: 'q2', itemType: 'quiz', title: 'Week 2', score: null, max: 20 },
+              ],
+            },
+            { id: 'q3', type: 'quiz', title: 'Midterm', score: 88, max: 100 },
+          ],
+        },
+      ],
+      attendance: { rate: null, weight: 0 },
+    });
+    expect(r.score).toBe(88); // only the scored midterm counts
+    expect(r.groups[0]!.itemsScored).toBe(1);
+  });
+});
