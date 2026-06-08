@@ -27,11 +27,14 @@ export, and `quizzes.setId` FK (`onDelete: 'set null'`). Mirror schema.ts:556–
 Commit: `db: quiz_sets table + quizzes.set_id`.
 
 ## Task 3 — migration
-`npm run db:generate -w apps/api` to scaffold `0034_*.sql` + `meta/_journal.json`,
-then harden to idempotent: `CREATE TYPE quiz_set_rule` (guarded `DO $$ … EXCEPTION
-WHEN duplicate_object`), `CREATE TABLE IF NOT EXISTS quiz_sets` + indexes,
-`ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS set_id` + guarded `ADD CONSTRAINT`
-FK. No backfill. Mirror `0030_assignment_sets.sql` + `0033`'s guard style.
+Hand-author `apps/api/drizzle/0034_quiz_sets.sql` mirroring
+`0030_assignment_sets.sql` (the repo hand-authors idempotent migrations and keeps
+only `0000_snapshot.json` — drizzle-kit generate is not used post-0000): guarded
+`CREATE TYPE quiz_set_rule` (`DO $$ … EXCEPTION WHEN duplicate_object`),
+`CREATE TABLE IF NOT EXISTS quiz_sets` + course/group FKs + course-idx +
+`(course_id, lower(name))` unique idx, `ALTER TABLE quizzes ADD COLUMN IF NOT
+EXISTS set_id` + guarded FK. Hand-add the `idx:34` entry to `meta/_journal.json`.
+No backfill.
 Commit: `db: migration 0034 quiz sets`.
 
 ## Task 4 — finalGrade wiring + unit tests
