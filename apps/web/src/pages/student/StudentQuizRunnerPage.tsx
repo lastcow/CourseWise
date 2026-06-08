@@ -2,21 +2,26 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  Award,
   CalendarClock,
+  CheckCircle2,
   Circle,
   CircleCheck,
   Clock,
   FileText,
   ListChecks,
   Lock,
+  Percent,
   Play,
   Repeat,
   ShieldCheck,
   Target,
   Trophy,
+  XCircle,
 } from 'lucide-react';
 import type {
   QuizAttemptDetail,
+  QuizAttemptSummary,
   QuizQuestionStudentView,
   QuizQuestionTeacherView,
   QuizSummary,
@@ -31,10 +36,12 @@ import { useToast } from '@/components/ui/toast';
 import {
   useMyQuizAttempts,
   useQuiz,
+  useQuizAttempt,
   useStartQuizAttempt,
   useSubmitQuizAttempt,
 } from '@/lib/queries';
 import { apiCall, pickI18nKey } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { useNow } from '@/lib/useNow';
 
 type Question = QuizQuestionStudentView | QuizQuestionTeacherView;
@@ -436,6 +443,280 @@ function QuizPreStartCard({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Post-completion "results" surface. Mirrors the QuizPreStartCard briefing's
+// visual language (header band + kicker + status pill + boxed fact tiles) so a
+// student who just finished — or revisits — sees a professional summary instead
+// of a bare "score / max" line. Latest attempt shows by default; a dropdown
+// switches between attempts when more than one exists.
+// ---------------------------------------------------------------------------
+
+function attemptTime(a: { submittedAt: string | null; startedAt: string }): number {
+  return Date.parse(a.submittedAt ?? a.startedAt);
+}
+
+function QuizResultCard({
+  detail,
+  quiz,
+  attempts,
+  selectedId,
+  onSelect,
+}: {
+  detail: QuizAttemptDetail;
+  quiz: QuizSummary | undefined;
+  // Latest-first list of this student's completed attempts (for the picker).
+  attempts: QuizAttemptSummary[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+
+  const score = detail.score;
+  const maxScore = detail.maxScore ?? quiz?.maxScore ?? null;
+  const pct =
+    score !== null && maxScore !== null && maxScore > 0 ? (score / maxScore) * 100 : null;
+  const passing = quiz?.passingScore ?? null;
+  const pending = detail.pendingReviewCount > 0;
+  const passed = !pending && passing !== null && score !== null && score >= passing;
+  const failed = !pending && passing !== null && score !== null && score < passing;
+
+  // Chronological numbering: oldest attempt is #1.
+  const oldestFirst = [...attempts].sort((a, b) => attemptTime(a) - attemptTime(b));
+  const ordinalOf = (id: string) => oldestFirst.findIndex((a) => a.id === id) + 1;
+
+  const pill = pending ? (
+    <Badge variant="warning" className="gap-1.5">
+      <Clock className="h-3.5 w-3.5" aria-hidden /> {t('quizzes.pendingReview')}
+    </Badge>
+  ) : passed ? (
+    <Badge variant="success" className="gap-1.5">
+      <Award className="h-3.5 w-3.5" aria-hidden /> {t('quizzes.passed')}
+    </Badge>
+  ) : failed ? (
+    <Badge variant="destructive" className="gap-1.5">
+      <XCircle className="h-3.5 w-3.5" aria-hidden /> {t('quizzes.notPassed')}
+    </Badge>
+  ) : (
+    <Badge variant="success" className="gap-1.5">
+      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> {t('quizzes.reviewed')}
+    </Badge>
+  );
+
+  const facts = [
+    {
+      icon: Percent,
+      label: t('quizzes.resultPercent'),
+      value: pct !== null ? `${pct.toFixed(0)}%` : '—',
+    },
+    {
+      icon: Target,
+      label: t('quizzes.metaPassing'),
+      value: passing != null ? String(passing) : '—',
+    },
+    {
+      icon: ListChecks,
+      label: t('quizzes.metaQuestions'),
+      value: quiz?.questionCount != null ? String(quiz.questionCount) : String(detail.questions.length),
+    },
+    {
+      icon: Repeat,
+      label: t('quizzes.metaAttempts'),
+      value: quiz ? `${ordinalOf(selectedId) || 1} / ${quiz.maxAttempts}` : '—',
+    },
+    {
+      icon: CalendarClock,
+      label: t('quizzes.resultSubmitted'),
+      value: detail.submittedAt ? formatDateTime(detail.submittedAt) : '—',
+    },
+  ];
+
+  return (
+    <Card className="overflow-hidden">
+      {/* Header band: results kicker + status pill */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-6 py-4">
+        <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <Trophy className="h-3.5 w-3.5" aria-hidden />
+          {t('quizzes.resultsKicker')}
+        </div>
+        {pill}
+      </div>
+
+      <CardContent className="space-y-6 pt-6">
+        {/* Attempt picker — only when there's more than one completed attempt */}
+        {attempts.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="attempt-picker" className="text-sm text-muted-foreground">
+              {t('quizzes.viewingAttempt')}
+            </Label>
+            <select
+              id="attempt-picker"
+              className="rounded-md border bg-background px-2 py-1 text-sm"
+              value={selectedId}
+              onChange={(e) => onSelect(e.target.value)}
+            >
+              {attempts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {t('quizzes.attemptOption', {
+                    n: ordinalOf(a.id),
+                    score: a.score ?? '—',
+                    max: a.maxScore ?? maxScore ?? '—',
+                    date: a.submittedAt ? formatDateTime(a.submittedAt) : '—',
+                  })}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
+        {/* Score hero + progress */}
+        <div>
+          <div className="flex items-baseline gap-3">
+            <span className="text-4xl font-semibold tabular-nums">
+              {score ?? '—'}
+              <span className="text-2xl text-muted-foreground"> / {maxScore ?? '—'}</span>
+            </span>
+            {pct !== null ? (
+              <span className="text-lg font-medium tabular-nums text-muted-foreground">
+                {pct.toFixed(0)}%
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn(
+                'h-full rounded-full',
+                pending ? 'bg-amber-400' : failed ? 'bg-red-500' : 'bg-emerald-500',
+              )}
+              style={{ width: `${Math.max(0, Math.min(100, pct ?? 0))}%` }}
+            />
+          </div>
+          {pending ? (
+            <p className="mt-2 text-sm text-amber-700">{t('quizzes.resultPendingHint')}</p>
+          ) : null}
+        </div>
+
+        {/* Fact grid — same boxed tiles as the briefing */}
+        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {facts.map((f) => {
+            const Icon = f.icon;
+            return (
+              <div key={f.label} className="rounded-md border bg-card p-3">
+                <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <Icon className="h-3.5 w-3.5" aria-hidden />
+                  {f.label}
+                </dt>
+                <dd className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                  {f.value}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Read-only per-question review: the student's submitted answer plus
+// correctness, points awarded, and any teacher feedback.
+function QuizAnswerReview({ detail }: { detail: QuizAttemptDetail }): JSX.Element {
+  const { t } = useTranslation();
+  const answerByQ = new Map(detail.answers.map((a) => [a.questionId, a]));
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        <ListChecks className="h-3.5 w-3.5" aria-hidden />
+        {t('quizzes.reviewHeading')}
+      </div>
+      {detail.questions.map((q: Question, idx) => {
+        const ans = answerByQ.get(q.id);
+        const pending = ans ? ans.pointsAwarded === null : true;
+        const correct = ans?.isCorrect === true;
+        const incorrect = ans?.isCorrect === false;
+        const Icon = pending ? Clock : correct ? CheckCircle2 : incorrect ? XCircle : CheckCircle2;
+        const iconClass = pending
+          ? 'text-amber-500'
+          : incorrect
+            ? 'text-red-500'
+            : 'text-emerald-500';
+        return (
+          <Card key={q.id}>
+            <CardContent className="space-y-2 pt-4">
+              <div className="flex items-start gap-2">
+                <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', iconClass)} aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 tabular-nums font-medium">{idx + 1}.</span>
+                    <Markdown source={q.prompt} className="leading-relaxed" />
+                  </div>
+                </div>
+                <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
+                  {ans?.pointsAwarded ?? '—'} / {q.points}
+                </span>
+              </div>
+
+              <div className="ml-6 text-sm">
+                <span className="text-muted-foreground">{t('quizzes.yourAnswer')}: </span>
+                <StudentAnswer question={q} answer={ans?.answer} />
+              </div>
+
+              {ans?.feedback ? (
+                <div className="ml-6 rounded-md border bg-muted/50 p-2 text-sm">
+                  <span className="text-muted-foreground">{t('quizzes.feedback')}: </span>
+                  {ans.feedback}
+                </div>
+              ) : null}
+              {pending ? (
+                <p className="ml-6 text-xs text-amber-700">{t('quizzes.pendingReview')}</p>
+              ) : null}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+// Render a student's stored answer read-only, by question type.
+function StudentAnswer({
+  question: q,
+  answer,
+}: {
+  question: Question;
+  answer: unknown;
+}): JSX.Element {
+  const { t } = useTranslation();
+  if (answer === undefined || answer === null || answer === '') {
+    return <span className="italic text-muted-foreground">{t('quizzes.noAnswer')}</span>;
+  }
+  if (q.type === 'true_false') {
+    return <span className="font-medium">{answer ? t('quizzes.true') : t('quizzes.false')}</span>;
+  }
+  if ((q.type === 'single_choice' || q.type === 'multiple_choice') && q.options) {
+    const idxs = Array.isArray(answer)
+      ? (answer as number[])
+      : typeof answer === 'number'
+        ? [answer]
+        : [];
+    const chosen = idxs.map((i) => q.options?.[i]).filter((x): x is string => x != null);
+    return (
+      <span className="font-medium">
+        {chosen.length > 0 ? chosen.join(', ') : t('quizzes.noAnswer')}
+      </span>
+    );
+  }
+  // short_answer / case_analysis — free text (markdown).
+  if (typeof answer === 'string') {
+    return (
+      <div className="mt-1 rounded-md border bg-background p-2">
+        <Markdown source={answer} className="leading-relaxed" />
+      </div>
+    );
+  }
+  return <span className="font-medium">{String(answer)}</span>;
+}
+
 export function StudentQuizRunnerPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId, quizId } = useParams();
@@ -514,6 +795,36 @@ export function StudentQuizRunnerPage(): JSX.Element {
   const showBriefing = !attempt && !showResult;
   const totalQuestions = attempt?.questions.length ?? 0;
 
+  // ----- Completed-quiz results: latest attempt by default, dropdown for more -----
+  const justSubmitted = attempt && attempt.status !== 'in_progress' ? attempt : null;
+  const completedAttempts = useMemo<QuizAttemptSummary[]>(() => {
+    const list = (attemptsList.data ?? []).filter(
+      (a) => a.status === 'submitted' || a.status === 'expired',
+    );
+    // Fold in the just-submitted attempt in case the list hasn't refetched yet.
+    if (justSubmitted && !list.some((a) => a.id === justSubmitted.id)) {
+      list.push(justSubmitted);
+    }
+    return [...list].sort((a, b) => attemptTime(b) - attemptTime(a));
+  }, [attemptsList.data, justSubmitted]);
+
+  const isResults = showResult || !!justSubmitted;
+  const defaultAttemptId = justSubmitted?.id ?? completedAttempts[0]?.id ?? null;
+  const [pickedAttemptId, setPickedAttemptId] = useState<string | null>(null);
+  // Snap the picker back to the freshly submitted attempt whenever one lands.
+  useEffect(() => {
+    if (justSubmitted) setPickedAttemptId(justSubmitted.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [justSubmitted?.id]);
+  const effectiveAttemptId = pickedAttemptId ?? defaultAttemptId;
+  // Fetch detail unless the selected attempt is the in-memory just-submitted one.
+  const needsFetch = !!effectiveAttemptId && effectiveAttemptId !== justSubmitted?.id;
+  const fetchedAttempt = useQuizAttempt(needsFetch ? effectiveAttemptId : null);
+  const resultDetail: QuizAttemptDetail | null =
+    justSubmitted && effectiveAttemptId === justSubmitted.id
+      ? justSubmitted
+      : (fetchedAttempt.data ?? null);
+
   async function handleStart() {
     try {
       const result = await start.mutateAsync();
@@ -552,11 +863,6 @@ export function StudentQuizRunnerPage(): JSX.Element {
       toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
     }
   }
-
-  const submittedReview = useMemo(() => {
-    if (!attempt || attempt.status === 'in_progress') return null;
-    return attempt;
-  }, [attempt]);
 
   // Mirrors the gating in StudentQuizzesPage's StartQuizBadge so the rules
   // match between the list (where users see the row action) and the detail
@@ -608,18 +914,21 @@ export function StudentQuizRunnerPage(): JSX.Element {
         />
       ) : null}
 
-      {showResult && completed ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('quizzes.completedTitle')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p>
-              {t('quizzes.totalScore')}: {completed.score ?? '—'} / {completed.maxScore ?? '—'}
-            </p>
-            <p>{completed.teacherReviewed ? t('quizzes.reviewed') : t('quizzes.pendingReview')}</p>
-          </CardContent>
-        </Card>
+      {isResults ? (
+        resultDetail && effectiveAttemptId ? (
+          <>
+            <QuizResultCard
+              detail={resultDetail}
+              quiz={quiz.data}
+              attempts={completedAttempts}
+              selectedId={effectiveAttemptId}
+              onSelect={setPickedAttemptId}
+            />
+            <QuizAnswerReview detail={resultDetail} />
+          </>
+        ) : (
+          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
+        )
       ) : null}
 
       {attempt && inProgress ? (
@@ -638,10 +947,9 @@ export function StudentQuizRunnerPage(): JSX.Element {
         </div>
       ) : null}
 
-      {attempt
+      {attempt && inProgress
         ? attempt.questions.map((q: Question, idx) => {
             const value = answers[q.id];
-            const ans = attempt.answers.find((a) => a.questionId === q.id);
             const readOnly = !inProgress;
             return (
               <Card key={q.id}>
@@ -743,22 +1051,6 @@ export function StudentQuizRunnerPage(): JSX.Element {
                       />
                     </div>
                   ) : null}
-
-                  {submittedReview && ans ? (
-                    <div className="rounded-md border bg-muted/50 p-2 text-sm">
-                      <p>
-                        {t('quizzes.pointsAwarded')}: {ans.pointsAwarded ?? '—'} / {q.points}
-                      </p>
-                      {ans.feedback ? (
-                        <p>
-                          {t('quizzes.feedback')}: {ans.feedback}
-                        </p>
-                      ) : null}
-                      {ans.pointsAwarded === null ? (
-                        <p className="text-amber-700">{t('quizzes.pendingReview')}</p>
-                      ) : null}
-                    </div>
-                  ) : null}
                 </CardContent>
               </Card>
             );
@@ -772,22 +1064,6 @@ export function StudentQuizRunnerPage(): JSX.Element {
           </Button>
           <Button onClick={handleSubmit}>{t('quizzes.submitCta')}</Button>
         </div>
-      ) : null}
-
-      {submittedReview ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('quizzes.totalScore')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>
-              {submittedReview.score ?? '—'} / {submittedReview.maxScore ?? '—'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {submittedReview.teacherReviewed ? t('quizzes.reviewed') : t('quizzes.pendingReview')}
-            </p>
-          </CardContent>
-        </Card>
       ) : null}
     </div>
   );
