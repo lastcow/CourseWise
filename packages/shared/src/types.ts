@@ -558,8 +558,61 @@ export interface QuizSummary {
   closedAt: string | null;
   archivedAt: string | null;
   questionCount?: number;
+  /** True when this quiz has ≥1 tester schedule (access is gated by wave). */
+  hasSchedules?: boolean;
+  /**
+   * Per-student resolved wave, present only on the student quiz-detail response
+   * of a gated quiz. `blocked` means the student is enrolled but in no wave
+   * (and there is no remainder wave). When present and not blocked, the window
+   * fields below OVERRIDE the quiz-level fields for this student.
+   */
+  mySchedule?: QuizStudentSchedule | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface QuizStudentSchedule {
+  scheduleId: string | null;
+  name: string | null;
+  isRemainder: boolean;
+  blocked: boolean;
+  startTime: string | null;
+  endTime: string | null;
+  untilDate: string | null;
+  timeLimitMinutes: number | null;
+  maxAttempts: number;
+}
+
+export interface QuizScheduleSummary {
+  id: string;
+  quizId: string;
+  name: string;
+  position: number;
+  isRemainder: boolean;
+  startTime: string | null;
+  endTime: string | null;
+  untilDate: string | null;
+  timeLimitMinutes: number | null;
+  maxAttempts: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuizScheduleMember {
+  studentId: string;
+  name: string;
+  email: string;
+}
+
+export interface QuizScheduleWithMembers extends QuizScheduleSummary {
+  members: QuizScheduleMember[];
+}
+
+export interface QuizScheduleListResponse {
+  schedules: QuizScheduleWithMembers[];
+  /** Enrolled students not in any explicit wave. Absorbed by the remainder
+   * wave if one exists, otherwise blocked from the quiz. */
+  remainderPreview: { count: number; studentIds: string[] };
 }
 
 export interface QuizQuestionTeacherView {

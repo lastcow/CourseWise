@@ -733,6 +733,60 @@ export const gradeQuizAnswerSchema = z.object({
 });
 export type GradeQuizAnswerInput = z.infer<typeof gradeQuizAnswerSchema>;
 
+// ---------- Quiz tester schedules (staggered / waved availability) ----------
+// A wave overrides any of the quiz's window/limit fields for its testers; a
+// null/omitted field inherits the quiz value. startTime ≤ endTime ≤ untilDate
+// is enforced over whatever the wave does set.
+export const createQuizScheduleSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    position: z.number().int().min(0).max(1000).optional(),
+    isRemainder: z.boolean().optional(),
+    startTime: isoDateString.optional().nullable(),
+    endTime: isoDateString.optional().nullable(),
+    untilDate: isoDateString.optional().nullable(),
+    timeLimitMinutes: z
+      .number()
+      .int()
+      .positive()
+      .max(24 * 60)
+      .optional()
+      .nullable(),
+    maxAttempts: z.number().int().positive().max(100).optional().nullable(),
+  })
+  .refine(quizSchedulingOrderOk, {
+    message: 'Dates must satisfy startTime ≤ endTime ≤ untilDate',
+    path: ['endTime'],
+  });
+export type CreateQuizScheduleInput = z.infer<typeof createQuizScheduleSchema>;
+
+export const updateQuizScheduleSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200).optional(),
+    position: z.number().int().min(0).max(1000).optional(),
+    startTime: isoDateString.optional().nullable(),
+    endTime: isoDateString.optional().nullable(),
+    untilDate: isoDateString.optional().nullable(),
+    timeLimitMinutes: z
+      .number()
+      .int()
+      .positive()
+      .max(24 * 60)
+      .optional()
+      .nullable(),
+    maxAttempts: z.number().int().positive().max(100).optional().nullable(),
+  })
+  .refine(quizSchedulingOrderOk, {
+    message: 'Dates must satisfy startTime ≤ endTime ≤ untilDate',
+    path: ['endTime'],
+  });
+export type UpdateQuizScheduleInput = z.infer<typeof updateQuizScheduleSchema>;
+
+export const setScheduleMembersSchema = z.object({
+  studentIds: z.array(z.string().uuid()).max(1000),
+});
+export type SetScheduleMembersInput = z.infer<typeof setScheduleMembersSchema>;
+
 // ---------- M4: Attendance ----------
 // Self-sign cut-offs in minutes. Bounded at 24h so a typo can't turn into a
 // week-long window; nullable to allow "no cut-off" sessions.
