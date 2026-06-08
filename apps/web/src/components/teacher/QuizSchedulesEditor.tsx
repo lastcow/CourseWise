@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { QuizScheduleWithMembers, QuizSummary } from '@coursewise/shared';
 import { Trash2, X } from 'lucide-react';
@@ -60,12 +60,10 @@ function WaveRow({
   const updateSchedule = useUpdateQuizSchedule(quizId);
   const delSchedule = useDeleteQuizSchedule(quizId);
   const setMembers = useSetScheduleMembers(quizId);
+  // Seeded once from the server row. The parent keys this component on
+  // `updatedAt`, so a saved edit remounts the row with fresh values; member
+  // changes (which don't bump updatedAt) preserve any in-progress field edits.
   const [form, setForm] = useState<WaveForm>(() => formFromWave(wave));
-
-  // Re-sync local form whenever the server row changes (after a save/refetch).
-  useEffect(() => {
-    setForm(formFromWave(wave));
-  }, [wave.id, wave.updatedAt]);
 
   const memberIds = wave.members.map((m) => m.studentId);
   const memberIdSet = new Set(memberIds);
@@ -309,7 +307,13 @@ export function QuizSchedulesEditor({
         ) : (
           <div className="space-y-3">
             {list.map((w) => (
-              <WaveRow key={w.id} quizId={quizId} wave={w} quiz={quiz} enrolled={enrolled} />
+              <WaveRow
+                key={`${w.id}:${w.updatedAt}`}
+                quizId={quizId}
+                wave={w}
+                quiz={quiz}
+                enrolled={enrolled}
+              />
             ))}
           </div>
         )}
