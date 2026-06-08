@@ -455,6 +455,17 @@ export function StudentQuizRunnerPage(): JSX.Element {
   const completed = attemptsList.data?.find(
     (a) => a.status === 'submitted' || a.status === 'expired',
   );
+  // A quiz that hasn't opened yet (locked), is still a draft, or is loading
+  // can't have a *current* attempt — any submitted/expired row is stale (a prior
+  // window or a reset). In those states the pre-start briefing must win, so the
+  // student isn't bounced to an old "Your attempt" result for a quiz they can't
+  // even start yet. For an open/closed quiz a completed attempt still shows its
+  // result as before.
+  const startMs = quiz.data?.startTime ? Date.parse(quiz.data.startTime) : null;
+  const notYetAttemptable =
+    !quiz.data || quiz.data.status === 'draft' || (startMs !== null && now < startMs);
+  const showResult = !attempt && !!completed && !notYetAttemptable;
+  const showBriefing = !attempt && !showResult;
   const totalQuestions = attempt?.questions.length ?? 0;
 
   async function handleStart() {
@@ -534,7 +545,7 @@ export function StudentQuizRunnerPage(): JSX.Element {
         </Button>
       </header>
 
-      {!attempt && !completed ? (
+      {showBriefing ? (
         <QuizPreStartCard
           quiz={quiz.data}
           now={now}
@@ -544,7 +555,7 @@ export function StudentQuizRunnerPage(): JSX.Element {
         />
       ) : null}
 
-      {!attempt && completed ? (
+      {showResult && completed ? (
         <Card>
           <CardHeader>
             <CardTitle>{t('quizzes.completedTitle')}</CardTitle>
