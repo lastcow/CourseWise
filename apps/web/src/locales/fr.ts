@@ -1389,6 +1389,28 @@ export const fr = {
       moduleUpdated: 'Module mis à jour',
       groupLabel: 'Groupe',
       unassignedGroup: 'Non assigné',
+      setLabel: 'Ensemble de quiz',
+      noSet: 'Aucun ensemble',
+      setSuppliesCategoryHint:
+        'Cet ensemble fournit la catégorie de notation — il regroupe ces quiz en une seule note.',
+      manageSets: 'Gérer les ensembles',
+      sets: {
+        manageTitle: 'Ensembles de quiz',
+        manageHint:
+          'Regroupez des quiz en un ensemble qui se résume à une seule note (moyenne ou meilleure) dans sa catégorie. Ajoutez un quiz à un ensemble depuis l’éditeur de quiz.',
+        namePlaceholder: 'Nom du nouvel ensemble',
+        name: 'Nom de l’ensemble',
+        add: 'Ajouter un ensemble',
+        created: 'Ensemble créé',
+        empty: 'Aucun ensemble de quiz pour le moment.',
+        category: 'Catégorie',
+        noCategory: 'Aucune catégorie',
+        rule: 'Règle de notation',
+        members_one: '{{count}} quiz',
+        members_other: '{{count}} quiz',
+        deleteConfirm:
+          'Supprimer l’ensemble « {{name}} » ? Ses quiz reviennent individuellement au carnet de notes.',
+      },
       noAttempts: 'Aucune tentative pour le moment.',
       attemptsListTitle: 'Tentatives',
       attemptsFor: 'Tentatives — {{title}}',
