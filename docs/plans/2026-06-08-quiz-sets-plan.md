@@ -50,8 +50,10 @@ Commit: `api: roll quiz sets into the final grade`.
 ## Task 5 — quiz-sets routes
 `apps/api/src/routes/quizSets.ts` (GET list with `memberCount`, POST, PATCH,
 DELETE with `orphanedItemCount`; `markFinalGradesOutdated` + `quiz-set.*` audit on
-each mutation). Clone `assignmentSets.ts`. Mount in `index.ts`; register in
-`lib/openapi.ts`.
+each mutation). Clone `assignmentSets.ts`. Mount in `index.ts`. Not registered in
+`lib/openapi.ts` — assignment sets/groups aren't either (the openapi test only
+checks the curated `ROUTES` list resolves, not full coverage), so quiz sets match
+that precedent.
 Commit: `api: quiz-set CRUD routes`.
 
 ## Task 6 — wire quizzes.ts
