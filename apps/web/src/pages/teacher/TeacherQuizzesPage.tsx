@@ -7,13 +7,13 @@ import {
   Circle,
   CircleCheck,
   FolderInput,
+  Inbox,
   Layers,
   ListChecks,
   Lock,
   RefreshCw,
   SquarePen,
   Trash2,
-  Users,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,7 @@ import {
   useUpdateQuizSet,
 } from '@/lib/queries';
 import { ApiClientError, pickI18nKey } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import type { QuizSummary } from '@coursewise/shared';
 
 function formatShortDate(iso: string | null): string {
@@ -353,17 +354,16 @@ export function TeacherQuizzesPage(): JSX.Element {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1.5">
+                      <ViewAttemptsButton
+                        label={t('quizzes.viewAttempts')}
+                        total={q.attemptCount ?? 0}
+                        onClick={() => navigate(`/teacher/courses/${id}/quizzes/${q.id}/attempts`)}
+                      />
                       <ActionIconButton
                         icon={SquarePen}
                         label={t('common.edit')}
                         color="yellow"
                         onClick={() => navigate(`/teacher/courses/${id}/quizzes/${q.id}`)}
-                      />
-                      <ActionIconButton
-                        icon={Users}
-                        label={t('quizzes.viewAttempts')}
-                        color="teal"
-                        onClick={() => navigate(`/teacher/courses/${id}/quizzes/${q.id}/attempts`)}
                       />
                       {q.status === 'draft' ? (
                         <ActionIconButton
@@ -775,5 +775,53 @@ export function TeacherQuizzesPage(): JSX.Element {
         </div>
       </Dialog>
     </div>
+  );
+}
+
+function ViewAttemptsButton({
+  label,
+  total,
+  onClick,
+}: {
+  label: string;
+  total: number;
+  onClick: () => void;
+}): JSX.Element {
+  const tone = total > 0 ? 'emerald' : 'teal';
+  const borderTone = {
+    emerald: 'border-emerald-500/50 hover:bg-emerald-500/10',
+    teal: 'border-teal-500/40 hover:bg-teal-500/10',
+  }[tone];
+  const iconTone = {
+    emerald: 'text-emerald-600 dark:text-emerald-300',
+    teal: 'text-teal-500',
+  }[tone];
+  const dividerTone = {
+    emerald: 'border-emerald-500/50',
+    teal: 'border-teal-500/40',
+  }[tone];
+  const countTone = {
+    emerald: 'bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200',
+    teal: 'bg-teal-500/10 text-teal-700 dark:bg-teal-500/15 dark:text-teal-200',
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-8 items-stretch overflow-hidden rounded-md border bg-background text-xs font-medium leading-none tabular-nums transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        borderTone,
+      )}
+    >
+      <span className={cn('inline-flex items-center px-2', iconTone)}>
+        <Inbox className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      <span className={cn('inline-flex items-center border-l px-2', dividerTone, countTone)}>
+        {total}
+      </span>
+    </button>
   );
 }

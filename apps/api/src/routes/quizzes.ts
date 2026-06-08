@@ -75,6 +75,7 @@ function num(v: string | number | null | undefined): number | null {
 function toQuizSummary(
   row: typeof quizzes.$inferSelect,
   questionCount?: number,
+  attemptCount?: number,
 ): QuizSummary {
   return {
     id: row.id,
@@ -96,6 +97,7 @@ function toQuizSummary(
     closedAt: row.closedAt ?? null,
     archivedAt: row.archivedAt ?? null,
     questionCount,
+    attemptCount,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -243,6 +245,7 @@ r.get(
       .orderBy(desc(quizzes.createdAt));
     const ids = rows.map((q) => q.id);
     const counts = new Map<string, number>();
+    const attempts = new Map<string, number>();
     if (ids.length > 0) {
       const qcounts = await db
         .select({ quizId: quizQuestions.quizId, c: sql<number>`count(*)::int` })
@@ -250,8 +253,14 @@ r.get(
         .where(inArray(quizQuestions.quizId, ids))
         .groupBy(quizQuestions.quizId);
       for (const q of qcounts) counts.set(q.quizId, q.c);
+      const acounts = await db
+        .select({ quizId: quizAttempts.quizId, c: sql<number>`count(*)::int` })
+        .from(quizAttempts)
+        .where(inArray(quizAttempts.quizId, ids))
+        .groupBy(quizAttempts.quizId);
+      for (const a of acounts) attempts.set(a.quizId, a.c);
     }
-    return success(c, rows.map((row) => toQuizSummary(row, counts.get(row.id) ?? 0)));
+    return success(c, rows.map((row) => toQuizSummary(row, counts.get(row.id) ?? 0, attempts.get(row.id) ?? 0)));
   },
 );
 

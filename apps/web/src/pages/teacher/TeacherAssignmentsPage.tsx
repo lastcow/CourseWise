@@ -376,12 +376,6 @@ export function TeacherAssignmentsPage(): JSX.Element {
                   <TableCell className="text-right tabular-nums">{a.maxScore ?? '—'}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1.5">
-                      <ActionIconButton
-                        icon={SquarePen}
-                        label={t('common.edit')}
-                        color="yellow"
-                        onClick={() => navigate(`/teacher/courses/${id}/assignments/${a.id}`)}
-                      />
                       <ViewSubmissionsButton
                         label={
                           (a.ungradedSubmissionCount ?? 0) > 0
@@ -398,6 +392,12 @@ export function TeacherAssignmentsPage(): JSX.Element {
                         onClick={() =>
                           navigate(`/teacher/courses/${id}/assignments/${a.id}/submissions`)
                         }
+                      />
+                      <ActionIconButton
+                        icon={SquarePen}
+                        label={t('common.edit')}
+                        color="yellow"
+                        onClick={() => navigate(`/teacher/courses/${id}/assignments/${a.id}`)}
                       />
                       {a.status === 'draft' ? (
                         <ActionIconButton
