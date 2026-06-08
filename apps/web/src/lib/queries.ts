@@ -95,6 +95,8 @@ import type {
   QuizScheduleListResponse,
   QuizScheduleSummary,
   QuizScheduleWithMembers,
+  QuizSet,
+  QuizSetRule,
   QuizSummary,
   CreateQuizScheduleInput,
   UpdateQuizScheduleInput,
@@ -1942,6 +1944,78 @@ export function useDeleteAssignmentSet(courseId: string) {
       ),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['assignment-sets', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
+    },
+  });
+}
+
+// ---------- Quiz sets (avg / best-of bundles of quizzes) ----------
+
+export function useQuizSets(courseId: string | undefined) {
+  return useQuery({
+    queryKey: ['quiz-sets', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<QuizSet[]>(`/api/courses/${courseId}/quiz-sets`),
+  });
+}
+
+export function useCreateQuizSet(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      name: string;
+      groupId?: string | null;
+      scoringRule?: QuizSetRule;
+      position?: number;
+    }) =>
+      apiCall<QuizSet>(`/api/courses/${courseId}/quiz-sets`, {
+        method: 'POST',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['quiz-sets', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
+    },
+  });
+}
+
+export function useUpdateQuizSet(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      setId,
+      ...patch
+    }: {
+      setId: string;
+      name?: string;
+      groupId?: string | null;
+      scoringRule?: QuizSetRule;
+      position?: number;
+    }) =>
+      apiCall<QuizSet>(`/api/courses/${courseId}/quiz-sets/${setId}`, {
+        method: 'PATCH',
+        body: patch,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['quiz-sets', courseId] });
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
+      void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
+    },
+  });
+}
+
+export function useDeleteQuizSet(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (setId: string) =>
+      apiCall<{ id: string; orphanedItemCount: number }>(
+        `/api/courses/${courseId}/quiz-sets/${setId}`,
+        { method: 'DELETE' },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['quiz-sets', courseId] });
       void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
       void qc.invalidateQueries({ queryKey: ['my-final-grade', courseId] });
     },
