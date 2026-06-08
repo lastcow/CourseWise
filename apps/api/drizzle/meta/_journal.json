@@ -232,6 +232,13 @@
       "when": 1783296000000,
       "tag": "0032_assignment_late_penalty",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1783382400000,
+      "tag": "0033_quiz_tester_schedules",
+      "breakpoints": true
     }
   ]
 }

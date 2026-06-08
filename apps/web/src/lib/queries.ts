@@ -92,7 +92,13 @@ import type {
   QuizAttemptWithStudent,
   QuizQuestionStudentView,
   QuizQuestionTeacherView,
+  QuizScheduleListResponse,
+  QuizScheduleSummary,
+  QuizScheduleWithMembers,
   QuizSummary,
+  CreateQuizScheduleInput,
+  UpdateQuizScheduleInput,
+  SetScheduleMembersInput,
   RecalculateFinalGradesResult,
   ReorderModulesInput,
   ReorderQuizQuestionsInput,
@@ -1283,6 +1289,70 @@ export function useUpdateQuiz(courseId: string) {
       void qc.invalidateQueries({ queryKey: ['quizzes', courseId] });
       void qc.invalidateQueries({ queryKey: ['quiz', v.id] });
     },
+  });
+}
+
+export function useQuizSchedules(quizId: string | null) {
+  return useQuery({
+    queryKey: ['quiz-schedules', quizId],
+    enabled: !!quizId,
+    queryFn: () => apiCall<QuizScheduleListResponse>(`/api/quizzes/${quizId}/schedules`),
+  });
+}
+
+export function useCreateQuizSchedule(quizId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateQuizScheduleInput) =>
+      apiCall<QuizScheduleSummary>(`/api/quizzes/${quizId}/schedules`, { body: input }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['quiz-schedules', quizId] });
+      void qc.invalidateQueries({ queryKey: ['quiz', quizId] });
+    },
+  });
+}
+
+export function useUpdateQuizSchedule(quizId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ scheduleId, input }: { scheduleId: string; input: UpdateQuizScheduleInput }) =>
+      apiCall<QuizScheduleSummary>(`/api/quizzes/${quizId}/schedules/${scheduleId}`, {
+        method: 'PATCH',
+        body: input,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['quiz-schedules', quizId] }),
+  });
+}
+
+export function useDeleteQuizSchedule(quizId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (scheduleId: string) =>
+      apiCall<{ id: string }>(`/api/quizzes/${quizId}/schedules/${scheduleId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['quiz-schedules', quizId] });
+      void qc.invalidateQueries({ queryKey: ['quiz', quizId] });
+    },
+  });
+}
+
+export function useSetScheduleMembers(quizId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      scheduleId,
+      input,
+    }: {
+      scheduleId: string;
+      input: SetScheduleMembersInput;
+    }) =>
+      apiCall<QuizScheduleWithMembers>(
+        `/api/quizzes/${quizId}/schedules/${scheduleId}/members`,
+        { method: 'PUT', body: input },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['quiz-schedules', quizId] }),
   });
 }
 

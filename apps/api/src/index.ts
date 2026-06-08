@@ -24,6 +24,7 @@ import assignmentSetsRoutes from './routes/assignmentSets';
 import groupSetsRoutes from './routes/groupSets';
 import discussionsRoutes from './routes/discussions';
 import quizzesRoutes from './routes/quizzes';
+import quizSchedulesRoutes from './routes/quizSchedules';
 import attendanceRoutes from './routes/attendance';
 import gradingRoutes from './routes/grading';
 import alertsRoutes from './routes/alerts';
@@ -37,6 +38,7 @@ import studentsRoutes from './routes/students';
 import { retryFailedR2CleanupJobs } from './jobs/r2CleanupRetry';
 import { sweepExpiredCourseExports } from './jobs/courseExportSweep';
 import { closeExpiredAttendanceSessions } from './jobs/attendanceSessionSweep';
+import { runQuizScheduleOpenSweep } from './jobs/quizScheduleOpenSweep';
 import { runRetentionSweep } from './services/retentionSweep';
 import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
@@ -44,6 +46,10 @@ export { MaterialGenerationWorkflow } from './workflows/materialGeneration';
 export { CourseExportWorkflow } from './workflows/courseExport';
 
 export type Env = AppBindings;
+
+/** Cron expression (wrangler.toml [triggers]) for the frequent wave-open
+ * notification sweep. Kept in sync with the trigger list there. */
+const QUIZ_SCHEDULE_NOTIFY_CRON = '*/15 * * * *';
 
 const app = new Hono<AppEnv>();
 
@@ -133,6 +139,7 @@ app.route('/api', assignmentSetsRoutes);
 app.route('/api', groupSetsRoutes);
 app.route('/api', discussionsRoutes);
 app.route('/api', quizzesRoutes);
+app.route('/api', quizSchedulesRoutes);
 app.route('/api', attendanceRoutes);
 app.route('/api', gradingRoutes);
 app.route('/api', alertsRoutes);
@@ -213,6 +220,20 @@ export default {
     ctx.waitUntil(
       (async () => {
         const db = createDb(env.DATABASE_URL);
+
+        // Frequent tick: notify students whose tester schedule has just opened.
+        // Runs on its own cadence (every ~15 min) so wave-open email/alert lands
+        // promptly; the heavy nightly sweeps below stay on the 04:00 trigger.
+        if (controller.cron === QUIZ_SCHEDULE_NOTIFY_CRON) {
+          try {
+            const summary = await runQuizScheduleOpenSweep(db, env);
+            console.log('quizSchedule.openSweep.ok', { cron: controller.cron, ...summary });
+          } catch (err) {
+            console.error('quizSchedule.openSweep.failed', { cron: controller.cron, err });
+          }
+          return;
+        }
+
         try {
           const summary = await runRetentionSweep(db);
           console.log('retention.sweep.ok', { cron: controller.cron, ...summary });

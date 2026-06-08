@@ -89,26 +89,41 @@ function QuizPreStartCard({
   const { t } = useTranslation();
 
   const loading = !q;
-  const startMs = q?.startTime ? Date.parse(q.startTime) : null;
-  const endMs = q?.endTime ? Date.parse(q.endTime) : null;
-  const untilMs = q?.untilDate ? Date.parse(q.untilDate) : null;
+  // When the quiz has tester schedules, this student's wave window overrides the
+  // quiz defaults; `blocked` means they're enrolled but scheduled for no wave.
+  const ms = q?.mySchedule ?? null;
+  const blocked = ms?.blocked === true;
+  const useWave = !!ms && !ms.blocked;
+  const effStart = useWave ? ms!.startTime : (q?.startTime ?? null);
+  const effEnd = useWave ? ms!.endTime : (q?.endTime ?? null);
+  const effUntil = useWave ? ms!.untilDate : (q?.untilDate ?? null);
+  const effTimeLimit = useWave ? ms!.timeLimitMinutes : (q?.timeLimitMinutes ?? null);
+  const effMaxAttempts = useWave ? ms!.maxAttempts : (q?.maxAttempts ?? null);
+  const waveName = useWave ? ms!.name : null;
+
+  const startMs = effStart ? Date.parse(effStart) : null;
+  const endMs = effEnd ? Date.parse(effEnd) : null;
+  const untilMs = effUntil ? Date.parse(effUntil) : null;
 
   const notYetOpen = startMs !== null && now < startMs;
   const windowClosed = endMs !== null && now >= endMs;
 
   // Mutually-exclusive presentation state. Reserve `unavailable` for an
-  // unpublished draft; an explicitly closed/archived quiz (or one past its
-  // window) reads as the calmer `closed`, never "Unavailable".
-  type Phase = 'loading' | 'unavailable' | 'closed' | 'locked' | 'ready';
+  // unpublished draft; `blocked` for a gated quiz the student isn't scheduled
+  // for; an explicitly closed/archived quiz (or one past its window) reads as
+  // the calmer `closed`, never "Unavailable".
+  type Phase = 'loading' | 'unavailable' | 'blocked' | 'closed' | 'locked' | 'ready';
   const phase: Phase = !q
     ? 'loading'
     : q.status === 'draft'
       ? 'unavailable'
-      : q.status === 'closed' || q.status === 'archived' || windowClosed
-        ? 'closed'
-        : notYetOpen
-          ? 'locked'
-          : 'ready';
+      : blocked
+        ? 'blocked'
+        : q.status === 'closed' || q.status === 'archived' || windowClosed
+          ? 'closed'
+          : notYetOpen
+            ? 'locked'
+            : 'ready';
 
   // Live countdown to the moment the quiz opens.
   const opensInMs = startMs !== null ? Math.max(0, startMs - now) : 0;
@@ -140,8 +155,8 @@ function QuizPreStartCard({
     {
       icon: Clock,
       label: t('quizzes.metaTimeLimit'),
-      value: q?.timeLimitMinutes
-        ? t('quizzes.metaMinutes', { minutes: q.timeLimitMinutes })
+      value: effTimeLimit
+        ? t('quizzes.metaMinutes', { minutes: effTimeLimit })
         : loading
           ? '—'
           : t('quizzes.metaNoLimit'),
@@ -159,26 +174,26 @@ function QuizPreStartCard({
     {
       icon: Repeat,
       label: t('quizzes.metaAttempts'),
-      value: q ? String(q.maxAttempts) : '—',
+      value: q ? String(effMaxAttempts ?? q.maxAttempts) : '—',
     },
   ];
 
-  // Availability stops, past ones marked done (emerald check).
+  // Availability stops (this student's effective window), past ones marked done.
   const stops = [
-    q?.startTime
+    effStart
       ? {
           label: t('quizzes.timelineOpens'),
-          iso: q.startTime,
+          iso: effStart,
           done: startMs !== null && now >= startMs,
         }
       : null,
-    q?.endTime
-      ? { label: t('quizzes.timelineCloses'), iso: q.endTime, done: endMs !== null && now >= endMs }
+    effEnd
+      ? { label: t('quizzes.timelineCloses'), iso: effEnd, done: endMs !== null && now >= endMs }
       : null,
-    q?.untilDate
+    effUntil
       ? {
           label: t('quizzes.timelineSubmitBy'),
-          iso: q.untilDate,
+          iso: effUntil,
           done: untilMs !== null && now >= untilMs,
         }
       : null,
@@ -187,12 +202,12 @@ function QuizPreStartCard({
   // Ground rules shown in the `ready` state so starting feels deliberate.
   const rules = q
     ? ([
-        q.timeLimitMinutes
-          ? t('quizzes.ruleTimer', { minutes: q.timeLimitMinutes })
+        effTimeLimit
+          ? t('quizzes.ruleTimer', { minutes: effTimeLimit })
           : t('quizzes.ruleTimerNoLimit'),
-        q.timeLimitMinutes ? t('quizzes.ruleNoPause') : null,
-        t('quizzes.ruleAttempts', { count: q.maxAttempts }),
-        q.untilDate ? t('quizzes.ruleAutoSubmit', { date: formatDateTime(q.untilDate) }) : null,
+        effTimeLimit ? t('quizzes.ruleNoPause') : null,
+        t('quizzes.ruleAttempts', { count: effMaxAttempts ?? q.maxAttempts }),
+        effUntil ? t('quizzes.ruleAutoSubmit', { date: formatDateTime(effUntil) }) : null,
       ].filter(Boolean) as string[])
     : [];
 
@@ -202,6 +217,10 @@ function QuizPreStartCard({
     ) : phase === 'unavailable' ? (
       <Badge variant="secondary" className="gap-1.5">
         <Lock className="h-3.5 w-3.5" aria-hidden /> {t('quizzes.unavailablePill')}
+      </Badge>
+    ) : phase === 'blocked' ? (
+      <Badge variant="secondary" className="gap-1.5">
+        <Lock className="h-3.5 w-3.5" aria-hidden /> {t('quizzes.schedules.notScheduledPill')}
       </Badge>
     ) : phase === 'closed' ? (
       <Badge variant="secondary" className="gap-1.5">
@@ -230,6 +249,11 @@ function QuizPreStartCard({
       </div>
 
       <CardContent className="space-y-6 pt-6">
+        {waveName ? (
+          <p className="text-sm text-muted-foreground">
+            {t('quizzes.schedules.yourWave', { name: waveName })}
+          </p>
+        ) : null}
         {/* Fact grid: boxed definition list, one tile per fact */}
         <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {facts.map((f) => {
@@ -294,7 +318,7 @@ function QuizPreStartCard({
                 </p>
                 <p className="mt-1 text-sm text-amber-800/90 dark:text-amber-200/80">
                   {t('quizzes.lockedBody', {
-                    date: startMs !== null ? formatDateTime(q!.startTime!) : '',
+                    date: startMs !== null && effStart ? formatDateTime(effStart) : '',
                   })}
                 </p>
               </div>
@@ -327,9 +351,23 @@ function QuizPreStartCard({
               <div>
                 <p className="font-medium text-foreground">{t('quizzes.closedTitle')}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {endMs !== null
-                    ? t('quizzes.closedBody', { date: formatDateTime(q!.endTime!) })
+                  {endMs !== null && effEnd
+                    ? t('quizzes.closedBody', { date: formatDateTime(effEnd) })
                     : t('quizzes.notAvailable')}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : phase === 'blocked' ? (
+          <div className="rounded-md border bg-muted/40 p-4">
+            <div className="flex items-start gap-2">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              <div>
+                <p className="font-medium text-foreground">
+                  {t('quizzes.schedules.notScheduledTitle')}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t('quizzes.schedules.notScheduledBody')}
                 </p>
               </div>
             </div>
@@ -461,9 +499,17 @@ export function StudentQuizRunnerPage(): JSX.Element {
   // student isn't bounced to an old "Your attempt" result for a quiz they can't
   // even start yet. For an open/closed quiz a completed attempt still shows its
   // result as before.
-  const startMs = quiz.data?.startTime ? Date.parse(quiz.data.startTime) : null;
+  // Honour this student's wave window (and a "not scheduled" block) so the
+  // briefing wins over a stale attempt whenever they can't start right now.
+  const mySched = quiz.data?.mySchedule ?? null;
+  const effStartIso =
+    mySched && !mySched.blocked ? mySched.startTime : (quiz.data?.startTime ?? null);
+  const startMs = effStartIso ? Date.parse(effStartIso) : null;
   const notYetAttemptable =
-    !quiz.data || quiz.data.status === 'draft' || (startMs !== null && now < startMs);
+    !quiz.data ||
+    quiz.data.status === 'draft' ||
+    mySched?.blocked === true ||
+    (startMs !== null && now < startMs);
   const showResult = !attempt && !!completed && !notYetAttemptable;
   const showBriefing = !attempt && !showResult;
   const totalQuestions = attempt?.questions.length ?? 0;
@@ -521,16 +567,23 @@ export function StudentQuizRunnerPage(): JSX.Element {
     if (q.status !== 'published') {
       return { disabled: true, reason: t('quizzes.notAvailable') } as const;
     }
-    if (q.startTime != null && now < Date.parse(q.startTime)) {
+    const sched = q.mySchedule ?? null;
+    if (sched?.blocked) {
+      return { disabled: true, reason: t('quizzes.schedules.notScheduledPill') } as const;
+    }
+    // A wave's window overrides the quiz defaults for this student.
+    const eStart = sched && !sched.blocked ? sched.startTime : q.startTime;
+    const eEnd = sched && !sched.blocked ? sched.endTime : q.endTime;
+    if (eStart != null && now < Date.parse(eStart)) {
       return {
         disabled: true,
-        reason: t('assignments.opensOn', { date: new Date(q.startTime).toLocaleString() }),
+        reason: t('assignments.opensOn', { date: new Date(eStart).toLocaleString() }),
       } as const;
     }
-    if (q.endTime != null && now >= Date.parse(q.endTime)) {
+    if (eEnd != null && now >= Date.parse(eEnd)) {
       return {
         disabled: true,
-        reason: t('assignments.closesOn', { date: new Date(q.endTime).toLocaleString() }),
+        reason: t('assignments.closesOn', { date: new Date(eEnd).toLocaleString() }),
       } as const;
     }
     return { disabled: false, reason: '' } as const;

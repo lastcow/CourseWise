@@ -39,6 +39,7 @@ const TYPE_TONE: Record<AlertType, string> = {
     'border-yellow-500/60 text-yellow-700 dark:text-yellow-300',
   inactivity: 'border-sky-500/60 text-sky-700 dark:text-sky-300',
   manual: 'border-muted-foreground/40 text-muted-foreground',
+  quiz_schedule_open: 'border-emerald-500/60 text-emerald-700 dark:text-emerald-300',
 };
 
 const TYPE_ACTIVE: Record<AlertType, string> = {
@@ -48,6 +49,7 @@ const TYPE_ACTIVE: Record<AlertType, string> = {
   quiz_average_low: 'bg-yellow-500/10',
   inactivity: 'bg-sky-500/10',
   manual: 'bg-muted',
+  quiz_schedule_open: 'bg-emerald-500/10',
 };
 
 function severityVariant(severity: string) {
@@ -137,6 +139,7 @@ export function TeacherAlertsPage(): JSX.Element {
       quiz_average_low: 0,
       inactivity: 0,
       manual: 0,
+      quiz_schedule_open: 0,
     };
     for (const a of alerts.data ?? []) {
       counts[a.type] = (counts[a.type] ?? 0) + 1;

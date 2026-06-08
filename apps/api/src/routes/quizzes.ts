@@ -51,6 +51,7 @@ import {
   isAutoGradedType,
   quizAttemptIsExpired,
 } from '../services/quizGrading';
+import { resolveQuizScheduleForStudent } from '../services/quizSchedules';
 import type { AppEnv } from '../types';
 
 const r = new Hono<AppEnv>();
@@ -318,11 +319,44 @@ r.get('/quizzes/:quizId', requireScopeGroup('quizzesRead'), async (c) => {
   const row = await loadQuiz(c, id);
   await ensureQuizViewable(c, row);
   const db = c.get('db');
+  const auth = c.get('auth');
   const [{ c: count } = { c: 0 }] = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(quizQuestions)
     .where(eq(quizQuestions.quizId, id));
-  return success(c, toQuizSummary(row, count));
+  const summary = toQuizSummary(row, count);
+  // Surface the student's resolved wave so the briefing can show per-student
+  // open/close times (or a "not scheduled" state) on a gated quiz.
+  if (auth.user.role === 'student') {
+    const resolution = await resolveQuizScheduleForStudent(db, row, auth.user.id);
+    summary.hasSchedules = resolution.gated;
+    if (resolution.gated) {
+      summary.mySchedule = resolution.blocked
+        ? {
+            scheduleId: null,
+            name: null,
+            isRemainder: false,
+            blocked: true,
+            startTime: null,
+            endTime: null,
+            untilDate: null,
+            timeLimitMinutes: null,
+            maxAttempts: row.maxAttempts,
+          }
+        : {
+            scheduleId: resolution.window.scheduleId,
+            name: resolution.window.name,
+            isRemainder: resolution.window.isRemainder,
+            blocked: false,
+            startTime: resolution.window.startTime,
+            endTime: resolution.window.endTime,
+            untilDate: resolution.window.untilDate,
+            timeLimitMinutes: resolution.window.timeLimitMinutes,
+            maxAttempts: resolution.window.maxAttempts,
+          };
+    }
+  }
+  return success(c, summary);
 });
 
 r.patch(
@@ -695,10 +729,22 @@ r.post(
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
     }
     const now = new Date();
-    if (quiz.startTime && now.getTime() < new Date(quiz.startTime).getTime()) {
+    // Resolve this student's effective window. When the quiz has tester
+    // schedules, access is gated: a student in no wave is blocked; otherwise
+    // their wave's window (merged over the quiz defaults) governs the attempt.
+    const resolution = await resolveQuizScheduleForStudent(db, quiz, auth.user.id);
+    if (resolution.blocked) {
+      throw new ApiException(
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'You are not scheduled for this quiz',
+      );
+    }
+    const effective = resolution.window;
+    if (effective.startTime && now.getTime() < new Date(effective.startTime).getTime()) {
       throw new ApiException(409, ERROR_CODES.CONFLICT, 'Quiz has not started yet');
     }
-    if (quiz.endTime && now.getTime() >= new Date(quiz.endTime).getTime()) {
+    if (effective.endTime && now.getTime() >= new Date(effective.endTime).getTime()) {
       throw new ApiException(409, ERROR_CODES.CONFLICT, 'Quiz window has closed');
     }
     // resume an active attempt for this student if one exists.
@@ -729,7 +775,7 @@ r.post(
       .where(
         and(eq(quizAttempts.quizId, id), eq(quizAttempts.studentId, auth.user.id)),
       );
-    if (used >= quiz.maxAttempts) {
+    if (used >= effective.maxAttempts) {
       throw new ApiException(409, ERROR_CODES.CONFLICT, 'Maximum attempts reached');
     }
     const [{ total } = { total: 0 }] = await db
@@ -738,9 +784,9 @@ r.post(
       .where(eq(quizQuestions.quizId, id));
     const expiry = computeAttemptExpiry({
       startedAt: now,
-      timeLimitMinutes: quiz.timeLimitMinutes ?? null,
-      endTime: quiz.endTime ?? null,
-      untilDate: quiz.untilDate ?? null,
+      timeLimitMinutes: effective.timeLimitMinutes,
+      endTime: effective.endTime,
+      untilDate: effective.untilDate,
     });
     const [created] = await db
       .insert(quizAttempts)
@@ -751,6 +797,7 @@ r.post(
         startedAt: now.toISOString(),
         expiresAt: expiry ? expiry.toISOString() : null,
         maxScore: total.toString(),
+        scheduleId: effective.scheduleId,
       })
       .returning();
     if (!created)
@@ -761,7 +808,7 @@ r.post(
       actorTokenId: auth.tokenId ?? null,
       action: 'quiz_attempt.start',
       target: created.id,
-      metadata: { quizId: id },
+      metadata: { quizId: id, scheduleId: effective.scheduleId },
     });
     return success(c, await loadAttemptDetail(c, created), 201);
   },

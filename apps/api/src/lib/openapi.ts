@@ -746,6 +746,38 @@ export const ROUTES: readonly RouteSpec[] = [
     'quizzes',
     { scopeGroup: 'quizGradeWrite', pathParams: idParams('attemptId') },
   ),
+  r(
+    'get',
+    '/api/quizzes/{quizId}/schedules',
+    'Teacher: list tester schedules + remainder preview',
+    'quizzes',
+    { scopeGroup: 'quizzesRead', pathParams: idParams('quizId') },
+  ),
+  r('post', '/api/quizzes/{quizId}/schedules', 'Create a tester schedule', 'quizzes', {
+    scopeGroup: 'quizzesWrite',
+    pathParams: idParams('quizId'),
+  }),
+  r(
+    'patch',
+    '/api/quizzes/{quizId}/schedules/{scheduleId}',
+    'Update a tester schedule',
+    'quizzes',
+    { scopeGroup: 'quizzesWrite', pathParams: idParams('quizId', 'scheduleId') },
+  ),
+  r(
+    'delete',
+    '/api/quizzes/{quizId}/schedules/{scheduleId}',
+    'Delete a tester schedule',
+    'quizzes',
+    { scopeGroup: 'quizzesWrite', pathParams: idParams('quizId', 'scheduleId') },
+  ),
+  r(
+    'put',
+    '/api/quizzes/{quizId}/schedules/{scheduleId}/members',
+    'Replace a wave member list',
+    'quizzes',
+    { scopeGroup: 'quizzesWrite', pathParams: idParams('quizId', 'scheduleId') },
+  ),
 
   // ---------- Attendance ----------
   r(
