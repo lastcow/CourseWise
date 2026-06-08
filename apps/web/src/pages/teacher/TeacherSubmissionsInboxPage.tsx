@@ -385,7 +385,7 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                   </div>
 
                   {/* Fact tiles */}
-                  <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     <Fact
                       icon={Percent}
                       label={t('submissions.tilePercent')}
@@ -394,10 +394,9 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                     <Fact
                       icon={CalendarClock}
                       label={t('submissions.tileSubmitted')}
+                      className="sm:col-span-2"
                       value={
-                        detailSub?.submittedAt
-                          ? new Date(detailSub.submittedAt).toLocaleDateString()
-                          : '—'
+                        detailSub?.submittedAt ? formatSubmittedAt(detailSub.submittedAt) : '—'
                       }
                     />
                     <Fact
@@ -630,17 +629,29 @@ function RosterRow({
   );
 }
 
+// Compact date + h:mm (no seconds), e.g. "Jun 6, 9:35 AM".
+function formatSubmittedAt(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function Fact({
   icon: Icon,
   label,
   value,
+  className,
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
+  className?: string;
 }): JSX.Element {
   return (
-    <div className="rounded-md border bg-card p-3">
+    <div className={cn('rounded-md border bg-card p-3', className)}>
       <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <Icon className="h-3.5 w-3.5" aria-hidden />
         {label}
