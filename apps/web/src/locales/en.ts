@@ -1397,6 +1397,36 @@ export const en = {
       takeQuiz: 'Take quiz',
       notAvailable: 'Not available right now',
       completedTitle: 'Your attempt',
+      // Tester schedules (staggered / waved availability)
+      schedules: {
+        title: 'Tester schedules',
+        intro:
+          'Split this quiz into waves so different students open it at different times. Once any wave exists, only students in a wave (or "the rest") can take the quiz.',
+        none: 'No schedules yet. Everyone takes this quiz on its normal window.',
+        addWave: 'Add wave',
+        addRemainder: "Add 'the rest'",
+        waveName: 'Wave name',
+        waveDefaultName: 'Wave {{n}}',
+        remainderDefaultName: 'The rest',
+        remainderBadge: 'The rest',
+        remainderHint:
+          'Automatically includes every enrolled student not assigned to another wave — including students who enroll later.',
+        members: 'Testers',
+        noMembers: 'No testers yet',
+        addStudent: 'Add a student…',
+        inheritsQuizValue: 'Inherits quiz value',
+        maxAttemptsLabel: 'Attempts',
+        deleteWaveConfirm: 'Delete this wave? Its testers fall back to the remainder wave, or are blocked.',
+        saved: 'Wave saved',
+        unscheduledBlocked: '{{count}} enrolled student(s) are not scheduled and cannot take this quiz. Add a "the rest" wave to include them.',
+        absorbedByRemainder: '{{count}} student(s) will open the quiz on the "the rest" wave.',
+        allScheduled: 'Every enrolled student is in a wave.',
+        notScheduledPill: 'Not scheduled',
+        notScheduledTitle: "You're not scheduled for this quiz yet",
+        notScheduledBody:
+          "Your instructor hasn't added you to a testing wave for this quiz. Check back later or contact them.",
+        yourWave: 'Your wave: {{name}}',
+      },
       // Pre-start "assessment briefing" view
       briefingKicker: 'Assessment briefing',
       briefingHeading: 'Briefing',
@@ -1699,6 +1729,7 @@ export const en = {
         quiz_average_low: 'Quiz average low',
         inactivity: 'Inactivity',
         manual: 'Manual',
+        quiz_schedule_open: 'Quiz now open',
       },
     },
     dashboard: {

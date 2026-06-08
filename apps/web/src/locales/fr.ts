@@ -1415,6 +1415,38 @@ export const fr = {
       takeQuiz: 'Passer le quiz',
       notAvailable: 'Non disponible pour le moment',
       completedTitle: 'Votre tentative',
+      // Calendriers de test (disponibilité échelonnée / par vagues)
+      schedules: {
+        title: 'Calendriers de test',
+        intro:
+          "Répartissez ce quiz en vagues pour que différents étudiants l'ouvrent à des moments différents. Dès qu'une vague existe, seuls les étudiants d'une vague (ou « le reste ») peuvent passer le quiz.",
+        none: 'Aucun calendrier pour le moment. Tout le monde passe ce quiz sur sa fenêtre habituelle.',
+        addWave: 'Ajouter une vague',
+        addRemainder: 'Ajouter « le reste »',
+        waveName: 'Nom de la vague',
+        waveDefaultName: 'Vague {{n}}',
+        remainderDefaultName: 'Le reste',
+        remainderBadge: 'Le reste',
+        remainderHint:
+          "Inclut automatiquement chaque étudiant inscrit non affecté à une autre vague — y compris ceux qui s'inscrivent plus tard.",
+        members: 'Testeurs',
+        noMembers: 'Aucun testeur pour le moment',
+        addStudent: 'Ajouter un étudiant…',
+        inheritsQuizValue: 'Hérite de la valeur du quiz',
+        maxAttemptsLabel: 'Tentatives',
+        deleteWaveConfirm:
+          'Supprimer cette vague ? Ses testeurs basculent vers la vague « le reste », sinon ils sont bloqués.',
+        saved: 'Vague enregistrée',
+        unscheduledBlocked:
+          "{{count}} étudiant(s) inscrit(s) ne sont pas programmés et ne peuvent pas passer ce quiz. Ajoutez une vague « le reste » pour les inclure.",
+        absorbedByRemainder: '{{count}} étudiant(s) ouvriront le quiz via la vague « le reste ».',
+        allScheduled: 'Chaque étudiant inscrit est dans une vague.',
+        notScheduledPill: 'Non programmé',
+        notScheduledTitle: "Vous n'êtes pas encore programmé pour ce quiz",
+        notScheduledBody:
+          "Votre enseignant ne vous a pas encore ajouté à une vague de test pour ce quiz. Revenez plus tard ou contactez-le.",
+        yourWave: 'Votre vague : {{name}}',
+      },
       // Vue « briefing » avant le démarrage
       briefingKicker: "Briefing de l'évaluation",
       briefingHeading: 'Briefing',
@@ -1723,6 +1755,7 @@ export const fr = {
         quiz_average_low: 'Moyenne de quiz faible',
         inactivity: 'Inactivité',
         manual: 'Manuelle',
+        quiz_schedule_open: 'Quiz ouvert',
       },
     },
     dashboard: {
