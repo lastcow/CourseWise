@@ -24,6 +24,7 @@ import {
   useUpdateQuizQuestion,
 } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
+import { toDatetimeLocalValue } from '@/lib/utils';
 
 const QUESTION_TYPES: QuizQuestionType[] = [
   'single_choice',
@@ -94,15 +95,9 @@ export function TeacherQuizEditorPage(): JSX.Element {
         timeLimitMinutes:
           quiz.data.timeLimitMinutes != null ? String(quiz.data.timeLimitMinutes) : '',
         groupId: quiz.data.groupId ?? null,
-        startTime: quiz.data.startTime
-          ? new Date(quiz.data.startTime).toISOString().slice(0, 16)
-          : '',
-        endTime: quiz.data.endTime
-          ? new Date(quiz.data.endTime).toISOString().slice(0, 16)
-          : '',
-        untilDate: quiz.data.untilDate
-          ? new Date(quiz.data.untilDate).toISOString().slice(0, 16)
-          : '',
+        startTime: toDatetimeLocalValue(quiz.data.startTime),
+        endTime: toDatetimeLocalValue(quiz.data.endTime),
+        untilDate: toDatetimeLocalValue(quiz.data.untilDate),
       });
     }
   }, [quiz.data]);
