@@ -73,6 +73,7 @@ function toQuizSummary(
     courseId: row.courseId,
     moduleId: row.moduleId ?? null,
     groupId: row.groupId ?? null,
+    setId: row.setId ?? null,
     title: row.title,
     description: row.description ?? null,
     status: row.status,

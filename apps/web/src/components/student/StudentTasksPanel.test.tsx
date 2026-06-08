@@ -63,6 +63,7 @@ function quiz(over: Partial<QuizSummary> = {}): QuizSummary {
     courseId: 'c1',
     moduleId: null,
     groupId: null,
+    setId: null,
     title: 'Quiz 1',
     description: null,
     status: 'published',
