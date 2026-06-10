@@ -1,23 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, Pencil, Search } from 'lucide-react';
+import { GraduationCap, Search } from 'lucide-react';
 import type { FinalGradeSummary } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
-import { Input, Label, Textarea } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
-import {
-  downloadGradesCsv,
-  useFinalGrades,
-  useOverrideFinalGrade,
-  useRecalculateFinalGrades,
-} from '@/lib/queries';
+import { downloadGradesCsv, useFinalGrades, useRecalculateFinalGrades } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
 
 function StatTile({
@@ -50,12 +43,8 @@ export function TeacherGradebookPage(): JSX.Element {
   const cid = courseId ?? '';
   const grades = useFinalGrades(cid || null);
   const recalculate = useRecalculateFinalGrades(cid);
-  const override = useOverrideFinalGrade(cid);
   const toast = useToast();
 
-  const [editing, setEditing] = useState<FinalGradeSummary | null>(null);
-  const [draftScore, setDraftScore] = useState<string>('');
-  const [draftReason, setDraftReason] = useState<string>('');
   // Toolbar: free-text search (name / student number / email) + letter chips.
   const [search, setSearch] = useState('');
   const [letterFilter, setLetterFilter] = useState<Set<string>>(new Set());
@@ -67,29 +56,6 @@ export function TeacherGradebookPage(): JSX.Element {
         title: t('grading.recalcDone', { count: res.updated }),
         tone: 'success',
       });
-    } catch (err) {
-      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
-    }
-  }
-
-  async function onSaveOverride() {
-    if (!editing) return;
-    const trimmed = draftScore.trim();
-    const score = trimmed === '' ? null : Number(trimmed);
-    if (score !== null && (Number.isNaN(score) || score < 0 || score > 100)) {
-      toast.push({ title: t('grading.overrideInvalid'), tone: 'error' });
-      return;
-    }
-    try {
-      await override.mutateAsync({
-        id: editing.id,
-        input: {
-          teacherOverrideScore: score,
-          teacherOverrideReason: draftReason.trim() || null,
-        },
-      });
-      setEditing(null);
-      toast.push({ title: t('grading.overrideSaved'), tone: 'success' });
     } catch (err) {
       toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
     }
@@ -262,13 +228,12 @@ export function TeacherGradebookPage(): JSX.Element {
                   <th className="px-3 py-2 font-medium">{t('grading.letter')}</th>
                   <th className="px-3 py-2 font-medium">{t('grading.override')}</th>
                   <th className="px-3 py-2 font-medium">{t('grading.status')}</th>
-                  <th className="py-2"></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={5} className="px-3 py-8 text-center text-sm text-muted-foreground">
                       {t('grading.filterNoMatch')}
                     </td>
                   </tr>
@@ -303,23 +268,6 @@ export function TeacherGradebookPage(): JSX.Element {
                         <Badge variant="success">{t('grading.current')}</Badge>
                       )}
                     </td>
-                    <td className="py-2 text-right">
-                      <ActionIconButton
-                        size="sm"
-                        icon={Pencil}
-                        label={t('grading.editOverride')}
-                        color="yellow"
-                        onClick={() => {
-                          setEditing(g);
-                          setDraftScore(
-                            g.teacherOverrideScore !== null
-                              ? String(g.teacherOverrideScore)
-                              : '',
-                          );
-                          setDraftReason(g.teacherOverrideReason ?? '');
-                        }}
-                      />
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -327,48 +275,6 @@ export function TeacherGradebookPage(): JSX.Element {
             </div>
           </div>
         )}
-      <Dialog
-        open={!!editing}
-        onClose={() => setEditing(null)}
-        title={t('grading.overrideTitle')}
-      >
-        {editing ? (
-          <div className="space-y-3">
-            <div className="text-sm">
-              {editing.studentName} —{' '}
-              <span className="font-mono">{editing.score?.toFixed(1) ?? '—'}</span>
-            </div>
-            <Label className="space-y-1">
-              <span>{t('grading.overrideScore')}</span>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                step={0.1}
-                value={draftScore}
-                onChange={(e) => setDraftScore(e.target.value)}
-                placeholder={t('grading.overrideScorePlaceholder')}
-              />
-            </Label>
-            <Label className="space-y-1">
-              <span>{t('grading.overrideReason')}</span>
-              <Textarea
-                value={draftReason}
-                onChange={(e) => setDraftReason(e.target.value)}
-                rows={3}
-              />
-            </Label>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditing(null)}>
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={onSaveOverride} disabled={override.isPending}>
-                {t('common.save')}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-      </Dialog>
     </div>
   );
 }
