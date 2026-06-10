@@ -1760,6 +1760,12 @@ export const en = {
       detailTitle: 'Student gradebook',
       detailBack: 'Back to gradebook',
       detailRecalc: 'Recalculate final grade',
+      zeroMissingCta: 'Set missing to 0 ({{count}})',
+      zeroMissingTitle: 'Set missing work to 0?',
+      zeroMissingBody:
+        '{{count}} assignments with no submission (or only a draft) will be scored 0. Submitted and graded work is not touched.',
+      zeroMissingConfirm: 'Set to 0',
+      zeroMissingDone: '{{count}} scores set to 0',
       detailFinalScore: 'Final score',
       detailLetter: 'Letter',
       detailNoSubmission: 'No submission',

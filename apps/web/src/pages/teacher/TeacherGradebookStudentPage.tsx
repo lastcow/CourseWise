@@ -36,6 +36,7 @@ import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -51,6 +52,7 @@ import {
   useGradeSubmission,
   useGradebookStudentDetail,
   useRecalculateFinalGrades,
+  useZeroMissingScores,
 } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
 
@@ -208,6 +210,8 @@ export function TeacherGradebookStudentPage(): JSX.Element {
   // Sections start collapsed; the trigger rows carry enough summary to scan.
   const [openSections, setOpenSections] = useState<string[]>([]);
   const [detailTarget, setDetailTarget] = useState<GradebookItemTarget | null>(null);
+  const [zeroConfirm, setZeroConfirm] = useState(false);
+  const zeroMissing = useZeroMissingScores();
 
   async function refreshAll(): Promise<void> {
     await qc.invalidateQueries({ queryKey: ['gradebook-student-detail', cid, sid] });
@@ -267,6 +271,12 @@ export function TeacherGradebookStudentPage(): JSX.Element {
   const overrideCount = [...d.assignments.items, ...d.finalProject.items].filter(
     (a) => a.score !== null && !a.submittedAt,
   ).length;
+  // "Set missing to 0" targets: never handed in (no submission, or only a
+  // draft) and not yet scored. Submitted-awaiting-grade and graded work is
+  // deliberately untouched.
+  const zeroTargets = [...d.assignments.items, ...d.finalProject.items].filter(
+    (a) => a.score === null && (!a.submissionId || a.status === 'draft'),
+  );
 
   return (
     <div className="space-y-4">
@@ -292,6 +302,14 @@ export function TeacherGradebookStudentPage(): JSX.Element {
                 {t('grading.detailBack')}
               </Button>
             </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setZeroConfirm(true)}
+              disabled={zeroTargets.length === 0 || zeroMissing.isPending}
+            >
+              {t('grading.zeroMissingCta', { count: zeroTargets.length })}
+            </Button>
             <Button size="sm" onClick={onRecalc} disabled={recalc.isPending}>
               {t('grading.detailRecalc')}
             </Button>
@@ -454,6 +472,52 @@ export function TeacherGradebookStudentPage(): JSX.Element {
       {detailTarget ? (
         <ItemDetailDialog target={detailTarget} onClose={() => setDetailTarget(null)} />
       ) : null}
+
+      {/* Bulk zero confirm: only never-handed-in work (missing or draft). */}
+      <Dialog
+        open={zeroConfirm}
+        onClose={() => setZeroConfirm(false)}
+        title={t('grading.zeroMissingTitle')}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {t('grading.zeroMissingBody', { count: zeroTargets.length })}
+          </p>
+          <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
+            {zeroTargets.map((a) => (
+              <li key={a.assignmentId} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate">{a.title}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {a.submissionId ? t('submissions.statusDraft') : t('grading.detailNoSubmission')}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setZeroConfirm(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              disabled={zeroMissing.isPending}
+              onClick={async () => {
+                try {
+                  const n = await zeroMissing.mutateAsync({
+                    studentId: sid,
+                    assignmentIds: zeroTargets.map((a) => a.assignmentId),
+                  });
+                  setZeroConfirm(false);
+                  await refreshAll();
+                  toast.push({ title: t('grading.zeroMissingDone', { count: n }), tone: 'success' });
+                } catch (err) {
+                  toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+                }
+              }}
+            >
+              {t('grading.zeroMissingConfirm')}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

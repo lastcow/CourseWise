@@ -1007,6 +1007,30 @@ export function useSubmission(submissionId: string | null) {
   });
 }
 
+// Bulk "set missing to 0": zero every listed assignment for the student via
+// the direct grade-by-student endpoint (handles missing rows and drafts).
+// Caller passes only eligible items — submitted/graded work must be excluded
+// upstream. Sequential on purpose; the lists are small.
+export function useZeroMissingScores() {
+  return useMutation({
+    mutationFn: async ({
+      studentId,
+      assignmentIds,
+    }: {
+      studentId: string;
+      assignmentIds: string[];
+    }) => {
+      for (const assignmentId of assignmentIds) {
+        await apiCall<SubmissionSummary>(`/api/assignments/${assignmentId}/grades/${studentId}`, {
+          method: 'POST',
+          body: { score: 0 },
+        });
+      }
+      return assignmentIds.length;
+    },
+  });
+}
+
 // Direct grade-by-student: scores an assignment for a student even when no
 // submission exists (work handed in by email/paper). Gradebook override path.
 export function useGradeStudentScore(assignmentId: string) {
