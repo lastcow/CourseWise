@@ -939,6 +939,12 @@ export interface AlertWithStudent extends AlertSummary {
   student?: { id: string; name: string; email: string };
 }
 
+/** Admin alert-center row: target user + owning course (null = system alert). */
+export interface AlertWithContext extends AlertSummary {
+  student?: { id: string; name: string; email: string };
+  course?: { id: string; code: string; title: string } | null;
+}
+
 export interface GenerateAlertsResult {
   courseId: string;
   generated: number;
