@@ -888,6 +888,8 @@ export interface GradebookDiscussionItem {
   score: number | null;
   feedback: string | null;
   gradedAt: string | null;
+  /** Student's non-deleted posts in the topic; 0 means nothing to grade yet. */
+  postCount: number;
 }
 
 export interface GradebookAttendanceItem {

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import {
   type FinalGradeSummary,
   type GradebookAssignmentItem,
@@ -21,6 +21,7 @@ import {
   attendanceRecords,
   attendanceSessions,
   discussionGrades,
+  discussionPosts,
   discussionTopics,
   enrollments,
   finalGrades,
@@ -1042,6 +1043,25 @@ export async function buildGradebookStudentDetail(
         )
     : [];
   const gradeByTopic = new Map(grades.map((g) => [g.topicId, g]));
+  // Post counts let the UI tell "submitted but ungraded" apart from "never
+  // posted" (the latter shouldn't be flagged as needing grading).
+  const postCounts = topics.length
+    ? await db
+        .select({ topicId: discussionPosts.topicId, n: count() })
+        .from(discussionPosts)
+        .where(
+          and(
+            inArray(
+              discussionPosts.topicId,
+              topics.map((t) => t.id),
+            ),
+            eq(discussionPosts.authorId, studentId),
+            eq(discussionPosts.isDeleted, false),
+          ),
+        )
+        .groupBy(discussionPosts.topicId)
+    : [];
+  const postCountByTopic = new Map(postCounts.map((r) => [r.topicId, Number(r.n)]));
   const discussionItems: GradebookDiscussionItem[] = topics.map((t) => {
     const g = gradeByTopic.get(t.id);
     return {
@@ -1051,6 +1071,7 @@ export async function buildGradebookStudentDetail(
       score: g?.score !== null && g?.score !== undefined ? Number(g.score) : null,
       feedback: g?.feedback ?? null,
       gradedAt: g?.gradedAt ?? null,
+      postCount: postCountByTopic.get(t.id) ?? 0,
     };
   });
 
