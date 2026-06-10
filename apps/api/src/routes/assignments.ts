@@ -1638,16 +1638,17 @@ async function gradeSubmissionHandler(c: Context<AppEnv>) {
   ) {
     throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
   }
-  if (submission.status === 'draft') {
-    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Cannot grade a draft submission');
-  }
+  // Drafts are gradeable: teachers/admins override scores for work handed in
+  // outside the system (email/paper), so a started-but-never-submitted draft
+  // must not block the grade. A draft has no submittedAt, so no late penalty
+  // applies; grading stamps it 'graded' like any other row.
   const input = c.get('validated') as GradeSubmissionInput;
   return applyGradeToSubmission(c, submission, assignment, input);
 }
 
-// Shared grading core: penalty math, group fan-out, audit, response. The
-// normal endpoint rejects drafts before calling this; the gradebook's direct
-// grade-by-student endpoint deliberately doesn't (it exists to score work
+// Shared grading core: penalty math, group fan-out, audit, response. Used by
+// the normal grade endpoint and the gradebook's direct grade-by-student
+// endpoint (which exists to score work
 // handed in outside the system).
 async function applyGradeToSubmission(
   c: Context<AppEnv>,
