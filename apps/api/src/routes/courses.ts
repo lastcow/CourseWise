@@ -57,6 +57,8 @@ function toCourseSummary(
     termLabel: row.termLabel ?? null,
     startDate: row.startDate ?? null,
     endDate: row.endDate ?? null,
+    meetingSlots: (row.meetingSlotsJson as CourseSummary['meetingSlots']) ?? null,
+    moduleCadence: row.moduleCadence ?? null,
     status: row.status,
     gradingPolicy: (row.gradingPolicyJson as GradingPolicy | null) ?? null,
     archivedAt: row.archivedAt ?? null,
@@ -132,6 +134,7 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
     auth.user.role === 'student' ? sql`AND a.status = 'published'` : sql``;
   const presentationFilter =
     auth.user.role === 'student' ? sql`AND p.status = 'published'` : sql``;
+  const moduleFilter = auth.user.role === 'student' ? sql`AND m.status = 'published'` : sql``;
 
   const result = await db.execute(sql`
     SELECT
@@ -142,6 +145,8 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       c.term_label AS "termLabel",
       c.start_date AS "startDate",
       c.end_date AS "endDate",
+      c.meeting_slots_json AS "meetingSlotsJson",
+      c.module_cadence AS "moduleCadence",
       c.status,
       c.grading_policy_json AS "gradingPolicyJson",
       c.archived_at AS "archivedAt",
@@ -152,7 +157,7 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       c.syllabus_file_asset_id AS "syllabusFileAssetId",
       fa.bucket AS "banner_bucket",
       fa.object_key AS "banner_object_key",
-      (SELECT count(*)::int FROM modules m WHERE m.course_id = c.id) AS "modules_count",
+      (SELECT count(*)::int FROM modules m WHERE m.course_id = c.id ${moduleFilter}) AS "modules_count",
       (SELECT count(*)::int FROM assignments a WHERE a.course_id = c.id ${assignmentFilter}) AS "assignments_count",
       (SELECT count(*)::int FROM presentations p WHERE p.course_id = c.id ${presentationFilter}) AS "presentations_count",
       (SELECT count(*)::int FROM enrollments e WHERE e.course_id = c.id AND e.status = 'enrolled') AS "students_count"
@@ -178,6 +183,8 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       termLabel: (row.termLabel ?? null) as string | null,
       startDate: (row.startDate ?? null) as string | null,
       endDate: (row.endDate ?? null) as string | null,
+      meetingSlots: (row.meetingSlotsJson ?? null) as CourseSummary['meetingSlots'],
+      moduleCadence: (row.moduleCadence ?? null) as CourseSummary['moduleCadence'],
       status: row.status as CourseSummary['status'],
       gradingPolicy:
         ((row.gradingPolicyJson as GradingPolicy | null) ?? null) as CourseSummary['gradingPolicy'],
@@ -227,6 +234,8 @@ r.post('/courses', requireScopeGroup('coursesWrite'), validateJson(createCourseS
       termLabel: input.termLabel ?? null,
       startDate: input.startDate ?? null,
       endDate: input.endDate ?? null,
+      meetingSlotsJson: input.meetingSlots ?? null,
+      moduleCadence: input.moduleCadence ?? null,
       status: input.status ?? 'active',
       gradingPolicyJson: policy,
     })
@@ -297,12 +306,13 @@ r.get('/courses/:courseId', requireScopeGroup('coursesRead'), requireCourseAcces
     auth.user.role === 'student' ? sql`AND a.status = 'published'` : sql``;
   const presentationFilter =
     auth.user.role === 'student' ? sql`AND p.status = 'published'` : sql``;
+  const moduleFilter = auth.user.role === 'student' ? sql`AND m.status = 'published'` : sql``;
 
   const aggResult = await db.execute(sql`
     SELECT
       fa.bucket AS "banner_bucket",
       fa.object_key AS "banner_object_key",
-      (SELECT count(*)::int FROM modules m WHERE m.course_id = ${courseId}) AS "modules_count",
+      (SELECT count(*)::int FROM modules m WHERE m.course_id = ${courseId} ${moduleFilter}) AS "modules_count",
       (SELECT count(*)::int FROM assignments a WHERE a.course_id = ${courseId} ${assignmentFilter}) AS "assignments_count",
       (SELECT count(*)::int FROM presentations p WHERE p.course_id = ${courseId} ${presentationFilter}) AS "presentations_count",
       (SELECT count(*)::int FROM enrollments e WHERE e.course_id = ${courseId} AND e.status = 'enrolled') AS "students_count"
@@ -373,6 +383,8 @@ r.patch(
     if (input.termLabel !== undefined) patch.termLabel = input.termLabel;
     if (input.startDate !== undefined) patch.startDate = input.startDate;
     if (input.endDate !== undefined) patch.endDate = input.endDate;
+    if (input.meetingSlots !== undefined) patch.meetingSlotsJson = input.meetingSlots;
+    if (input.moduleCadence !== undefined) patch.moduleCadence = input.moduleCadence;
     if (input.status !== undefined) {
       patch.status = input.status;
       patch.archivedAt = input.status === 'archived' ? new Date().toISOString() : null;

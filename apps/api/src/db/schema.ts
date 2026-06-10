@@ -19,6 +19,16 @@ export const userRoleEnum = pgEnum('user_role', ['admin', 'teacher', 'student'])
 export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'suspended']);
 export const preferredLanguageEnum = pgEnum('preferred_language', ['en', 'zh-CN', 'fr']);
 export const courseStatusEnum = pgEnum('course_status', ['draft', 'active', 'archived']);
+// How modules chunk against the course schedule: one module per class session
+// (driven by meeting_slots_json) or per fixed period.
+export const moduleCadenceEnum = pgEnum('module_cadence', [
+  'session',
+  'daily',
+  'weekly',
+  'biweekly',
+  'monthly',
+]);
+export const moduleStatusEnum = pgEnum('module_status', ['draft', 'published']);
 export const enrollmentStatusEnum = pgEnum('enrollment_status', [
   'enrolled',
   'dropped',
@@ -285,6 +295,11 @@ export const courses = pgTable(
     // with no dates simply shows no progress bar.
     startDate: timestamp('start_date', { withTimezone: true, mode: 'string' }),
     endDate: timestamp('end_date', { withTimezone: true, mode: 'string' }),
+    // Weekly meeting slots ("every Mon 1-2PM"): array of
+    // { day: 0-6 (Sun-Sat), start: 'HH:MM', end: 'HH:MM' }.
+    meetingSlotsJson: jsonb('meeting_slots_json'),
+    // Teacher-chosen module chunking; null = modules are not schedule-driven.
+    moduleCadence: moduleCadenceEnum('module_cadence'),
     status: courseStatusEnum('status').notNull().default('active'),
     gradingPolicyJson: jsonb('grading_policy_json'),
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
@@ -375,6 +390,16 @@ export const modules = pgTable(
     title: text('title').notNull(),
     description: text('description'),
     position: integer('position').notNull().default(0),
+    // Visibility follows the same draft/published lifecycle as course items:
+    // students only see published modules.
+    status: moduleStatusEnum('status').notNull().default('draft'),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'string' }),
+    // Schedule window (auto-aligned from the course cadence, individually
+    // adjustable). A module past endAt — or manually closed via closedAt —
+    // grays out in the UI but stays fully functional.
+    startAt: timestamp('start_at', { withTimezone: true, mode: 'string' }),
+    endAt: timestamp('end_at', { withTimezone: true, mode: 'string' }),
+    closedAt: timestamp('closed_at', { withTimezone: true, mode: 'string' }),
     ...timestamps,
   },
   (t) => ({

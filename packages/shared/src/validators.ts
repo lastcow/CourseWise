@@ -21,6 +21,7 @@ import {
   GROUP_SET_SIGNUP_STATUSES,
   MATERIAL_SOURCE_TYPES,
   MATERIAL_STATUSES,
+  MODULE_CADENCES,
   QUIZ_QUESTION_TYPES,
   RECORD_CORRECTION_TARGETS,
   SUPPORTED_LOCALES,
@@ -140,6 +141,18 @@ function courseDatesOrderOk(v: { startDate?: string | null; endDate?: string | n
   return true;
 }
 
+// One recurring weekly class meeting: day-of-week 0-6 (Sun-Sat) + wall-clock
+// 'HH:MM' times, end strictly after start.
+const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const meetingSlotSchema = z
+  .object({
+    day: z.number().int().min(0).max(6),
+    start: z.string().regex(hhmm, 'Expected HH:MM'),
+    end: z.string().regex(hhmm, 'Expected HH:MM'),
+  })
+  .refine((s) => s.start < s.end, { message: 'end must be after start', path: ['end'] });
+export type MeetingSlotInput = z.infer<typeof meetingSlotSchema>;
+
 export const createCourseSchema = z
   .object({
     code: courseCodeSchema,
@@ -148,6 +161,8 @@ export const createCourseSchema = z
     termLabel: z.string().trim().max(120).optional().nullable(),
     startDate: isoDateString.optional().nullable(),
     endDate: isoDateString.optional().nullable(),
+    meetingSlots: z.array(meetingSlotSchema).max(14).optional().nullable(),
+    moduleCadence: z.enum(MODULE_CADENCES).optional().nullable(),
     status: z.enum(COURSE_STATUSES).optional(),
     teacherId: z.string().uuid().optional(),
     gradingPolicy: gradingPolicySchema.optional(),
@@ -166,6 +181,8 @@ export const updateCourseSchema = z
     termLabel: z.string().trim().max(120).optional().nullable(),
     startDate: isoDateString.optional().nullable(),
     endDate: isoDateString.optional().nullable(),
+    meetingSlots: z.array(meetingSlotSchema).max(14).optional().nullable(),
+    moduleCadence: z.enum(MODULE_CADENCES).optional().nullable(),
     status: z.enum(COURSE_STATUSES).optional(),
     gradingPolicy: gradingPolicySchema.optional(),
     bannerFileAssetId: z.string().uuid().nullable().optional(),
@@ -183,16 +200,40 @@ export const enrollStudentSchema = z.object({
 });
 export type EnrollStudentInput = z.infer<typeof enrollStudentSchema>;
 
-export const createModuleSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(2000).optional().nullable(),
-});
+// startAt must not fall after endAt; only fires when both present.
+function moduleWindowOrderOk(v: { startAt?: string | null; endAt?: string | null }): boolean {
+  const start = v.startAt ? Date.parse(v.startAt) : null;
+  const end = v.endAt ? Date.parse(v.endAt) : null;
+  if (start !== null && end !== null && start > end) return false;
+  return true;
+}
+
+export const createModuleSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(2000).optional().nullable(),
+    startAt: isoDateString.optional().nullable(),
+    endAt: isoDateString.optional().nullable(),
+  })
+  .refine(moduleWindowOrderOk, {
+    message: 'startAt must be on or before endAt',
+    path: ['endAt'],
+  });
 export type CreateModuleInput = z.infer<typeof createModuleSchema>;
 
-export const updateModuleSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
-  description: z.string().trim().max(2000).optional().nullable(),
-});
+export const updateModuleSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(2000).optional().nullable(),
+    startAt: isoDateString.optional().nullable(),
+    endAt: isoDateString.optional().nullable(),
+    // true → stamp closedAt (manual close, grays out); false → reopen.
+    closed: z.boolean().optional(),
+  })
+  .refine(moduleWindowOrderOk, {
+    message: 'startAt must be on or before endAt',
+    path: ['endAt'],
+  });
 export type UpdateModuleInput = z.infer<typeof updateModuleSchema>;
 
 export const reorderModulesSchema = z.object({

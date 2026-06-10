@@ -246,6 +246,13 @@
       "when": 1783468800000,
       "tag": "0034_quiz_sets",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1783641600000,
+      "tag": "0035_module_scheduling",
+      "breakpoints": true
     }
   ]
 }

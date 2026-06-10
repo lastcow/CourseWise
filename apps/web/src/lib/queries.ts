@@ -316,6 +316,28 @@ export function useReorderModules(courseId: string) {
   });
 }
 
+export function useTransitionModule(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action }: { id: string; action: 'publish' | 'unpublish' }) =>
+      apiCall<ModuleSummary>(`/api/modules/${id}/${action}`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['modules', courseId] }),
+  });
+}
+
+// Recompute every module's window from the course schedule (by position).
+export function useAlignModules(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall<ModuleSummary[]>(`/api/courses/${courseId}/modules/align`, {
+        method: 'POST',
+        body: {},
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['modules', courseId] }),
+  });
+}
+
 // Materials
 export function useMaterialsList(courseId: string | null) {
   return useQuery({

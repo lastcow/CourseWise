@@ -4,11 +4,15 @@ import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 import {
   Archive,
+  CalendarRange,
   CircleCheck,
+  CircleOff,
   ClipboardList,
   ExternalLink,
   GripVertical,
   ListChecks,
+  Lock,
+  LockOpen,
   MessageSquare,
   Pencil,
   Trash2,
@@ -33,6 +37,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { ModuleContentSummary } from '@/components/ModuleContentSummary';
 import { CourseHeader } from '@/components/course/CourseHeader';
 import {
+  useAlignModules,
   useAssignmentsList,
   useCourse,
   useCourseGradingSummary,
@@ -46,10 +51,12 @@ import {
   useQuizzesList,
   useReorderModules,
   useTransitionMaterial,
+  useTransitionModule,
   useUpdateModule,
 } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
+import { formatModuleWindow, moduleClosed } from '@/lib/moduleSchedule';
 import type {
   AssignmentSummary,
   DiscussionTopicSummary,
@@ -137,10 +144,13 @@ export function TeacherModulesPage(): JSX.Element {
   const del = useDeleteModule(id);
   const reorder = useReorderModules(id);
   const transitionMaterial = useTransitionMaterial(id);
+  const transitionModule = useTransitionModule(id);
+  const alignModules = useAlignModules(id);
   const delMaterial = useDeleteMaterial(id);
   const toast = useToast();
 
   const [openCreate, setOpenCreate] = useState(false);
+  const [alignConfirm, setAlignConfirm] = useState(false);
   // Controlled accordion state so the Expand all / Collapse all buttons can
   // bulk-set which module bodies are open.
   const [openIds, setOpenIds] = useState<string[]>([]);
@@ -244,6 +254,17 @@ export function TeacherModulesPage(): JSX.Element {
               >
                 {openIds.length > 0 ? t('modules.collapseAll') : t('modules.expandAll')}
               </Button>
+              {course.data?.moduleCadence && course.data?.startDate ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAlignConfirm(true)}
+                  disabled={!list.data || list.data.length === 0 || alignModules.isPending}
+                >
+                  <CalendarRange className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  {t('modules.alignCta')}
+                </Button>
+              ) : null}
               <Button size="sm" onClick={() => setOpenCreate(true)}>
                 {t('modules.newCta')}
               </Button>
@@ -270,6 +291,8 @@ export function TeacherModulesPage(): JSX.Element {
             const dscs = moduleDiscussions.get(m.id) ?? [];
             const isDragging = draggingId === m.id;
             const isDragOver = dragOverId === m.id && draggingId !== m.id;
+            const closed = moduleClosed(m);
+            const windowLabel = formatModuleWindow(m);
             return (
               <AccordionItem
                 key={m.id}
@@ -305,6 +328,9 @@ export function TeacherModulesPage(): JSX.Element {
                 className={cn(
                   isDragging && 'opacity-50',
                   isDragOver && 'ring-2 ring-primary ring-offset-1',
+                  // Past its window or manually closed: gray out the whole
+                  // module — everything stays clickable, only the look changes.
+                  closed && !isDragging && 'opacity-60 grayscale',
                 )}
               >
                 <AccordionTrigger
@@ -319,6 +345,72 @@ export function TeacherModulesPage(): JSX.Element {
                   }
                   trailing={
                     <>
+                      {m.status === 'draft' ? (
+                        <ActionIconButton
+                          icon={CircleCheck}
+                          label={t('modules.publish')}
+                          color="emerald"
+                          onClick={async () => {
+                            try {
+                              await transitionModule.mutateAsync({ id: m.id, action: 'publish' });
+                              toast.push({ title: t('modules.published'), tone: 'success' });
+                            } catch (err) {
+                              const i18n =
+                                err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                              toast.push({ title: t(i18n), tone: 'error' });
+                            }
+                          }}
+                        />
+                      ) : (
+                        <ActionIconButton
+                          icon={CircleOff}
+                          label={t('modules.unpublish')}
+                          color="orange"
+                          onClick={async () => {
+                            try {
+                              await transitionModule.mutateAsync({ id: m.id, action: 'unpublish' });
+                              toast.push({ title: t('modules.unpublished'), tone: 'success' });
+                            } catch (err) {
+                              const i18n =
+                                err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                              toast.push({ title: t(i18n), tone: 'error' });
+                            }
+                          }}
+                        />
+                      )}
+                      {m.closedAt ? (
+                        <ActionIconButton
+                          icon={LockOpen}
+                          label={t('modules.reopen')}
+                          color="teal"
+                          onClick={async () => {
+                            try {
+                              await update.mutateAsync({ id: m.id, input: { closed: false } });
+                              toast.push({ title: t('modules.reopened'), tone: 'success' });
+                            } catch (err) {
+                              const i18n =
+                                err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                              toast.push({ title: t(i18n), tone: 'error' });
+                            }
+                          }}
+                        />
+                      ) : (
+                        <ActionIconButton
+                          icon={Lock}
+                          label={t('modules.close')}
+                          color="amber"
+                          onClick={async () => {
+                            try {
+                              await update.mutateAsync({ id: m.id, input: { closed: true } });
+                              toast.push({ title: t('modules.closedToast'), tone: 'success' });
+                            } catch (err) {
+                              const i18n =
+                                err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                              toast.push({ title: t(i18n), tone: 'error' });
+                            }
+                          }}
+                        />
+                      )}
                       <ActionIconButton
                         icon={Pencil}
                         label={t('common.edit')}
@@ -345,7 +437,25 @@ export function TeacherModulesPage(): JSX.Element {
                   }
                 >
                   <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <span className="font-medium">{m.title}</span>
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-medium">{m.title}</span>
+                      {m.status === 'draft' ? (
+                        <Badge variant="outline" className="shrink-0 text-muted-foreground">
+                          {t('modules.draftBadge')}
+                        </Badge>
+                      ) : null}
+                      {closed ? (
+                        <Badge variant="secondary" className="shrink-0">
+                          {m.closedAt ? t('modules.closedBadge') : t('modules.endedBadge')}
+                        </Badge>
+                      ) : null}
+                      {windowLabel ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
+                          <CalendarRange className="h-3.5 w-3.5" aria-hidden />
+                          {windowLabel}
+                        </span>
+                      ) : null}
+                    </span>
                     <ModuleContentSummary
                       counts={{
                         materials: mats.length,
@@ -733,6 +843,38 @@ export function TeacherModulesPage(): JSX.Element {
         </aside>
       </div>
 
+      {/* Align-to-schedule confirm: it overwrites every module's window. */}
+      <Dialog
+        open={alignConfirm}
+        onClose={() => setAlignConfirm(false)}
+        title={t('modules.alignConfirmTitle')}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t('modules.alignConfirmBody')}</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setAlignConfirm(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              disabled={alignModules.isPending}
+              onClick={async () => {
+                try {
+                  await alignModules.mutateAsync();
+                  setAlignConfirm(false);
+                  toast.push({ title: t('modules.aligned'), tone: 'success' });
+                } catch (err) {
+                  const i18n =
+                    err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+                  toast.push({ title: t(i18n), tone: 'error' });
+                }
+              }}
+            >
+              {t('modules.alignCta')}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
       <ModuleDialog
         open={openCreate}
         onClose={() => setOpenCreate(false)}
@@ -777,24 +919,71 @@ function ModuleDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onSubmit: (input: { title: string; description: string | null }) => Promise<void>;
-  initial?: { title: string; description: string | null } | null;
+  onSubmit: (input: {
+    title: string;
+    description: string | null;
+    startAt?: string | null;
+    endAt?: string | null;
+  }) => Promise<void>;
+  initial?: {
+    title: string;
+    description: string | null;
+    startAt?: string | null;
+    endAt?: string | null;
+  } | null;
 }): JSX.Element {
   const { t } = useTranslation();
   const [title, setTitle] = useState(initial?.title ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
+  // <input type="datetime-local"> wants YYYY-MM-DDTHH:MM; windows are stored
+  // as UTC wall-clock ISO, so slicing keeps the times the teacher entered.
+  const [startAt, setStartAt] = useState(initial?.startAt ? initial.startAt.slice(0, 16) : '');
+  const [endAt, setEndAt] = useState(initial?.endAt ? initial.endAt.slice(0, 16) : '');
   return (
     <Dialog open={open} onClose={onClose} title={initial ? t('common.edit') : t('modules.newCta')}>
       <form
         className="space-y-3"
         onSubmit={async (e) => {
           e.preventDefault();
-          await onSubmit({ title, description: description || null });
+          const input: {
+            title: string;
+            description: string | null;
+            startAt?: string | null;
+            endAt?: string | null;
+          } = { title, description: description || null };
+          // On create, omitting the window lets the server auto-assign the
+          // next slot from the course schedule; on edit, send explicit values
+          // (null clears).
+          if (initial || startAt) input.startAt = startAt ? `${startAt}:00.000Z` : null;
+          if (initial || endAt) input.endAt = endAt ? `${endAt}:00.000Z` : null;
+          await onSubmit(input);
         }}
       >
         <div className="space-y-1">
           <Label htmlFor="title">{t('modules.titleLabel')}</Label>
           <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label htmlFor="mod-start">{t('modules.startLabel')}</Label>
+            <Input
+              id="mod-start"
+              type="datetime-local"
+              value={startAt}
+              max={endAt || undefined}
+              onChange={(e) => setStartAt(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="mod-end">{t('modules.endLabel')}</Label>
+            <Input
+              id="mod-end"
+              type="datetime-local"
+              value={endAt}
+              min={startAt || undefined}
+              onChange={(e) => setEndAt(e.target.value)}
+            />
+          </div>
         </div>
         <div className="space-y-1">
           <Label htmlFor="description">{t('modules.descriptionLabel')}</Label>
