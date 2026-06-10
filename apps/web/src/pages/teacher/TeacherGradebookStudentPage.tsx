@@ -66,6 +66,12 @@ type Lookups = {
   discussions: Map<string, GradebookDiscussionItem>;
 };
 
+// "submitted" → submissions.statusSubmitted etc. (same convention as the
+// submissions inbox).
+function submissionStatusLabel(t: (k: string) => string, s: string): string {
+  return t(`submissions.status${s[0]!.toUpperCase()}${s.slice(1)}`);
+}
+
 function assignmentNeedsGrading(a: GradebookAssignmentItem): boolean {
   return !!a.submissionId && a.status !== 'draft' && a.score === null;
 }
@@ -683,12 +689,11 @@ function AssignmentRow({
   const [score, setScore] = useState<string>(
     item.score !== null ? String(item.score) : '',
   );
-  const [feedback, setFeedback] = useState<string>(item.feedback ?? '');
   const canEdit = !!item.submissionId;
   const dirty = useMemo(() => {
     const current = item.score !== null ? String(item.score) : '';
-    return score !== current || feedback !== (item.feedback ?? '');
-  }, [score, feedback, item]);
+    return score !== current;
+  }, [score, item]);
 
   const onSave = async (): Promise<void> => {
     if (!item.submissionId) return;
@@ -700,9 +705,12 @@ function AssignmentRow({
       return;
     }
     try {
+      // Feedback is read in the details dialog and edited on the grading
+      // page; pass the stored value through so a quick score save here
+      // doesn't wipe it.
       await grade.mutateAsync({
         id: item.submissionId,
-        input: { score: n, feedback: feedback || null },
+        input: { score: n, feedback: item.feedback ?? null },
       });
       await onSaved();
       toast.push({ title: t('grading.detailSavedScore'), tone: 'success' });
@@ -717,15 +725,6 @@ function AssignmentRow({
         {/* First line of every cell centers within the h-10 input height so
             text, inputs, and buttons share one visual baseline. */}
         <div className="flex min-h-10 items-center">{item.title}</div>
-        {item.feedback || canEdit ? (
-          <Input
-            className="mt-1 text-xs"
-            placeholder={t('grading.detailFeedback')}
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            disabled={!canEdit}
-          />
-        ) : null}
       </td>
       <td className="py-2 pr-3">
         <Input
@@ -743,8 +742,14 @@ function AssignmentRow({
       <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">
         <div className="flex h-10 items-center">{item.maxScore}</div>
       </td>
-      <td className="py-2 pr-3 text-xs text-muted-foreground">
-        <div className="flex h-10 items-center">{item.status ?? '—'}</div>
+      <td className="py-2 pr-3">
+        <div className="flex h-10 items-center">
+          {item.status ? (
+            <Badge variant="outline">{submissionStatusLabel(t, item.status)}</Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+        </div>
       </td>
       <td className="py-2 pr-2 text-right">
         <div className="flex h-10 items-center justify-end gap-1.5">
@@ -794,8 +799,14 @@ function QuizRow({
       <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">
         {item.maxScore ?? '—'}
       </td>
-      <td className="py-2 pr-3 text-xs text-muted-foreground">
-        {item.attemptId ? item.status ?? '—' : t('grading.detailNoAttempt')}
+      <td className="py-2 pr-3">
+        {item.attemptId && item.status ? (
+          <Badge variant="outline">{t(`quizzes.attemptStatus.${item.status}`)}</Badge>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            {item.attemptId ? '—' : t('grading.detailNoAttempt')}
+          </span>
+        )}
       </td>
       <td className="py-2 pr-2 text-right">
         {item.attemptId ? (
@@ -846,11 +857,10 @@ function DiscussionRow({
   const [score, setScore] = useState<string>(
     item.score !== null ? String(item.score) : '',
   );
-  const [feedback, setFeedback] = useState<string>(item.feedback ?? '');
   const dirty = useMemo(() => {
     const current = item.score !== null ? String(item.score) : '';
-    return score !== current || feedback !== (item.feedback ?? '');
-  }, [score, feedback, item]);
+    return score !== current;
+  }, [score, item]);
 
   const onSave = async (): Promise<void> => {
     const trimmed = score.trim();
@@ -861,9 +871,10 @@ function DiscussionRow({
       return;
     }
     try {
+      // Pass stored feedback through so a score-only save doesn't wipe it.
       await grade.mutateAsync({
         studentId,
-        input: { score: n, feedback: feedback || null },
+        input: { score: n, feedback: item.feedback ?? null },
       });
       await onSaved();
       toast.push({ title: t('grading.detailSavedScore'), tone: 'success' });
@@ -876,12 +887,6 @@ function DiscussionRow({
     <tr className="border-b align-top last:border-0">
       <td className="py-2 pl-2 pr-3">
         <div className="flex min-h-10 items-center">{item.title}</div>
-        <Input
-          className="mt-1 text-xs"
-          placeholder={t('grading.detailFeedback')}
-          value={feedback}
-          onChange={(e) => setFeedback(e.target.value)}
-        />
       </td>
       <td className="py-2 pr-3">
         <Input
@@ -897,8 +902,16 @@ function DiscussionRow({
       <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">
         <div className="flex h-10 items-center">{item.maxScore}</div>
       </td>
-      <td className="py-2 pr-3 text-xs text-muted-foreground">
-        <div className="flex h-10 items-center">—</div>
+      <td className="py-2 pr-3">
+        <div className="flex h-10 items-center">
+          {item.postCount > 0 ? (
+            <Badge variant="outline">
+              {item.score !== null ? t('grading.graded') : t('grading.awaitingGrade')}
+            </Badge>
+          ) : (
+            <Badge variant="outline">{t('grading.notSubmitted')}</Badge>
+          )}
+        </div>
       </td>
       <td className="py-2 pr-2 text-right">
         <div className="flex h-10 items-center justify-end gap-1.5">
