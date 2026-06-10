@@ -17,6 +17,8 @@ import type {
   Locale,
   MaterialSourceType,
   MaterialStatus,
+  ModuleCadence,
+  ModuleStatus,
   PresentationProvider,
   PresentationStatus,
   QuizAttemptStatus,
@@ -103,6 +105,13 @@ export interface CreatedApiToken extends ApiTokenSummary {
   token: string;
 }
 
+/** One recurring weekly class meeting: day 0-6 (Sun-Sat), 'HH:MM' times. */
+export interface MeetingSlot {
+  day: number;
+  start: string;
+  end: string;
+}
+
 export interface CourseSummary {
   id: string;
   code: string;
@@ -112,6 +121,10 @@ export interface CourseSummary {
   // Schedule window (ISO timestamps). Drive the course-home progress bar.
   startDate: string | null;
   endDate: string | null;
+  /** Weekly meeting slots ("every Mon 1-2PM"). */
+  meetingSlots: MeetingSlot[] | null;
+  /** Teacher-chosen module chunking; null = modules are not schedule-driven. */
+  moduleCadence: ModuleCadence | null;
   status: CourseStatus;
   gradingPolicy: GradingPolicy | null;
   archivedAt: string | null;
@@ -141,6 +154,14 @@ export interface ModuleSummary {
   title: string;
   description: string | null;
   position: number;
+  /** Students only see published modules. */
+  status: ModuleStatus;
+  publishedAt: string | null;
+  /** Schedule window — auto-aligned from the course cadence, individually
+   *  adjustable. Past endAt (or manually closed) the module grays out. */
+  startAt: string | null;
+  endAt: string | null;
+  closedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

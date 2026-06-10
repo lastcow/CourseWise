@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, ExternalLink } from 'lucide-react';
+import { CalendarRange, ChevronRight, ExternalLink } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -23,6 +23,8 @@ import {
   usePresentationsList,
   useQuizzesList,
 } from '@/lib/queries';
+import { formatModuleWindow, moduleClosed } from '@/lib/moduleSchedule';
+import { cn } from '@/lib/utils';
 import type {
   AssignmentSummary,
   DiscussionTopicSummary,
@@ -268,11 +270,32 @@ export function StudentModulesPage(): JSX.Element {
             const qzs = qzByModule.get(m.id) ?? [];
             const dscs = dscByModule.get(m.id) ?? [];
             const total = mats.length + pres.length + asgs.length + qzs.length + dscs.length;
+            const closed = moduleClosed(m);
+            const windowLabel = formatModuleWindow(m);
             return (
-              <AccordionItem key={m.id} value={m.id}>
+              <AccordionItem
+                key={m.id}
+                value={m.id}
+                // Past its window or closed by the teacher: gray out, but the
+                // module stays fully usable.
+                className={cn(closed && 'opacity-60 grayscale')}
+              >
                 <AccordionTrigger>
                   <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <span className="font-medium">{m.title}</span>
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-medium">{m.title}</span>
+                      {closed ? (
+                        <Badge variant="secondary" className="shrink-0">
+                          {t('modules.endedBadge')}
+                        </Badge>
+                      ) : null}
+                      {windowLabel ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
+                          <CalendarRange className="h-3.5 w-3.5" aria-hidden />
+                          {windowLabel}
+                        </span>
+                      ) : null}
+                    </span>
                     <ModuleContentSummary
                       counts={{
                         materials: mats.length,

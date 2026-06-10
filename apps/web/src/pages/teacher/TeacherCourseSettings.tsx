@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Trash2 } from 'lucide-react';
+import { MODULE_CADENCES, type MeetingSlot, type ModuleCadence } from '@coursewise/shared';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
@@ -38,6 +41,8 @@ export function TeacherCourseSettings(): JSX.Element {
   const [termLabel, setTermLabel] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [moduleCadence, setModuleCadence] = useState<'' | ModuleCadence>('');
+  const [slots, setSlots] = useState<MeetingSlot[]>([]);
   const [description, setDescription] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -56,6 +61,8 @@ export function TeacherCourseSettings(): JSX.Element {
       // <input type="date"> wants YYYY-MM-DD; the API stores full ISO timestamps.
       setStartDate(course.data.startDate ? course.data.startDate.slice(0, 10) : '');
       setEndDate(course.data.endDate ? course.data.endDate.slice(0, 10) : '');
+      setModuleCadence(course.data.moduleCadence ?? '');
+      setSlots(course.data.meetingSlots ?? []);
       setDescription(course.data.description ?? '');
     }
   }, [course.data]);
@@ -75,6 +82,8 @@ export function TeacherCourseSettings(): JSX.Element {
           // the field sends null.
           startDate: startDate ? `${startDate}T00:00:00.000Z` : null,
           endDate: endDate ? `${endDate}T00:00:00.000Z` : null,
+          moduleCadence: moduleCadence || null,
+          meetingSlots: slots.length > 0 ? slots : null,
           description: description || null,
         },
       });
@@ -222,6 +231,89 @@ export function TeacherCourseSettings(): JSX.Element {
                   min={startDate || undefined}
                   onChange={(e) => setEndDate(e.target.value)}
                 />
+              </div>
+            </div>
+            {/* Schedule: how often the class meets and how modules chunk. */}
+            <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+              <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                {t('courses.scheduleSection')}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="moduleCadence">{t('courses.moduleCadenceLabel')}</Label>
+                <select
+                  id="moduleCadence"
+                  className="flex h-10 w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={moduleCadence}
+                  onChange={(e) => setModuleCadence(e.target.value as '' | ModuleCadence)}
+                >
+                  <option value="">{t('courses.cadence.none')}</option>
+                  {MODULE_CADENCES.map((cad) => (
+                    <option key={cad} value={cad}>
+                      {t(`courses.cadence.${cad}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t('courses.meetingTimes')}</Label>
+                {slots.map((s, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2">
+                    <select
+                      aria-label={t('courses.meetingDay')}
+                      className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={s.day}
+                      onChange={(e) =>
+                        setSlots((cur) =>
+                          cur.map((x, j) => (j === i ? { ...x, day: Number(e.target.value) } : x)),
+                        )
+                      }
+                    >
+                      {[0, 1, 2, 3, 4, 5, 6].map((d) => (
+                        <option key={d} value={d}>
+                          {t(`courses.day.${d}`)}
+                        </option>
+                      ))}
+                    </select>
+                    <Input
+                      type="time"
+                      className="w-32"
+                      value={s.start}
+                      onChange={(e) =>
+                        setSlots((cur) =>
+                          cur.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)),
+                        )
+                      }
+                    />
+                    <span className="text-sm text-muted-foreground">–</span>
+                    <Input
+                      type="time"
+                      className="w-32"
+                      value={s.end}
+                      onChange={(e) =>
+                        setSlots((cur) =>
+                          cur.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)),
+                        )
+                      }
+                    />
+                    <ActionIconButton
+                      size="sm"
+                      icon={Trash2}
+                      color="red"
+                      label={t('courses.removeMeetingTime')}
+                      onClick={() => setSlots((cur) => cur.filter((_, j) => j !== i))}
+                    />
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setSlots((cur) => [...cur, { day: 1, start: '09:00', end: '10:00' }])
+                  }
+                >
+                  {t('courses.addMeetingTime')}
+                </Button>
               </div>
             </div>
             <div className="space-y-1">

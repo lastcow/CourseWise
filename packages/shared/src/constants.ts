@@ -297,6 +297,14 @@ export type CourseStatus = (typeof COURSE_STATUSES)[number];
 export const MATERIAL_STATUSES = ['draft', 'published', 'archived'] as const;
 export type MaterialStatus = (typeof MATERIAL_STATUSES)[number];
 
+// How modules chunk against the course schedule: one per class session
+// (meeting slots) or per fixed period.
+export const MODULE_CADENCES = ['session', 'daily', 'weekly', 'biweekly', 'monthly'] as const;
+export type ModuleCadence = (typeof MODULE_CADENCES)[number];
+
+export const MODULE_STATUSES = ['draft', 'published'] as const;
+export type ModuleStatus = (typeof MODULE_STATUSES)[number];
+
 export const MATERIAL_SOURCE_TYPES = ['upload', 'external_link', 'manual_text'] as const;
 export type MaterialSourceType = (typeof MATERIAL_SOURCE_TYPES)[number];
 
