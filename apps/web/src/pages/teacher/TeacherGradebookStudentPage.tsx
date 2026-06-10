@@ -257,6 +257,7 @@ export function TeacherGradebookStudentPage(): JSX.Element {
   const finalScore = d.finalGrade?.score ?? null;
 
   const allSectionIds = ['attendance', ...finalGroups.map((g) => g.groupId)];
+  const allOpen = openSections.length === allSectionIds.length;
   const itemsScored = finalGroups.reduce((n, g) => n + g.itemsScored, 0);
   const itemCount = finalGroups.reduce((n, g) => n + g.itemCount, 0);
   const attendanceUnrecorded = d.attendance.items.filter((it) => !it.status).length;
@@ -337,21 +338,24 @@ export function TeacherGradebookStudentPage(): JSX.Element {
         </CardContent>
       </Card>
 
-      {/* Section list header: label + bulk open/close */}
+      {/* Section list header: label + a single open/close-all toggle */}
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
           {t('grading.breakdown')}
         </span>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => setOpenSections(allSectionIds)}>
-            <ChevronsUpDown className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-            {t('grading.detailExpandAll')}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => setOpenSections([])}>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-expanded={allOpen}
+          onClick={() => setOpenSections(allOpen ? [] : allSectionIds)}
+        >
+          {allOpen ? (
             <ChevronsDownUp className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-            {t('grading.detailCollapseAll')}
-          </Button>
-        </div>
+          ) : (
+            <ChevronsUpDown className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+          )}
+          {allOpen ? t('grading.detailCollapseAll') : t('grading.detailExpandAll')}
+        </Button>
       </div>
 
       <Accordion value={openSections} onValueChange={setOpenSections}>
