@@ -1642,6 +1642,22 @@ async function gradeSubmissionHandler(c: Context<AppEnv>) {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Cannot grade a draft submission');
   }
   const input = c.get('validated') as GradeSubmissionInput;
+  return applyGradeToSubmission(c, submission, assignment, input);
+}
+
+// Shared grading core: penalty math, group fan-out, audit, response. The
+// normal endpoint rejects drafts before calling this; the gradebook's direct
+// grade-by-student endpoint deliberately doesn't (it exists to score work
+// handed in outside the system).
+async function applyGradeToSubmission(
+  c: Context<AppEnv>,
+  submission: Awaited<ReturnType<typeof loadSubmission>>,
+  assignment: Awaited<ReturnType<typeof loadAssignment>>,
+  input: GradeSubmissionInput,
+) {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = submission.id;
   const max = num(assignment.maxScore);
   if (max == null) {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment has no maxScore');
@@ -1747,6 +1763,61 @@ r.post(
   requireScopeGroup('submissionsWrite'),
   validateJson(gradeSubmissionSchema),
   gradeSubmissionHandler,
+);
+
+// Direct grade-by-student: score an enrolled student on an assignment even
+// when no submission exists (work handed in by email/paper) — the gradebook's
+// override path, mirroring discussion grading's by-student shape. Creates a
+// minimal submission row when missing; grades drafts; fans out to the team
+// when the row is linked to a group submission.
+r.post(
+  '/assignments/:assignmentId/grades/:studentId',
+  requireScopeGroup('submissionsWrite'),
+  validateJson(gradeSubmissionSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const assignmentId = requireParam(c, 'assignmentId');
+    const studentId = requireParam(c, 'studentId');
+    const assignment = await loadAssignment(c, assignmentId);
+    if (auth.user.role === 'student') {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only a teacher can grade');
+    }
+    if (
+      auth.user.role === 'teacher' &&
+      !(await isCourseTeacher(db, assignment.courseId, auth.user.id))
+    ) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
+    }
+    if (!(await isCourseEnrolled(db, assignment.courseId, studentId))) {
+      throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'Student is not enrolled in this course');
+    }
+    const input = c.get('validated') as GradeSubmissionInput;
+
+    let [submission] = await db
+      .select()
+      .from(assignmentSubmissions)
+      .where(
+        and(
+          eq(assignmentSubmissions.assignmentId, assignmentId),
+          eq(assignmentSubmissions.studentId, studentId),
+        ),
+      )
+      .limit(1);
+    if (!submission) {
+      // Minimal row for out-of-band work: no content, no submittedAt (so no
+      // late penalty applies). The shared core stamps it graded.
+      const [created] = await db
+        .insert(assignmentSubmissions)
+        .values({ assignmentId, studentId, status: 'graded' })
+        .returning();
+      if (!created) {
+        throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create submission');
+      }
+      submission = created;
+    }
+    return applyGradeToSubmission(c, submission, assignment, input);
+  },
 );
 
 export default r;
