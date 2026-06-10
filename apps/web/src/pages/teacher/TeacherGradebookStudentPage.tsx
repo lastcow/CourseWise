@@ -24,6 +24,7 @@ import type {
   GradebookDiscussionItem,
   GradebookQuizItem,
   GroupScoreBreakdown,
+  GroupScoreItem,
 } from '@coursewise/shared';
 import {
   Accordion,
@@ -54,6 +55,50 @@ import { pickI18nKey } from '@/lib/api';
 
 function formatNum(n: number | null | undefined, digits = 1): string {
   return n === null || n === undefined ? '—' : n.toFixed(digits);
+}
+
+// "Ungraded" means handed in and awaiting a grade. Items the student never
+// submitted (or that sit in draft / an unfinished attempt) are not the
+// teacher's queue, so they don't count toward the amber section badge.
+type Lookups = {
+  assignments: Map<string, GradebookAssignmentItem>;
+  quizzes: Map<string, GradebookQuizItem>;
+  discussions: Map<string, GradebookDiscussionItem>;
+};
+
+function assignmentNeedsGrading(a: GradebookAssignmentItem): boolean {
+  return !!a.submissionId && a.status !== 'draft' && a.score === null;
+}
+
+function quizNeedsGrading(q: GradebookQuizItem): boolean {
+  if (!q.attemptId || q.status === 'in_progress') return false;
+  return q.score === null || q.pendingReviewCount > 0;
+}
+
+function discussionNeedsGrading(d: GradebookDiscussionItem): boolean {
+  return d.postCount > 0 && d.score === null;
+}
+
+function countUngraded(group: GroupScoreBreakdown, lookups: Lookups): number {
+  let n = 0;
+  const walk = (items: GroupScoreItem[]): void => {
+    for (const it of items) {
+      if (it.itemType === 'set') {
+        walk(it.members ?? []);
+      } else if (it.itemType === 'assignment') {
+        const a = lookups.assignments.get(it.itemId);
+        if (a && assignmentNeedsGrading(a)) n += 1;
+      } else if (it.itemType === 'quiz') {
+        const q = lookups.quizzes.get(it.itemId);
+        if (q && quizNeedsGrading(q)) n += 1;
+      } else {
+        const d = lookups.discussions.get(it.itemId);
+        if (d && discussionNeedsGrading(d)) n += 1;
+      }
+    }
+  };
+  walk(group.detail);
+  return n;
 }
 
 /** Raw / weight / weighted chips shown inline in a section's trigger row. */
@@ -331,7 +376,7 @@ export function TeacherGradebookStudentPage(): JSX.Element {
               trailing={
                 <>
                   <SectionStatusBadge
-                    remaining={g.itemCount - g.itemsScored}
+                    remaining={countUngraded(g, lookups)}
                     remainingKey="grading.detailSectionUngraded"
                     completeKey="grading.detailSectionComplete"
                   />
@@ -669,7 +714,9 @@ function AssignmentRow({
   return (
     <tr className="border-b align-top last:border-0">
       <td className={cn('py-2 pl-2 pr-3', indent && 'pl-8')}>
-        <div>{item.title}</div>
+        {/* First line of every cell centers within the h-10 input height so
+            text, inputs, and buttons share one visual baseline. */}
+        <div className="flex min-h-10 items-center">{item.title}</div>
         {item.feedback || canEdit ? (
           <Input
             className="mt-1 text-xs"
@@ -693,10 +740,14 @@ function AssignmentRow({
           disabled={!canEdit}
         />
       </td>
-      <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">{item.maxScore}</td>
-      <td className="py-2 pr-3 text-xs text-muted-foreground">{item.status ?? '—'}</td>
+      <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">
+        <div className="flex h-10 items-center">{item.maxScore}</div>
+      </td>
+      <td className="py-2 pr-3 text-xs text-muted-foreground">
+        <div className="flex h-10 items-center">{item.status ?? '—'}</div>
+      </td>
       <td className="py-2 pr-2 text-right">
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex h-10 items-center justify-end gap-1.5">
           {item.submissionId ? (
             <ActionIconButton
               icon={Eye}
@@ -824,7 +875,7 @@ function DiscussionRow({
   return (
     <tr className="border-b align-top last:border-0">
       <td className="py-2 pl-2 pr-3">
-        <div>{item.title}</div>
+        <div className="flex min-h-10 items-center">{item.title}</div>
         <Input
           className="mt-1 text-xs"
           placeholder={t('grading.detailFeedback')}
@@ -843,10 +894,14 @@ function DiscussionRow({
           onChange={(e) => setScore(e.target.value)}
         />
       </td>
-      <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">{item.maxScore}</td>
-      <td className="py-2 pr-3 text-xs text-muted-foreground">—</td>
+      <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">
+        <div className="flex h-10 items-center">{item.maxScore}</div>
+      </td>
+      <td className="py-2 pr-3 text-xs text-muted-foreground">
+        <div className="flex h-10 items-center">—</div>
+      </td>
       <td className="py-2 pr-2 text-right">
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex h-10 items-center justify-end gap-1.5">
           <ActionIconButton
             icon={Eye}
             size="sm"
