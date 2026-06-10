@@ -1,16 +1,22 @@
 import { Hono } from 'hono';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
+  ALERT_SEVERITIES,
+  ALERT_STATUSES,
+  ALERT_TYPES,
   createManualAlertSchema,
   resolveAlertSchema,
+  type AlertSeverity,
   type AlertStatus,
   type AlertSummary,
+  type AlertType,
+  type AlertWithContext,
   type AlertWithStudent,
   type CreateManualAlertInput,
   type GenerateAlertsResult,
   type ResolveAlertInput,
 } from '@coursewise/shared';
-import { alerts, enrollments, users } from '../db/schema';
+import { alerts, courses, enrollments, users } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -30,6 +36,56 @@ const r = new Hono<AppEnv>();
 r.use('*', requireAuth);
 
 // =================== List & filter ===================
+
+// Admin alert center: every alert in the system with target-user and course
+// context. Critical alerts sort first, then newest.
+r.get('/alerts', requireScopeGroup('alertsRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  if (auth.user.role !== 'admin') {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Admin only');
+  }
+  const statusParam = c.req.query('status');
+  const status: AlertStatus = (ALERT_STATUSES as readonly string[]).includes(statusParam ?? '')
+    ? (statusParam as AlertStatus)
+    : 'open';
+  const severityParam = c.req.query('severity');
+  const typeParam = c.req.query('type');
+  const rawLimit = Number.parseInt(c.req.query('limit') ?? '200', 10);
+  const limit = Number.isNaN(rawLimit) ? 200 : Math.min(200, Math.max(1, rawLimit));
+
+  const where = [eq(alerts.status, status)];
+  if (severityParam && (ALERT_SEVERITIES as readonly string[]).includes(severityParam)) {
+    where.push(eq(alerts.severity, severityParam as AlertSeverity));
+  }
+  if (typeParam && (ALERT_TYPES as readonly string[]).includes(typeParam)) {
+    where.push(eq(alerts.type, typeParam as AlertType));
+  }
+  const severityRank = sql`case ${alerts.severity} when 'critical' then 0 when 'warning' then 1 else 2 end`;
+  const rows = await db
+    .select({
+      a: alerts,
+      name: users.name,
+      email: users.email,
+      courseCode: courses.code,
+      courseTitle: courses.title,
+    })
+    .from(alerts)
+    .innerJoin(users, eq(alerts.userId, users.id))
+    .leftJoin(courses, eq(alerts.courseId, courses.id))
+    .where(and(...where))
+    .orderBy(severityRank, desc(alerts.createdAt))
+    .limit(limit);
+  const out: AlertWithContext[] = rows.map(({ a, name, email, courseCode, courseTitle }) => ({
+    ...toAlertSummary(a),
+    student: { id: a.userId, name, email },
+    course:
+      a.courseId && courseCode !== null
+        ? { id: a.courseId, code: courseCode, title: courseTitle ?? '' }
+        : null,
+  }));
+  return success(c, out);
+});
 
 r.get(
   '/courses/:courseId/alerts',
@@ -214,7 +270,6 @@ r.post('/me/alerts/:alertId/read', requireScopeGroup('alertsRead'), async (c) =>
 });
 
 // Suppress unused vars.
-void sql;
 void inArray;
 void isCourseTeacher;
 

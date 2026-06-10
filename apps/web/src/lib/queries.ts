@@ -11,6 +11,7 @@ import type {
   AiProviderSummary,
   AlertStatus,
   AlertSummary,
+  AlertWithContext,
   AlertWithStudent,
   AiJobDetail,
   AiJobSummary,
@@ -2187,6 +2188,15 @@ export function useRemoveGroupMember(courseId: string, setId: string) {
 }
 
 // ---------- M5: Alerts ----------
+export function useAdminAlerts(status: AlertStatus) {
+  return useQuery({
+    queryKey: ['admin-alerts', status],
+    queryFn: () => apiCall<AlertWithContext[]>(`/api/alerts?status=${status}`),
+    // Keep the previous tab's list on screen while the next loads.
+    placeholderData: (prev) => prev,
+  });
+}
+
 export function useCourseAlerts(courseId: string | null, status?: AlertStatus) {
   return useQuery({
     queryKey: ['course-alerts', courseId, status ?? 'all'],
@@ -2235,6 +2245,7 @@ export function useResolveAlert() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['course-alerts'] });
       void qc.invalidateQueries({ queryKey: ['my-alerts'] });
+      void qc.invalidateQueries({ queryKey: ['admin-alerts'] });
     },
   });
 }
