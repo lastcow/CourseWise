@@ -1773,6 +1773,7 @@ export const en = {
       detailQuizzesTitle: 'Quizzes',
       detailDiscussionTitle: 'Discussion',
       detailReviewQuiz: 'Review attempt',
+      groupSubmissionHint: 'Group submission — the grade applies to the whole team',
       detailGradeQuizHint: 'Open the attempt to grade individual answers.',
       detailExpandAll: 'Expand all',
       detailCollapseAll: 'Collapse all',
