@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Award,
   CalendarCheck,
   CheckCircle2,
   ChevronsDownUp,
@@ -71,6 +70,20 @@ type Lookups = {
 function submissionStatusLabel(t: (k: string) => string, s: string): string {
   return t(`submissions.status${s[0]!.toUpperCase()}${s.slice(1)}`);
 }
+
+// Same color language as the rest of the grading surfaces: emerald = done,
+// amber = waiting on the teacher, sky = handed back, gray = inert.
+function submissionStatusVariant(s: string): 'success' | 'warning' | 'info' | 'secondary' {
+  if (s === 'graded') return 'success';
+  if (s === 'late' || s === 'submitted') return 'warning';
+  if (s === 'returned') return 'info';
+  return 'secondary';
+}
+
+// Hide the number input's spinner arrows — the score reads as "x / max" and
+// the arrows just add noise next to the divider.
+const SCORE_INPUT_CLASS =
+  'w-20 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden';
 
 function assignmentNeedsGrading(a: GradebookAssignmentItem): boolean {
   return !!a.submissionId && a.status !== 'draft' && a.score === null;
@@ -279,16 +292,21 @@ export function TeacherGradebookStudentPage(): JSX.Element {
         </div>
         <CardContent className="space-y-4 pt-5">
           <div>
-            <div className="flex flex-wrap items-baseline gap-x-2">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {t('grading.detailFinalScore')}
-              </span>
-            </div>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-4xl font-semibold tabular-nums">{formatNum(finalScore)}</span>
-              <span className="text-sm text-muted-foreground">/ 100</span>
+            <div className="flex items-end justify-between gap-4">
+              <div className="min-w-0">
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {t('grading.detailFinalScore')}
+                </span>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-4xl font-semibold tabular-nums">
+                    {formatNum(finalScore)}
+                  </span>
+                  <span className="text-sm text-muted-foreground">/ 100</span>
+                </div>
+              </div>
+              {/* The letter grade is the headline — largest element, end of row. */}
               {d.finalGrade?.letterGrade ? (
-                <span className="ml-2 text-2xl font-semibold text-muted-foreground">
+                <span className="shrink-0 text-6xl font-semibold leading-none tracking-tight">
                   {d.finalGrade.letterGrade}
                 </span>
               ) : null}
@@ -299,12 +317,7 @@ export function TeacherGradebookStudentPage(): JSX.Element {
               barClassName={outdated ? 'bg-amber-400' : 'bg-emerald-500'}
             />
           </div>
-          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Fact
-              icon={Award}
-              label={t('grading.detailLetter')}
-              value={d.finalGrade?.letterGrade ?? '—'}
-            />
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Fact
               icon={PenLine}
               label={t('grading.override')}
@@ -464,8 +477,9 @@ function GroupItemsTable({
         <thead>
           <tr className="border-b bg-muted/20 text-left text-xs text-muted-foreground">
             <th className="py-2 pl-2 pr-3 font-medium">{group.groupName}</th>
-            <th className="py-2 pr-3 font-medium">{t('grading.score')}</th>
-            <th className="py-2 pr-3 font-medium">{t('grading.detailMax')}</th>
+            <th className="py-2 pr-3 font-medium">
+              {t('grading.score')} / {t('grading.detailMax')}
+            </th>
             <th className="py-2 pr-3 font-medium">{t('grading.status')}</th>
             <th className="py-2 pr-2"></th>
           </tr>
@@ -489,8 +503,8 @@ function GroupItemsTable({
                     </td>
                     <td className="py-2 pr-3 font-mono tabular-nums">
                       {item.score !== null ? item.score.toFixed(1) : '—'}
+                      <span className="text-muted-foreground"> / {item.max}</span>
                     </td>
-                    <td className="py-2 pr-3 font-mono tabular-nums">{item.max}</td>
                     <td className="py-2 pr-3" />
                     <td className="py-2 pr-2" />
                   </tr>
@@ -727,25 +741,29 @@ function AssignmentRow({
         <div className="flex min-h-10 items-center">{item.title}</div>
       </td>
       <td className="py-2 pr-3">
-        <Input
-          type="number"
-          min={0}
-          max={item.maxScore}
-          step={0.5}
-          className="w-24"
-          value={score}
-          onChange={(e) => setScore(e.target.value)}
-          placeholder={canEdit ? '' : t('grading.detailNoSubmission')}
-          disabled={!canEdit}
-        />
-      </td>
-      <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">
-        <div className="flex h-10 items-center">{item.maxScore}</div>
+        <div className="flex h-10 items-center gap-1.5">
+          <Input
+            type="number"
+            min={0}
+            max={item.maxScore}
+            step={0.5}
+            className={SCORE_INPUT_CLASS}
+            value={score}
+            onChange={(e) => setScore(e.target.value)}
+            placeholder={canEdit ? '' : t('grading.detailNoSubmission')}
+            disabled={!canEdit}
+          />
+          <span className="whitespace-nowrap font-mono tabular-nums text-muted-foreground">
+            / {item.maxScore}
+          </span>
+        </div>
       </td>
       <td className="py-2 pr-3">
         <div className="flex h-10 items-center">
           {item.status ? (
-            <Badge variant="outline">{submissionStatusLabel(t, item.status)}</Badge>
+            <Badge variant={submissionStatusVariant(item.status)}>
+              {submissionStatusLabel(t, item.status)}
+            </Badge>
           ) : (
             <span className="text-xs text-muted-foreground">—</span>
           )}
@@ -795,13 +813,25 @@ function QuizRow({
   return (
     <tr className="border-b last:border-0">
       <td className={cn('py-2 pl-2 pr-3', indent && 'pl-8')}>{item.title}</td>
-      <td className="py-2 pr-3 font-mono tabular-nums">{formatNum(item.score)}</td>
-      <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">
-        {item.maxScore ?? '—'}
+      <td className="py-2 pr-3 font-mono tabular-nums">
+        {formatNum(item.score)}
+        <span className="text-muted-foreground"> / {item.maxScore ?? '—'}</span>
       </td>
       <td className="py-2 pr-3">
         {item.attemptId && item.status ? (
-          <Badge variant="outline">{t(`quizzes.attemptStatus.${item.status}`)}</Badge>
+          <Badge
+            variant={
+              item.status === 'submitted'
+                ? item.pendingReviewCount > 0
+                  ? 'warning'
+                  : 'success'
+                : item.status === 'in_progress'
+                  ? 'warning'
+                  : 'secondary'
+            }
+          >
+            {t(`quizzes.attemptStatus.${item.status}`)}
+          </Badge>
         ) : (
           <span className="text-xs text-muted-foreground">
             {item.attemptId ? '—' : t('grading.detailNoAttempt')}
@@ -889,27 +919,31 @@ function DiscussionRow({
         <div className="flex min-h-10 items-center">{item.title}</div>
       </td>
       <td className="py-2 pr-3">
-        <Input
-          type="number"
-          min={0}
-          max={item.maxScore}
-          step={0.5}
-          className="w-24"
-          value={score}
-          onChange={(e) => setScore(e.target.value)}
-        />
-      </td>
-      <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">
-        <div className="flex h-10 items-center">{item.maxScore}</div>
+        <div className="flex h-10 items-center gap-1.5">
+          <Input
+            type="number"
+            min={0}
+            max={item.maxScore}
+            step={0.5}
+            className={SCORE_INPUT_CLASS}
+            value={score}
+            onChange={(e) => setScore(e.target.value)}
+          />
+          <span className="whitespace-nowrap font-mono tabular-nums text-muted-foreground">
+            / {item.maxScore}
+          </span>
+        </div>
       </td>
       <td className="py-2 pr-3">
         <div className="flex h-10 items-center">
           {item.postCount > 0 ? (
-            <Badge variant="outline">
-              {item.score !== null ? t('grading.graded') : t('grading.awaitingGrade')}
-            </Badge>
+            item.score !== null ? (
+              <Badge variant="success">{t('grading.graded')}</Badge>
+            ) : (
+              <Badge variant="warning">{t('grading.awaitingGrade')}</Badge>
+            )
           ) : (
-            <Badge variant="outline">{t('grading.notSubmitted')}</Badge>
+            <Badge variant="secondary">{t('grading.notSubmitted')}</Badge>
           )}
         </div>
       </td>
