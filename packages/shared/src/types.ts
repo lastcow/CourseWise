@@ -777,6 +777,9 @@ export interface FinalGradeSummary {
   studentName?: string;
   studentEmail?: string;
   studentNumber?: string | null;
+  /** How many of this student's item scores were teacher-entered without a
+   *  submission (work handed in by email/paper). Roster display only. */
+  overrideCount?: number;
   score: number | null;
   letterGrade: string | null;
   groups: GroupScoreBreakdown[];
@@ -891,6 +894,8 @@ export interface GradebookAssignmentItem {
   title: string;
   maxScore: number;
   score: number | null;
+  /** Null when graded without a submission (teacher override of the score). */
+  submittedAt: string | null;
   status: SubmissionStatus | null;
   feedback: string | null;
   isFinalProject: boolean;

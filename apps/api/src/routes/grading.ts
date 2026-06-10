@@ -122,8 +122,28 @@ r.get(
       .leftJoin(studentProfiles, eq(studentProfiles.userId, users.id))
       .where(eq(finalGrades.courseId, courseId))
       .orderBy(asc(users.name));
+    // Per-student count of teacher-overridden item scores: graded with no
+    // submitted_at means the score was entered without a submission (work
+    // handed in by email/paper, graded drafts).
+    const overrideRows = await db.execute(sql`
+      SELECT s.student_id AS sid, count(*)::int AS n
+      FROM assignment_submissions s
+      JOIN assignments a ON a.id = s.assignment_id
+      WHERE a.course_id = ${courseId}
+        AND s.graded_at IS NOT NULL
+        AND s.submitted_at IS NULL
+      GROUP BY s.student_id
+    `);
+    const overrideBySid = new Map(
+      (overrideRows.rows as Array<{ sid: string; n: number }>).map((r) => [r.sid, Number(r.n)]),
+    );
     const out: FinalGradeSummary[] = rows.map(({ g, name, email, studentNumber }) =>
-      toFinalGradeSummary(g, { studentName: name, studentEmail: email, studentNumber }),
+      toFinalGradeSummary(g, {
+        studentName: name,
+        studentEmail: email,
+        studentNumber,
+        overrideCount: overrideBySid.get(g.studentId) ?? 0,
+      }),
     );
     return success(c, out);
   },

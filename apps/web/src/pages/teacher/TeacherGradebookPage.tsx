@@ -107,9 +107,7 @@ export function TeacherGradebookPage(): JSX.Element {
   }
 
   const stats = useMemo(() => {
-    const scored = rows
-      .map((g) => g.teacherOverrideScore ?? g.score)
-      .filter((s): s is number => s !== null);
+    const scored = rows.map((g) => g.score).filter((s): s is number => s !== null);
     const average =
       scored.length > 0 ? scored.reduce((a, b) => a + b, 0) / scored.length : null;
     const outdated = rows.filter((g) => g.isOutdated).length;
@@ -226,7 +224,7 @@ export function TeacherGradebookPage(): JSX.Element {
                   <th className="px-3 py-2 font-medium">{t('grading.student')}</th>
                   <th className="px-3 py-2 font-medium">{t('grading.score')}</th>
                   <th className="px-3 py-2 font-medium">{t('grading.letter')}</th>
-                  <th className="px-3 py-2 font-medium">{t('grading.override')}</th>
+                  <th className="px-3 py-2 font-medium">{t('grading.overrides')}</th>
                   <th className="px-3 py-2 font-medium">{t('grading.status')}</th>
                 </tr>
               </thead>
@@ -257,9 +255,7 @@ export function TeacherGradebookPage(): JSX.Element {
                     <td className="px-3 py-2 font-mono tabular-nums">{g.score?.toFixed(1) ?? '—'}</td>
                     <td className="px-3 py-2 font-mono">{g.letterGrade ?? '—'}</td>
                     <td className="px-3 py-2 font-mono tabular-nums">
-                      {g.teacherOverrideScore !== null
-                        ? g.teacherOverrideScore.toFixed(1)
-                        : '—'}
+                      {(g.overrideCount ?? 0) > 0 ? g.overrideCount : '—'}
                     </td>
                     <td className="px-3 py-2">
                       {g.isOutdated ? (
