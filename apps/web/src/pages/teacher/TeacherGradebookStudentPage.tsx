@@ -263,6 +263,10 @@ export function TeacherGradebookStudentPage(): JSX.Element {
   const itemsScored = finalGroups.reduce((n, g) => n + g.itemsScored, 0);
   const itemCount = finalGroups.reduce((n, g) => n + g.itemCount, 0);
   const attendanceUnrecorded = d.attendance.items.filter((it) => !it.status).length;
+  // Item scores the teacher entered without a submission (email/paper work).
+  const overrideCount = [...d.assignments.items, ...d.finalProject.items].filter(
+    (a) => a.score !== null && !a.submittedAt,
+  ).length;
 
   return (
     <div className="space-y-4">
@@ -323,8 +327,8 @@ export function TeacherGradebookStudentPage(): JSX.Element {
           <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Fact
               icon={PenLine}
-              label={t('grading.override')}
-              value={formatNum(d.finalGrade?.teacherOverrideScore ?? null)}
+              label={t('grading.overrides')}
+              value={String(overrideCount)}
             />
             <Fact
               icon={ListChecks}

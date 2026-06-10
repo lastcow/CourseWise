@@ -1738,6 +1738,7 @@ export const en = {
       score: 'Score',
       letter: 'Letter',
       override: 'Override',
+      overrides: 'Overrides',
       status: 'Status',
       outdated: 'Outdated',
       current: 'Current',

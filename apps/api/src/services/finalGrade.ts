@@ -713,7 +713,12 @@ function buildPolicySnapshot(
 
 export function toFinalGradeSummary(
   row: typeof finalGrades.$inferSelect,
-  extra?: { studentName?: string; studentEmail?: string; studentNumber?: string | null },
+  extra?: {
+    studentName?: string;
+    studentEmail?: string;
+    studentNumber?: string | null;
+    overrideCount?: number;
+  },
 ): FinalGradeSummary {
   const rawCategory = row.categoryScores;
   let groups: GroupScoreBreakdown[] = [];
@@ -736,6 +741,7 @@ export function toFinalGradeSummary(
     studentName: extra?.studentName,
     studentEmail: extra?.studentEmail,
     studentNumber: extra?.studentNumber ?? null,
+    overrideCount: extra?.overrideCount,
     score: row.score !== null ? Number(row.score) : null,
     letterGrade: row.letterGrade ?? null,
     groups,
@@ -785,12 +791,10 @@ export async function recalculateFinalGrades(
       .from(finalGrades)
       .where(and(eq(finalGrades.courseId, courseId), eq(finalGrades.studentId, e.studentId)))
       .limit(1);
-    const overrideScore =
-      existing?.teacherOverrideScore !== null && existing?.teacherOverrideScore !== undefined
-        ? Number(existing.teacherOverrideScore)
-        : null;
-    const effective = overrideScore ?? rounded ?? 0;
-    const letter = computeLetterGrade(effective, policy.letters);
+    // The letter follows the computed score. Score overrides happen at the
+    // individual assignment/quiz level (and already flow into the computed
+    // score); the legacy final-score override no longer bends the letter.
+    const letter = computeLetterGrade(rounded ?? 0, policy.letters);
     const values = {
       courseId,
       studentId: e.studentId,
@@ -835,8 +839,9 @@ export async function applyTeacherOverride(
     .limit(1);
   if (!existing) return null;
   const baseScore = existing.score !== null ? Number(existing.score) : 0;
-  const effective = overrideScore ?? baseScore;
-  const letter = computeLetterGrade(effective, policy.letters);
+  // Letter stays tied to the computed score — the stored override is kept for
+  // the record but no longer bends the letter (overrides are per-item now).
+  const letter = computeLetterGrade(baseScore, policy.letters);
   const now = new Date().toISOString();
   const [updated] = await db
     .update(finalGrades)
@@ -989,6 +994,7 @@ export async function buildGradebookStudentDetail(
       title: a.title,
       maxScore: a.maxScore !== null ? Number(a.maxScore) : 100,
       score: sub?.score !== null && sub?.score !== undefined ? Number(sub.score) : null,
+      submittedAt: sub?.submittedAt ?? null,
       status: sub?.status ?? null,
       feedback: sub?.feedback ?? null,
       isFinalProject: false,

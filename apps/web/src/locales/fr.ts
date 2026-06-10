@@ -1764,6 +1764,7 @@ export const fr = {
       score: 'Note',
       letter: 'Lettre',
       override: 'Note manuelle',
+      overrides: 'Notes manuelles',
       status: 'Statut',
       outdated: 'Obsolète',
       current: 'À jour',

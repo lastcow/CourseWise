@@ -1671,6 +1671,7 @@ export const zhCN = {
       score: '分数',
       letter: '等级',
       override: '调整',
+      overrides: '调整次数',
       status: '状态',
       outdated: '过期',
       current: '最新',
