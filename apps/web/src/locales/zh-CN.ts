@@ -1706,6 +1706,7 @@ export const zhCN = {
       detailQuizzesTitle: '测验',
       detailDiscussionTitle: '讨论',
       detailReviewQuiz: '查看作答',
+      groupSubmissionHint: '小组提交——成绩适用于整个小组',
       detailGradeQuizHint: '请打开作答记录,逐题打分。',
       detailExpandAll: '全部展开',
       detailCollapseAll: '全部收起',

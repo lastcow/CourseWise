@@ -893,6 +893,8 @@ export interface GradebookAssignmentItem {
   status: SubmissionStatus | null;
   feedback: string | null;
   isFinalProject: boolean;
+  /** Group-mode assignment: the grade is shared by the whole team. */
+  isGroup?: boolean;
   gradedAt: string | null;
 }
 

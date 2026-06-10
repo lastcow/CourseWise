@@ -1669,6 +1669,24 @@ async function gradeSubmissionHandler(c: Context<AppEnv>) {
   // Group submissions are graded as a unit: fan the score and feedback out to
   // every member row linked to the same group_submissions row, so the whole
   // team lands on the same grade. Individual submissions touch just their row.
+  // First make sure every CURRENT member has a linked row — teammates who
+  // joined after the group submitted would otherwise be skipped by the
+  // fan-out update and never receive the team grade.
+  if (submission.groupSubmissionId) {
+    const [groupSub] = await db
+      .select({ groupId: groupSubmissions.groupId })
+      .from(groupSubmissions)
+      .where(eq(groupSubmissions.id, submission.groupSubmissionId))
+      .limit(1);
+    if (groupSub) {
+      await ensureGroupSubmissionFannedOut(
+        db,
+        submission.assignmentId,
+        groupSub.groupId,
+        submission.studentId,
+      );
+    }
+  }
   const updatedRows = await db
     .update(assignmentSubmissions)
     .set({

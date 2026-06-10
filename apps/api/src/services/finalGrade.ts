@@ -31,6 +31,7 @@ import {
   users,
 } from '../db/schema';
 import { computeLetterGrade } from './gradingPolicy';
+import { syncStudentRowWithGroupSubmission } from './groupSubmissions';
 
 // ---------------------------------------------------------------------------
 // "Posted" gate. A gradable item (assignment / quiz / discussion) counts
@@ -941,6 +942,8 @@ export async function buildGradebookStudentDetail(
         maxScore: assignments.maxScore,
         status: assignments.status,
         startDate: assignments.startDate,
+        submissionMode: assignments.submissionMode,
+        groupSetId: assignments.groupSetId,
       })
       .from(assignments)
       .where(eq(assignments.courseId, courseId))
@@ -961,6 +964,21 @@ export async function buildGradebookStudentDetail(
         )
     : [];
   const subByAssignment = new Map(subs.map((s) => [s.assignmentId, s]));
+
+  // Group-mode assignments where this student has no row of their own (e.g.
+  // they joined the group after the team submitted): lazily resolve their
+  // group's existing submission into a member row so the gradebook can show —
+  // and override — the shared grade. No-op when the group hasn't submitted.
+  for (const a of courseAssignments) {
+    if (a.submissionMode !== 'group' || !a.groupSetId || subByAssignment.has(a.id)) continue;
+    const repaired = await syncStudentRowWithGroupSubmission(
+      db,
+      { id: a.id, groupSetId: a.groupSetId },
+      studentId,
+    );
+    if (repaired) subByAssignment.set(a.id, repaired);
+  }
+
   const assignmentItems: GradebookAssignmentItem[] = [];
   for (const a of courseAssignments) {
     const sub = subByAssignment.get(a.id);
@@ -973,6 +991,7 @@ export async function buildGradebookStudentDetail(
       status: sub?.status ?? null,
       feedback: sub?.feedback ?? null,
       isFinalProject: false,
+      isGroup: a.submissionMode === 'group',
       gradedAt: sub?.gradedAt ?? null,
     });
   }

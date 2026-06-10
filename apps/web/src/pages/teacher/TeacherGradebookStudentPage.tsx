@@ -13,6 +13,7 @@ import {
   Layers,
   ListChecks,
   PenLine,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -742,7 +743,17 @@ function AssignmentRow({
       <td className={cn('py-2 pl-2 pr-3', indent && 'pl-8')}>
         {/* First line of every cell centers within the h-10 input height so
             text, inputs, and buttons share one visual baseline. */}
-        <div className="flex min-h-10 items-center">{item.title}</div>
+        <div className="flex min-h-10 items-center gap-1.5">
+          <span>{item.title}</span>
+          {item.isGroup ? (
+            <span
+              className="inline-flex shrink-0 items-center text-muted-foreground"
+              title={t('grading.groupSubmissionHint')}
+            >
+              <Users className="h-3.5 w-3.5" aria-label={t('grading.groupSubmissionHint')} />
+            </span>
+          ) : null}
+        </div>
       </td>
       <td className="py-2 pr-3">
         <div className="flex h-10 items-center gap-1.5">

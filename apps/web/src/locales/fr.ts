@@ -1799,6 +1799,7 @@ export const fr = {
       detailQuizzesTitle: 'Quiz',
       detailDiscussionTitle: 'Discussion',
       detailReviewQuiz: 'Voir la tentative',
+      groupSubmissionHint: 'Rendu de groupe — la note s’applique à toute l’équipe',
       detailGradeQuizHint: 'Ouvrez la tentative pour noter chaque réponse.',
       detailExpandAll: 'Tout déplier',
       detailCollapseAll: 'Tout replier',

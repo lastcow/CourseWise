@@ -146,3 +146,105 @@ export async function ensureGroupSubmissionFannedOut(
 
   return groupSubmissionId;
 }
+
+/**
+ * Resolve a student's row for a group-mode assignment against their group's
+ * EXISTING group submission (never creates one — the group must have started
+ * a submission for there to be anything to inherit). Used as a lazy repair
+ * for members who joined the group after the submission fanned out: creates
+ * (or links) their assignment_submissions row, inheriting the shared
+ * status/submitted time — and, when the team is already graded, the shared
+ * score and feedback. Never overwrites an existing score. Idempotent.
+ *
+ * Returns the student's row, or null when the student has no group or the
+ * group has no submission yet.
+ */
+export async function syncStudentRowWithGroupSubmission(
+  db: Db,
+  assignment: { id: string; groupSetId: string },
+  studentId: string,
+): Promise<typeof assignmentSubmissions.$inferSelect | null> {
+  const group = await findStudentGroupForAssignment(db, assignment.groupSetId, studentId);
+  if (!group) return null;
+
+  const [groupSub] = await db
+    .select()
+    .from(groupSubmissions)
+    .where(
+      and(
+        eq(groupSubmissions.assignmentId, assignment.id),
+        eq(groupSubmissions.groupId, group.groupId),
+      ),
+    )
+    .limit(1);
+  if (!groupSub) return null;
+
+  // Teammate rows linked to the shared submission — a graded one (if any)
+  // carries the canonical team grade (grades are identical across members).
+  const siblings = await db
+    .select()
+    .from(assignmentSubmissions)
+    .where(eq(assignmentSubmissions.groupSubmissionId, groupSub.id));
+  const gradedSibling = siblings.find((s) => s.score !== null) ?? null;
+  const anySibling = siblings.find((s) => s.studentId !== studentId) ?? null;
+
+  const inheritedStatus =
+    gradedSibling?.status ??
+    anySibling?.status ??
+    (groupSub.submittedAt ? ('submitted' as const) : ('draft' as const));
+  const now = new Date().toISOString();
+  const inheritedGrade = gradedSibling
+    ? {
+        score: gradedSibling.score,
+        rawScore: gradedSibling.rawScore,
+        latePenaltyPercent: gradedSibling.latePenaltyPercent,
+        latePenaltyWaived: gradedSibling.latePenaltyWaived,
+        feedback: gradedSibling.feedback,
+        gradedAt: gradedSibling.gradedAt,
+        gradedById: gradedSibling.gradedById,
+      }
+    : null;
+
+  const [existing] = await db
+    .select()
+    .from(assignmentSubmissions)
+    .where(
+      and(
+        eq(assignmentSubmissions.assignmentId, assignment.id),
+        eq(assignmentSubmissions.studentId, studentId),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    const isUngradedDraft = existing.score === null && existing.status === 'draft';
+    if (existing.groupSubmissionId === groupSub.id && !isUngradedDraft) return existing;
+    const patch: Record<string, unknown> = { groupSubmissionId: groupSub.id, updatedAt: now };
+    // Pull an ungraded draft up to the team's shared state; never clobber a
+    // row that already carries its own score.
+    if (isUngradedDraft) {
+      patch.status = inheritedStatus;
+      patch.submittedAt = existing.submittedAt ?? groupSub.submittedAt;
+      if (inheritedGrade) Object.assign(patch, inheritedGrade);
+    }
+    const [updated] = await db
+      .update(assignmentSubmissions)
+      .set(patch)
+      .where(eq(assignmentSubmissions.id, existing.id))
+      .returning();
+    return updated ?? existing;
+  }
+
+  const [created] = await db
+    .insert(assignmentSubmissions)
+    .values({
+      assignmentId: assignment.id,
+      studentId,
+      groupSubmissionId: groupSub.id,
+      status: inheritedStatus,
+      submittedAt: groupSub.submittedAt,
+      ...(inheritedGrade ?? {}),
+    })
+    .returning();
+  return created ?? null;
+}
