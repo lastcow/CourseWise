@@ -1007,6 +1007,29 @@ export function useSubmission(submissionId: string | null) {
   });
 }
 
+// Direct grade-by-student: scores an assignment for a student even when no
+// submission exists (work handed in by email/paper). Gradebook override path.
+export function useGradeStudentScore(assignmentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      studentId,
+      input,
+    }: {
+      studentId: string;
+      input: { score: number; feedback?: string | null };
+    }) =>
+      apiCall<SubmissionSummary>(`/api/assignments/${assignmentId}/grades/${studentId}`, {
+        method: 'POST',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['submissions', assignmentId] });
+      void qc.invalidateQueries({ queryKey: ['assignment', assignmentId] });
+    },
+  });
+}
+
 export function useMySubmission(assignmentId: string | null) {
   return useQuery({
     queryKey: ['my-submission', assignmentId],

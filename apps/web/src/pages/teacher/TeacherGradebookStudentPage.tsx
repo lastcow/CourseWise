@@ -47,6 +47,7 @@ import {
 import {
   useBulkMarkAttendance,
   useGradeDiscussion,
+  useGradeStudentScore,
   useGradeSubmission,
   useGradebookStudentDetail,
   useRecalculateFinalGrades,
@@ -691,6 +692,7 @@ function AttendanceRow({
 // ------------------- Assignment row -------------------
 
 function AssignmentRow({
+  studentId,
   item,
   onSaved,
   onViewDetails,
@@ -704,18 +706,17 @@ function AssignmentRow({
 }): JSX.Element {
   const { t } = useTranslation();
   const grade = useGradeSubmission(item.assignmentId);
+  const gradeDirect = useGradeStudentScore(item.assignmentId);
   const toast = useToast();
   const [score, setScore] = useState<string>(
     item.score !== null ? String(item.score) : '',
   );
-  const canEdit = !!item.submissionId;
   const dirty = useMemo(() => {
     const current = item.score !== null ? String(item.score) : '';
     return score !== current;
   }, [score, item]);
 
   const onSave = async (): Promise<void> => {
-    if (!item.submissionId) return;
     const trimmed = score.trim();
     if (trimmed === '') return;
     const n = Number(trimmed);
@@ -727,10 +728,19 @@ function AssignmentRow({
       // Feedback is read in the details dialog and edited on the grading
       // page; pass the stored value through so a quick score save here
       // doesn't wipe it.
-      await grade.mutateAsync({
-        id: item.submissionId,
-        input: { score: n, feedback: item.feedback ?? null },
-      });
+      if (item.submissionId) {
+        await grade.mutateAsync({
+          id: item.submissionId,
+          input: { score: n, feedback: item.feedback ?? null },
+        });
+      } else {
+        // No submission (work handed in by email/paper): the direct
+        // grade-by-student endpoint creates the row and scores it.
+        await gradeDirect.mutateAsync({
+          studentId,
+          input: { score: n, feedback: item.feedback ?? null },
+        });
+      }
       await onSaved();
       toast.push({ title: t('grading.detailSavedScore'), tone: 'success' });
     } catch (err) {
@@ -765,8 +775,7 @@ function AssignmentRow({
             className={SCORE_INPUT_CLASS}
             value={score}
             onChange={(e) => setScore(e.target.value)}
-            placeholder={canEdit ? '' : t('grading.detailNoSubmission')}
-            disabled={!canEdit}
+            placeholder={item.submissionId ? '' : t('grading.detailNoSubmission')}
           />
           <span className="whitespace-nowrap font-mono tabular-nums text-muted-foreground">
             / {item.maxScore}
@@ -802,7 +811,11 @@ function AssignmentRow({
               }
             />
           ) : null}
-          <Button size="sm" onClick={onSave} disabled={!canEdit || !dirty || grade.isPending}>
+          <Button
+            size="sm"
+            onClick={onSave}
+            disabled={!dirty || grade.isPending || gradeDirect.isPending}
+          >
             {t('grading.detailSaveScore')}
           </Button>
         </div>
