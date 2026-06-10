@@ -2,7 +2,20 @@ import { Fragment, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { Layers } from 'lucide-react';
+import {
+  Award,
+  CalendarCheck,
+  CheckCircle2,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Eye,
+  FolderOpen,
+  GraduationCap,
+  Layers,
+  ListChecks,
+  PenLine,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ATTENDANCE_STATUSES, type AttendanceStatus } from '@coursewise/shared';
 import type {
@@ -10,15 +23,26 @@ import type {
   GradebookAttendanceItem,
   GradebookDiscussionItem,
   GradebookQuizItem,
-  GradebookStudentDetail,
   GroupScoreBreakdown,
 } from '@coursewise/shared';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty';
-import { Input, Label } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/toast';
+import {
+  ItemDetailDialog,
+  type GradebookItemTarget,
+} from '@/components/gradebook/ItemDetailDialog';
 import {
   useBulkMarkAttendance,
   useGradeDiscussion,
@@ -32,57 +56,76 @@ function formatNum(n: number | null | undefined, digits = 1): string {
   return n === null || n === undefined ? '—' : n.toFixed(digits);
 }
 
-function GroupSummary({
-  group,
+/** Raw / weight / weighted chips shown inline in a section's trigger row. */
+function RollupChips({
+  raw,
+  weight,
+  weighted,
 }: {
-  group: GroupScoreBreakdown;
+  raw: number | null;
+  weight: number;
+  weighted: number;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs font-normal text-muted-foreground">
       <span>
         {t('grading.raw')}:{' '}
-        <span className="font-mono text-foreground">{formatNum(group.raw)}</span>
+        <span className="font-mono tabular-nums text-foreground">{formatNum(raw)}</span>
       </span>
       <span>
         {t('grading.weight')}:{' '}
-        <span className="font-mono text-foreground">{group.weight}</span>
+        <span className="font-mono tabular-nums text-foreground">{weight}</span>
       </span>
       <span>
         {t('grading.weighted')}:{' '}
-        <span className="font-mono text-foreground">{formatNum(group.weighted)}</span>
+        <span className="font-mono tabular-nums text-foreground">{formatNum(weighted)}</span>
       </span>
-      <span>
-        {t('grading.groupItemsScored', {
-          scored: group.itemsScored,
-          total: group.itemCount,
-        })}
-      </span>
+    </span>
+  );
+}
+
+/** Small labeled stat tile for the hero card (mirrors the grading pages). */
+function Fact({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}): JSX.Element {
+  return (
+    <div className="rounded-md border bg-card p-3">
+      <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+        {label}
+      </dt>
+      <dd className="mt-1 truncate text-base font-semibold tabular-nums text-foreground">
+        {value}
+      </dd>
     </div>
   );
 }
 
-function AttendanceSummary({
-  rollup,
+/** Badge pair for a section trigger: amber while work remains, emerald once done. */
+function SectionStatusBadge({
+  remaining,
+  remainingKey,
+  completeKey,
 }: {
-  rollup: { raw: number | null; weight: number; weighted: number };
+  remaining: number;
+  remainingKey: string;
+  completeKey: string;
 }): JSX.Element {
   const { t } = useTranslation();
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-      <span>
-        {t('grading.raw')}:{' '}
-        <span className="font-mono text-foreground">{formatNum(rollup.raw)}</span>
-      </span>
-      <span>
-        {t('grading.weight')}:{' '}
-        <span className="font-mono text-foreground">{rollup.weight}</span>
-      </span>
-      <span>
-        {t('grading.weighted')}:{' '}
-        <span className="font-mono text-foreground">{formatNum(rollup.weighted)}</span>
-      </span>
-    </div>
+  return remaining > 0 ? (
+    <Badge variant="warning">{t(remainingKey, { count: remaining })}</Badge>
+  ) : (
+    <Badge variant="success" className="gap-1">
+      <CheckCircle2 className="h-3 w-3" aria-hidden />
+      {t(completeKey)}
+    </Badge>
   );
 }
 
@@ -95,6 +138,10 @@ export function TeacherGradebookStudentPage(): JSX.Element {
   const recalc = useRecalculateFinalGrades(cid);
   const toast = useToast();
   const qc = useQueryClient();
+
+  // Sections start collapsed; the trigger rows carry enough summary to scan.
+  const [openSections, setOpenSections] = useState<string[]>([]);
+  const [detailTarget, setDetailTarget] = useState<GradebookItemTarget | null>(null);
 
   async function refreshAll(): Promise<void> {
     await qc.invalidateQueries({ queryKey: ['gradebook-student-detail', cid, sid] });
@@ -142,19 +189,33 @@ export function TeacherGradebookStudentPage(): JSX.Element {
   const d = detail.data;
   const finalGroups = d.finalGrade?.groups ?? [];
   const attendance = d.finalGrade?.attendance ?? null;
+  const outdated = d.finalGrade?.isOutdated ?? false;
+  const finalScore = d.finalGrade?.score ?? null;
+
+  const allSectionIds = ['attendance', ...finalGroups.map((g) => g.groupId)];
+  const itemsScored = finalGroups.reduce((n, g) => n + g.itemsScored, 0);
+  const itemCount = finalGroups.reduce((n, g) => n + g.itemCount, 0);
+  const attendanceUnrecorded = d.attendance.items.filter((it) => !it.status).length;
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <div>
-            <CardTitle>{t('grading.detailTitle')}</CardTitle>
-            <div className="mt-1 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{d.studentName}</span>{' '}
-              · {d.studentEmail}
+      {/* Hero: who + final grade at a glance */}
+      <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-6 py-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              <GraduationCap className="h-3.5 w-3.5" aria-hidden />
+              {t('grading.detailTitle')}
             </div>
+            <h2 className="mt-1 truncate text-xl font-semibold leading-tight">{d.studentName}</h2>
+            <div className="truncate text-sm text-muted-foreground">{d.studentEmail}</div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex shrink-0 items-center gap-2">
+            {outdated ? (
+              <Badge variant="warning">{t('grading.outdated')}</Badge>
+            ) : (
+              <Badge variant="success">{t('grading.current')}</Badge>
+            )}
             <Link to={`/teacher/courses/${cid}/gradebook`}>
               <Button variant="outline" size="sm">
                 {t('grading.detailBack')}
@@ -164,62 +225,149 @@ export function TeacherGradebookStudentPage(): JSX.Element {
               {t('grading.detailRecalc')}
             </Button>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-center gap-6 text-sm">
-            <div>
-              <div className="text-xs text-muted-foreground">
+        </div>
+        <CardContent className="space-y-4 pt-5">
+          <div>
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 {t('grading.detailFinalScore')}
-              </div>
-              <div className="font-mono text-lg">
-                {formatNum(d.finalGrade?.score ?? null)}
-              </div>
+              </span>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground">
-                {t('grading.detailLetter')}
-              </div>
-              <div className="font-mono text-lg">{d.finalGrade?.letterGrade ?? '—'}</div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-4xl font-semibold tabular-nums">{formatNum(finalScore)}</span>
+              <span className="text-sm text-muted-foreground">/ 100</span>
+              {d.finalGrade?.letterGrade ? (
+                <span className="ml-2 text-2xl font-semibold text-muted-foreground">
+                  {d.finalGrade.letterGrade}
+                </span>
+              ) : null}
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground">
-                {t('grading.override')}
-              </div>
-              <div className="font-mono text-lg">
-                {formatNum(d.finalGrade?.teacherOverrideScore ?? null)}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">
-                {t('grading.status')}
-              </div>
-              <div>
-                {d.finalGrade?.isOutdated ? (
-                  <Badge variant="secondary">{t('grading.outdated')}</Badge>
-                ) : (
-                  <Badge variant="success">{t('grading.current')}</Badge>
-                )}
-              </div>
-            </div>
+            <Progress
+              value={finalScore ?? 0}
+              className="mt-2 h-2"
+              barClassName={outdated ? 'bg-amber-400' : 'bg-emerald-500'}
+            />
           </div>
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Fact
+              icon={Award}
+              label={t('grading.detailLetter')}
+              value={d.finalGrade?.letterGrade ?? '—'}
+            />
+            <Fact
+              icon={PenLine}
+              label={t('grading.override')}
+              value={formatNum(d.finalGrade?.teacherOverrideScore ?? null)}
+            />
+            <Fact
+              icon={ListChecks}
+              label={t('grading.detailItemsScored')}
+              value={`${itemsScored} / ${itemCount}`}
+            />
+            <Fact
+              icon={CalendarCheck}
+              label={t('grading.attendanceRateLabel')}
+              value={attendance?.rate != null ? `${formatNum(attendance.rate)}%` : '—'}
+            />
+          </dl>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-base">{t('grading.detailAttendanceTitle')}</CardTitle>
-          <AttendanceSummary
-            rollup={{
-              raw: attendance?.rate ?? null,
-              weight: attendance?.weight ?? d.gradingPolicy.weightAttendance,
-              weighted: attendance?.weighted ?? 0,
-            }}
-          />
-        </CardHeader>
-        <CardContent>
-          <AttendanceTable courseId={cid} items={d.attendance.items} onSaved={refreshAll} />
-        </CardContent>
-      </Card>
+      {/* Section list header: label + bulk open/close */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          {t('grading.breakdown')}
+        </span>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => setOpenSections(allSectionIds)}>
+            <ChevronsUpDown className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+            {t('grading.detailExpandAll')}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setOpenSections([])}>
+            <ChevronsDownUp className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+            {t('grading.detailCollapseAll')}
+          </Button>
+        </div>
+      </div>
+
+      <Accordion value={openSections} onValueChange={setOpenSections}>
+        <AccordionItem value="attendance">
+          <AccordionTrigger
+            trailing={
+              <>
+                <SectionStatusBadge
+                  remaining={attendanceUnrecorded}
+                  remainingKey="grading.detailSectionUnrecorded"
+                  completeKey="grading.detailAttendanceComplete"
+                />
+                <span className="text-sm font-semibold tabular-nums">
+                  {t('grading.detailContributesPts', {
+                    pts: formatNum(attendance?.weighted ?? 0),
+                  })}
+                </span>
+              </>
+            }
+          >
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="flex items-center gap-2 font-medium">
+                <CalendarCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
+                {t('grading.detailAttendanceTitle')}
+              </span>
+              <RollupChips
+                raw={attendance?.rate ?? null}
+                weight={attendance?.weight ?? d.gradingPolicy.weightAttendance}
+                weighted={attendance?.weighted ?? 0}
+              />
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            <AttendanceTable courseId={cid} items={d.attendance.items} onSaved={refreshAll} />
+          </AccordionContent>
+        </AccordionItem>
+
+        {finalGroups.map((g) => (
+          <AccordionItem key={g.groupId} value={g.groupId}>
+            <AccordionTrigger
+              trailing={
+                <>
+                  <SectionStatusBadge
+                    remaining={g.itemCount - g.itemsScored}
+                    remainingKey="grading.detailSectionUngraded"
+                    completeKey="grading.detailSectionComplete"
+                  />
+                  <span className="text-sm font-semibold tabular-nums">
+                    {t('grading.detailContributesPts', { pts: formatNum(g.weighted) })}
+                  </span>
+                </>
+              }
+            >
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="flex items-center gap-2 font-medium">
+                  <FolderOpen className="h-4 w-4 text-muted-foreground" aria-hidden />
+                  {g.groupName}
+                </span>
+                <RollupChips raw={g.raw} weight={g.weight} weighted={g.weighted} />
+                <span className="text-xs font-normal text-muted-foreground">
+                  {t('grading.groupItemsScored', {
+                    scored: g.itemsScored,
+                    total: g.itemCount,
+                  })}
+                </span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <GroupItemsTable
+                group={g}
+                studentId={sid}
+                courseId={cid}
+                lookups={lookups}
+                onSaved={refreshAll}
+                onViewDetails={setDetailTarget}
+              />
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
 
       {finalGroups.length === 0 ? (
         <Card>
@@ -227,28 +375,22 @@ export function TeacherGradebookStudentPage(): JSX.Element {
             {t('grading.detailNoItems')}
           </CardContent>
         </Card>
-      ) : (
-        finalGroups.map((g) => (
-          <GroupCard
-            key={g.groupId}
-            group={g}
-            studentId={sid}
-            courseId={cid}
-            lookups={lookups}
-            onSaved={refreshAll}
-          />
-        ))
-      )}
+      ) : null}
+
+      {detailTarget ? (
+        <ItemDetailDialog target={detailTarget} onClose={() => setDetailTarget(null)} />
+      ) : null}
     </div>
   );
 }
 
-function GroupCard({
+function GroupItemsTable({
   group,
   studentId,
   courseId,
   lookups,
   onSaved,
+  onViewDetails,
 }: {
   group: GroupScoreBreakdown;
   studentId: string;
@@ -259,121 +401,122 @@ function GroupCard({
     discussions: Map<string, GradebookDiscussionItem>;
   };
   onSaved: () => Promise<void>;
+  onViewDetails: (target: GradebookItemTarget) => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  if (group.detail.length === 0) {
+    return <p className="text-sm text-muted-foreground">{t('grading.detailNoItems')}</p>;
+  }
   return (
-    <Card>
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-base">{group.groupName}</CardTitle>
-        <GroupSummary group={group} />
-      </CardHeader>
-      <CardContent>
-        {group.detail.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('grading.detailNoItems')}</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="py-2 pr-3">{group.groupName}</th>
-                  <th className="py-2 pr-3">{t('grading.score')}</th>
-                  <th className="py-2 pr-3">{t('grading.detailMax')}</th>
-                  <th className="py-2 pr-3">{t('grading.status')}</th>
-                  <th className="py-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {group.detail.map((item) => {
-                  if (item.itemType === 'set') {
-                    // Read-only rolled-up row (this is what counts), followed by
-                    // the member assignments as indented, individually-editable rows.
-                    return (
-                      <Fragment key={`set-${item.itemId}`}>
-                        <tr className="border-b bg-muted/30">
-                          <td className="py-2 pr-3 font-medium">
-                            <span className="inline-flex items-center gap-1.5">
-                              <Layers className="h-4 w-4 text-muted-foreground" />
-                              {item.title}
-                            </span>
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">
-                              {t('grading.setRowCounts')}
-                            </span>
-                          </td>
-                          <td className="py-2 pr-3 font-mono tabular-nums">
-                            {item.score !== null ? item.score.toFixed(1) : '—'}
-                          </td>
-                          <td className="py-2 pr-3 font-mono tabular-nums">{item.max}</td>
-                          <td className="py-2 pr-3" />
-                          <td className="py-2" />
-                        </tr>
-                        {(item.members ?? []).map((m) => {
-                          // A set's members are either assignments or quizzes
-                          // (quiz sets), each rendered indented under the
-                          // rolled-up row. Quiz members are read-only (best
-                          // attempt); assignment members stay inline-editable.
-                          if (m.itemType === 'quiz') {
-                            const q = lookups.quizzes.get(m.itemId);
-                            if (!q) return null;
-                            return (
-                              <QuizRow
-                                key={`q-${m.itemId}`}
-                                courseId={courseId}
-                                item={q}
-                                indent
-                              />
-                            );
-                          }
-                          const a = lookups.assignments.get(m.itemId);
-                          if (!a) return null;
-                          return (
-                            <AssignmentRow
-                              key={`a-${m.itemId}`}
-                              studentId={studentId}
-                              item={a}
-                              onSaved={onSaved}
-                              indent
-                            />
-                          );
-                        })}
-                      </Fragment>
-                    );
-                  }
-                  if (item.itemType === 'assignment') {
-                    const a = lookups.assignments.get(item.itemId);
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b bg-muted/20 text-left text-xs text-muted-foreground">
+            <th className="py-2 pl-2 pr-3 font-medium">{group.groupName}</th>
+            <th className="py-2 pr-3 font-medium">{t('grading.score')}</th>
+            <th className="py-2 pr-3 font-medium">{t('grading.detailMax')}</th>
+            <th className="py-2 pr-3 font-medium">{t('grading.status')}</th>
+            <th className="py-2 pr-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {group.detail.map((item) => {
+            if (item.itemType === 'set') {
+              // Read-only rolled-up row (this is what counts), followed by
+              // the member assignments as indented, individually-editable rows.
+              return (
+                <Fragment key={`set-${item.itemId}`}>
+                  <tr className="border-b bg-muted/30">
+                    <td className="py-2 pl-2 pr-3 font-medium">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Layers className="h-4 w-4 text-muted-foreground" aria-hidden />
+                        {item.title}
+                      </span>
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        {t('grading.setRowCounts')}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3 font-mono tabular-nums">
+                      {item.score !== null ? item.score.toFixed(1) : '—'}
+                    </td>
+                    <td className="py-2 pr-3 font-mono tabular-nums">{item.max}</td>
+                    <td className="py-2 pr-3" />
+                    <td className="py-2 pr-2" />
+                  </tr>
+                  {(item.members ?? []).map((m) => {
+                    // A set's members are either assignments or quizzes
+                    // (quiz sets), each rendered indented under the
+                    // rolled-up row. Quiz members are read-only (best
+                    // attempt); assignment members stay inline-editable.
+                    if (m.itemType === 'quiz') {
+                      const q = lookups.quizzes.get(m.itemId);
+                      if (!q) return null;
+                      return (
+                        <QuizRow
+                          key={`q-${m.itemId}`}
+                          courseId={courseId}
+                          item={q}
+                          onViewDetails={onViewDetails}
+                          indent
+                        />
+                      );
+                    }
+                    const a = lookups.assignments.get(m.itemId);
                     if (!a) return null;
                     return (
                       <AssignmentRow
-                        key={`a-${item.itemId}`}
+                        key={`a-${m.itemId}`}
                         studentId={studentId}
                         item={a}
                         onSaved={onSaved}
+                        onViewDetails={onViewDetails}
+                        indent
                       />
                     );
-                  }
-                  if (item.itemType === 'quiz') {
-                    const q = lookups.quizzes.get(item.itemId);
-                    if (!q) return null;
-                    return (
-                      <QuizRow key={`q-${item.itemId}`} courseId={courseId} item={q} />
-                    );
-                  }
-                  const dItem = lookups.discussions.get(item.itemId);
-                  if (!dItem) return null;
-                  return (
-                    <DiscussionRow
-                      key={`d-${item.itemId}`}
-                      studentId={studentId}
-                      item={dItem}
-                      onSaved={onSaved}
-                    />
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                  })}
+                </Fragment>
+              );
+            }
+            if (item.itemType === 'assignment') {
+              const a = lookups.assignments.get(item.itemId);
+              if (!a) return null;
+              return (
+                <AssignmentRow
+                  key={`a-${item.itemId}`}
+                  studentId={studentId}
+                  item={a}
+                  onSaved={onSaved}
+                  onViewDetails={onViewDetails}
+                />
+              );
+            }
+            if (item.itemType === 'quiz') {
+              const q = lookups.quizzes.get(item.itemId);
+              if (!q) return null;
+              return (
+                <QuizRow
+                  key={`q-${item.itemId}`}
+                  courseId={courseId}
+                  item={q}
+                  onViewDetails={onViewDetails}
+                />
+              );
+            }
+            const dItem = lookups.discussions.get(item.itemId);
+            if (!dItem) return null;
+            return (
+              <DiscussionRow
+                key={`d-${item.itemId}`}
+                studentId={studentId}
+                item={dItem}
+                onSaved={onSaved}
+                onViewDetails={onViewDetails}
+              />
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -396,10 +539,10 @@ function AttendanceTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-xs text-muted-foreground">
-            <th className="py-2 pr-3">{t('grading.detailAttendanceTitle')}</th>
-            <th className="py-2 pr-3">{t('attendance.sessionDate')}</th>
-            <th className="py-2 pr-3">{t('grading.status')}</th>
+          <tr className="border-b bg-muted/20 text-left text-xs text-muted-foreground">
+            <th className="py-2 pl-2 pr-3 font-medium">{t('grading.detailAttendanceTitle')}</th>
+            <th className="py-2 pr-3 font-medium">{t('attendance.sessionDate')}</th>
+            <th className="py-2 pr-3 font-medium">{t('grading.status')}</th>
           </tr>
         </thead>
         <tbody>
@@ -446,8 +589,8 @@ function AttendanceRow({
 
   return (
     <tr className="border-b last:border-0">
-      <td className="py-2 pr-3">{item.title}</td>
-      <td className="py-2 pr-3 text-xs text-muted-foreground">
+      <td className="py-2 pl-2 pr-3">{item.title}</td>
+      <td className="py-2 pr-3 text-xs tabular-nums text-muted-foreground">
         {new Date(item.sessionDate).toLocaleDateString()}
       </td>
       <td className="py-2 pr-3">
@@ -480,11 +623,13 @@ function AttendanceRow({
 function AssignmentRow({
   item,
   onSaved,
+  onViewDetails,
   indent,
 }: {
   studentId: string;
   item: GradebookAssignmentItem;
   onSaved: () => Promise<void>;
+  onViewDetails: (target: GradebookItemTarget) => void;
   indent?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -523,7 +668,7 @@ function AssignmentRow({
 
   return (
     <tr className="border-b align-top last:border-0">
-      <td className={cn('py-2 pr-3', indent && 'pl-6')}>
+      <td className={cn('py-2 pl-2 pr-3', indent && 'pl-8')}>
         <div>{item.title}</div>
         {item.feedback || canEdit ? (
           <Input
@@ -548,12 +693,30 @@ function AssignmentRow({
           disabled={!canEdit}
         />
       </td>
-      <td className="py-2 pr-3 font-mono text-muted-foreground">{item.maxScore}</td>
+      <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">{item.maxScore}</td>
       <td className="py-2 pr-3 text-xs text-muted-foreground">{item.status ?? '—'}</td>
-      <td className="py-2 text-right">
-        <Button size="sm" onClick={onSave} disabled={!canEdit || !dirty || grade.isPending}>
-          {t('grading.detailSaveScore')}
-        </Button>
+      <td className="py-2 pr-2 text-right">
+        <div className="flex items-center justify-end gap-1.5">
+          {item.submissionId ? (
+            <ActionIconButton
+              icon={Eye}
+              size="sm"
+              color="sky"
+              label={t('grading.detailViewDetails')}
+              onClick={() =>
+                onViewDetails({
+                  kind: 'assignment',
+                  title: item.title,
+                  submissionId: item.submissionId!,
+                  maxScore: item.maxScore,
+                })
+              }
+            />
+          ) : null}
+          <Button size="sm" onClick={onSave} disabled={!canEdit || !dirty || grade.isPending}>
+            {t('grading.detailSaveScore')}
+          </Button>
+        </div>
       </td>
     </tr>
   );
@@ -564,28 +727,49 @@ function AssignmentRow({
 function QuizRow({
   courseId,
   item,
+  onViewDetails,
   indent,
 }: {
   courseId: string;
   item: GradebookQuizItem;
+  onViewDetails: (target: GradebookItemTarget) => void;
   indent?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
     <tr className="border-b last:border-0">
-      <td className={cn('py-2 pr-3', indent && 'pl-6')}>{item.title}</td>
-      <td className="py-2 pr-3 font-mono">{formatNum(item.score)}</td>
-      <td className="py-2 pr-3 font-mono text-muted-foreground">{item.maxScore ?? '—'}</td>
+      <td className={cn('py-2 pl-2 pr-3', indent && 'pl-8')}>{item.title}</td>
+      <td className="py-2 pr-3 font-mono tabular-nums">{formatNum(item.score)}</td>
+      <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">
+        {item.maxScore ?? '—'}
+      </td>
       <td className="py-2 pr-3 text-xs text-muted-foreground">
         {item.attemptId ? item.status ?? '—' : t('grading.detailNoAttempt')}
       </td>
-      <td className="py-2 text-right">
+      <td className="py-2 pr-2 text-right">
         {item.attemptId ? (
-          <Link to={`/teacher/courses/${courseId}/quizzes/${item.quizId}/attempts`}>
-            <Button size="sm" variant="outline">
-              {t('grading.detailReviewQuiz')}
-            </Button>
-          </Link>
+          <div className="flex items-center justify-end gap-1.5">
+            <ActionIconButton
+              icon={Eye}
+              size="sm"
+              color="sky"
+              label={t('grading.detailViewDetails')}
+              onClick={() =>
+                onViewDetails({
+                  kind: 'quiz',
+                  title: item.title,
+                  quizId: item.quizId,
+                  attemptId: item.attemptId!,
+                  courseId,
+                })
+              }
+            />
+            <Link to={`/teacher/courses/${courseId}/quizzes/${item.quizId}/attempts`}>
+              <Button size="sm" variant="outline">
+                {t('grading.detailReviewQuiz')}
+              </Button>
+            </Link>
+          </div>
         ) : null}
       </td>
     </tr>
@@ -598,10 +782,12 @@ function DiscussionRow({
   studentId,
   item,
   onSaved,
+  onViewDetails,
 }: {
   studentId: string;
   item: GradebookDiscussionItem;
   onSaved: () => Promise<void>;
+  onViewDetails: (target: GradebookItemTarget) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const grade = useGradeDiscussion(item.topicId);
@@ -637,7 +823,7 @@ function DiscussionRow({
 
   return (
     <tr className="border-b align-top last:border-0">
-      <td className="py-2 pr-3">
+      <td className="py-2 pl-2 pr-3">
         <div>{item.title}</div>
         <Input
           className="mt-1 text-xs"
@@ -657,17 +843,32 @@ function DiscussionRow({
           onChange={(e) => setScore(e.target.value)}
         />
       </td>
-      <td className="py-2 pr-3 font-mono text-muted-foreground">{item.maxScore}</td>
+      <td className="py-2 pr-3 font-mono tabular-nums text-muted-foreground">{item.maxScore}</td>
       <td className="py-2 pr-3 text-xs text-muted-foreground">—</td>
-      <td className="py-2 text-right">
-        <Button size="sm" onClick={onSave} disabled={!dirty || grade.isPending}>
-          {t('grading.detailSaveScore')}
-        </Button>
+      <td className="py-2 pr-2 text-right">
+        <div className="flex items-center justify-end gap-1.5">
+          <ActionIconButton
+            icon={Eye}
+            size="sm"
+            color="sky"
+            label={t('grading.detailViewDetails')}
+            onClick={() =>
+              onViewDetails({
+                kind: 'discussion',
+                title: item.title,
+                topicId: item.topicId,
+                studentId,
+                maxScore: item.maxScore,
+                score: item.score,
+                feedback: item.feedback,
+              })
+            }
+          />
+          <Button size="sm" onClick={onSave} disabled={!dirty || grade.isPending}>
+            {t('grading.detailSaveScore')}
+          </Button>
+        </div>
       </td>
     </tr>
   );
 }
-
-// Silence the unused-imports warning for types used only as react-types.
-void Label;
-export type _GradebookStudentDetail = GradebookStudentDetail;

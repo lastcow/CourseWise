@@ -975,6 +975,14 @@ export function useAssignmentSubmissions(assignmentId: string | null) {
   });
 }
 
+export function useSubmission(submissionId: string | null) {
+  return useQuery({
+    queryKey: ['submission', submissionId],
+    enabled: !!submissionId,
+    queryFn: () => apiCall<SubmissionSummary>(`/api/submissions/${submissionId}`),
+  });
+}
+
 export function useMySubmission(assignmentId: string | null) {
   return useQuery({
     queryKey: ['my-submission', assignmentId],
