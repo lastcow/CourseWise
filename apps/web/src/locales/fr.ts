@@ -1750,6 +1750,10 @@ export const fr = {
       policySaved: 'Politique de notation enregistrée',
       version: 'Version {{version}}',
       gradebookTitle: 'Carnet de notes',
+      searchStudents: 'Rechercher par nom ou numéro étudiant',
+      filterShowing: '{{shown}} étudiants sur {{total}}',
+      filterClear: 'Effacer',
+      filterNoMatch: 'Aucun étudiant ne correspond aux filtres.',
       gradebookEmpty: 'Aucune note finale calculée pour le moment.',
       gradebookEmptyHint:
         'Cliquez sur « Recalculer » pour calculer les notes finales à partir des données actuelles.',

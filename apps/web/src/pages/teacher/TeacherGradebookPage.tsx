@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, Pencil } from 'lucide-react';
+import { GraduationCap, Pencil, Search } from 'lucide-react';
 import type { FinalGradeSummary } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -56,6 +56,9 @@ export function TeacherGradebookPage(): JSX.Element {
   const [editing, setEditing] = useState<FinalGradeSummary | null>(null);
   const [draftScore, setDraftScore] = useState<string>('');
   const [draftReason, setDraftReason] = useState<string>('');
+  // Toolbar: free-text search (name / student number / email) + letter chips.
+  const [search, setSearch] = useState('');
+  const [letterFilter, setLetterFilter] = useState<Set<string>>(new Set());
 
   async function onRecalc() {
     try {
@@ -93,6 +96,50 @@ export function TeacherGradebookPage(): JSX.Element {
   }
 
   const rows = useMemo(() => grades.data ?? [], [grades.data]);
+
+  const LETTERS = ['A', 'B', 'C', 'D', 'F'] as const;
+  // "B+" / "b-" bucket under B; effective letter is the grade's first char.
+  const letterOf = (g: FinalGradeSummary): string | null =>
+    g.letterGrade ? g.letterGrade[0]!.toUpperCase() : null;
+
+  const letterCounts = useMemo(() => {
+    const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+    for (const g of rows) {
+      const l = letterOf(g);
+      if (l && l in counts) counts[l] = (counts[l] ?? 0) + 1;
+    }
+    return counts;
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((g) => {
+      if (q) {
+        const hit =
+          (g.studentName ?? '').toLowerCase().includes(q) ||
+          (g.studentNumber ?? '').toLowerCase().includes(q) ||
+          (g.studentEmail ?? '').toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      if (letterFilter.size > 0) {
+        const l = letterOf(g);
+        if (!l || !letterFilter.has(l)) return false;
+      }
+      return true;
+    });
+  }, [rows, search, letterFilter]);
+
+  const filtering = search.trim() !== '' || letterFilter.size > 0;
+
+  function toggleLetter(l: string): void {
+    setLetterFilter((cur) => {
+      const next = new Set(cur);
+      if (next.has(l)) next.delete(l);
+      else next.add(l);
+      return next;
+    });
+  }
+
   const stats = useMemo(() => {
     const scored = rows
       .map((g) => g.teacherOverrideScore ?? g.score)
@@ -146,6 +193,67 @@ export function TeacherGradebookPage(): JSX.Element {
               />
             </div>
             <div className="overflow-x-auto rounded-lg border">
+            {/* Toolbar attached to the student table: search left, letter chips right. */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search
+                    className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={t('grading.searchStudents')}
+                    aria-label={t('grading.searchStudents')}
+                    className="h-9 w-72 max-w-full bg-background pl-8"
+                  />
+                </div>
+                {filtering ? (
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {t('grading.filterShowing', {
+                      shown: filteredRows.length,
+                      total: rows.length,
+                    })}
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {LETTERS.map((l) => {
+                  const active = letterFilter.has(l);
+                  return (
+                    <button
+                      key={l}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleLetter(l)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-0.5 text-xs font-medium transition',
+                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        active
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary/40'
+                          : 'text-muted-foreground hover:bg-muted',
+                      )}
+                    >
+                      <span>{l}</span>
+                      <span className="tabular-nums opacity-70">{letterCounts[l] ?? 0}</span>
+                    </button>
+                  );
+                })}
+                {filtering ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch('');
+                      setLetterFilter(new Set());
+                    }}
+                    className="text-xs text-muted-foreground underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
+                  >
+                    {t('grading.filterClear')}
+                  </button>
+                ) : null}
+              </div>
+            </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -158,7 +266,14 @@ export function TeacherGradebookPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((g) => (
+                {filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                      {t('grading.filterNoMatch')}
+                    </td>
+                  </tr>
+                ) : null}
+                {filteredRows.map((g) => (
                   <tr key={g.id} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="px-3 py-2">
                       <Link
@@ -167,7 +282,12 @@ export function TeacherGradebookPage(): JSX.Element {
                       >
                         {g.studentName ?? '—'}
                       </Link>
-                      <div className="text-xs text-muted-foreground">{g.studentEmail}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {g.studentEmail}
+                        {g.studentNumber ? (
+                          <span className="tabular-nums"> · #{g.studentNumber}</span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-3 py-2 font-mono tabular-nums">{g.score?.toFixed(1) ?? '—'}</td>
                     <td className="px-3 py-2 font-mono">{g.letterGrade ?? '—'}</td>
