@@ -253,6 +253,13 @@
       "when": 1783641600000,
       "tag": "0035_module_scheduling",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1783651200000,
+      "tag": "0036_weighted_sets",
+      "breakpoints": true
     }
   ]
 }

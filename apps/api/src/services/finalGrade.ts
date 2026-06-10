@@ -95,16 +95,27 @@ interface ComputeFinalScoreResult {
 }
 
 // Roll a set's member percentages up to a single percentage per its rule.
-// `average` = mean of the scored members; `highest` = best-of. Returns null
-// when no member is scored (the set then drops out of its category).
+// `average` = mean of the scored members; `highest` = best-of; `weighted` =
+// Σ(wᵢ·pᵢ)/Σ(wᵢ) over the scored members (weights renormalize over whoever is
+// scored, mirroring how `average` skips unscored members; missing weights
+// default to 1, so a weightless `weighted` set behaves like `average`).
+// Returns null when no member is scored (the set then drops out).
 export function rollUpSetScore(
-  rule: 'average' | 'highest',
+  rule: 'average' | 'highest' | 'weighted',
   memberPercents: number[],
+  memberWeights?: number[],
 ): number | null {
   if (memberPercents.length === 0) return null;
-  return rule === 'highest'
-    ? Math.max(...memberPercents)
-    : memberPercents.reduce((acc, p) => acc + p, 0) / memberPercents.length;
+  if (rule === 'highest') return Math.max(...memberPercents);
+  if (rule === 'weighted') {
+    const weights = memberPercents.map((_, i) => memberWeights?.[i] ?? 1);
+    const totalWeight = weights.reduce((acc, w) => acc + w, 0);
+    if (totalWeight <= 0) return null;
+    return (
+      memberPercents.reduce((acc, p, i) => acc + p * weights[i]!, 0) / totalWeight
+    );
+  }
+  return memberPercents.reduce((acc, p) => acc + p, 0) / memberPercents.length;
 }
 
 export function computeFinalScore(input: ComputeFinalScoreInput): ComputeFinalScoreResult {
@@ -198,9 +209,11 @@ interface CourseGroupDef {
 interface CourseSetDef {
   id: string;
   name: string;
-  rule: 'average' | 'highest';
+  rule: 'average' | 'highest' | 'weighted';
   groupId: string | null;
   memberIds: string[];
+  /** Per-member weights for the 'weighted' rule; missing → 1. */
+  weights: Record<string, number> | null;
 }
 
 // A quiz set rolls its member quizzes up to one score (per `rule`) that counts
@@ -209,9 +222,11 @@ interface CourseSetDef {
 interface CourseQuizSetDef {
   id: string;
   name: string;
-  rule: 'average' | 'highest';
+  rule: 'average' | 'highest' | 'weighted';
   groupId: string | null;
   memberQuizIds: string[];
+  /** Per-member weights for the 'weighted' rule; missing → 1. */
+  weights: Record<string, number> | null;
 }
 
 interface CourseGradingContext {
@@ -257,6 +272,7 @@ async function loadCourseGradingContext(
     rule: s.scoringRule,
     groupId: s.groupId,
     memberIds: [],
+    weights: (s.weightsJson as Record<string, number> | null) ?? null,
   }));
   const setIndex = new Map(sets.map((s) => [s.id, s]));
 
@@ -273,6 +289,7 @@ async function loadCourseGradingContext(
     rule: s.scoringRule,
     groupId: s.groupId,
     memberQuizIds: [],
+    weights: (s.weightsJson as Record<string, number> | null) ?? null,
   }));
   const quizSetIndex = new Map(quizSetDefs.map((s) => [s.id, s]));
 
@@ -624,10 +641,10 @@ function buildAlgorithmInput(
         max: meta.maxScore || 100,
       };
     });
-    const percents = members
-      .filter((m) => m.score !== null && m.max > 0)
-      .map((m) => (m.score! / m.max) * 100);
-    const rolled = rollUpSetScore(set.rule, percents);
+    const scored = members.filter((m) => m.score !== null && m.max > 0);
+    const percents = scored.map((m) => (m.score! / m.max) * 100);
+    const weights = scored.map((m) => set.weights?.[m.itemId] ?? 1);
+    const rolled = rollUpSetScore(set.rule, percents, weights);
     target.items.push({
       id: set.id,
       type: 'set',
@@ -658,10 +675,10 @@ function buildAlgorithmInput(
         max: attempt ? attempt.maxScore || meta.maxScore || 100 : meta.maxScore || 100,
       };
     });
-    const percents = members
-      .filter((m) => m.score !== null && m.max > 0)
-      .map((m) => (m.score! / m.max) * 100);
-    const rolled = rollUpSetScore(set.rule, percents);
+    const scored = members.filter((m) => m.score !== null && m.max > 0);
+    const percents = scored.map((m) => (m.score! / m.max) * 100);
+    const weights = scored.map((m) => set.weights?.[m.itemId] ?? 1);
+    const rolled = rollUpSetScore(set.rule, percents, weights);
     target.items.push({
       id: set.id,
       type: 'set',

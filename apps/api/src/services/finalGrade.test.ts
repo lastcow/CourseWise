@@ -179,6 +179,20 @@ describe('rollUpSetScore', () => {
   it('returns null when no member is scored', () => {
     expect(rollUpSetScore('average', [])).toBeNull();
     expect(rollUpSetScore('highest', [])).toBeNull();
+    expect(rollUpSetScore('weighted', [])).toBeNull();
+  });
+
+  it('weighted → Σ(w·p)/Σ(w) over scored members', () => {
+    // 80% at weight 1, 100% at weight 3 → (80 + 300) / 4 = 95.
+    expect(rollUpSetScore('weighted', [80, 100], [1, 3])).toBeCloseTo(95, 5);
+    // Weights renormalize over the provided (scored) members.
+    expect(rollUpSetScore('weighted', [60, 90], [2, 1])).toBeCloseTo(70, 5);
+  });
+
+  it('weighted without weights behaves like average (all weights 1)', () => {
+    expect(rollUpSetScore('weighted', [85, 92, 78])).toBeCloseTo(85, 5);
+    // Missing entries default to 1.
+    expect(rollUpSetScore('weighted', [50, 100], [])).toBeCloseTo(75, 5);
   });
 });
 

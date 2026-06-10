@@ -1206,13 +1206,22 @@ export const reorderAssignmentGroupsSchema = z.object({
 });
 export type ReorderAssignmentGroupsInput = z.infer<typeof reorderAssignmentGroupsSchema>;
 
-// ---------- Assignment sets (avg / best-of bundles) ----------
-export const ASSIGNMENT_SET_RULES = ['average', 'highest'] as const;
+// ---------- Assignment sets (avg / best-of / weighted bundles) ----------
+export const ASSIGNMENT_SET_RULES = ['average', 'highest', 'weighted'] as const;
+
+// Per-member weights for the 'weighted' rule: { [memberId]: weight }.
+// Weights are relative shares (member share = w / Σw); missing members
+// default to 1 at compute time.
+const memberWeightsSchema = z
+  .record(z.string().uuid(), z.number().positive().max(1000))
+  .optional()
+  .nullable();
 
 export const createAssignmentSetSchema = z.object({
   name: z.string().trim().min(1).max(100),
   groupId: z.string().uuid().nullable().optional(),
   scoringRule: z.enum(ASSIGNMENT_SET_RULES).optional(),
+  memberWeights: memberWeightsSchema,
   position: z.number().int().min(0).optional(),
 });
 export type CreateAssignmentSetInput = z.infer<typeof createAssignmentSetSchema>;
@@ -1221,20 +1230,22 @@ export const updateAssignmentSetSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   groupId: z.string().uuid().nullable().optional(),
   scoringRule: z.enum(ASSIGNMENT_SET_RULES).optional(),
+  memberWeights: memberWeightsSchema,
   position: z.number().int().min(0).optional(),
 });
 export type UpdateAssignmentSetInput = z.infer<typeof updateAssignmentSetSchema>;
 
-// ---------- Quiz sets (avg / best-of bundles of quizzes) ----------
+// ---------- Quiz sets (avg / best-of / weighted bundles of quizzes) ----------
 // Parallel to assignment sets: a bundle of quizzes whose members roll up to ONE
 // score (per scoringRule) that counts as a single item inside the weighted
 // category referenced by groupId. Own enum so it can diverge from assignments.
-export const QUIZ_SET_RULES = ['average', 'highest'] as const;
+export const QUIZ_SET_RULES = ['average', 'highest', 'weighted'] as const;
 
 export const createQuizSetSchema = z.object({
   name: z.string().trim().min(1).max(100),
   groupId: z.string().uuid().nullable().optional(),
   scoringRule: z.enum(QUIZ_SET_RULES).optional(),
+  memberWeights: memberWeightsSchema,
   position: z.number().int().min(0).optional(),
 });
 export type CreateQuizSetInput = z.infer<typeof createQuizSetSchema>;
@@ -1243,6 +1254,7 @@ export const updateQuizSetSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   groupId: z.string().uuid().nullable().optional(),
   scoringRule: z.enum(QUIZ_SET_RULES).optional(),
+  memberWeights: memberWeightsSchema,
   position: z.number().int().min(0).optional(),
 });
 export type UpdateQuizSetInput = z.infer<typeof updateQuizSetSchema>;

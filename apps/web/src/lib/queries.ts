@@ -1937,6 +1937,7 @@ export function useCreateAssignmentSet(courseId: string) {
       name: string;
       groupId?: string | null;
       scoringRule?: AssignmentSetRule;
+      memberWeights?: Record<string, number> | null;
       position?: number;
     }) =>
       apiCall<AssignmentSet>(`/api/courses/${courseId}/assignment-sets`, {
@@ -1962,6 +1963,7 @@ export function useUpdateAssignmentSet(courseId: string) {
       name?: string;
       groupId?: string | null;
       scoringRule?: AssignmentSetRule;
+      memberWeights?: Record<string, number> | null;
       position?: number;
     }) =>
       apiCall<AssignmentSet>(`/api/courses/${courseId}/assignment-sets/${setId}`, {
@@ -2009,6 +2011,7 @@ export function useCreateQuizSet(courseId: string) {
       name: string;
       groupId?: string | null;
       scoringRule?: QuizSetRule;
+      memberWeights?: Record<string, number> | null;
       position?: number;
     }) =>
       apiCall<QuizSet>(`/api/courses/${courseId}/quiz-sets`, {
@@ -2034,6 +2037,7 @@ export function useUpdateQuizSet(courseId: string) {
       name?: string;
       groupId?: string | null;
       scoringRule?: QuizSetRule;
+      memberWeights?: Record<string, number> | null;
       position?: number;
     }) =>
       apiCall<QuizSet>(`/api/courses/${courseId}/quiz-sets/${setId}`, {

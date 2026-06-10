@@ -46,7 +46,7 @@ r.get(
     const result = await db.execute(sql`
       SELECT
         s.id, s.course_id AS "courseId", s.group_id AS "groupId", s.name,
-        s.scoring_rule AS "scoringRule", s.position,
+        s.scoring_rule AS "scoringRule", s.weights_json AS "memberWeights", s.position,
         s.created_at AS "createdAt", s.updated_at AS "updatedAt",
         (SELECT count(*) FROM assignments WHERE set_id = s.id)::int AS "memberCount"
       FROM assignment_sets s
@@ -88,6 +88,7 @@ r.post(
           groupId: input.groupId ?? null,
           name: input.name,
           scoringRule: input.scoringRule ?? 'average',
+          weightsJson: input.memberWeights ?? null,
           position,
         })
         .returning();
@@ -104,7 +105,8 @@ r.post(
         target: inserted.id,
         metadata: { courseId, name: inserted.name },
       });
-      return success(c, inserted, 201);
+      const { weightsJson, ...rest } = inserted;
+      return success(c, { ...rest, memberWeights: (weightsJson as Record<string, number> | null) ?? null }, 201);
     } catch (e) {
       if (String(e).includes('assignment_sets_course_name_idx')) {
         throw new ApiException(409, ERROR_CODES.CONFLICT, 'A set with that name already exists');
@@ -132,6 +134,7 @@ r.patch(
     if (input.name !== undefined) patch.name = input.name;
     if (input.groupId !== undefined) patch.groupId = input.groupId;
     if (input.scoringRule !== undefined) patch.scoringRule = input.scoringRule;
+    if (input.memberWeights !== undefined) patch.weightsJson = input.memberWeights;
     if (input.position !== undefined) patch.position = input.position;
 
     try {
@@ -151,7 +154,8 @@ r.patch(
         target: setId,
         metadata: { courseId, fields: Object.keys(patch) },
       });
-      return success(c, updated);
+      const { weightsJson, ...rest } = updated;
+      return success(c, { ...rest, memberWeights: (weightsJson as Record<string, number> | null) ?? null });
     } catch (e) {
       if (String(e).includes('assignment_sets_course_name_idx')) {
         throw new ApiException(409, ERROR_CODES.CONFLICT, 'A set with that name already exists');

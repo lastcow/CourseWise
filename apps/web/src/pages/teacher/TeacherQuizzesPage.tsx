@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
+import { SetWeightsEditor } from '@/components/sets/SetWeightsEditor';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import {
   Table,
@@ -121,8 +122,11 @@ export function TeacherQuizzesPage(): JSX.Element {
   const [setMode, setSetMode] = useState<'new' | 'existing'>('new');
   const [newSetName, setNewSetName] = useState('');
   const [newSetCategory, setNewSetCategory] = useState('');
-  const [newSetRule, setNewSetRule] = useState<'average' | 'highest'>('average');
+  const [newSetRule, setNewSetRule] = useState<'average' | 'highest' | 'weighted'>('average');
+  const [newSetWeights, setNewSetWeights] = useState<Record<string, number>>({});
   const [existingSetId, setExistingSetId] = useState('');
+  // Manage-sets dialog: unsaved per-set weight drafts, keyed by set id.
+  const [weightsDraft, setWeightsDraft] = useState<Record<string, Record<string, number>>>({});
 
   const moduleTitleById = new Map((modulesQ.data ?? []).map((m) => [m.id, m.title]));
   const groupList = groupsQ.data ?? [];
@@ -158,6 +162,7 @@ export function TeacherQuizzesPage(): JSX.Element {
           name: newSetName.trim(),
           groupId: newSetCategory || null,
           scoringRule: newSetRule,
+          memberWeights: newSetRule === 'weighted' ? newSetWeights : undefined,
         });
         targetSetId = created.id;
       }
@@ -176,6 +181,7 @@ export function TeacherQuizzesPage(): JSX.Element {
       setNewSetName('');
       setNewSetCategory('');
       setNewSetRule('average');
+      setNewSetWeights({});
       setExistingSetId('');
     } catch (err) {
       toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
@@ -192,7 +198,12 @@ export function TeacherQuizzesPage(): JSX.Element {
 
   async function onUpdateSetField(
     setId: string,
-    patch: { name?: string; groupId?: string | null; scoringRule?: 'average' | 'highest' },
+    patch: {
+      name?: string;
+      groupId?: string | null;
+      scoringRule?: 'average' | 'highest' | 'weighted';
+      memberWeights?: Record<string, number> | null;
+    },
   ): Promise<void> {
     try {
       await updateSet.mutateAsync({ setId, ...patch });
@@ -615,57 +626,100 @@ export function TeacherQuizzesPage(): JSX.Element {
           <p className="mt-3 text-sm text-muted-foreground">{t('quizzes.sets.empty')}</p>
         ) : (
           <div className="mt-3 space-y-2">
-            {setList.map((s) => (
-              <div key={s.id} className="flex items-center gap-2">
-                <Input
-                  defaultValue={s.name}
-                  aria-label={t('quizzes.sets.name')}
-                  onBlur={(e) => {
-                    const next = e.target.value.trim();
-                    if (next && next !== s.name) void onUpdateSetField(s.id, { name: next });
-                  }}
-                  className="min-w-0 flex-1"
-                />
-                <select
-                  aria-label={t('quizzes.sets.category')}
-                  className="h-10 w-32 shrink-0 rounded-md border border-input bg-background px-2 text-sm"
-                  value={s.groupId ?? ''}
-                  onChange={(e) => void onUpdateSetField(s.id, { groupId: e.target.value || null })}
-                >
-                  <option value="">{t('quizzes.sets.noCategory')}</option>
-                  {groupList.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label={t('quizzes.sets.rule')}
-                  className="h-10 w-28 shrink-0 rounded-md border border-input bg-background px-2 text-sm"
-                  value={s.scoringRule}
-                  onChange={(e) =>
-                    void onUpdateSetField(s.id, {
-                      scoringRule: e.target.value as 'average' | 'highest',
-                    })
-                  }
-                >
-                  <option value="average">{t('grading.setRuleAverage')}</option>
-                  <option value="highest">{t('grading.setRuleHighest')}</option>
-                </select>
-                <span className="w-20 shrink-0 text-right text-xs text-muted-foreground">
-                  {t('quizzes.sets.members', { count: s.memberCount ?? 0 })}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => void onDeleteSet(s.id, s.name)}
-                  disabled={deleteSet.isPending}
-                >
-                  {t('common.delete')}
-                </Button>
-              </div>
-            ))}
+            {setList.map((s) => {
+              const setMembers = quizList
+                .filter((q) => q.setId === s.id)
+                .map((q) => ({ id: q.id, title: q.title }));
+              const draft = weightsDraft[s.id] ?? s.memberWeights ?? {};
+              const dirty = weightsDraft[s.id] !== undefined;
+              return (
+                <div key={s.id} className="space-y-2 rounded-md border p-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      defaultValue={s.name}
+                      aria-label={t('quizzes.sets.name')}
+                      onBlur={(e) => {
+                        const next = e.target.value.trim();
+                        if (next && next !== s.name) void onUpdateSetField(s.id, { name: next });
+                      }}
+                      className="min-w-0 flex-1"
+                    />
+                    <select
+                      aria-label={t('quizzes.sets.category')}
+                      className="h-10 w-32 shrink-0 rounded-md border border-input bg-background px-2 text-sm"
+                      value={s.groupId ?? ''}
+                      onChange={(e) =>
+                        void onUpdateSetField(s.id, { groupId: e.target.value || null })
+                      }
+                    >
+                      <option value="">{t('quizzes.sets.noCategory')}</option>
+                      {groupList.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label={t('quizzes.sets.rule')}
+                      className="h-10 w-28 shrink-0 rounded-md border border-input bg-background px-2 text-sm"
+                      value={s.scoringRule}
+                      onChange={(e) =>
+                        void onUpdateSetField(s.id, {
+                          scoringRule: e.target.value as 'average' | 'highest' | 'weighted',
+                        })
+                      }
+                    >
+                      <option value="average">{t('grading.setRuleAverage')}</option>
+                      <option value="highest">{t('grading.setRuleHighest')}</option>
+                      <option value="weighted">{t('grading.setRuleWeighted')}</option>
+                    </select>
+                    <span className="w-20 shrink-0 text-right text-xs text-muted-foreground">
+                      {t('quizzes.sets.members', { count: s.memberCount ?? 0 })}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => void onDeleteSet(s.id, s.name)}
+                      disabled={deleteSet.isPending}
+                    >
+                      {t('common.delete')}
+                    </Button>
+                  </div>
+                  {s.scoringRule === 'weighted' && setMembers.length > 0 ? (
+                    <>
+                      <SetWeightsEditor
+                        members={setMembers}
+                        weights={draft}
+                        onChange={(next) =>
+                          setWeightsDraft((cur) => ({ ...cur, [s.id]: next }))
+                        }
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          disabled={!dirty || updateSet.isPending}
+                          onClick={async () => {
+                            await onUpdateSetField(s.id, { memberWeights: draft });
+                            setWeightsDraft((cur) => {
+                              const next = { ...cur };
+                              delete next[s.id];
+                              return next;
+                            });
+                            toast.push({
+                              title: t('assignments.setWeightsSaved'),
+                              tone: 'success',
+                            });
+                          }}
+                        >
+                          {t('common.save')}
+                        </Button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         )}
         <div className="mt-4 flex justify-end">
@@ -736,13 +790,25 @@ export function TeacherQuizzesPage(): JSX.Element {
                 <select
                   id="quiz-set-rule"
                   value={newSetRule}
-                  onChange={(e) => setNewSetRule(e.target.value as 'average' | 'highest')}
+                  onChange={(e) =>
+                    setNewSetRule(e.target.value as 'average' | 'highest' | 'weighted')
+                  }
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="average">{t('grading.setRuleAverage')}</option>
                   <option value="highest">{t('grading.setRuleHighest')}</option>
+                  <option value="weighted">{t('grading.setRuleWeighted')}</option>
                 </select>
               </div>
+              {newSetRule === 'weighted' ? (
+                <SetWeightsEditor
+                  members={quizList
+                    .filter((q) => selectedIds.has(q.id))
+                    .map((q) => ({ id: q.id, title: q.title }))}
+                  weights={newSetWeights}
+                  onChange={setNewSetWeights}
+                />
+              ) : null}
             </div>
           ) : (
             <div className="space-y-1">
