@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { and, asc, desc, eq, gt, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type {
+  AdminActivityPoint,
+  AdminActivityResponse,
   AdminDashboardResponse,
   AlertSummary,
   StudentCourseSnapshot,
@@ -16,6 +18,7 @@ import {
   attendanceSessions,
   courseTeachers,
   courses,
+  discussionPosts,
   enrollments,
   finalGrades,
   quizAnswers,
@@ -90,6 +93,91 @@ r.get('/dashboards/admin', requireScopeGroup('dashboardsRead'), async (c) => {
     latestAlerts,
     lateSubmissionsLast7d: lateSubmissions7d?.c ?? 0,
   };
+  return success(c, body);
+});
+
+// Daily system-activity counts for the dashboard's overview-over-time chart.
+// One cheap date_trunc + count per series, zero-filled so every day in the
+// range is present.
+r.get('/dashboards/admin/activity', requireScopeGroup('dashboardsRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  if (auth.user.role !== 'admin') {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Admin only');
+  }
+  const raw = Number.parseInt(c.req.query('days') ?? '30', 10);
+  const days = Number.isNaN(raw) ? 30 : Math.min(90, Math.max(7, raw));
+  const since = new Date(Date.now() - (days - 1) * 86_400_000);
+  since.setUTCHours(0, 0, 0, 0);
+  const sinceIso = since.toISOString();
+
+  const points: AdminActivityPoint[] = [];
+  const byDate = new Map<string, AdminActivityPoint>();
+  for (let i = 0; i < days; i++) {
+    const date = new Date(since.getTime() + i * 86_400_000).toISOString().slice(0, 10);
+    const point: AdminActivityPoint = {
+      date,
+      newUsers: 0,
+      enrollments: 0,
+      submissions: 0,
+      quizAttempts: 0,
+      posts: 0,
+    };
+    points.push(point);
+    byDate.set(date, point);
+  }
+
+  type DayCount = { day: string; n: number };
+  const fill = (rows: DayCount[], field: keyof Omit<AdminActivityPoint, 'date'>): void => {
+    for (const row of rows) {
+      const point = byDate.get(String(row.day).slice(0, 10));
+      if (point) point[field] = row.n;
+    }
+  };
+  const dayCount = { n: sql<number>`count(*)::int` };
+
+  fill(
+    await db
+      .select({ day: sql<string>`(date_trunc('day', ${users.createdAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
+      .from(users)
+      .where(sql`${users.createdAt} >= ${sinceIso}`)
+      .groupBy(sql`1`),
+    'newUsers',
+  );
+  fill(
+    await db
+      .select({ day: sql<string>`(date_trunc('day', ${enrollments.createdAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
+      .from(enrollments)
+      .where(sql`${enrollments.createdAt} >= ${sinceIso}`)
+      .groupBy(sql`1`),
+    'enrollments',
+  );
+  fill(
+    await db
+      .select({ day: sql<string>`(date_trunc('day', ${assignmentSubmissions.submittedAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
+      .from(assignmentSubmissions)
+      .where(sql`${assignmentSubmissions.submittedAt} >= ${sinceIso}`)
+      .groupBy(sql`1`),
+    'submissions',
+  );
+  fill(
+    await db
+      .select({ day: sql<string>`(date_trunc('day', ${quizAttempts.startedAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
+      .from(quizAttempts)
+      .where(sql`${quizAttempts.startedAt} >= ${sinceIso}`)
+      .groupBy(sql`1`),
+    'quizAttempts',
+  );
+  fill(
+    await db
+      .select({ day: sql<string>`(date_trunc('day', ${discussionPosts.createdAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
+      .from(discussionPosts)
+      .where(and(eq(discussionPosts.isDeleted, false), sql`${discussionPosts.createdAt} >= ${sinceIso}`))
+      .groupBy(sql`1`),
+    'posts',
+  );
+
+  const body: AdminActivityResponse = { days, points };
   return success(c, body);
 });
 

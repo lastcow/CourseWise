@@ -959,6 +959,21 @@ export interface AdminDashboardResponse {
   lateSubmissionsLast7d: number;
 }
 
+/** One day of system-wide activity counts (date is YYYY-MM-DD, UTC). */
+export interface AdminActivityPoint {
+  date: string;
+  newUsers: number;
+  enrollments: number;
+  submissions: number;
+  quizAttempts: number;
+  posts: number;
+}
+
+export interface AdminActivityResponse {
+  days: number;
+  points: AdminActivityPoint[];
+}
+
 export interface TeacherCourseSnapshot {
   courseId: string;
   courseCode: string;

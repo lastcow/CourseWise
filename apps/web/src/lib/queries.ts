@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  AdminActivityResponse,
   AdminDashboardResponse,
   AiArtifactKind,
   AssignmentGroup,
@@ -2253,6 +2254,15 @@ export function useAdminDashboard() {
   return useQuery({
     queryKey: ['dashboard', 'admin'],
     queryFn: () => apiCall<AdminDashboardResponse>('/api/dashboards/admin'),
+  });
+}
+
+export function useAdminActivity(days: number) {
+  return useQuery({
+    queryKey: ['admin-activity', days],
+    queryFn: () => apiCall<AdminActivityResponse>(`/api/dashboards/admin/activity?days=${days}`),
+    // Keep the previous range's chart on screen while the new one loads.
+    placeholderData: (prev) => prev,
   });
 }
 
