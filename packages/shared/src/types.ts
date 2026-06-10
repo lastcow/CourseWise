@@ -776,6 +776,7 @@ export interface FinalGradeSummary {
   studentId: string;
   studentName?: string;
   studentEmail?: string;
+  studentNumber?: string | null;
   score: number | null;
   letterGrade: string | null;
   groups: GroupScoreBreakdown[];

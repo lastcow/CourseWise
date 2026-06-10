@@ -713,7 +713,7 @@ function buildPolicySnapshot(
 
 export function toFinalGradeSummary(
   row: typeof finalGrades.$inferSelect,
-  extra?: { studentName?: string; studentEmail?: string },
+  extra?: { studentName?: string; studentEmail?: string; studentNumber?: string | null },
 ): FinalGradeSummary {
   const rawCategory = row.categoryScores;
   let groups: GroupScoreBreakdown[] = [];
@@ -735,6 +735,7 @@ export function toFinalGradeSummary(
     studentId: row.studentId,
     studentName: extra?.studentName,
     studentEmail: extra?.studentEmail,
+    studentNumber: extra?.studentNumber ?? null,
     score: row.score !== null ? Number(row.score) : null,
     letterGrade: row.letterGrade ?? null,
     groups,

@@ -9,7 +9,14 @@ import {
   type RecalculateFinalGradesResult,
   type UpdateGradingPolicyInput,
 } from '@coursewise/shared';
-import { assignmentGroups, courses, enrollments, finalGrades, users } from '../db/schema';
+import {
+  assignmentGroups,
+  courses,
+  enrollments,
+  finalGrades,
+  studentProfiles,
+  users,
+} from '../db/schema';
 import type { CourseGradingSummary, GradingTaskItem } from '@coursewise/shared';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
@@ -108,13 +115,15 @@ r.get(
         g: finalGrades,
         name: users.name,
         email: users.email,
+        studentNumber: studentProfiles.studentNumber,
       })
       .from(finalGrades)
       .innerJoin(users, eq(finalGrades.studentId, users.id))
+      .leftJoin(studentProfiles, eq(studentProfiles.userId, users.id))
       .where(eq(finalGrades.courseId, courseId))
       .orderBy(asc(users.name));
-    const out: FinalGradeSummary[] = rows.map(({ g, name, email }) =>
-      toFinalGradeSummary(g, { studentName: name, studentEmail: email }),
+    const out: FinalGradeSummary[] = rows.map(({ g, name, email, studentNumber }) =>
+      toFinalGradeSummary(g, { studentName: name, studentEmail: email, studentNumber }),
     );
     return success(c, out);
   },
