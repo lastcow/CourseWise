@@ -578,7 +578,7 @@ export type AssignmentGroupRow = typeof assignmentGroups.$inferSelect;
 
 // Roll-up rule for an assignment set: how its member assignments collapse to a
 // single score that then counts as one item inside a weighted category.
-export const assignmentSetRuleEnum = pgEnum('assignment_set_rule', ['average', 'highest']);
+export const assignmentSetRuleEnum = pgEnum('assignment_set_rule', ['average', 'highest', 'weighted']);
 
 // Assignment set: a bundle of selected assignments whose members are graded
 // individually but contribute ONE rolled-up score (average / best-of) to the
@@ -594,6 +594,9 @@ export const assignmentSets = pgTable(
     groupId: uuid('group_id').references(() => assignmentGroups.id, { onDelete: 'set null' }),
     name: text('name').notNull(),
     scoringRule: assignmentSetRuleEnum('scoring_rule').notNull().default('average'),
+    // Per-member weights for the 'weighted' rule: { [assignmentId]: weight }.
+    // Missing members default to weight 1; stale keys are ignored.
+    weightsJson: jsonb('weights_json'),
     position: integer('position').notNull(),
     ...timestamps,
   },
@@ -827,7 +830,7 @@ export const discussionGrades = pgTable(
 // Roll-up rule for a quiz set: how its member quizzes collapse to a single
 // score that then counts as one item inside a weighted category. Parallel to
 // assignmentSetRuleEnum; kept separate so the two can diverge later.
-export const quizSetRuleEnum = pgEnum('quiz_set_rule', ['average', 'highest']);
+export const quizSetRuleEnum = pgEnum('quiz_set_rule', ['average', 'highest', 'weighted']);
 
 // Quiz set: a bundle of selected quizzes graded individually but contributing
 // ONE rolled-up score (average / best-of) to the weighted category referenced
@@ -843,6 +846,8 @@ export const quizSets = pgTable(
     groupId: uuid('group_id').references(() => assignmentGroups.id, { onDelete: 'set null' }),
     name: text('name').notNull(),
     scoringRule: quizSetRuleEnum('scoring_rule').notNull().default('average'),
+    // Per-member weights for the 'weighted' rule: { [quizId]: weight }.
+    weightsJson: jsonb('weights_json'),
     position: integer('position').notNull(),
     ...timestamps,
   },

@@ -827,7 +827,7 @@ export interface GroupScoreItem {
 }
 
 // Roll-up rule for an assignment set.
-export type AssignmentSetRule = 'average' | 'highest';
+export type AssignmentSetRule = 'average' | 'highest' | 'weighted';
 
 // A bundle of assignments graded individually but contributing ONE rolled-up
 // score (per scoringRule) to the weighted category referenced by groupId.
@@ -837,6 +837,9 @@ export interface AssignmentSet {
   groupId: string | null;
   name: string;
   scoringRule: AssignmentSetRule;
+  /** Per-member weights for the 'weighted' rule: { [assignmentId]: weight }.
+   *  Relative shares; missing members default to 1. */
+  memberWeights: Record<string, number> | null;
   position: number;
   memberCount?: number;
   createdAt: string;
@@ -844,7 +847,7 @@ export interface AssignmentSet {
 }
 
 // Roll-up rule for a quiz set (parallel to AssignmentSetRule).
-export type QuizSetRule = 'average' | 'highest';
+export type QuizSetRule = 'average' | 'highest' | 'weighted';
 
 // A bundle of quizzes graded individually but contributing ONE rolled-up score
 // (per scoringRule) to the weighted category referenced by groupId. The quiz
@@ -855,6 +858,8 @@ export interface QuizSet {
   groupId: string | null;
   name: string;
   scoringRule: QuizSetRule;
+  /** Per-member weights for the 'weighted' rule: { [quizId]: weight }. */
+  memberWeights: Record<string, number> | null;
   position: number;
   memberCount?: number;
   createdAt: string;
