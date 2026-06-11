@@ -256,6 +256,13 @@ export interface MaterialSummary {
   updatedAt: string;
 }
 
+/** Response shape shared by every AI chat endpoint (material tutor, etc.). */
+export interface AiChatResponse {
+  reply: string;
+  /** True when the grounding context was clipped to fit the model window. */
+  truncated: boolean;
+}
+
 export interface FileAssetSummary {
   id: string;
   courseId: string | null;

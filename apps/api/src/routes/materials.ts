@@ -2,13 +2,16 @@ import { Hono, type Context } from 'hono';
 import type { Db } from '../db/client';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import {
+  aiChatRequestSchema,
   createMaterialSchema,
   updateMaterialSchema,
+  type AiChatRequestInput,
+  type AiChatResponse,
   type CreateMaterialInput,
   type MaterialSummary,
   type UpdateMaterialInput,
 } from '@coursewise/shared';
-import { fileAssets, modules, readingMaterials } from '../db/schema';
+import { courses, fileAssets, modules, readingMaterials } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -21,6 +24,9 @@ import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
 import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/courseAccess';
 import { recordAudit } from '../services/audit';
+import { getRateLimiter } from '../services/rateLimit';
+import { buildTutorSystemPrompt } from '../services/ai/tutor';
+import { runWorkersAiChat } from '../services/ai/workersAi';
 import type { AppEnv } from '../types';
 
 const r = new Hono<AppEnv>();
@@ -175,6 +181,81 @@ r.get('/materials/:materialId', requireScopeGroup('materialsRead'), async (c) =>
   }
   return success(c, toSummary(row));
 });
+
+// AI tutor chat about one material. Stateless: the client carries a short
+// rolling history; nothing is persisted server-side and message contents are
+// never logged. Grounding context is the material text itself, so the tutor
+// is only offered for manual_text materials.
+r.post(
+  '/materials/:materialId/tutor',
+  requireScopeGroup('materialsRead'),
+  validateJson(aiChatRequestSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const id = requireParam(c, 'materialId');
+    const input = c.get('validated') as AiChatRequestInput;
+
+    const row = (
+      await db.select().from(readingMaterials).where(eq(readingMaterials.id, id)).limit(1)
+    )[0];
+    if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Material not found');
+    if (!(await canViewMaterial(db, auth.user, row))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No access to this material');
+    }
+    if (row.sourceType !== 'manual_text' || !row.content?.trim()) {
+      throw new ApiException(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        'The AI tutor is only available for text materials',
+      );
+    }
+
+    // Shared quota across all AI chat surfaces: a per-minute burst guard and
+    // a per-day cap that protects the Workers AI free allocation behind the
+    // beta's "free to use" promise.
+    const limiter = getRateLimiter(c.env.RATE_LIMIT_KV);
+    const minute = await limiter.consume(`aichat:m:${auth.user.id}`, 10, 60);
+    if (!minute.allowed) {
+      throw new ApiException(429, ERROR_CODES.RATE_LIMITED, 'Too many messages, slow down');
+    }
+    const day = await limiter.consume(`aichat:d:${auth.user.id}`, 100, 86_400);
+    if (!day.allowed) {
+      throw new ApiException(429, ERROR_CODES.RATE_LIMITED, 'Daily AI chat limit reached');
+    }
+
+    const [courseRow] = await db
+      .select({ title: courses.title })
+      .from(courses)
+      .where(eq(courses.id, row.courseId))
+      .limit(1);
+    let moduleTitle: string | null = null;
+    if (row.moduleId) {
+      const [mod] = await db
+        .select({ title: modules.title })
+        .from(modules)
+        .where(eq(modules.id, row.moduleId))
+        .limit(1);
+      moduleTitle = mod?.title ?? null;
+    }
+
+    const { prompt, truncated } = buildTutorSystemPrompt({
+      courseTitle: courseRow?.title ?? 'Course',
+      moduleTitle,
+      materialTitle: row.title,
+      materialDescription: row.description ?? null,
+      materialContent: row.content,
+      locale: input.locale,
+    });
+    const reply = await runWorkersAiChat(c.env, {
+      system: prompt,
+      history: input.history,
+      message: input.message,
+    });
+    const body: AiChatResponse = { reply, truncated };
+    return success(c, body);
+  },
+);
 
 r.patch(
   '/materials/:materialId',

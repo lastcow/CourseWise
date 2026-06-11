@@ -367,6 +367,10 @@ export const ROUTES: readonly RouteSpec[] = [
     scopeGroup: 'materialsWrite',
     pathParams: idParams('materialId'),
   }),
+  r('post', '/api/materials/{materialId}/tutor', 'Chat with the AI tutor about a material', 'materials', {
+    scopeGroup: 'materialsRead',
+    pathParams: idParams('materialId'),
+  }),
   r('delete', '/api/materials/{materialId}', 'Delete a reading material', 'materials', {
     scopeGroup: 'materialsWrite',
     pathParams: idParams('materialId'),

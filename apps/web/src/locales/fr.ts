@@ -624,6 +624,17 @@ export const fr = {
         "Compte étudiant supprimé, mais le courriel de notification n'a pas pu être envoyé.",
       reasonLabel: 'Motif (facultatif)',
     },
+    aiTutor: {
+      open: 'Ouvrir le tuteur IA',
+      title: 'Tuteur IA',
+      freeBeta: 'Gratuit pendant la bêta',
+      welcome:
+        'Bonjour ! Je suis votre tuteur IA pour cette lecture. Posez-moi vos questions — je peux expliquer, résumer ou vous faire réviser. Je ne réponds pas aux devoirs ni aux quiz, et je suis gratuit pendant la bêta !',
+      inputPlaceholder: 'Posez une question sur cette lecture…',
+      thinking: 'Réflexion…',
+      disclaimer: 'Les réponses de l’IA peuvent contenir des erreurs — vérifiez avec le document. Pas pour les devoirs ni les quiz.',
+      truncatedNote: 'Remarque : ce document est long, je n’en vois que le début.',
+    },
     messages: {
       title: 'Messages',
       help: 'Lisez et envoyez des messages aux personnes inscrites à ce cours.',

@@ -11,6 +11,11 @@ JWT_AUDIENCE = "coursewise-web"
 CORS_ORIGIN = "https://fsuac.com"
 R2_BUCKET = "coursewise-files"
 EMAIL_FROM = "CourseWise <noreply@fsuac.com>"
+# Workers AI model used by the in-app AI chat (material tutor). Llama 3.3 is
+# fast and free-allocation friendly; if zh-CN quality disappoints, switch to
+# "@cf/qwen/qwen3-30b-a3b-fp8" (multilingual; the service layer already strips
+# its <think> blocks).
+AI_CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 
 # Required production secrets (uploaded with `wrangler secret put`):
 #   DATABASE_URL         — Neon pooled connection string
@@ -58,6 +63,13 @@ enabled = true
 #                    evaluated live at attempt time, so this is convenience only.
 [triggers]
 crons = ["0 4 * * *", "*/15 * * * *"]
+
+# Workers AI binding for the in-app AI chat (material tutor). No API key and
+# no pre-provisioning required; in `wrangler dev` calls proxy to the real
+# Cloudflare account (requires a logged-in wrangler), and a missing binding
+# degrades to 503 UPSTREAM_UNAVAILABLE at the chat endpoint only.
+[ai]
+binding = "AI"
 
 [[r2_buckets]]
 binding = "COURSE_FILES"

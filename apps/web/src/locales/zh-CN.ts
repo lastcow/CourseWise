@@ -597,6 +597,17 @@ export const zhCN = {
       deleteEmailFailed: '学生账户已删除,但通知邮件未能发送。',
       reasonLabel: '原因(可选)',
     },
+    aiTutor: {
+      open: '打开 AI 学习助手',
+      title: 'AI 学习助手',
+      freeBeta: 'Beta 期间免费',
+      welcome:
+        '你好!我是这篇阅读材料的 AI 学习助手,可以为你解释、总结、出题自测。我不会回答作业和测验题目;Beta 期间免费使用!',
+      inputPlaceholder: '问问这篇材料的内容…',
+      thinking: '思考中…',
+      disclaimer: 'AI 回答可能有误,请以材料原文为准;不可用于作业和测验。',
+      truncatedNote: '注意:材料较长,我只能看到开头部分。',
+    },
     messages: {
       title: '消息',
       help: '与本课程的成员收发消息。',
