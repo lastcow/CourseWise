@@ -619,6 +619,17 @@ export const en = {
       deleteEmailFailed: 'Student account deleted, but the notification email could not be sent.',
       reasonLabel: 'Reason (optional)',
     },
+    aiTutor: {
+      open: 'Open AI tutor',
+      title: 'AI Tutor',
+      freeBeta: 'Free during beta',
+      welcome:
+        "Hi! I'm your AI tutor for this reading. Ask me anything about it — I can explain, summarize, or quiz you for practice. I can't answer assignment or quiz questions, but I'm free to use during the beta!",
+      inputPlaceholder: 'Ask about this reading…',
+      thinking: 'Thinking…',
+      disclaimer: 'AI answers may contain mistakes — check against the material. Not for assignments or quizzes.',
+      truncatedNote: 'Note: this material is long, so I can only see the beginning of it.',
+    },
     messages: {
       title: 'Messages',
       help: 'Read and send messages with people in this course.',

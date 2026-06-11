@@ -84,6 +84,8 @@ import type {
   TeacherInvitationStatus,
   TeacherInvitationSummary,
   TeacherSummary,
+  AiChatMessage,
+  AiChatResponse,
   MaterialSummary,
   ModuleSummary,
   OverrideFinalGradeInput,
@@ -353,6 +355,23 @@ export function useMaterial(materialId: string | null) {
     queryKey: ['material', materialId],
     enabled: !!materialId,
     queryFn: () => apiCall<MaterialSummary>(`/api/materials/${materialId}`),
+  });
+}
+
+/**
+ * One AI-tutor chat turn for a material. Plain function (not a hook): the
+ * generic AiChatBubble manages its own transcript state and just needs a
+ * transport.
+ */
+export function sendTutorMessage(
+  materialId: string,
+  message: string,
+  history: AiChatMessage[],
+  locale: string,
+): Promise<AiChatResponse> {
+  return apiCall<AiChatResponse>(`/api/materials/${materialId}/tutor`, {
+    method: 'POST',
+    body: { message, history, locale },
   });
 }
 

@@ -10,6 +10,7 @@ import { MarkdownView } from '@/components/ui/markdown';
 import { getDownloadUrl, useMaterial, useModulesList } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
+import { MaterialTutorChat } from '@/components/student/MaterialTutorChat';
 
 export function StudentMaterialDetailPage(): JSX.Element {
   const { t } = useTranslation();
@@ -107,6 +108,10 @@ export function StudentMaterialDetailPage(): JSX.Element {
           )}
         </CardContent>
       </Card>
+
+      {mat.sourceType === 'manual_text' && mat.content ? (
+        <MaterialTutorChat key={mat.id} materialId={mat.id} />
+      ) : null}
     </div>
   );
 }

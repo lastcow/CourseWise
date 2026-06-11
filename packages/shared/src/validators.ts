@@ -1320,3 +1320,25 @@ export const assignGroupMemberSchema = z.object({
 });
 export type AssignGroupMemberInput = z.infer<typeof assignGroupMemberSchema>;
 
+
+// ---------------------------------------------------------------------------
+// AI chat (generic protocol shared by every AI chat endpoint — the material
+// tutor today, future assistants tomorrow). Stateless: the client carries a
+// short rolling history with each request.
+
+export const AI_CHAT_MESSAGE_MAX_CHARS = 1_500;
+export const AI_CHAT_HISTORY_MAX_MESSAGES = 8;
+
+export const aiChatMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().trim().min(1).max(AI_CHAT_MESSAGE_MAX_CHARS),
+});
+export type AiChatMessage = z.infer<typeof aiChatMessageSchema>;
+
+export const aiChatRequestSchema = z.object({
+  message: z.string().trim().min(1).max(AI_CHAT_MESSAGE_MAX_CHARS),
+  history: z.array(aiChatMessageSchema).max(AI_CHAT_HISTORY_MAX_MESSAGES).default([]),
+  /** UI locale hint so the assistant answers in the student's language. */
+  locale: z.string().max(10).optional(),
+});
+export type AiChatRequestInput = z.infer<typeof aiChatRequestSchema>;

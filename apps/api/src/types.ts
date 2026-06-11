@@ -36,6 +36,12 @@ export interface AppBindings {
   ANTHROPIC_API_KEY?: string;
   GAMMA_API_KEY?: string;
   OPENAI_API_KEY?: string;
+  // Workers AI binding powering the in-app AI chat (material tutor). Optional:
+  // dev/test envs without the binding still run; the chat endpoint degrades to
+  // 503 UPSTREAM_UNAVAILABLE.
+  AI?: Ai;
+  // Workers AI model id for the chat. Defaults in services/ai/workersAi.ts.
+  AI_CHAT_MODEL?: string;
   // Cloudflare Workflow that runs material generation. Created/inspected via
   // env.MATERIAL_GEN_WORKFLOW.create({ params }) and .get(id). Optional so
   // dev/test envs without a Workflows plan can still run.
