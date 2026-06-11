@@ -1802,6 +1802,12 @@ export const fr = {
       detailTitle: "Carnet de notes de l'étudiant",
       detailBack: 'Retour au carnet de notes',
       detailRecalc: 'Recalculer la note finale',
+      zeroMissingCta: 'Mettre les manquants à 0 ({{count}})',
+      zeroMissingTitle: 'Mettre le travail manquant à 0 ?',
+      zeroMissingBody:
+        '{{count}} devoirs sans rendu (ou avec un simple brouillon) recevront la note 0. Les travaux remis ou notés ne sont pas modifiés.',
+      zeroMissingConfirm: 'Mettre à 0',
+      zeroMissingDone: '{{count}} notes mises à 0',
       detailFinalScore: 'Note finale',
       detailLetter: 'Lettre',
       detailNoSubmission: 'Aucune soumission',
