@@ -1865,10 +1865,11 @@ export const fr = {
       detailTitle: "Carnet de notes de l'étudiant",
       detailBack: 'Retour au carnet de notes',
       detailRecalc: 'Recalculer la note finale',
-      zeroMissingCta: 'Mettre les manquants à 0 ({{count}})',
+      zeroMissingCta: 'Mettre les manquants à 0',
       zeroMissingTitle: 'Mettre le travail manquant à 0 ?',
       zeroMissingBody:
-        '{{count}} devoirs sans rendu (ou avec un simple brouillon) recevront la note 0. Les travaux remis ou notés ne sont pas modifiés.',
+        'Tous les devoirs jamais rendus (aucun rendu, ou simple brouillon) recevront la note 0, pour tout le cours. Les travaux remis ou notés ne sont pas modifiés.',
+      zeroMissingScope: 'Tous les étudiants inscrits à ce cours',
       zeroMissingConfirm: 'Mettre à 0',
       zeroMissingDone: '{{count}} notes mises à 0',
       detailFinalScore: 'Note finale',

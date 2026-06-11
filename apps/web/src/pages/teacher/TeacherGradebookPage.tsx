@@ -10,7 +10,13 @@ import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
-import { downloadGradesCsv, useFinalGrades, useRecalculateFinalGrades } from '@/lib/queries';
+import { useConfirm } from '@/components/ui/confirm';
+import {
+  downloadGradesCsv,
+  useFinalGrades,
+  useRecalculateFinalGrades,
+  useZeroMissingScores,
+} from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
 
 function StatTile({
@@ -43,11 +49,35 @@ export function TeacherGradebookPage(): JSX.Element {
   const cid = courseId ?? '';
   const grades = useFinalGrades(cid || null);
   const recalculate = useRecalculateFinalGrades(cid);
+  const zeroMissing = useZeroMissingScores(cid);
   const toast = useToast();
+  const confirm = useConfirm();
 
   // Toolbar: free-text search (name / student number / email) + letter chips.
   const [search, setSearch] = useState('');
   const [letterFilter, setLetterFilter] = useState<Set<string>>(new Set());
+
+  async function onZeroMissing(): Promise<void> {
+    const ok = await confirm({
+      title: t('grading.zeroMissingTitle'),
+      description: t('grading.zeroMissingBody'),
+      detail: { name: t('grading.zeroMissingScope') },
+      confirmLabel: t('grading.zeroMissingConfirm'),
+    });
+    if (!ok) return;
+    try {
+      const n = await zeroMissing.mutateAsync();
+      toast.push({ title: t('grading.zeroMissingDone', { count: n }), tone: 'success' });
+      if (n > 0) {
+        // Zeroed scores change the rollups — recompute right away so the
+        // table doesn't sit in the "outdated" state.
+        const res = await recalculate.mutateAsync();
+        toast.push({ title: t('grading.recalcDone', { count: res.updated }), tone: 'success' });
+      }
+    } catch (err) {
+      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
+    }
+  }
 
   async function onRecalc() {
     try {
@@ -108,8 +138,7 @@ export function TeacherGradebookPage(): JSX.Element {
 
   const stats = useMemo(() => {
     const scored = rows.map((g) => g.score).filter((s): s is number => s !== null);
-    const average =
-      scored.length > 0 ? scored.reduce((a, b) => a + b, 0) / scored.length : null;
+    const average = scored.length > 0 ? scored.reduce((a, b) => a + b, 0) / scored.length : null;
     const outdated = rows.filter((g) => g.isOutdated).length;
     return { enrolled: rows.length, graded: scored.length, average, outdated };
   }, [rows]);
@@ -123,6 +152,14 @@ export function TeacherGradebookPage(): JSX.Element {
           <>
             <Button variant="outline" size="sm" onClick={() => downloadGradesCsv(cid)}>
               {t('grading.exportCsv')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void onZeroMissing()}
+              disabled={zeroMissing.isPending || recalculate.isPending}
+            >
+              {t('grading.zeroMissingCta')}
             </Button>
             <Button size="sm" onClick={onRecalc} disabled={recalculate.isPending}>
               {t('grading.recalculate')}
@@ -141,22 +178,22 @@ export function TeacherGradebookPage(): JSX.Element {
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatTile label={t('grading.summaryEnrolled')} value={String(stats.enrolled)} />
-              <StatTile
-                label={t('grading.summaryGraded')}
-                value={`${stats.graded}/${stats.enrolled}`}
-              />
-              <StatTile
-                label={t('grading.summaryAverage')}
-                value={stats.average !== null ? stats.average.toFixed(1) : '—'}
-              />
-              <StatTile
-                label={t('grading.summaryOutdated')}
-                value={String(stats.outdated)}
-                tone={stats.outdated > 0 ? 'warning' : 'default'}
-              />
-            </div>
-            <div className="overflow-x-auto rounded-lg border">
+            <StatTile label={t('grading.summaryEnrolled')} value={String(stats.enrolled)} />
+            <StatTile
+              label={t('grading.summaryGraded')}
+              value={`${stats.graded}/${stats.enrolled}`}
+            />
+            <StatTile
+              label={t('grading.summaryAverage')}
+              value={stats.average !== null ? stats.average.toFixed(1) : '—'}
+            />
+            <StatTile
+              label={t('grading.summaryOutdated')}
+              value={String(stats.outdated)}
+              tone={stats.outdated > 0 ? 'warning' : 'default'}
+            />
+          </div>
+          <div className="overflow-x-auto rounded-lg border">
             {/* Toolbar attached to the student table: search left, letter chips right. */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -252,7 +289,9 @@ export function TeacherGradebookPage(): JSX.Element {
                         ) : null}
                       </div>
                     </td>
-                    <td className="px-3 py-2 font-mono tabular-nums">{g.score?.toFixed(1) ?? '—'}</td>
+                    <td className="px-3 py-2 font-mono tabular-nums">
+                      {g.score?.toFixed(1) ?? '—'}
+                    </td>
                     <td className="px-3 py-2 font-mono">{g.letterGrade ?? '—'}</td>
                     <td className="px-3 py-2 font-mono tabular-nums">
                       {(g.overrideCount ?? 0) > 0 ? g.overrideCount : '—'}
@@ -268,9 +307,9 @@ export function TeacherGradebookPage(): JSX.Element {
                 ))}
               </tbody>
             </table>
-            </div>
           </div>
-        )}
+        </div>
+      )}
     </div>
   );
 }

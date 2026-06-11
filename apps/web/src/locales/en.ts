@@ -1839,10 +1839,11 @@ export const en = {
       detailTitle: 'Student gradebook',
       detailBack: 'Back to gradebook',
       detailRecalc: 'Recalculate final grade',
-      zeroMissingCta: 'Set missing to 0 ({{count}})',
+      zeroMissingCta: 'Set missing to 0',
       zeroMissingTitle: 'Set missing work to 0?',
       zeroMissingBody:
-        '{{count}} assignments with no submission (or only a draft) will be scored 0. Submitted and graded work is not touched.',
+        'Every assignment a student never handed in (no submission, or only a draft) will be scored 0, across the whole course. Submitted and graded work is not touched.',
+      zeroMissingScope: 'All enrolled students in this course',
       zeroMissingConfirm: 'Set to 0',
       zeroMissingDone: '{{count}} scores set to 0',
       detailFinalScore: 'Final score',
