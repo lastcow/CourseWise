@@ -1450,6 +1450,37 @@ export const aiPromptTemplates = pgTable(
 
 export type AiPromptTemplateRow = typeof aiPromptTemplates.$inferSelect;
 
+// Per-request AI chat usage accounting (token counts + estimated Cloudflare
+// neurons). Deliberately stores NO message content — only counts and a
+// human-readable context title snapshot — consistent with the tutor's
+// no-chat-persistence privacy posture.
+export const aiUsageEvents = pgTable(
+  'ai_usage_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    feature: text('feature').notNull(), // e.g. 'material_tutor'
+    model: text('model').notNull(),
+    promptTokens: integer('prompt_tokens'),
+    completionTokens: integer('completion_tokens'),
+    // Estimated Cloudflare Workers AI neurons for this call (billing unit).
+    neurons: numeric('neurons', { precision: 12, scale: 2 }),
+    courseId: uuid('course_id').references(() => courses.id, { onDelete: 'set null' }),
+    // Title snapshot of what the chat was grounded in (material title etc.).
+    contextTitle: text('context_title'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    userCreatedIdx: index('ai_usage_events_user_created_idx').on(t.userId, t.createdAt),
+  }),
+);
+
+export type AiUsageEventRow = typeof aiUsageEvents.$inferSelect;
+
 export const courseDeletionLog = pgTable('course_deletion_log', {
   id: uuid('id').defaultRandom().primaryKey(),
   courseId: uuid('course_id').notNull(),

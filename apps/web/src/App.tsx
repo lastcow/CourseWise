@@ -36,6 +36,7 @@ import { TeacherInvitationsPage } from '@/pages/teacher/TeacherInvitationsPage';
 import { TeacherModulesPage } from '@/pages/teacher/TeacherModulesPage';
 import { TeacherMaterialsPage } from '@/pages/teacher/TeacherMaterialsPage';
 import { TeacherMaterialDetailPage } from '@/pages/teacher/TeacherMaterialDetailPage';
+import { ProfilePage } from '@/pages/ProfilePage';
 import { TeacherMaterialEditPage } from '@/pages/teacher/TeacherMaterialEditPage';
 import { TeacherPresentationsPage } from '@/pages/teacher/TeacherPresentationsPage';
 import { TeacherPresentationEditorPage } from '@/pages/teacher/TeacherPresentationEditorPage';
@@ -118,6 +119,14 @@ export default function App(): JSX.Element {
               </Route>
               <Route element={<BackOfficeLayout role="student" />}>
                 <Route
+                  path="/student/profile"
+                  element={
+                    <RequireRole roles={['student']}>
+                      <ProfilePage />
+                    </RequireRole>
+                  }
+                />
+                <Route
                   path="/student/courses"
                   element={
                     <RequireRole roles={['student']}>
@@ -156,6 +165,14 @@ export default function App(): JSX.Element {
                 </Route>
               </Route>
               <Route element={<BackOfficeLayout role="admin" />}>
+                <Route
+                  path="/admin/profile"
+                  element={
+                    <RequireRole roles={['admin']}>
+                      <ProfilePage />
+                    </RequireRole>
+                  }
+                />
                 <Route
                   path="/admin/alerts"
                   element={
@@ -198,6 +215,14 @@ export default function App(): JSX.Element {
                 />
               </Route>
               <Route element={<BackOfficeLayout role="teacher" />}>
+                <Route
+                  path="/teacher/profile"
+                  element={
+                    <RequireRole roles={['admin', 'teacher']}>
+                      <ProfilePage />
+                    </RequireRole>
+                  }
+                />
                 <Route
                   path="/teacher/courses"
                   element={
