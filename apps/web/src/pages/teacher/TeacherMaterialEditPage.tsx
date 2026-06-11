@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import {
-  ALLOWED_UPLOAD_MIME_TYPES,
+  UPLOAD_ACCEPT,
+  isAllowedUploadFile,
   MAX_UPLOAD_BYTES,
   type MaterialSourceType,
   type UpdateMaterialInput,
@@ -14,12 +15,7 @@ import { Input, Label, Textarea } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
-import {
-  uploadFile,
-  useMaterial,
-  useModulesList,
-  useUpdateMaterial,
-} from '@/lib/queries';
+import { uploadFile, useMaterial, useModulesList, useUpdateMaterial } from '@/lib/queries';
 
 export function TeacherMaterialEditPage(): JSX.Element {
   const { t } = useTranslation();
@@ -63,7 +59,7 @@ export function TeacherMaterialEditPage(): JSX.Element {
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!ALLOWED_UPLOAD_MIME_TYPES.includes(file.type as (typeof ALLOWED_UPLOAD_MIME_TYPES)[number])) {
+    if (!isAllowedUploadFile(file.name, file.type)) {
       toast.push({ title: t('files.invalidType'), tone: 'error' });
       return;
     }
@@ -156,7 +152,12 @@ export function TeacherMaterialEditPage(): JSX.Element {
       <form className="space-y-4" onSubmit={onSubmit}>
         <div className="space-y-1">
           <Label htmlFor="edit-title">{t('materials.titleLabel')}</Label>
-          <Input id="edit-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Input
+            id="edit-title"
+            required
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="edit-description">{t('materials.descriptionLabel')}</Label>
@@ -226,7 +227,7 @@ export function TeacherMaterialEditPage(): JSX.Element {
                     ref={fileInputRef}
                     type="file"
                     className="hidden"
-                    accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
+                    accept={UPLOAD_ACCEPT}
                     onChange={onUpload}
                   />
                 </label>

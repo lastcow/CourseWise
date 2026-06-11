@@ -16,7 +16,12 @@ import {
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
 import { toDatetimeLocalValue } from '@/lib/utils';
-import { ALLOWED_UPLOAD_MIME_TYPES, MAX_UPLOAD_BYTES, type SubmissionMode } from '@coursewise/shared';
+import {
+  UPLOAD_ACCEPT,
+  isAllowedUploadFile,
+  MAX_UPLOAD_BYTES,
+  type SubmissionMode,
+} from '@coursewise/shared';
 
 export function TeacherAssignmentFormPage(): JSX.Element {
   const { t } = useTranslation();
@@ -89,7 +94,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!ALLOWED_UPLOAD_MIME_TYPES.includes(file.type as (typeof ALLOWED_UPLOAD_MIME_TYPES)[number])) {
+    if (!isAllowedUploadFile(file.name, file.type)) {
       toast.push({ title: t('files.invalidType'), tone: 'error' });
       return;
     }
@@ -152,7 +157,8 @@ export function TeacherAssignmentFormPage(): JSX.Element {
       untilDate: untilIso,
       maxScore: maxScore === '' ? null : Number(maxScore),
       allowLateSubmission: allowLate,
-      latePenaltyPercentPerPeriod: allowLate && latePctPerPeriod !== '' ? Number(latePctPerPeriod) : null,
+      latePenaltyPercentPerPeriod:
+        allowLate && latePctPerPeriod !== '' ? Number(latePctPerPeriod) : null,
       latePenaltyPeriodHours: allowLate ? periodHours : null,
       latePenaltyMaxPercent: allowLate && lateMaxPct !== '' ? Number(lateMaxPct) : null,
       attachmentFileId: attachmentFileId ?? null,
@@ -192,11 +198,16 @@ export function TeacherAssignmentFormPage(): JSX.Element {
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xl font-semibold">
-          <Link to={`/teacher/courses/${cId}/assignments`} className="text-muted-foreground hover:underline">
+          <Link
+            to={`/teacher/courses/${cId}/assignments`}
+            className="text-muted-foreground hover:underline"
+          >
             {t('assignments.title')}
           </Link>
           {' › '}
-          {isNew ? t('assignments.createTitle') : existing.data?.title ?? t('assignments.editTitle')}
+          {isNew
+            ? t('assignments.createTitle')
+            : (existing.data?.title ?? t('assignments.editTitle'))}
         </h2>
       </header>
 
@@ -209,7 +220,12 @@ export function TeacherAssignmentFormPage(): JSX.Element {
           <CardContent className="space-y-3">
             <div>
               <Label htmlFor="a-title">{t('assignments.titleLabel')}</Label>
-              <Input id="a-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Input
+                id="a-title"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="a-desc">{t('assignments.descriptionLabel')}</Label>
@@ -383,9 +399,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                 />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t('assignments.endDateHint')}
-                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{t('assignments.endDateHint')}</p>
               </div>
               <div>
                 <Label htmlFor="a-until">{t('assignments.untilDateLabel')}</Label>
@@ -438,9 +452,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                 </label>
               </div>
               {modeLocked ? (
-                <p className="text-xs text-muted-foreground">
-                  {t('assignments.modeLockedHint')}
-                </p>
+                <p className="text-xs text-muted-foreground">{t('assignments.modeLockedHint')}</p>
               ) : null}
               {submissionMode === 'group' ? (
                 <div>
@@ -502,7 +514,7 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                       ref={fileInputRef}
                       type="file"
                       className="hidden"
-                      accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
+                      accept={UPLOAD_ACCEPT}
                       onChange={onUpload}
                     />
                   </label>
@@ -513,7 +525,9 @@ export function TeacherAssignmentFormPage(): JSX.Element {
                   </span>
                 ) : null}
                 {uploadProgress != null ? (
-                  <span className="text-xs">{t('materials.uploading', { progress: uploadProgress })}</span>
+                  <span className="text-xs">
+                    {t('materials.uploading', { progress: uploadProgress })}
+                  </span>
                 ) : null}
               </div>
             </div>

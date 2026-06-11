@@ -41,7 +41,8 @@ import {
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
 import {
-  ALLOWED_UPLOAD_MIME_TYPES,
+  UPLOAD_ACCEPT,
+  isAllowedUploadFile,
   MAX_UPLOAD_BYTES,
   type MaterialSourceType,
   type MaterialSummary,
@@ -69,15 +70,15 @@ export function TeacherMaterialsPage(): JSX.Element {
     [modulesQ.data],
   );
 
-  const rows = useMemo(() => sortForTable(materialsQ.data ?? [], modulesQ.data ?? []), [
-    materialsQ.data,
-    modulesQ.data,
-  ]);
+  const rows = useMemo(
+    () => sortForTable(materialsQ.data ?? [], modulesQ.data ?? []),
+    [materialsQ.data, modulesQ.data],
+  );
 
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!ALLOWED_UPLOAD_MIME_TYPES.includes(file.type as (typeof ALLOWED_UPLOAD_MIME_TYPES)[number])) {
+    if (!isAllowedUploadFile(file.name, file.type)) {
       toast.push({ title: t('files.invalidType'), tone: 'error' });
       return;
     }
@@ -117,8 +118,9 @@ export function TeacherMaterialsPage(): JSX.Element {
     }
   };
 
-  const deletingModuleTitle =
-    deleting?.moduleId ? moduleTitleById.get(deleting.moduleId) ?? null : null;
+  const deletingModuleTitle = deleting?.moduleId
+    ? (moduleTitleById.get(deleting.moduleId) ?? null)
+    : null;
 
   const onDownloadFile = async (fileAssetId: string) => {
     try {
@@ -146,7 +148,7 @@ export function TeacherMaterialsPage(): JSX.Element {
                   ref={fileInputRef}
                   type="file"
                   className="hidden"
-                  accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
+                  accept={UPLOAD_ACCEPT}
                   onChange={onUpload}
                 />
               </label>
@@ -174,7 +176,10 @@ export function TeacherMaterialsPage(): JSX.Element {
         <div className="rounded-md border bg-muted/30 p-3 text-sm">
           {t('materials.uploading', { progress: uploadProgress })}
           <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted">
-            <div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${uploadProgress}%` }}
+            />
           </div>
         </div>
       ) : null}
@@ -214,7 +219,7 @@ export function TeacherMaterialsPage(): JSX.Element {
                   <TableCell>
                     <span className={m.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
                       {m.moduleId
-                        ? moduleTitleById.get(m.moduleId) ?? '—'
+                        ? (moduleTitleById.get(m.moduleId) ?? '—')
                         : t('materials.unassigned')}
                     </span>
                   </TableCell>
@@ -353,14 +358,15 @@ function statusVariant(status: MaterialSummary['status']): 'success' | 'outline'
 // Sort: materials in module order (using the modules list to define order), then
 // unassigned materials at the bottom. Within each group, newest-updated first so
 // recent edits stay near the top — matches the previous grouped layout's intent.
-function sortForTable(
-  materials: MaterialSummary[],
-  modules: ModuleSummary[],
-): MaterialSummary[] {
+function sortForTable(materials: MaterialSummary[], modules: ModuleSummary[]): MaterialSummary[] {
   const order = new Map(modules.map((m, i) => [m.id, i]));
   return [...materials].sort((a, b) => {
-    const ai = a.moduleId ? order.get(a.moduleId) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
-    const bi = b.moduleId ? order.get(b.moduleId) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+    const ai = a.moduleId
+      ? (order.get(a.moduleId) ?? Number.MAX_SAFE_INTEGER)
+      : Number.MAX_SAFE_INTEGER;
+    const bi = b.moduleId
+      ? (order.get(b.moduleId) ?? Number.MAX_SAFE_INTEGER)
+      : Number.MAX_SAFE_INTEGER;
     if (ai !== bi) return ai - bi;
     return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
   });
@@ -444,7 +450,8 @@ function CreateMaterialDialog({
   const [moduleId, setModuleId] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [content, setContent] = useState('');
-  const titleLabel = sourceType === 'external_link' ? t('materials.linkCta') : t('materials.textCta');
+  const titleLabel =
+    sourceType === 'external_link' ? t('materials.linkCta') : t('materials.textCta');
   return (
     <Dialog open onClose={onClose} title={titleLabel}>
       <form
