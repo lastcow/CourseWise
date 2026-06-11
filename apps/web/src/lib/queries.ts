@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminActivityResponse,
   AdminDashboardResponse,
@@ -59,6 +59,7 @@ import type {
   ResolveRecordCorrectionRequestInput,
   DiscussionGradeRow,
   DiscussionPostSummary,
+  DiscussionPostsPage,
   DiscussionTopicSummary,
   EnrollmentRow,
   FinalGradeSummary,
@@ -1213,11 +1214,36 @@ export function useDeleteDiscussionTopic(courseId: string) {
   });
 }
 
-export function useDiscussionPosts(topicId: string | null) {
-  return useQuery({
+const THREAD_PAGE_SIZE = 20;
+
+// Thread view: pages over ROOT posts (newest roots first); every page carries
+// its complete reply subtrees, so concatenated pages always nest cleanly.
+export function useDiscussionThread(topicId: string | null) {
+  return useInfiniteQuery({
     queryKey: ['discussion-posts', topicId],
     enabled: !!topicId,
-    queryFn: () => apiCall<DiscussionPostSummary[]>(`/api/discussion-topics/${topicId}/posts`),
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      apiCall<DiscussionPostsPage>(
+        `/api/discussion-topics/${topicId}/posts?rootLimit=${THREAD_PAGE_SIZE}&rootOffset=${pageParam}`,
+      ),
+    getNextPageParam: (lastPage, pages) => {
+      const loadedRoots = pages.length * THREAD_PAGE_SIZE;
+      return loadedRoots < lastPage.total ? loadedRoots : undefined;
+    },
+  });
+}
+
+// One student's posts (flat, chronological, non-deleted) with "reply to @x"
+// context — powers the per-student grading view and the gradebook dialog.
+export function useStudentPosts(topicId: string | null, studentId: string | null) {
+  return useQuery({
+    queryKey: ['discussion-posts', topicId, 'author', studentId],
+    enabled: !!topicId && !!studentId,
+    queryFn: () =>
+      apiCall<DiscussionPostsPage>(
+        `/api/discussion-topics/${topicId}/posts?authorId=${studentId}&limit=50`,
+      ),
   });
 }
 

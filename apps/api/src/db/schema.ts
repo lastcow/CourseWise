@@ -798,6 +798,8 @@ export const discussionPosts = pgTable(
   (t) => ({
     topicIdx: index('discussion_posts_topic_idx').on(t.topicId),
     parentIdx: index('discussion_posts_parent_idx').on(t.parentId),
+    // Per-student lookups: author-mode post pages + grades postCount.
+    topicAuthorIdx: index('discussion_posts_topic_author_idx').on(t.topicId, t.authorId),
   }),
 );
 

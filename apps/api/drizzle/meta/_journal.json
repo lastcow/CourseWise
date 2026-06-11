@@ -260,6 +260,13 @@
       "when": 1783651200000,
       "tag": "0036_weighted_sets",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1783728000000,
+      "tag": "0037_discussion_posts_author_idx",
+      "breakpoints": true
     }
   ]
 }

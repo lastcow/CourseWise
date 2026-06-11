@@ -1,5 +1,6 @@
 import { Hono, type Context } from 'hono';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { alias as aliasedTable } from 'drizzle-orm/pg-core';
 import {
   createDiscussionPostSchema,
   createDiscussionTopicSchema,
@@ -11,6 +12,7 @@ import {
   type CreateDiscussionTopicInput,
   type DiscussionGradeRow,
   type DiscussionPostSummary,
+  type DiscussionPostsPage,
   type DiscussionTopicSummary,
   type GradeDiscussionInput,
   type ReplyDiscussionPostInput,
@@ -372,21 +374,120 @@ async function canPostOnTopic(
   }
 }
 
+function clampInt(raw: string | undefined, fallback: number, min: number, max: number): number {
+  const n = Number.parseInt(raw ?? String(fallback), 10);
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+// Paginated posts. Two modes, both returning { posts, total }:
+// - Thread mode (default): pages over ROOT posts, newest roots first, each
+//   page carrying its COMPLETE reply subtrees (recursive CTE) so the client
+//   can always build a full tree. total = root-post count.
+// - Author mode (?authorId=): a flat chronological page of one student's
+//   non-deleted posts with the parent post's author name for "reply to @x"
+//   context. total = that student's post count. Powers the per-student
+//   grading view and the gradebook detail dialog.
 r.get('/discussion-topics/:topicId/posts', requireScopeGroup('discussionsRead'), async (c) => {
   const db = c.get('db');
   const id = requireParam(c, 'topicId');
   const topic = await loadTopic(c, id);
   await ensureTopicViewable(c, topic);
-  const rows = await db
-    .select({
-      p: discussionPosts,
-      author: { id: users.id, name: users.name, role: users.role },
-    })
+
+  const authorId = c.req.query('authorId');
+  if (authorId) {
+    const limit = clampInt(c.req.query('limit'), 50, 1, 200);
+    const offset = clampInt(c.req.query('offset'), 0, 0, 1_000_000);
+    const authorWhere = and(
+      eq(discussionPosts.topicId, id),
+      eq(discussionPosts.authorId, authorId),
+      eq(discussionPosts.isDeleted, false),
+    );
+    const [countRow] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(discussionPosts)
+      .where(authorWhere);
+    const parentPosts = aliasedTable(discussionPosts, 'parent_posts');
+    const parentAuthors = aliasedTable(users, 'parent_authors');
+    const rows = await db
+      .select({
+        p: discussionPosts,
+        author: { id: users.id, name: users.name, role: users.role },
+        parentAuthorName: parentAuthors.name,
+      })
+      .from(discussionPosts)
+      .innerJoin(users, eq(discussionPosts.authorId, users.id))
+      .leftJoin(parentPosts, eq(parentPosts.id, discussionPosts.parentId))
+      .leftJoin(parentAuthors, eq(parentAuthors.id, parentPosts.authorId))
+      .where(authorWhere)
+      .orderBy(asc(discussionPosts.createdAt))
+      .limit(limit)
+      .offset(offset);
+    const body: DiscussionPostsPage = {
+      posts: rows.map(({ p, author, parentAuthorName }) => ({
+        ...toPost(p, author),
+        parentAuthorName: parentAuthorName ?? null,
+      })),
+      total: countRow?.n ?? 0,
+    };
+    return success(c, body);
+  }
+
+  const rootLimit = clampInt(c.req.query('rootLimit'), 20, 1, 50);
+  const rootOffset = clampInt(c.req.query('rootOffset'), 0, 0, 1_000_000);
+  const [rootCount] = await db
+    .select({ n: sql<number>`count(*)::int` })
     .from(discussionPosts)
-    .innerJoin(users, eq(discussionPosts.authorId, users.id))
-    .where(eq(discussionPosts.topicId, id))
-    .orderBy(asc(discussionPosts.createdAt));
-  return success(c, rows.map(({ p, author }) => toPost(p, author)));
+    .where(and(eq(discussionPosts.topicId, id), sql`${discussionPosts.parentId} IS NULL`));
+  const result = await db.execute(sql`
+    WITH RECURSIVE roots AS (
+      SELECT id FROM discussion_posts
+      WHERE topic_id = ${id} AND parent_id IS NULL
+      ORDER BY created_at DESC
+      LIMIT ${rootLimit} OFFSET ${rootOffset}
+    ),
+    thread AS (
+      SELECT p.* FROM discussion_posts p JOIN roots r ON p.id = r.id
+      UNION ALL
+      SELECT child.* FROM discussion_posts child JOIN thread parent ON child.parent_id = parent.id
+    )
+    SELECT
+      t.id, t.topic_id AS "topicId", t.parent_id AS "parentId", t.content,
+      t.is_deleted AS "isDeleted", t.deleted_at AS "deletedAt",
+      t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+      u.id AS "authorId", u.name AS "authorName", u.role AS "authorRole"
+    FROM thread t
+    JOIN users u ON u.id = t.author_id
+    ORDER BY t.created_at ASC
+  `);
+  type ThreadRow = {
+    id: string;
+    topicId: string;
+    parentId: string | null;
+    content: string | null;
+    isDeleted: boolean;
+    deletedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+    authorId: string;
+    authorName: string;
+    authorRole: UserRole;
+  };
+  const body: DiscussionPostsPage = {
+    posts: (result.rows as ThreadRow[]).map((row) => ({
+      id: row.id,
+      topicId: row.topicId,
+      parentId: row.parentId ?? null,
+      content: row.isDeleted ? null : row.content,
+      isDeleted: row.isDeleted,
+      deletedAt: row.deletedAt ?? null,
+      author: { id: row.authorId, name: row.authorName, role: row.authorRole },
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    })),
+    total: rootCount?.n ?? 0,
+  };
+  return success(c, body);
 });
 
 async function insertPost(
