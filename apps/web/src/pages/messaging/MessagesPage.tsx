@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { MarkdownView } from '@/components/ui/markdown';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import {
   useDeleteMessageThread,
   useMessageThread,
@@ -47,6 +48,7 @@ export function MessagesPage(): JSX.Element {
   const { courseId } = useParams();
   const cId = courseId ?? '';
   const toast = useToast();
+  const confirm = useConfirm();
   const myUserId = getStoredAuth()?.user.id ?? '';
 
   const threadsQ = useMessageThreads(cId || undefined);
@@ -73,7 +75,16 @@ export function MessagesPage(): JSX.Element {
   }, [threadsQ.data, search]);
 
   const onDelete = async (th: MessageThreadSummary) => {
-    if (!window.confirm(t('messages.deleteConfirm'))) return;
+    const ok = await confirm({
+      title: t('messages.deleteTitle'),
+      description: t('messages.deleteBody'),
+      detail: {
+        name: th.subject,
+        facts: [{ label: t('messages.deleteWithLabel'), value: th.otherParticipant.name }],
+      },
+      confirmLabel: t('common.delete'),
+    });
+    if (!ok) return;
     try {
       await del.mutateAsync(th.threadId);
       toast.push({ title: t('messages.deleted'), tone: 'success' });

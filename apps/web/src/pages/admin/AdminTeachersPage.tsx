@@ -25,6 +25,7 @@ import {
   useTeachersList,
 } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 
 const STATUS_TABS: TeacherInvitationStatus[] = ['pending', 'accepted', 'revoked', 'expired'];
 
@@ -37,6 +38,7 @@ export function AdminTeachersPage(): JSX.Element {
   const revoke = useRevokeTeacherInvitation();
   const resend = useResendTeacherInvitation();
   const toast = useToast();
+  const confirm = useConfirm();
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
 
   async function copy(text: string) {
@@ -48,8 +50,14 @@ export function AdminTeachersPage(): JSX.Element {
     }
   }
 
-  async function onRevoke(id: string) {
-    if (!window.confirm(t('teachers.confirmRevoke'))) return;
+  async function onRevoke(id: string, email: string) {
+    const ok = await confirm({
+      title: t('teachers.revokeTitle'),
+      description: t('teachers.revokeBody'),
+      detail: { name: email },
+      confirmLabel: t('teachers.revoke'),
+    });
+    if (!ok) return;
     try {
       await revoke.mutateAsync(id);
       toast.push({ title: t('teachers.invitationRevoked'), tone: 'success' });
@@ -195,7 +203,11 @@ export function AdminTeachersPage(): JSX.Element {
                           </Button>
                         ) : null}
                         {inv.status === 'pending' ? (
-                          <Button size="sm" variant="destructive" onClick={() => onRevoke(inv.id)}>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => onRevoke(inv.id, inv.email)}
+                          >
                             {t('teachers.revoke')}
                           </Button>
                         ) : null}

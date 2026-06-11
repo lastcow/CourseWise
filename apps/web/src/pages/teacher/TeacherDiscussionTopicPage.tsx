@@ -21,8 +21,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea, Input, Label } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty';
-import { Markdown, MarkdownView } from '@/components/ui/markdown';
+import { Markdown, MarkdownView, stripMarkdown } from '@/components/ui/markdown';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import { StatCard, StatGrid } from '@/components/dashboard/DashboardKit';
 import type { DiscussionGradeRow, DiscussionPostSummary } from '@coursewise/shared';
 import {
@@ -137,6 +138,11 @@ function ThreadView({
 
 type GradeFilter = 'ungraded' | 'graded' | 'noposts';
 
+function postExcerpt(content: string | null): string {
+  const text = stripMarkdown(content ?? '').trim();
+  return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+}
+
 export function TeacherDiscussionTopicPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId, topicId } = useParams();
@@ -149,6 +155,7 @@ export function TeacherDiscussionTopicPage(): JSX.Element {
   const reply = useReplyDiscussionPost(tId);
   const del = useDeleteDiscussionPost(tId);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const isGraded = !!topic.data?.isGraded;
   const [view, setView] = useState<'students' | 'thread' | null>(null);
@@ -456,8 +463,14 @@ export function TeacherDiscussionTopicPage(): JSX.Element {
                 nodes={tree}
                 onReply={(id) => setReplyTo(id)}
                 onDelete={async (id) => {
-                  // eslint-disable-next-line no-alert
-                  if (!confirm(t('discussion.postDeleteConfirm'))) return;
+                  const post = allPosts.find((p) => p.id === id);
+                  const ok = await confirm({
+                    title: t('discussion.postDeleteTitle'),
+                    description: t('discussion.postDeleteBody'),
+                    detail: post ? { name: postExcerpt(post.content) } : undefined,
+                    confirmLabel: t('common.delete'),
+                  });
+                  if (!ok) return;
                   await del.mutateAsync(id);
                 }}
               />
