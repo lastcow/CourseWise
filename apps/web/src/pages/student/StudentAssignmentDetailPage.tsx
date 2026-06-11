@@ -36,7 +36,8 @@ import {
 import { ApiClientError } from '@/lib/api';
 import { useNow } from '@/lib/useNow';
 import {
-  ALLOWED_UPLOAD_MIME_TYPES,
+  UPLOAD_ACCEPT,
+  isAllowedUploadFile,
   MAX_SUBMISSION_FILES,
   MAX_UPLOAD_BYTES,
   computeLatePenaltyPercent,
@@ -391,9 +392,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !mySub) return;
-    if (
-      !ALLOWED_UPLOAD_MIME_TYPES.includes(file.type as (typeof ALLOWED_UPLOAD_MIME_TYPES)[number])
-    ) {
+    if (!isAllowedUploadFile(file.name, file.type)) {
       toast.push({ title: t('files.invalidType'), tone: 'error' });
       return;
     }
@@ -688,7 +687,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
                           ref={fileInputRef}
                           type="file"
                           className="hidden"
-                          accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
+                          accept={UPLOAD_ACCEPT}
                           onChange={onUpload}
                         />
                       </label>

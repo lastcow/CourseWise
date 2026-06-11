@@ -458,6 +458,7 @@ export const ALLOWED_UPLOAD_MIME_TYPES = [
   'text/plain',
   'text/markdown',
   'application/zip',
+  'application/x-zip-compressed',
   // Code/text formats (message attachments and submissions). Browsers are
   // inconsistent about MIME for source files; the extension allowlist below
   // is the fallback when they report application/octet-stream or nothing.
@@ -526,6 +527,27 @@ export const ALLOWED_UPLOAD_EXTENSIONS = [
 
 /** `accept` attribute value for message-attachment file pickers. */
 export const MESSAGE_ATTACHMENT_ACCEPT = ALLOWED_UPLOAD_EXTENSIONS.map((e) => `.${e}`).join(',');
+
+/**
+ * `accept` attribute for general upload pickers: extensions + MIME types, so
+ * files the browser maps to an unexpected MIME (zip → x-zip-compressed on
+ * Windows, .py → octet-stream) still appear selectable.
+ */
+export const UPLOAD_ACCEPT = [
+  ...ALLOWED_UPLOAD_EXTENSIONS.map((e) => `.${e}`),
+  ...ALLOWED_UPLOAD_MIME_TYPES,
+].join(',');
+
+/**
+ * Client-side mirror of the server's upload allowlist check: pass when the
+ * reported MIME is allowed OR the file extension is — browsers report
+ * source-code and archive files inconsistently across platforms.
+ */
+export function isAllowedUploadFile(fileName: string, mimeType: string): boolean {
+  if ((ALLOWED_UPLOAD_MIME_TYPES as readonly string[]).includes(mimeType)) return true;
+  const ext = fileName.includes('.') ? fileName.split('.').pop()!.toLowerCase() : '';
+  return (ALLOWED_UPLOAD_EXTENSIONS as readonly string[]).includes(ext);
+}
 export type AllowedUploadMimeType = (typeof ALLOWED_UPLOAD_MIME_TYPES)[number];
 
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
