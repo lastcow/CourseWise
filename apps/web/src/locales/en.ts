@@ -659,6 +659,10 @@ export const en = {
       truncatedNote: 'Note: this material is long, so I can only see the beginning of it.',
     },
     messages: {
+      newCta: 'New message',
+      composeNewTitle: 'New message',
+      recipientLabel: 'To',
+      recipientPlaceholder: 'Choose a recipient…',
       attachCta: 'Attach file',
       attachRemove: 'Remove attachment',
       title: 'Messages',

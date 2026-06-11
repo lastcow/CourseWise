@@ -664,6 +664,10 @@ export const fr = {
       truncatedNote: 'Remarque : ce document est long, je n’en vois que le début.',
     },
     messages: {
+      newCta: 'Nouveau message',
+      composeNewTitle: 'Nouveau message',
+      recipientLabel: 'À',
+      recipientPlaceholder: 'Choisir un destinataire…',
       attachCta: 'Joindre un fichier',
       attachRemove: 'Retirer la pièce jointe',
       title: 'Messages',

@@ -637,6 +637,10 @@ export const zhCN = {
       truncatedNote: '注意:材料较长,我只能看到开头部分。',
     },
     messages: {
+      newCta: '新建消息',
+      composeNewTitle: '新建消息',
+      recipientLabel: '收件人',
+      recipientPlaceholder: '选择收件人…',
       attachCta: '添加附件',
       attachRemove: '移除附件',
       title: '消息',

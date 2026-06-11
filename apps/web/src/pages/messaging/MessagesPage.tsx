@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FileText, Loader2, Paperclip, Trash2, X } from 'lucide-react';
+import { FileText, Loader2, Paperclip, SquarePen, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
@@ -13,11 +13,17 @@ import { useConfirm } from '@/components/ui/confirm';
 import {
   getDownloadUrl,
   uploadFile,
+  useCourse,
+  useCourseStudents,
   useDeleteMessageThread,
   useMessageThread,
   useMessageThreads,
   useSendMessage,
 } from '@/lib/queries';
+import {
+  MessageComposeDialog,
+  type RecipientOption,
+} from '@/components/messaging/MessageComposeDialog';
 import { ApiClientError, getStoredAuth } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
@@ -109,6 +115,28 @@ export function MessagesPage(): JSX.Element {
 
   const [reply, setReply] = useState('');
   const [replyPriority, setReplyPriority] = useState<MessagePriority>('normal');
+  const [composeOpen, setComposeOpen] = useState(false);
+
+  // Everyone messageable in this course: teachers + enrolled students,
+  // excluding myself. Same population the API's recipient check allows.
+  const courseQ = useCourse(composeOpen ? cId : null);
+  const studentsQ = useCourseStudents(composeOpen ? cId : undefined);
+  const recipientOptions = useMemo<RecipientOption[]>(() => {
+    const teachers = (courseQ.data?.teachers ?? []).map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+    }));
+    const students = (studentsQ.data ?? [])
+      .filter((row) => row.status === 'enrolled')
+      .map((row) => ({ id: row.studentId, name: row.studentName, email: row.studentEmail }));
+    const seen = new Set<string>();
+    return [...teachers, ...students].filter((u) => {
+      if (u.id === myUserId || seen.has(u.id)) return false;
+      seen.add(u.id);
+      return true;
+    });
+  }, [courseQ.data, studentsQ.data, myUserId]);
   // Attachment picked for the next send: uploaded immediately on selection,
   // kept as a chip until the message goes out.
   const [attachment, setAttachment] = useState<{
@@ -200,7 +228,7 @@ export function MessagesPage(): JSX.Element {
       <div className="grid h-[calc(100vh-220px)] grid-cols-1 gap-3 md:grid-cols-[320px_1fr]">
         {/* Threads pane */}
         <aside className="flex h-full flex-col overflow-hidden rounded-md border">
-          <div className="border-b bg-muted/30 p-2">
+          <div className="flex items-center gap-2 border-b bg-muted/30 p-2">
             <Input
               type="search"
               value={search}
@@ -208,6 +236,15 @@ export function MessagesPage(): JSX.Element {
               placeholder={t('messages.searchPlaceholder')}
               className="h-8"
             />
+            <Button
+              size="sm"
+              className="h-8 shrink-0"
+              onClick={() => setComposeOpen(true)}
+              title={t('messages.newCta')}
+            >
+              <SquarePen className="h-3.5 w-3.5 sm:mr-1.5" aria-hidden />
+              <span className="hidden sm:inline">{t('messages.newCta')}</span>
+            </Button>
           </div>
           <div className="flex-1 overflow-y-auto">
             {threadsQ.isLoading ? (
@@ -417,6 +454,14 @@ export function MessagesPage(): JSX.Element {
           )}
         </section>
       </div>
+
+      <MessageComposeDialog
+        open={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        courseId={cId}
+        recipientOptions={recipientOptions}
+        onSent={(threadId) => setActiveThreadId(threadId)}
+      />
     </div>
   );
 }
