@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm';
 import {
   overrideFinalGradeSchema,
   updateGradingPolicySchema,
@@ -11,9 +11,13 @@ import {
 } from '@coursewise/shared';
 import {
   assignmentGroups,
+  assignmentSubmissions,
+  assignments,
   courses,
   enrollments,
   finalGrades,
+  groupMemberships,
+  groupSubmissions,
   studentProfiles,
   users,
 } from '../db/schema';
@@ -21,22 +25,15 @@ import type { CourseGradingSummary, GradingTaskItem } from '@coursewise/shared';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
-import {
-  requireAuth,
-  requireCourseAccess,
-  requireTokenCourseAccess,
-} from '../middleware/auth';
+import { requireAuth, requireCourseAccess, requireTokenCourseAccess } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
 import { recordAudit } from '../services/audit';
-import {
-  canWriteCourse,
-  isCourseEnrolled,
-  isCourseTeacher,
-} from '../services/courseAccess';
+import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/courseAccess';
 import {
   applyTeacherOverride,
   buildGradebookStudentDetail,
+  isItemPosted,
   recalculateFinalGrades,
   toFinalGradeSummary,
 } from '../services/finalGrade';
@@ -149,6 +146,159 @@ r.get(
   },
 );
 
+// Course-level "set missing to 0": for every enrolled student and every
+// posted, gradable assignment, score never-handed-in work (no submission row,
+// or an unscored draft) as 0. Submitted-awaiting-grade and graded work is
+// untouched. Group-mode pairs whose group has a group submission are skipped —
+// their member rows belong to the fan-out path, not the zero path.
+r.post(
+  '/courses/:courseId/gradebook/zero-missing',
+  requireScopeGroup('gradesWrite'),
+  requireTokenCourseAccess(),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    if (!(await canWriteCourse(db, auth.user, courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
+    }
+
+    const now = Date.now();
+    const [assignRows, enrolledRows] = await Promise.all([
+      // Gradable = counts toward the gradebook: attached to a grading group or
+      // set, posted (non-draft, started), and has a max score.
+      db
+        .select({
+          id: assignments.id,
+          status: assignments.status,
+          startDate: assignments.startDate,
+          submissionMode: assignments.submissionMode,
+          groupSetId: assignments.groupSetId,
+        })
+        .from(assignments)
+        .where(
+          and(
+            eq(assignments.courseId, courseId),
+            or(isNotNull(assignments.groupId), isNotNull(assignments.setId)),
+            isNotNull(assignments.maxScore),
+          ),
+        ),
+      db
+        .select({ studentId: enrollments.studentId })
+        .from(enrollments)
+        .where(and(eq(enrollments.courseId, courseId), eq(enrollments.status, 'enrolled'))),
+    ]);
+    const gradable = assignRows.filter((a) =>
+      isItemPosted({ status: a.status, startAt: a.startDate }, now),
+    );
+    const studentIds = enrolledRows.map((r2) => r2.studentId);
+    if (gradable.length === 0 || studentIds.length === 0) {
+      return success(c, { updated: 0 });
+    }
+    const assignmentIds = gradable.map((a) => a.id);
+
+    const subs = await db
+      .select({
+        id: assignmentSubmissions.id,
+        assignmentId: assignmentSubmissions.assignmentId,
+        studentId: assignmentSubmissions.studentId,
+        status: assignmentSubmissions.status,
+        score: assignmentSubmissions.score,
+      })
+      .from(assignmentSubmissions)
+      .where(
+        and(
+          inArray(assignmentSubmissions.assignmentId, assignmentIds),
+          inArray(assignmentSubmissions.studentId, studentIds),
+        ),
+      );
+    const subByPair = new Map<string, (typeof subs)[number]>();
+    for (const sub of subs) subByPair.set(`${sub.assignmentId}:${sub.studentId}`, sub);
+
+    // Group-mode safety: a member whose row is missing while their group HAS a
+    // submission must not be zeroed (the row appears via fan-out instead).
+    const groupModeAssignments = gradable.filter(
+      (a) => a.submissionMode === 'group' && a.groupSetId,
+    );
+    const coveredPairs = new Set<string>();
+    if (groupModeAssignments.length > 0) {
+      const groupRows = await db
+        .select({
+          assignmentId: groupSubmissions.assignmentId,
+          studentId: groupMemberships.studentId,
+        })
+        .from(groupSubmissions)
+        .innerJoin(groupMemberships, eq(groupMemberships.groupId, groupSubmissions.groupId))
+        .where(
+          inArray(
+            groupSubmissions.assignmentId,
+            groupModeAssignments.map((a) => a.id),
+          ),
+        );
+      for (const row of groupRows) coveredPairs.add(`${row.assignmentId}:${row.studentId}`);
+    }
+
+    const nowIso = new Date().toISOString();
+    const zeroFields = {
+      score: '0',
+      rawScore: '0',
+      latePenaltyPercent: '0',
+      latePenaltyWaived: false,
+      status: 'graded' as const,
+      gradedAt: nowIso,
+      gradedById: auth.user.id,
+      updatedAt: nowIso,
+    };
+
+    const draftIds: string[] = [];
+    const missingPairs: Array<{ assignmentId: string; studentId: string }> = [];
+    for (const a of gradable) {
+      for (const sid of studentIds) {
+        const key = `${a.id}:${sid}`;
+        const sub = subByPair.get(key);
+        if (sub) {
+          if (sub.status === 'draft' && sub.score === null) draftIds.push(sub.id);
+        } else if (!coveredPairs.has(key)) {
+          missingPairs.push({ assignmentId: a.id, studentId: sid });
+        }
+      }
+    }
+
+    const CHUNK = 100;
+    for (let i = 0; i < draftIds.length; i += CHUNK) {
+      await db
+        .update(assignmentSubmissions)
+        .set(zeroFields)
+        .where(inArray(assignmentSubmissions.id, draftIds.slice(i, i + CHUNK)));
+    }
+    for (let i = 0; i < missingPairs.length; i += CHUNK) {
+      await db
+        .insert(assignmentSubmissions)
+        .values(missingPairs.slice(i, i + CHUNK).map((pair) => ({ ...pair, ...zeroFields })))
+        .onConflictDoNothing({
+          target: [assignmentSubmissions.assignmentId, assignmentSubmissions.studentId],
+        });
+    }
+
+    const updated = draftIds.length + missingPairs.length;
+    if (updated > 0) {
+      await db
+        .update(finalGrades)
+        .set({ isOutdated: true, updatedAt: nowIso })
+        .where(eq(finalGrades.courseId, courseId));
+    }
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'gradebook.zero-missing',
+      target: courseId,
+      metadata: { zeroedDrafts: draftIds.length, zeroedMissing: missingPairs.length },
+    });
+    return success(c, { updated });
+  },
+);
+
 r.post(
   '/courses/:courseId/final-grades/recalculate',
   requireScopeGroup('gradesWrite'),
@@ -201,11 +351,7 @@ r.patch(
     const auth = c.get('auth');
     const db = c.get('db');
     const id = requireParam(c, 'finalGradeId');
-    const [existing] = await db
-      .select()
-      .from(finalGrades)
-      .where(eq(finalGrades.id, id))
-      .limit(1);
+    const [existing] = await db.select().from(finalGrades).where(eq(finalGrades.id, id)).limit(1);
     if (!existing) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Final grade not found');
     if (!(await canWriteCourse(db, auth.user, existing.courseId))) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No write access to this course');
@@ -272,37 +418,33 @@ r.get(
   },
 );
 
-r.get(
-  '/me/courses/:courseId/final-grade',
-  requireScopeGroup('gradesRead'),
-  async (c) => {
-    const auth = c.get('auth');
-    const db = c.get('db');
-    const courseId = requireParam(c, 'courseId');
-    if (auth.user.role === 'student') {
-      if (!(await isCourseEnrolled(db, courseId, auth.user.id))) {
-        throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
-      }
-    } else if (auth.user.role === 'teacher') {
-      if (!(await isCourseTeacher(db, courseId, auth.user.id))) {
-        throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
-      }
+r.get('/me/courses/:courseId/final-grade', requireScopeGroup('gradesRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const courseId = requireParam(c, 'courseId');
+  if (auth.user.role === 'student') {
+    if (!(await isCourseEnrolled(db, courseId, auth.user.id))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
     }
-    const studentId = auth.user.role === 'student' ? auth.user.id : c.req.query('studentId');
-    if (!studentId) {
-      throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'studentId required');
+  } else if (auth.user.role === 'teacher') {
+    if (!(await isCourseTeacher(db, courseId, auth.user.id))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
     }
-    const [row] = await db
-      .select()
-      .from(finalGrades)
-      .where(and(eq(finalGrades.courseId, courseId), eq(finalGrades.studentId, studentId)))
-      .limit(1);
-    if (!row) {
-      return success(c, null);
-    }
-    return success(c, toFinalGradeSummary(row));
-  },
-);
+  }
+  const studentId = auth.user.role === 'student' ? auth.user.id : c.req.query('studentId');
+  if (!studentId) {
+    throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'studentId required');
+  }
+  const [row] = await db
+    .select()
+    .from(finalGrades)
+    .where(and(eq(finalGrades.courseId, courseId), eq(finalGrades.studentId, studentId)))
+    .limit(1);
+  if (!row) {
+    return success(c, null);
+  }
+  return success(c, toFinalGradeSummary(row));
+});
 
 // Self-scoped itemized gradebook. A student reads their OWN full breakdown —
 // every assignment, quiz, discussion, and attendance item with their own
@@ -311,31 +453,27 @@ r.get(
 // disclosure-logged. Course staff viewing a *specific* student go through the
 // disclosure-logged /courses/:courseId/students/:studentId/gradebook-detail
 // route instead; this endpoint always resolves to the caller themselves.
-r.get(
-  '/me/courses/:courseId/gradebook-detail',
-  requireScopeGroup('gradesRead'),
-  async (c) => {
-    const auth = c.get('auth');
-    const db = c.get('db');
-    const courseId = requireParam(c, 'courseId');
-    if (auth.user.role !== 'student') {
-      throw new ApiException(
-        403,
-        ERROR_CODES.FORBIDDEN,
-        'Only students can view their own gradebook here',
-      );
-    }
-    if (!(await isCourseEnrolled(db, courseId, auth.user.id))) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
-    }
-    const policy = await ensureGradingPolicy(db, courseId);
-    const detail = await buildGradebookStudentDetail(db, courseId, auth.user.id, policy);
-    if (!detail) {
-      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'You are not enrolled in this course');
-    }
-    return success(c, detail);
-  },
-);
+r.get('/me/courses/:courseId/gradebook-detail', requireScopeGroup('gradesRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const courseId = requireParam(c, 'courseId');
+  if (auth.user.role !== 'student') {
+    throw new ApiException(
+      403,
+      ERROR_CODES.FORBIDDEN,
+      'Only students can view their own gradebook here',
+    );
+  }
+  if (!(await isCourseEnrolled(db, courseId, auth.user.id))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
+  }
+  const policy = await ensureGradingPolicy(db, courseId);
+  const detail = await buildGradebookStudentDetail(db, courseId, auth.user.id, policy);
+  if (!detail) {
+    throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'You are not enrolled in this course');
+  }
+  return success(c, detail);
+});
 
 // =================== Per-course grading summary ===================
 
@@ -472,14 +610,9 @@ r.get(
       })
       .from(enrollments)
       .innerJoin(users, eq(enrollments.studentId, users.id))
-      .where(
-        and(eq(enrollments.courseId, courseId), eq(enrollments.status, 'enrolled')),
-      )
+      .where(and(eq(enrollments.courseId, courseId), eq(enrollments.status, 'enrolled')))
       .orderBy(asc(users.name));
-    const gradeRows = await db
-      .select()
-      .from(finalGrades)
-      .where(eq(finalGrades.courseId, courseId));
+    const gradeRows = await db.select().from(finalGrades).where(eq(finalGrades.courseId, courseId));
     const byStudent = new Map<string, typeof finalGrades.$inferSelect>();
     for (const g of gradeRows) byStudent.set(g.studentId, g);
     const header = [

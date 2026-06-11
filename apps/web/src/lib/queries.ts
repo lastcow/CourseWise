@@ -175,8 +175,7 @@ export function useCourseGradingSummary(courseId: string | null) {
   return useQuery({
     queryKey: ['course-grading-summary', courseId],
     enabled: !!courseId,
-    queryFn: () =>
-      apiCall<CourseGradingSummary>(`/api/courses/${courseId}/grading-summary`),
+    queryFn: () => apiCall<CourseGradingSummary>(`/api/courses/${courseId}/grading-summary`),
   });
 }
 
@@ -219,8 +218,7 @@ export function useDeletionPreview(courseId: string | null | undefined) {
   return useQuery({
     queryKey: ['course-deletion-preview', courseId],
     enabled: !!courseId,
-    queryFn: () =>
-      apiCall<CourseDeletionPreview>(`/api/courses/${courseId}/deletion-preview`),
+    queryFn: () => apiCall<CourseDeletionPreview>(`/api/courses/${courseId}/deletion-preview`),
   });
 }
 
@@ -523,8 +521,7 @@ export interface FerpaAcknowledgmentState {
 export function useMyFerpaAcknowledgment() {
   return useQuery({
     queryKey: ['my-ferpa-acknowledgment'],
-    queryFn: () =>
-      apiCall<FerpaAcknowledgmentState>('/api/me/ferpa-acknowledgment'),
+    queryFn: () => apiCall<FerpaAcknowledgmentState>('/api/me/ferpa-acknowledgment'),
   });
 }
 
@@ -545,9 +542,7 @@ export function useMyDisclosures(offset: number, limit = 50) {
   return useQuery({
     queryKey: ['my-disclosures', offset, limit],
     queryFn: () =>
-      apiCall<DisclosureLogResponse>(
-        `/api/me/records/disclosures?limit=${limit}&offset=${offset}`,
-      ),
+      apiCall<DisclosureLogResponse>(`/api/me/records/disclosures?limit=${limit}&offset=${offset}`),
     // Keep prior page while loading the next so the UI doesn't flash empty.
     placeholderData: (prev) => prev,
   });
@@ -558,8 +553,7 @@ export function useMyDisclosures(offset: number, limit = 50) {
 export function useMyCorrectionRequests() {
   return useQuery({
     queryKey: ['my-correction-requests'],
-    queryFn: () =>
-      apiCall<RecordCorrectionRequestSummary[]>('/api/me/record-correction-requests'),
+    queryFn: () => apiCall<RecordCorrectionRequestSummary[]>('/api/me/record-correction-requests'),
   });
 }
 
@@ -581,10 +575,9 @@ export function useWithdrawCorrectionRequest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      apiCall<RecordCorrectionRequestSummary>(
-        `/api/me/record-correction-requests/${id}/withdraw`,
-        { method: 'POST' },
-      ),
+      apiCall<RecordCorrectionRequestSummary>(`/api/me/record-correction-requests/${id}/withdraw`, {
+        method: 'POST',
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['my-correction-requests'] });
     },
@@ -610,10 +603,10 @@ export function useResolveCorrectionRequest(courseId: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: ResolveRecordCorrectionRequestInput }) =>
-      apiCall<RecordCorrectionRequestSummary>(
-        `/api/record-correction-requests/${id}/resolve`,
-        { method: 'POST', body: input },
-      ),
+      apiCall<RecordCorrectionRequestSummary>(`/api/record-correction-requests/${id}/resolve`, {
+        method: 'POST',
+        body: input,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['course-correction-requests', courseId] });
     },
@@ -724,7 +717,13 @@ const API_BASE: string =
 export function uploadFile(
   file: File,
   courseId: string,
-  relatedType: 'material' | 'assignment' | 'submission' | 'course' | 'presentation' | 'message' = 'material',
+  relatedType:
+    | 'material'
+    | 'assignment'
+    | 'submission'
+    | 'course'
+    | 'presentation'
+    | 'message' = 'material',
   onProgress?: (pct: number) => void,
 ): Promise<UploadFileResponse> {
   const form = new FormData();
@@ -1032,22 +1031,23 @@ export function useSubmission(submissionId: string | null) {
 // the direct grade-by-student endpoint (handles missing rows and drafts).
 // Caller passes only eligible items — submitted/graded work must be excluded
 // upstream. Sequential on purpose; the lists are small.
-export function useZeroMissingScores() {
+/**
+ * Course-level "set missing to 0": one server-side bulk pass over every
+ * enrolled student's never-handed-in work (replaces the old per-student
+ * client loop). Returns the number of scores zeroed.
+ */
+export function useZeroMissingScores(courseId: string) {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      studentId,
-      assignmentIds,
-    }: {
-      studentId: string;
-      assignmentIds: string[];
-    }) => {
-      for (const assignmentId of assignmentIds) {
-        await apiCall<SubmissionSummary>(`/api/assignments/${assignmentId}/grades/${studentId}`, {
-          method: 'POST',
-          body: { score: 0 },
-        });
-      }
-      return assignmentIds.length;
+    mutationFn: async () => {
+      const res = await apiCall<{ updated: number }>(
+        `/api/courses/${courseId}/gradebook/zero-missing`,
+        { method: 'POST' },
+      );
+      return res.updated;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
     },
   });
 }
@@ -1095,9 +1095,7 @@ export function useAssignmentSubmissionsByGroup(assignmentId: string | null) {
     queryKey: ['submissions-grouped', assignmentId],
     enabled: !!assignmentId,
     queryFn: () =>
-      apiCall<AssignmentSubmissionsByGroup>(
-        `/api/assignments/${assignmentId}/submissions/grouped`,
-      ),
+      apiCall<AssignmentSubmissionsByGroup>(`/api/assignments/${assignmentId}/submissions/grouped`),
   });
 }
 
@@ -1473,17 +1471,11 @@ export function useDeleteQuizSchedule(quizId: string) {
 export function useSetScheduleMembers(quizId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      scheduleId,
-      input,
-    }: {
-      scheduleId: string;
-      input: SetScheduleMembersInput;
-    }) =>
-      apiCall<QuizScheduleWithMembers>(
-        `/api/quizzes/${quizId}/schedules/${scheduleId}/members`,
-        { method: 'PUT', body: input },
-      ),
+    mutationFn: ({ scheduleId, input }: { scheduleId: string; input: SetScheduleMembersInput }) =>
+      apiCall<QuizScheduleWithMembers>(`/api/quizzes/${quizId}/schedules/${scheduleId}/members`, {
+        method: 'PUT',
+        body: input,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['quiz-schedules', quizId] }),
   });
 }
@@ -1881,10 +1873,7 @@ export function useOverrideFinalGrade(courseId: string) {
   });
 }
 
-export function useGradebookStudentDetail(
-  courseId: string | null,
-  studentId: string | null,
-) {
+export function useGradebookStudentDetail(courseId: string | null, studentId: string | null) {
   return useQuery({
     queryKey: ['gradebook-student-detail', courseId, studentId],
     enabled: !!courseId && !!studentId,
@@ -1911,8 +1900,7 @@ export function useMyGradebookDetail(courseId: string | null) {
   return useQuery({
     queryKey: ['my-gradebook-detail', courseId],
     enabled: !!courseId,
-    queryFn: () =>
-      apiCall<GradebookStudentDetail>(`/api/me/courses/${courseId}/gradebook-detail`),
+    queryFn: () => apiCall<GradebookStudentDetail>(`/api/me/courses/${courseId}/gradebook-detail`),
   });
 }
 
@@ -1921,8 +1909,7 @@ export function useAssignmentGroups(courseId: string | undefined) {
   return useQuery({
     queryKey: ['assignment-groups', courseId],
     enabled: !!courseId,
-    queryFn: () =>
-      apiCall<AssignmentGroup[]>(`/api/courses/${courseId}/assignment-groups`),
+    queryFn: () => apiCall<AssignmentGroup[]>(`/api/courses/${courseId}/assignment-groups`),
   });
 }
 
@@ -1954,10 +1941,10 @@ export function useUpdateAssignmentGroup(courseId: string) {
       weight?: number;
       position?: number;
     }) =>
-      apiCall<AssignmentGroup>(
-        `/api/courses/${courseId}/assignment-groups/${groupId}`,
-        { method: 'PATCH', body: patch },
-      ),
+      apiCall<AssignmentGroup>(`/api/courses/${courseId}/assignment-groups/${groupId}`, {
+        method: 'PATCH',
+        body: patch,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['assignment-groups', courseId] });
       void qc.invalidateQueries({ queryKey: ['final-grades', courseId] });
@@ -1988,10 +1975,11 @@ export function useReorderAssignmentGroups(courseId: string) {
     mutationFn: async (orderedIds: string[]) => {
       // 204 No Content on success — bypass the JSON-envelope parser and
       // check the status code directly, mirroring useRetryR2Cleanup.
-      const res = await apiCall<Response>(
-        `/api/courses/${courseId}/assignment-groups/reorder`,
-        { method: 'POST', body: { orderedIds }, raw: true },
-      );
+      const res = await apiCall<Response>(`/api/courses/${courseId}/assignment-groups/reorder`, {
+        method: 'POST',
+        body: { orderedIds },
+        raw: true,
+      });
       if (!res.ok) {
         const text = await res.text();
         let err: ApiError = {
@@ -2183,8 +2171,7 @@ export function useGroupSet(courseId: string | undefined, setId: string | undefi
   return useQuery({
     queryKey: ['group-set', courseId, setId],
     enabled: !!courseId && !!setId,
-    queryFn: () =>
-      apiCall<GroupSetWithGroups>(`/api/courses/${courseId}/group-sets/${setId}`),
+    queryFn: () => apiCall<GroupSetWithGroups>(`/api/courses/${courseId}/group-sets/${setId}`),
   });
 }
 
@@ -2639,10 +2626,9 @@ export function useSendMessage(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: SendMessageInput) =>
-      apiCall<{ threadId: string; message: MessageRecord }>(
-        `/api/courses/${courseId}/messages`,
-        { body: input },
-      ),
+      apiCall<{ threadId: string; message: MessageRecord }>(`/api/courses/${courseId}/messages`, {
+        body: input,
+      }),
     onSuccess: (data) => {
       void qc.invalidateQueries({ queryKey: ['messages', 'threads', courseId] });
       void qc.invalidateQueries({ queryKey: ['messages', 'thread', courseId, data.threadId] });

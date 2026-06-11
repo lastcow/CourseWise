@@ -894,6 +894,13 @@ export const ROUTES: readonly RouteSpec[] = [
     { scopeGroup: 'gradesWrite', pathParams: idParams('courseId') },
   ),
   r(
+    'post',
+    '/api/courses/{courseId}/gradebook/zero-missing',
+    'Set all missing/draft work to 0 across the course',
+    'grading',
+    { scopeGroup: 'gradesWrite', pathParams: idParams('courseId') },
+  ),
+  r(
     'patch',
     '/api/final-grades/{finalGradeId}',
     'Teacher override of a final grade (score + reason)',

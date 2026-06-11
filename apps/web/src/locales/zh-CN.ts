@@ -1772,10 +1772,11 @@ export const zhCN = {
       detailTitle: '学生成绩单',
       detailBack: '返回成绩册',
       detailRecalc: '重新计算最终成绩',
-      zeroMissingCta: '未交记 0 分({{count}})',
+      zeroMissingCta: '未交记 0 分',
       zeroMissingTitle: '将未交作业记 0 分?',
       zeroMissingBody:
-        '{{count}} 个无提交(或仅有草稿)的作业将记 0 分,已提交和已评分的作业不受影响。',
+        '全课程范围内,学生从未提交(无提交或仅有草稿)的作业将统一记 0 分;已提交和已评分的作业不受影响。',
+      zeroMissingScope: '本课程全部在读学生',
       zeroMissingConfirm: '记 0 分',
       zeroMissingDone: '已将 {{count}} 项记 0 分',
       detailFinalScore: '最终分数',
