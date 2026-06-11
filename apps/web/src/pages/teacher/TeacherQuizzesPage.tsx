@@ -33,6 +33,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import {
   useAssignmentGroups,
   useCreateQuiz,
@@ -107,6 +108,7 @@ export function TeacherQuizzesPage(): JSX.Element {
   const updateSet = useUpdateQuizSet(id);
   const deleteSet = useDeleteQuizSet(id);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [openCreate, setOpenCreate] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', timeLimitMinutes: '' });
@@ -213,8 +215,13 @@ export function TeacherQuizzesPage(): JSX.Element {
   }
 
   async function onDeleteSet(setId: string, name: string): Promise<void> {
-    // eslint-disable-next-line no-alert
-    if (!confirm(t('quizzes.sets.deleteConfirm', { name }))) return;
+    const ok = await confirm({
+      title: t('quizzes.sets.deleteTitle'),
+      description: t('quizzes.sets.deleteBody'),
+      detail: { name },
+      confirmLabel: t('common.delete'),
+    });
+    if (!ok) return;
     try {
       await deleteSet.mutateAsync(setId);
     } catch (err) {

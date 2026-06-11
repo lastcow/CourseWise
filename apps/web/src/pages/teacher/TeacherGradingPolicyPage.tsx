@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import {
   useAssignmentGroups,
   useCreateAssignmentGroup,
@@ -27,6 +28,7 @@ export function TeacherGradingPolicyPage(): JSX.Element {
   const updateGroup = useUpdateAssignmentGroup(cid);
   const deleteGroup = useDeleteAssignmentGroup(cid);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [attendanceWeight, setAttendanceWeight] = useState<number>(10);
   const [attendanceLoaded, setAttendanceLoaded] = useState(false);
@@ -73,9 +75,13 @@ export function TeacherGradingPolicyPage(): JSX.Element {
   }
 
   async function onDeleteGroup(groupId: string, name: string) {
-    // Native confirm — Canvas does the same; a proper dialog can come later.
-    // eslint-disable-next-line no-alert
-    if (!confirm(t('grading.groupDeleteConfirm', { name }))) return;
+    const ok = await confirm({
+      title: t('grading.groupDeleteTitle'),
+      description: t('grading.groupDeleteBody'),
+      detail: { name },
+      confirmLabel: t('common.delete'),
+    });
+    if (!ok) return;
     try {
       await deleteGroup.mutateAsync(groupId);
     } catch (err) {

@@ -7,8 +7,9 @@ import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty';
-import { Markdown } from '@/components/ui/markdown';
+import { Markdown, stripMarkdown } from '@/components/ui/markdown';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import type { DiscussionPostSummary } from '@coursewise/shared';
 import {
   useCreateDiscussionPost,
@@ -41,6 +42,11 @@ function nest(posts: DiscussionPostSummary[]): ThreadNode[] {
   return roots;
 }
 
+function postExcerpt(content: string | null): string {
+  const text = stripMarkdown(content ?? '').trim();
+  return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+}
+
 export function StudentDiscussionTopicPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId, topicId } = useParams();
@@ -53,6 +59,7 @@ export function StudentDiscussionTopicPage(): JSX.Element {
   const update = useUpdateDiscussionPost(tId);
   const del = useDeleteDiscussionPost(tId);
   const toast = useToast();
+  const confirm = useConfirm();
   const { auth } = useAuth();
   const userId = auth?.user.id ?? null;
 
@@ -155,7 +162,13 @@ export function StudentDiscussionTopicPage(): JSX.Element {
                   label={t('common.delete')}
                   color="red"
                   onClick={async () => {
-                    if (!confirm(t('discussion.postDeleteConfirm'))) return;
+                    const ok = await confirm({
+                      title: t('discussion.postDeleteTitle'),
+                      description: t('discussion.postDeleteBody'),
+                      detail: { name: postExcerpt(node.post.content) },
+                      confirmLabel: t('common.delete'),
+                    });
+                    if (!ok) return;
                     await del.mutateAsync(node.post.id);
                   }}
                 />

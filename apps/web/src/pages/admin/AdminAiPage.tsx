@@ -32,6 +32,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { Input, Label } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import { PromptTemplateCard } from '@/components/admin/PromptTemplateCard';
 
 export function AdminAiPage(): JSX.Element {
@@ -39,6 +40,7 @@ export function AdminAiPage(): JSX.Element {
   const providersQ = useAiProviders();
   const modelsQ = useAiModels();
   const toast = useToast();
+  const confirm = useConfirm();
 
   const createProvider = useCreateAiProvider();
   const updateProvider = useUpdateAiProvider();
@@ -134,8 +136,14 @@ export function AdminAiPage(): JSX.Element {
                         icon={Trash2}
                         label={t('common.delete')}
                         color="red"
-                        onClick={() => {
-                          if (!window.confirm(`${t('common.delete')}: ${row.displayName}?`)) return;
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: t('ai.deleteProviderTitle'),
+                            description: t('ai.deleteProviderBody'),
+                            detail: { name: row.displayName },
+                            confirmLabel: t('common.delete'),
+                          });
+                          if (!ok) return;
                           void handle(
                             () => deleteProvider.mutateAsync(row.id),
                             'ai.providerDeleted',
@@ -208,8 +216,14 @@ export function AdminAiPage(): JSX.Element {
                         icon={Trash2}
                         label={t('common.delete')}
                         color="red"
-                        onClick={() => {
-                          if (!window.confirm(`${t('common.delete')}: ${row.displayName}?`)) return;
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: t('ai.deleteModelTitle'),
+                            description: t('ai.deleteModelBody'),
+                            detail: { name: row.displayName },
+                            confirmLabel: t('common.delete'),
+                          });
+                          if (!ok) return;
                           void handle(() => deleteModel.mutateAsync(row.id), 'ai.modelDeleted');
                         }}
                       />

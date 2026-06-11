@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import { ApiClientError } from '@/lib/api';
 import {
   useAiPromptTemplates,
@@ -37,6 +38,7 @@ const DEPTHS: Depth[] = ['brief', 'standard', 'detailed'];
 
 export function PromptTemplateCard(): JSX.Element {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const templatesQ = useAiPromptTemplates();
   const templates = templatesQ.data ?? [];
   const [activeKind, setActiveKind] = useState<AiArtifactKind | null>(null);
@@ -48,8 +50,16 @@ export function PromptTemplateCard(): JSX.Element {
     ? templates.find((tpl) => tpl.kind === effectiveKind) ?? null
     : null;
 
-  function tryChangeKind(next: AiArtifactKind): void {
-    if (dirtyRef.current() && !window.confirm(t('ai.prompts.discardConfirm'))) return;
+  async function tryChangeKind(next: AiArtifactKind): Promise<void> {
+    if (dirtyRef.current()) {
+      const ok = await confirm({
+        title: t('ai.prompts.discardTitle'),
+        description: t('ai.prompts.discardBody'),
+        detail: effectiveKind ? { name: t(`ai.prompts.kinds.${effectiveKind}`) } : undefined,
+        confirmLabel: t('ai.prompts.discardAction'),
+      });
+      if (!ok) return;
+    }
     setActiveKind(next);
   }
 
@@ -123,6 +133,7 @@ function PromptTemplateForm({
   const updateM = useUpdateAiPromptTemplate();
   const resetM = useResetAiPromptTemplate();
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [systemPrompt, setSystemPrompt] = useState(template.systemPrompt);
   const [userMessage, setUserMessage] = useState(template.userMessage);
@@ -185,7 +196,13 @@ function PromptTemplateForm({
   }
 
   async function onReset(): Promise<void> {
-    if (!window.confirm(t('ai.prompts.resetConfirm'))) return;
+    const ok = await confirm({
+      title: t('ai.prompts.resetTitle'),
+      description: t('ai.prompts.resetBody'),
+      detail: { name: t(`ai.prompts.kinds.${template.kind}`) },
+      confirmLabel: t('ai.prompts.resetAction'),
+    });
+    if (!ok) return;
     try {
       await resetM.mutateAsync(template.kind);
       toast.push({ title: t('ai.prompts.resetDone'), tone: 'success' });

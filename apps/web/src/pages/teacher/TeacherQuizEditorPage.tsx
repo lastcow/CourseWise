@@ -13,6 +13,7 @@ import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import { QuizSchedulesEditor } from '@/components/teacher/QuizSchedulesEditor';
 import {
   useAssignmentGroups,
@@ -71,6 +72,7 @@ export function TeacherQuizEditorPage(): JSX.Element {
   const delQ = useDeleteQuizQuestion(id);
   const groups = useAssignmentGroups(cid);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [meta, setMeta] = useState({
     title: '',
@@ -345,7 +347,21 @@ export function TeacherQuizEditorPage(): JSX.Element {
                         label={t('common.delete')}
                         color="red"
                         onClick={async () => {
-                          if (!confirm(t('quizzes.deleteQuestionConfirm'))) return;
+                          const ok = await confirm({
+                            title: t('quizzes.deleteQuestionTitle'),
+                            description: t('quizzes.deleteQuestionBody'),
+                            detail: {
+                              name: q.prompt,
+                              facts: [
+                                {
+                                  label: t(`quizzes.type.${q.type}`),
+                                  value: t('quizzes.pointsValue', { points: q.points }),
+                                },
+                              ],
+                            },
+                            confirmLabel: t('common.delete'),
+                          });
+                          if (!ok) return;
                           await delQ.mutateAsync(q.id);
                           if (editingId === q.id) {
                             setEditingId(null);

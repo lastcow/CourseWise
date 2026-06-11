@@ -26,6 +26,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Dialog } from '@/components/ui/dialog';
+import { useConfirm } from '@/components/ui/confirm';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
@@ -148,6 +149,7 @@ export function TeacherModulesPage(): JSX.Element {
   const alignModules = useAlignModules(id);
   const delMaterial = useDeleteMaterial(id);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [openCreate, setOpenCreate] = useState(false);
   const [alignConfirm, setAlignConfirm] = useState(false);
@@ -422,7 +424,13 @@ export function TeacherModulesPage(): JSX.Element {
                         label={t('common.delete')}
                         color="red"
                         onClick={async () => {
-                          if (!window.confirm(`${t('common.delete')}: ${m.title}?`)) return;
+                          const ok = await confirm({
+                            title: t('modules.deleteTitle'),
+                            description: t('modules.deleteBody'),
+                            detail: { name: m.title },
+                            confirmLabel: t('common.delete'),
+                          });
+                          if (!ok) return;
                           try {
                             await del.mutateAsync(m.id);
                             toast.push({ title: t('modules.deleted'), tone: 'success' });
@@ -563,8 +571,13 @@ export function TeacherModulesPage(): JSX.Element {
                                 label={t('common.delete')}
                                 color="red"
                                 onClick={async () => {
-                                  if (!window.confirm(`${t('common.delete')}: ${mat.title}?`))
-                                    return;
+                                  const ok = await confirm({
+                                    title: t('materials.deleteConfirmTitle'),
+                                    description: t('materials.deleteConfirmBody'),
+                                    detail: { name: mat.title },
+                                    confirmLabel: t('materials.deleteConfirmAction'),
+                                  });
+                                  if (!ok) return;
                                   try {
                                     await delMaterial.mutateAsync(mat.id);
                                     toast.push({ title: t('materials.deleted'), tone: 'success' });

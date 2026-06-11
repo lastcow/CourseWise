@@ -33,6 +33,7 @@ import { Label } from '@/components/ui/input';
 import { Markdown } from '@/components/ui/markdown';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import {
   useMyQuizAttempts,
   useQuiz,
@@ -726,6 +727,7 @@ export function StudentQuizRunnerPage(): JSX.Element {
   const attemptsList = useMyQuizAttempts(id);
   const start = useStartQuizAttempt(id);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [attempt, setAttempt] = useState<QuizAttemptDetail | null>(null);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
@@ -837,7 +839,25 @@ export function StudentQuizRunnerPage(): JSX.Element {
 
   async function handleSubmit() {
     if (!attempt) return;
-    if (!confirm(t('quizzes.submitConfirm'))) return;
+    const answered = Object.values(answers).filter((a) =>
+      Array.isArray(a) ? a.length > 0 : a !== '' && a !== null && a !== undefined,
+    ).length;
+    const ok = await confirm({
+      title: t('quizzes.submitTitle'),
+      description: t('quizzes.submitBody'),
+      detail: {
+        name: attempt.quiz.title,
+        facts: [
+          {
+            label: t('quizzes.submitAnsweredLabel'),
+            value: `${answered} / ${attempt.questions.length}`,
+          },
+        ],
+      },
+      confirmLabel: t('quizzes.submitCta'),
+      tone: 'default',
+    });
+    if (!ok) return;
     try {
       const result = await submit.mutateAsync({
         answers: Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer })),

@@ -10,6 +10,7 @@ import { Input, Label, Textarea } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty';
 import { Markdown } from '@/components/ui/markdown';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import {
   getDownloadUrl,
   useCreateSlide,
@@ -36,6 +37,7 @@ export function TeacherPresentationEditorPage(): JSX.Element {
   const deleteSlide = useDeleteSlide(pId);
   const reorderSlides = useReorderSlides(pId);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
@@ -299,7 +301,19 @@ export function TeacherPresentationEditorPage(): JSX.Element {
                 <Button
                   variant="destructive"
                   onClick={async () => {
-                    if (!confirm(t('slides.deleteConfirm'))) return;
+                    const idx = slides.data?.findIndex((s) => s.id === selectedId) ?? -1;
+                    const current = idx >= 0 ? slides.data?.[idx] : undefined;
+                    const ok = await confirm({
+                      title: t('slides.deleteConfirm'),
+                      description: t('slides.deleteBody'),
+                      detail: {
+                        name: current?.title?.trim()
+                          ? current.title
+                          : t('slides.slideN', { n: idx + 1 }),
+                      },
+                      confirmLabel: t('common.delete'),
+                    });
+                    if (!ok) return;
                     await deleteSlide.mutateAsync(selectedId);
                     setSelectedId(null);
                   }}

@@ -34,6 +34,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import {
   useAssignmentGroups,
   useAssignmentSets,
@@ -101,6 +102,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
   const updateSet = useUpdateAssignmentSet(id);
   const deleteSet = useDeleteAssignmentSet(id);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [deleteTarget, setDeleteTarget] = useState<AssignmentSummary | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<
@@ -220,8 +222,13 @@ export function TeacherAssignmentsPage(): JSX.Element {
   }
 
   async function onDeleteSet(setId: string, name: string): Promise<void> {
-    // eslint-disable-next-line no-alert
-    if (!confirm(t('assignments.setDeleteConfirm', { name }))) return;
+    const ok = await confirm({
+      title: t('assignments.setDeleteTitle'),
+      description: t('assignments.setDeleteBody'),
+      detail: { name },
+      confirmLabel: t('common.delete'),
+    });
+    if (!ok) return;
     try {
       await deleteSet.mutateAsync(setId);
     } catch (err) {

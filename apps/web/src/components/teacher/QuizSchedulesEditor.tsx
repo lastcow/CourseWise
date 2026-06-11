@@ -7,6 +7,7 @@ import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import {
   useCourseStudents,
   useCreateQuizSchedule,
@@ -60,6 +61,7 @@ function WaveRow({
 }): JSX.Element {
   const { t } = useTranslation();
   const toast = useToast();
+  const confirm = useConfirm();
   const updateSchedule = useUpdateQuizSchedule(quizId);
   const delSchedule = useDeleteQuizSchedule(quizId);
   const setMembers = useSetScheduleMembers(quizId);
@@ -137,7 +139,13 @@ function WaveRow({
           label={t('common.delete')}
           color="red"
           onClick={async () => {
-            if (!confirm(t('quizzes.schedules.deleteWaveConfirm'))) return;
+            const ok = await confirm({
+              title: t('quizzes.schedules.deleteWaveTitle'),
+              description: t('quizzes.schedules.deleteWaveBody'),
+              detail: { name: form.name || wave.name },
+              confirmLabel: t('common.delete'),
+            });
+            if (!ok) return;
             try {
               await delSchedule.mutateAsync(wave.id);
             } catch (err) {
