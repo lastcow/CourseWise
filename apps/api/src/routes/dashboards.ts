@@ -3,6 +3,8 @@ import { and, asc, desc, eq, gt, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type {
   AdminActivityPoint,
   AdminActivityResponse,
+  AdminAiUsagePoint,
+  AdminAiUsageResponse,
   AdminDashboardResponse,
   AlertSummary,
   StudentCourseSnapshot,
@@ -11,6 +13,7 @@ import type {
   TeacherDashboardResponse,
 } from '@coursewise/shared';
 import {
+  aiUsageEvents,
   alerts,
   assignmentSubmissions,
   assignments,
@@ -148,29 +151,46 @@ r.get('/dashboards/admin/activity', requireScopeGroup('dashboardsRead'), async (
   // Five independent per-day aggregates — run them concurrently.
   const [newUserRows, enrollmentRows, submissionRows, attemptRows, postRows] = await Promise.all([
     db
-      .select({ day: sql<string>`(date_trunc('day', ${users.createdAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
+      .select({
+        day: sql<string>`(date_trunc('day', ${users.createdAt} AT TIME ZONE 'UTC'))::date`,
+        ...dayCount,
+      })
       .from(users)
       .where(sql`${users.createdAt} >= ${sinceIso}`)
       .groupBy(sql`1`),
     db
-      .select({ day: sql<string>`(date_trunc('day', ${enrollments.createdAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
+      .select({
+        day: sql<string>`(date_trunc('day', ${enrollments.createdAt} AT TIME ZONE 'UTC'))::date`,
+        ...dayCount,
+      })
       .from(enrollments)
       .where(sql`${enrollments.createdAt} >= ${sinceIso}`)
       .groupBy(sql`1`),
     db
-      .select({ day: sql<string>`(date_trunc('day', ${assignmentSubmissions.submittedAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
+      .select({
+        day: sql<string>`(date_trunc('day', ${assignmentSubmissions.submittedAt} AT TIME ZONE 'UTC'))::date`,
+        ...dayCount,
+      })
       .from(assignmentSubmissions)
       .where(sql`${assignmentSubmissions.submittedAt} >= ${sinceIso}`)
       .groupBy(sql`1`),
     db
-      .select({ day: sql<string>`(date_trunc('day', ${quizAttempts.startedAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
+      .select({
+        day: sql<string>`(date_trunc('day', ${quizAttempts.startedAt} AT TIME ZONE 'UTC'))::date`,
+        ...dayCount,
+      })
       .from(quizAttempts)
       .where(sql`${quizAttempts.startedAt} >= ${sinceIso}`)
       .groupBy(sql`1`),
     db
-      .select({ day: sql<string>`(date_trunc('day', ${discussionPosts.createdAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
+      .select({
+        day: sql<string>`(date_trunc('day', ${discussionPosts.createdAt} AT TIME ZONE 'UTC'))::date`,
+        ...dayCount,
+      })
       .from(discussionPosts)
-      .where(and(eq(discussionPosts.isDeleted, false), sql`${discussionPosts.createdAt} >= ${sinceIso}`))
+      .where(
+        and(eq(discussionPosts.isDeleted, false), sql`${discussionPosts.createdAt} >= ${sinceIso}`),
+      )
       .groupBy(sql`1`),
   ]);
   fill(newUserRows, 'newUsers');
@@ -180,6 +200,93 @@ r.get('/dashboards/admin/activity', requireScopeGroup('dashboardsRead'), async (
   fill(postRows, 'posts');
 
   const body: AdminActivityResponse = { days, points };
+  return success(c, body);
+});
+
+// System-wide AI usage (neurons / requests / tokens) per day for the admin
+// dashboard chart. `days` accepts 7|30|90 or 'all' — 'all' resolves to the
+// span since the first recorded event (clamped to a year so the zero-fill
+// stays bounded). Aggregates and totals run concurrently.
+r.get('/dashboards/admin/ai-usage', requireScopeGroup('dashboardsRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  if (auth.user.role !== 'admin') {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Admin only');
+  }
+  const rawParam = c.req.query('days') ?? '30';
+  let days: number;
+  if (rawParam === 'all') {
+    const [first] = await db
+      .select({ min: sql<string | null>`min(${aiUsageEvents.createdAt})` })
+      .from(aiUsageEvents);
+    const minIso = first?.min;
+    days = minIso ? Math.ceil((Date.now() - new Date(minIso).getTime()) / 86_400_000) + 1 : 7;
+    days = Math.min(365, Math.max(7, days));
+  } else {
+    const raw = Number.parseInt(rawParam, 10);
+    days = Number.isNaN(raw) ? 30 : Math.min(365, Math.max(7, raw));
+  }
+  const since = new Date(Date.now() - (days - 1) * 86_400_000);
+  since.setUTCHours(0, 0, 0, 0);
+  const sinceIso = since.toISOString();
+
+  const [dayRows, [totals]] = await Promise.all([
+    db
+      .select({
+        day: sql<string>`(date_trunc('day', ${aiUsageEvents.createdAt} AT TIME ZONE 'UTC'))::date`,
+        neurons: sql<number>`coalesce(sum(${aiUsageEvents.neurons}), 0)::float`,
+        requests: sql<number>`count(*)::int`,
+        promptTokens: sql<number>`coalesce(sum(${aiUsageEvents.promptTokens}), 0)::int`,
+        completionTokens: sql<number>`coalesce(sum(${aiUsageEvents.completionTokens}), 0)::int`,
+      })
+      .from(aiUsageEvents)
+      .where(sql`${aiUsageEvents.createdAt} >= ${sinceIso}`)
+      .groupBy(sql`1`),
+    db
+      .select({
+        neurons: sql<number>`coalesce(sum(${aiUsageEvents.neurons}), 0)::float`,
+        requests: sql<number>`count(*)::int`,
+        promptTokens: sql<number>`coalesce(sum(${aiUsageEvents.promptTokens}), 0)::int`,
+        completionTokens: sql<number>`coalesce(sum(${aiUsageEvents.completionTokens}), 0)::int`,
+      })
+      .from(aiUsageEvents)
+      .where(sql`${aiUsageEvents.createdAt} >= ${sinceIso}`),
+  ]);
+
+  const byDate = new Map<string, AdminAiUsagePoint>();
+  const points: AdminAiUsagePoint[] = [];
+  for (let i = 0; i < days; i++) {
+    const date = new Date(since.getTime() + i * 86_400_000).toISOString().slice(0, 10);
+    const point: AdminAiUsagePoint = {
+      date,
+      neurons: 0,
+      requests: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+    };
+    points.push(point);
+    byDate.set(date, point);
+  }
+  for (const row of dayRows) {
+    const point = byDate.get(String(row.day).slice(0, 10));
+    if (point) {
+      point.neurons = Math.round(row.neurons * 100) / 100;
+      point.requests = row.requests;
+      point.promptTokens = row.promptTokens;
+      point.completionTokens = row.completionTokens;
+    }
+  }
+
+  const body: AdminAiUsageResponse = {
+    days,
+    totals: {
+      neurons: Math.round((totals?.neurons ?? 0) * 100) / 100,
+      requests: totals?.requests ?? 0,
+      promptTokens: totals?.promptTokens ?? 0,
+      completionTokens: totals?.completionTokens ?? 0,
+    },
+    points,
+  };
   return success(c, body);
 });
 
@@ -230,7 +337,10 @@ r.get('/dashboards/teacher', requireScopeGroup('dashboardsRead'), async (c) => {
         .groupBy(assignments.courseId),
       // Ungraded quiz answers (subjective): pointsAwarded null on submitted attempts.
       db
-        .select({ courseId: quizzes.courseId, c: sql<number>`count(distinct ${quizAnswers.id})::int` })
+        .select({
+          courseId: quizzes.courseId,
+          c: sql<number>`count(distinct ${quizAnswers.id})::int`,
+        })
         .from(quizAnswers)
         .innerJoin(quizAttempts, eq(quizAnswers.attemptId, quizAttempts.id))
         .innerJoin(quizzes, eq(quizAttempts.quizId, quizzes.id))
@@ -329,12 +439,10 @@ r.get('/dashboards/student', requireScopeGroup('dashboardsRead'), async (c) => {
       attendanceRate = present / sessionCount.c;
     }
     // assignment average
-    const courseAssignmentIds = (
-      await db
-        .select({ id: assignments.id, maxScore: assignments.maxScore })
-        .from(assignments)
-        .where(eq(assignments.courseId, courseRow.id))
-    );
+    const courseAssignmentIds = await db
+      .select({ id: assignments.id, maxScore: assignments.maxScore })
+      .from(assignments)
+      .where(eq(assignments.courseId, courseRow.id));
     let assignmentAverage: number | null = null;
     let upcoming = 0;
     if (courseAssignmentIds.length > 0) {
@@ -379,19 +487,14 @@ r.get('/dashboards/student', requireScopeGroup('dashboardsRead'), async (c) => {
           ),
         );
       const submittedIds = new Set(
-        subs
-          .filter((s) => s.score !== null || s.assignmentId)
-          .map((s) => s.assignmentId),
+        subs.filter((s) => s.score !== null || s.assignmentId).map((s) => s.assignmentId),
       );
       upcoming = upcomingRows.filter((a) => !submittedIds.has(a.id)).length;
     }
     // quiz average (best per quiz)
     let quizAverage: number | null = null;
     const courseQuizIds = (
-      await db
-        .select({ id: quizzes.id })
-        .from(quizzes)
-        .where(eq(quizzes.courseId, courseRow.id))
+      await db.select({ id: quizzes.id }).from(quizzes).where(eq(quizzes.courseId, courseRow.id))
     ).map((q) => q.id);
     if (courseQuizIds.length > 0) {
       const attempts = await db
@@ -403,14 +506,16 @@ r.get('/dashboards/student', requireScopeGroup('dashboardsRead'), async (c) => {
         })
         .from(quizAttempts)
         .where(
-          and(
-            inArray(quizAttempts.quizId, courseQuizIds),
-            eq(quizAttempts.studentId, studentId),
-          ),
+          and(inArray(quizAttempts.quizId, courseQuizIds), eq(quizAttempts.studentId, studentId)),
         );
       const best = new Map<string, { score: number; maxScore: number }>();
       for (const a of attempts) {
-        if ((a.status !== 'submitted' && a.status !== 'expired') || a.score === null || a.maxScore === null) continue;
+        if (
+          (a.status !== 'submitted' && a.status !== 'expired') ||
+          a.score === null ||
+          a.maxScore === null
+        )
+          continue;
         const prev = best.get(a.quizId);
         const v = { score: Number(a.score), maxScore: Number(a.maxScore) };
         if (!prev || v.score > prev.score) best.set(a.quizId, v);
@@ -430,9 +535,7 @@ r.get('/dashboards/student', requireScopeGroup('dashboardsRead'), async (c) => {
     const [fg] = await db
       .select()
       .from(finalGrades)
-      .where(
-        and(eq(finalGrades.courseId, courseRow.id), eq(finalGrades.studentId, studentId)),
-      )
+      .where(and(eq(finalGrades.courseId, courseRow.id), eq(finalGrades.studentId, studentId)))
       .limit(1);
     const [openAlertsRow] = await db
       .select({ c: sql<number>`count(*)::int` })

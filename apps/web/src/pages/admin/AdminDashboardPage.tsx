@@ -22,6 +22,7 @@ import {
   StatGrid,
 } from '@/components/dashboard/DashboardKit';
 import { AdminActivityCard } from '@/components/dashboard/AdminActivityCard';
+import { AdminAiUsageCard } from '@/components/dashboard/AdminAiUsageCard';
 
 /** Band header shared by the dashboard panels (matches the grading pages). */
 function PanelHeader({ icon: Icon, children }: { icon: typeof Bell; children: string }): JSX.Element {
@@ -87,6 +88,8 @@ export function AdminDashboardPage(): JSX.Element {
           </StatGrid>
 
           <AdminActivityCard />
+
+          <AdminAiUsageCard />
 
           <div className="grid items-start gap-4 lg:grid-cols-2">
             <Card className="overflow-hidden">
