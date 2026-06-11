@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
+  ALLOWED_UPLOAD_EXTENSIONS,
   ALLOWED_UPLOAD_MIME_TYPES,
   FILE_RELATED_TYPES,
   MAX_UPLOAD_BYTES,
@@ -14,6 +15,8 @@ import {
   fileAssets,
   presentations,
   readingMaterials,
+  messageThreads,
+  messages,
 } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
@@ -114,7 +117,13 @@ r.post('/files/upload', async (c) => {
   if (!fileName || fileName.length > 255 || /[/\\?<>:"|*]/.test(fileName)) {
     throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'Invalid file name');
   }
-  if (!(ALLOWED_UPLOAD_MIME_TYPES as readonly string[]).includes(fileType)) {
+  // MIME allowlist with an extension fallback: browsers report source-code
+  // files (.java, .py, …) inconsistently — often application/octet-stream or
+  // an empty string — so a known extension also passes.
+  const extension = fileName.includes('.') ? fileName.split('.').pop()!.toLowerCase() : '';
+  const mimeAllowed = (ALLOWED_UPLOAD_MIME_TYPES as readonly string[]).includes(fileType);
+  const extAllowed = (ALLOWED_UPLOAD_EXTENSIONS as readonly string[]).includes(extension);
+  if (!mimeAllowed && !extAllowed) {
     throw new ApiException(
       400,
       ERROR_CODES.VALIDATION_ERROR,
@@ -132,7 +141,9 @@ r.post('/files/upload', async (c) => {
     );
   }
 
-  if (relatedType === 'submission') {
+  if (relatedType === 'submission' || relatedType === 'message') {
+    // Students may upload for their own submissions and messages; staff for
+    // any course they can write.
     if (auth.user.role === 'student') {
       if (!(await isCourseEnrolled(db, courseId, auth.user.id))) {
         throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
@@ -282,6 +293,25 @@ r.get('/files/:fileId/download-url', async (c) => {
         }
         if (!allowed) {
           throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Cannot download another student submission');
+        }
+      } else if (row.relatedType === 'message' && row.relatedId) {
+        // Message attachments are private to the two thread participants.
+        const [msg] = await db
+          .select({ threadId: messages.threadId })
+          .from(messages)
+          .where(eq(messages.id, row.relatedId))
+          .limit(1);
+        const thread = msg
+          ? (
+              await db
+                .select({ a: messageThreads.participantAId, b: messageThreads.participantBId })
+                .from(messageThreads)
+                .where(eq(messageThreads.id, msg.threadId))
+                .limit(1)
+            )[0]
+          : undefined;
+        if (!thread || (thread.a !== auth.user.id && thread.b !== auth.user.id)) {
+          throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a participant in this conversation');
         }
       } else {
         // Presentation files are linked via `presentations.fileAssetId` rather

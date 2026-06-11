@@ -1693,6 +1693,9 @@ export const messages = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     body: text('body').notNull(),
     priority: text('priority').notNull().default('normal'),
+    // Optional single attachment (word/excel/pdf/code …) uploaded via
+    // /files/upload with relatedType 'message'.
+    fileAssetId: uuid('file_asset_id').references(() => fileAssets.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
       .defaultNow()
       .notNull(),

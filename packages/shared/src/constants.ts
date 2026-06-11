@@ -380,6 +380,7 @@ export const FILE_RELATED_TYPES = [
   'submission',
   'course',
   'presentation',
+  'message',
 ] as const;
 export type FileRelatedType = (typeof FILE_RELATED_TYPES)[number];
 
@@ -457,7 +458,74 @@ export const ALLOWED_UPLOAD_MIME_TYPES = [
   'text/plain',
   'text/markdown',
   'application/zip',
+  // Code/text formats (message attachments and submissions). Browsers are
+  // inconsistent about MIME for source files; the extension allowlist below
+  // is the fallback when they report application/octet-stream or nothing.
+  'text/html',
+  'text/css',
+  'text/javascript',
+  'application/javascript',
+  'application/json',
+  'application/xml',
+  'text/xml',
+  'text/x-python',
+  'text/x-python-script',
+  'text/x-java-source',
+  'text/x-java',
+  'text/x-c',
+  'text/x-c++',
+  'text/x-csrc',
+  'text/x-c++src',
+  'application/x-sh',
+  'application/sql',
 ] as const;
+export type AllowedUploadMimeTypeList = typeof ALLOWED_UPLOAD_MIME_TYPES;
+
+// Extension fallback for uploads whose MIME the browser reports as
+// application/octet-stream (or omits) — common for source-code files.
+export const ALLOWED_UPLOAD_EXTENSIONS = [
+  'pdf',
+  'doc',
+  'docx',
+  'xls',
+  'xlsx',
+  'ppt',
+  'pptx',
+  'csv',
+  'txt',
+  'md',
+  'png',
+  'jpg',
+  'jpeg',
+  'zip',
+  'java',
+  'py',
+  'html',
+  'htm',
+  'css',
+  'js',
+  'ts',
+  'jsx',
+  'tsx',
+  'json',
+  'xml',
+  'c',
+  'cpp',
+  'h',
+  'hpp',
+  'cs',
+  'go',
+  'rs',
+  'rb',
+  'php',
+  'sql',
+  'sh',
+  'yaml',
+  'yml',
+] as const;
+
+/** `accept` attribute value for message-attachment file pickers. */
+export const MESSAGE_ATTACHMENT_ACCEPT = ALLOWED_UPLOAD_EXTENSIONS.map((e) => `.${e}`).join(',');
 export type AllowedUploadMimeType = (typeof ALLOWED_UPLOAD_MIME_TYPES)[number];
 
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;

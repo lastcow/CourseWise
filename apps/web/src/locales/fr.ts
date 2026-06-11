@@ -664,6 +664,8 @@ export const fr = {
       truncatedNote: 'Remarque : ce document est long, je n’en vois que le début.',
     },
     messages: {
+      attachCta: 'Joindre un fichier',
+      attachRemove: 'Retirer la pièce jointe',
       title: 'Messages',
       help: 'Lisez et envoyez des messages aux personnes inscrites à ce cours.',
       composeCta: 'Message',

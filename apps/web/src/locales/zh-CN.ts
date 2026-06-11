@@ -637,6 +637,8 @@ export const zhCN = {
       truncatedNote: '注意:材料较长,我只能看到开头部分。',
     },
     messages: {
+      attachCta: '添加附件',
+      attachRemove: '移除附件',
       title: '消息',
       help: '与本课程的成员收发消息。',
       composeCta: '发消息',
