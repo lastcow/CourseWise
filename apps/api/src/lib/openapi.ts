@@ -138,6 +138,9 @@ export const ROUTES: readonly RouteSpec[] = [
     security: 'jwt',
     requestSchema: 'UpdatePreferencesInput',
   }),
+  r('get', '/api/me/ai-usage', 'My AI usage (neurons) over time + recent events', 'me', {
+    security: 'jwt',
+  }),
   r('get', '/api/me/api-tokens', 'List my API tokens (no plaintext)', 'me', { security: 'jwt' }),
   r(
     'post',

@@ -139,9 +139,13 @@ export function BackOfficeLayout({ role }: BackOfficeLayoutProps): JSX.Element {
             <div className="flex items-center gap-3 text-sm">
               {auth ? (
                 <>
-                  <span className="hidden text-muted-foreground sm:inline">
+                  <Link
+                    to={`/${role}/profile`}
+                    className="hidden rounded-md px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground sm:inline"
+                    aria-label={t('profile.openLabel')}
+                  >
                     {auth.user.name}
-                  </span>
+                  </Link>
                   <MessageBell enabled={!!auth} />
                   <LanguageSwitcher />
                   <Button size="sm" variant="outline" onClick={onLogout}>

@@ -263,6 +263,32 @@ export interface AiChatResponse {
   truncated: boolean;
 }
 
+/** One day of AI usage for the profile chart (zero-filled). */
+export interface AiUsagePoint {
+  date: string; // YYYY-MM-DD
+  neurons: number;
+  requests: number;
+}
+
+/** One row in the profile page's recent-usage list. */
+export interface AiUsageEntry {
+  id: string;
+  feature: string;
+  model: string;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  neurons: number | null;
+  contextTitle: string | null;
+  createdAt: string;
+}
+
+export interface AiUsageResponse {
+  days: number;
+  totals: { neurons: number; requests: number; promptTokens: number; completionTokens: number };
+  points: AiUsagePoint[];
+  recent: AiUsageEntry[];
+}
+
 export interface FileAssetSummary {
   id: string;
   courseId: string | null;

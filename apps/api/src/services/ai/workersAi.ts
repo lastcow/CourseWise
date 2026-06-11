@@ -47,6 +47,53 @@ export interface WorkersAiChatArgs {
   temperature?: number;
 }
 
+export interface WorkersAiUsage {
+  promptTokens: number | null;
+  completionTokens: number | null;
+}
+
+export interface WorkersAiChatResult {
+  reply: string;
+  model: string;
+  usage: WorkersAiUsage;
+}
+
+/**
+ * Neurons are Cloudflare's Workers AI billing unit ($0.011 per 1,000).
+ * Per-model token rates from the published USD pricing: llama-3.3-70b-fast is
+ * $0.293/M input and $2.253/M output → 26,636 / 204,818 neurons per M tokens.
+ * Unknown models fall back to those same rates (rough but honest for a beta
+ * usage display).
+ */
+const NEURON_RATES: Record<string, { inPerM: number; outPerM: number }> = {
+  '@cf/meta/llama-3.3-70b-instruct-fp8-fast': { inPerM: 26_636, outPerM: 204_818 },
+};
+const FALLBACK_RATE = { inPerM: 26_636, outPerM: 204_818 };
+
+export function estimateNeurons(
+  model: string,
+  promptTokens: number | null,
+  completionTokens: number | null,
+): number | null {
+  if (promptTokens === null && completionTokens === null) return null;
+  const rate = NEURON_RATES[model] ?? FALLBACK_RATE;
+  const neurons =
+    ((promptTokens ?? 0) / 1_000_000) * rate.inPerM +
+    ((completionTokens ?? 0) / 1_000_000) * rate.outPerM;
+  return Math.round(neurons * 100) / 100;
+}
+
+function readUsage(out: unknown): WorkersAiUsage {
+  if (out !== null && typeof out === 'object' && 'usage' in out) {
+    const u = (out as { usage?: { prompt_tokens?: unknown; completion_tokens?: unknown } }).usage;
+    return {
+      promptTokens: typeof u?.prompt_tokens === 'number' ? u.prompt_tokens : null,
+      completionTokens: typeof u?.completion_tokens === 'number' ? u.completion_tokens : null,
+    };
+  }
+  return { promptTokens: null, completionTokens: null };
+}
+
 /**
  * Run one chat turn against Workers AI. Throws 503 UPSTREAM_UNAVAILABLE when
  * the binding is missing (dev env without `[ai]`, or an unauthenticated
@@ -56,11 +103,11 @@ export interface WorkersAiChatArgs {
 export async function runWorkersAiChat(
   env: AppBindings,
   args: WorkersAiChatArgs,
-): Promise<string> {
+): Promise<WorkersAiChatResult> {
   if (!env.AI) {
     throw new ApiException(503, ERROR_CODES.UPSTREAM_UNAVAILABLE, 'Workers AI is not configured');
   }
-  const model = (env.AI_CHAT_MODEL ?? DEFAULT_AI_CHAT_MODEL) as keyof AiModels;
+  const model = env.AI_CHAT_MODEL ?? DEFAULT_AI_CHAT_MODEL;
   const messages = [
     { role: 'system', content: args.system },
     ...clampHistory(args.history).map((m) => ({ role: m.role, content: m.content })),
@@ -68,7 +115,7 @@ export async function runWorkersAiChat(
   ];
   let out: unknown;
   try {
-    out = await env.AI.run(model, {
+    out = await env.AI.run(model as keyof AiModels, {
       messages,
       max_tokens: args.maxTokens ?? AI_CHAT_MAX_OUTPUT_TOKENS,
       temperature: args.temperature ?? 0.3,
@@ -87,5 +134,5 @@ export async function runWorkersAiChat(
   if (!clean) {
     throw new ApiException(503, ERROR_CODES.UPSTREAM_UNAVAILABLE, 'AI model returned no text');
   }
-  return clean;
+  return { reply: clean, model, usage: readUsage(out) };
 }

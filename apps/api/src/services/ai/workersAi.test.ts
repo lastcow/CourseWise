@@ -4,6 +4,7 @@ import { ApiException } from '../../lib/errors';
 import type { AppBindings } from '../../types';
 import {
   clampHistory,
+  estimateNeurons,
   runWorkersAiChat,
   sanitizeReply,
 } from './workersAi';
@@ -43,6 +44,23 @@ describe('sanitizeReply', () => {
   });
 });
 
+describe('estimateNeurons', () => {
+  it('converts tokens to neurons with the llama-3.3 rates', () => {
+    // 1M input = 26,636 neurons; 1M output = 204,818 neurons.
+    expect(estimateNeurons('@cf/meta/llama-3.3-70b-instruct-fp8-fast', 1_000_000, 0)).toBe(26_636);
+    expect(estimateNeurons('@cf/meta/llama-3.3-70b-instruct-fp8-fast', 0, 1_000_000)).toBe(204_818);
+    expect(estimateNeurons('@cf/meta/llama-3.3-70b-instruct-fp8-fast', 1_000, 500)).toBeCloseTo(
+      26.636 + 102.409,
+      1,
+    );
+  });
+
+  it('falls back to default rates for unknown models and null for no data', () => {
+    expect(estimateNeurons('@cf/unknown/model', 1_000_000, 0)).toBe(26_636);
+    expect(estimateNeurons('@cf/unknown/model', null, null)).toBeNull();
+  });
+});
+
 describe('runWorkersAiChat', () => {
   it('throws 503 when the AI binding is missing', async () => {
     await expect(
@@ -50,26 +68,39 @@ describe('runWorkersAiChat', () => {
     ).rejects.toMatchObject({ status: 503, code: 'UPSTREAM_UNAVAILABLE' });
   });
 
-  it('returns the sanitized response text and passes messages through', async () => {
+  it('returns the sanitized response text, usage, and passes messages through', async () => {
     let captured: unknown;
     const env = {
       AI: {
         run: async (_model: unknown, opts: unknown) => {
           captured = opts;
-          return { response: '<think>x</think>The answer.' };
+          return {
+            response: '<think>x</think>The answer.',
+            usage: { prompt_tokens: 120, completion_tokens: 45 },
+          };
         },
       },
     } as unknown as AppBindings;
-    const reply = await runWorkersAiChat(env, {
+    const result = await runWorkersAiChat(env, {
       system: 'SYS',
       history: [msg('user', 'q1'), msg('assistant', 'a1')],
       message: 'q2',
     });
-    expect(reply).toBe('The answer.');
+    expect(result.reply).toBe('The answer.');
+    expect(result.usage).toEqual({ promptTokens: 120, completionTokens: 45 });
+    expect(result.model).toContain('@cf/');
     const o = captured as { messages: Array<{ role: string; content: string }> };
     expect(o.messages.map((m) => m.role)).toEqual(['system', 'user', 'assistant', 'user']);
     expect(o.messages[0]?.content).toBe('SYS');
     expect(o.messages[3]?.content).toBe('q2');
+  });
+
+  it('returns null usage when the model omits it', async () => {
+    const env = {
+      AI: { run: async () => ({ response: 'ok' }) },
+    } as unknown as AppBindings;
+    const result = await runWorkersAiChat(env, { system: 's', history: [], message: 'hi' });
+    expect(result.usage).toEqual({ promptTokens: null, completionTokens: null });
   });
 
   it('maps a model failure to 503', async () => {

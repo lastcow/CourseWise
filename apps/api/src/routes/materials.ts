@@ -11,7 +11,7 @@ import {
   type MaterialSummary,
   type UpdateMaterialInput,
 } from '@coursewise/shared';
-import { courses, fileAssets, modules, readingMaterials } from '../db/schema';
+import { aiUsageEvents, courses, fileAssets, modules, readingMaterials } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -26,7 +26,7 @@ import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/c
 import { recordAudit } from '../services/audit';
 import { getRateLimiter } from '../services/rateLimit';
 import { buildTutorSystemPrompt } from '../services/ai/tutor';
-import { runWorkersAiChat } from '../services/ai/workersAi';
+import { estimateNeurons, runWorkersAiChat } from '../services/ai/workersAi';
 import type { AppEnv } from '../types';
 
 const r = new Hono<AppEnv>();
@@ -247,12 +247,35 @@ r.post(
       materialContent: row.content,
       locale: input.locale,
     });
-    const reply = await runWorkersAiChat(c.env, {
+    const result = await runWorkersAiChat(c.env, {
       system: prompt,
       history: input.history,
       message: input.message,
     });
-    const body: AiChatResponse = { reply, truncated };
+
+    // Usage accounting for the profile page — counts only, never content.
+    // Best-effort: a failed insert must not fail the chat reply.
+    try {
+      await db.insert(aiUsageEvents).values({
+        userId: auth.user.id,
+        feature: 'material_tutor',
+        model: result.model,
+        promptTokens: result.usage.promptTokens,
+        completionTokens: result.usage.completionTokens,
+        neurons:
+          estimateNeurons(
+            result.model,
+            result.usage.promptTokens,
+            result.usage.completionTokens,
+          )?.toFixed(2) ?? null,
+        courseId: row.courseId,
+        contextTitle: row.title,
+      });
+    } catch (err) {
+      console.warn('aiUsage: failed to record event', { err: String(err) });
+    }
+
+    const body: AiChatResponse = { reply: result.reply, truncated };
     return success(c, body);
   },
 );

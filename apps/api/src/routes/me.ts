@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
-import { and, asc, count, desc, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
 import {
   createSelfApiTokenSchema,
+  type AiUsagePoint,
+  type AiUsageResponse,
   type ApiTokenScope,
   type ApiTokenSummary,
   type CreatedApiToken,
@@ -11,7 +13,7 @@ import {
   type UpdatePreferencesInput,
   updatePreferencesSchema,
 } from '@coursewise/shared';
-import { apiTokens, auditLogs, ferpaAcknowledgments, users } from '../db/schema';
+import { aiUsageEvents, apiTokens, auditLogs, ferpaAcknowledgments, users } from '../db/schema';
 import { defaultScopesForRole, generateApiToken } from '../services/apiTokens';
 import { recordAudit } from '../services/audit';
 import { currentAcademicYear } from '../services/ferpaAcknowledgment';
@@ -336,6 +338,87 @@ me.post('/ferpa-acknowledgment', async (c) => {
   });
 
   return success(c, { acknowledged: true, academicYear });
+});
+
+// AI usage for the profile page: per-day neurons/requests (zero-filled for
+// the chart), period totals, and the latest 10 events. Self-scoped.
+me.get('/ai-usage', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const raw = Number.parseInt(c.req.query('days') ?? '30', 10);
+  const days = Number.isNaN(raw) ? 30 : Math.min(90, Math.max(7, raw));
+  const since = new Date(Date.now() - (days - 1) * 86_400_000);
+  since.setUTCHours(0, 0, 0, 0);
+  const sinceIso = since.toISOString();
+
+  const [dayRows, [totals], recentRows] = await Promise.all([
+    db
+      .select({
+        day: sql<string>`(date_trunc('day', ${aiUsageEvents.createdAt} AT TIME ZONE 'UTC'))::date`,
+        neurons: sql<number>`coalesce(sum(${aiUsageEvents.neurons}), 0)::float`,
+        requests: sql<number>`count(*)::int`,
+      })
+      .from(aiUsageEvents)
+      .where(
+        and(eq(aiUsageEvents.userId, auth.user.id), sql`${aiUsageEvents.createdAt} >= ${sinceIso}`),
+      )
+      .groupBy(sql`1`),
+    db
+      .select({
+        neurons: sql<number>`coalesce(sum(${aiUsageEvents.neurons}), 0)::float`,
+        requests: sql<number>`count(*)::int`,
+        promptTokens: sql<number>`coalesce(sum(${aiUsageEvents.promptTokens}), 0)::int`,
+        completionTokens: sql<number>`coalesce(sum(${aiUsageEvents.completionTokens}), 0)::int`,
+      })
+      .from(aiUsageEvents)
+      .where(
+        and(eq(aiUsageEvents.userId, auth.user.id), sql`${aiUsageEvents.createdAt} >= ${sinceIso}`),
+      ),
+    db
+      .select()
+      .from(aiUsageEvents)
+      .where(eq(aiUsageEvents.userId, auth.user.id))
+      .orderBy(desc(aiUsageEvents.createdAt))
+      .limit(10),
+  ]);
+
+  const byDate = new Map<string, AiUsagePoint>();
+  const points: AiUsagePoint[] = [];
+  for (let i = 0; i < days; i++) {
+    const date = new Date(since.getTime() + i * 86_400_000).toISOString().slice(0, 10);
+    const point: AiUsagePoint = { date, neurons: 0, requests: 0 };
+    points.push(point);
+    byDate.set(date, point);
+  }
+  for (const row of dayRows) {
+    const point = byDate.get(String(row.day).slice(0, 10));
+    if (point) {
+      point.neurons = Math.round(row.neurons * 100) / 100;
+      point.requests = row.requests;
+    }
+  }
+
+  const body: AiUsageResponse = {
+    days,
+    totals: {
+      neurons: Math.round((totals?.neurons ?? 0) * 100) / 100,
+      requests: totals?.requests ?? 0,
+      promptTokens: totals?.promptTokens ?? 0,
+      completionTokens: totals?.completionTokens ?? 0,
+    },
+    points,
+    recent: recentRows.map((r) => ({
+      id: r.id,
+      feature: r.feature,
+      model: r.model,
+      promptTokens: r.promptTokens ?? null,
+      completionTokens: r.completionTokens ?? null,
+      neurons: r.neurons !== null ? Number(r.neurons) : null,
+      contextTitle: r.contextTitle ?? null,
+      createdAt: r.createdAt,
+    })),
+  };
+  return success(c, body);
 });
 
 export default me;
