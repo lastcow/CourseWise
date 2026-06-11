@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Trash2 } from 'lucide-react';
+import { FileText, Loader2, Paperclip, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
@@ -11,6 +11,8 @@ import { MarkdownView } from '@/components/ui/markdown';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm';
 import {
+  getDownloadUrl,
+  uploadFile,
   useDeleteMessageThread,
   useMessageThread,
   useMessageThreads,
@@ -19,10 +21,57 @@ import {
 import { ApiClientError, getStoredAuth } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
+  MAX_UPLOAD_BYTES,
+  MESSAGE_ATTACHMENT_ACCEPT,
   MESSAGE_PRIORITIES,
+  type MessageAttachment,
   type MessagePriority,
   type MessageThreadSummary,
 } from '@coursewise/shared';
+
+function formatBytes(n: number | null): string {
+  if (n === null) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Compact card rendered inside a message bubble for its attachment. */
+function AttachmentCard({ attachment }: { attachment: MessageAttachment }): JSX.Element {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  async function onDownload(): Promise<void> {
+    setBusy(true);
+    try {
+      const { downloadUrl } = await getDownloadUrl(attachment.fileAssetId);
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => void onDownload()}
+      disabled={busy}
+      className="mt-2 flex w-full items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-2 text-left transition-colors hover:bg-muted"
+      title={t('common.download')}
+    >
+      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-medium">{attachment.fileName}</span>
+        <span className="block text-[11px] text-muted-foreground">
+          {formatBytes(attachment.sizeBytes)}
+        </span>
+      </span>
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+    </button>
+  );
+}
 
 const PRIORITY_BADGE: Record<MessagePriority, 'secondary' | 'warning' | 'destructive'> = {
   normal: 'secondary',
@@ -60,6 +109,32 @@ export function MessagesPage(): JSX.Element {
 
   const [reply, setReply] = useState('');
   const [replyPriority, setReplyPriority] = useState<MessagePriority>('normal');
+  // Attachment picked for the next send: uploaded immediately on selection,
+  // kept as a chip until the message goes out.
+  const [attachment, setAttachment] = useState<{
+    fileAssetId: string;
+    name: string;
+    size: number;
+  } | null>(null);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function onPickFile(file: File): Promise<void> {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.push({ title: t('files.tooLarge'), tone: 'error' });
+      return;
+    }
+    setUploadPct(0);
+    try {
+      const uploaded = await uploadFile(file, cId, 'message', (pct) => setUploadPct(pct));
+      setAttachment({ fileAssetId: uploaded.fileAssetId, name: file.name, size: file.size });
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    } finally {
+      setUploadPct(null);
+    }
+  }
 
   const visibleThreads = useMemo(() => {
     const all = threadsQ.data ?? [];
@@ -104,9 +179,11 @@ export function MessagesPage(): JSX.Element {
         threadId: detail.threadId,
         body: reply.trim(),
         priority: replyPriority,
+        ...(attachment ? { fileAssetId: attachment.fileAssetId } : {}),
       });
       setReply('');
       setReplyPriority('normal');
+      setAttachment(null);
     } catch (err) {
       const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
       toast.push({ title: t(key), tone: 'error' });
@@ -161,8 +238,7 @@ export function MessagesPage(): JSX.Element {
                           >
                             {th.otherParticipant.name || th.otherParticipant.email}
                           </span>
-                          {th.highestUnreadPriority &&
-                          th.highestUnreadPriority !== 'normal' ? (
+                          {th.highestUnreadPriority && th.highestUnreadPriority !== 'normal' ? (
                             <Badge variant={PRIORITY_BADGE[th.highestUnreadPriority]}>
                               {t(
                                 `messages.priority${th.highestUnreadPriority[0]!.toUpperCase()}${th.highestUnreadPriority.slice(1)}`,
@@ -175,9 +251,7 @@ export function MessagesPage(): JSX.Element {
                             </span>
                           ) : null}
                         </div>
-                        <div className="truncate text-xs text-muted-foreground">
-                          {th.subject}
-                        </div>
+                        <div className="truncate text-xs text-muted-foreground">{th.subject}</div>
                         <div className="line-clamp-1 text-xs text-muted-foreground/80">
                           {th.lastMessagePreview || '—'}
                         </div>
@@ -215,8 +289,7 @@ export function MessagesPage(): JSX.Element {
               <header className="flex items-baseline justify-between gap-2 border-b bg-muted/30 px-3 py-2">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold">
-                    {detailQ.data.otherParticipant.name ||
-                      detailQ.data.otherParticipant.email}
+                    {detailQ.data.otherParticipant.name || detailQ.data.otherParticipant.email}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
                     {detailQ.data.subject}
@@ -246,6 +319,7 @@ export function MessagesPage(): JSX.Element {
                             ) : null}
                           </div>
                           <MarkdownView source={m.body} />
+                          {m.attachment ? <AttachmentCard attachment={m.attachment} /> : null}
                         </div>
                       </li>
                     );
@@ -254,14 +328,10 @@ export function MessagesPage(): JSX.Element {
               </div>
               <footer className="space-y-2 border-t bg-muted/20 p-3">
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground">
-                    {t('messages.priorityLabel')}:
-                  </span>
+                  <span className="text-muted-foreground">{t('messages.priorityLabel')}:</span>
                   <select
                     value={replyPriority}
-                    onChange={(e) =>
-                      setReplyPriority(e.target.value as MessagePriority)
-                    }
+                    onChange={(e) => setReplyPriority(e.target.value as MessagePriority)}
                     disabled={send.isPending}
                     className={cn(
                       'h-7 rounded-md border border-input bg-background px-2 text-xs',
@@ -282,10 +352,62 @@ export function MessagesPage(): JSX.Element {
                   disabled={send.isPending}
                   minHeight={120}
                 />
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={MESSAGE_ATTACHMENT_ACCEPT}
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void onPickFile(f);
+                        e.target.value = '';
+                      }}
+                    />
+                    {attachment ? (
+                      <span className="flex min-w-0 items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs">
+                        <FileText
+                          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                          aria-hidden
+                        />
+                        <span className="max-w-[14rem] truncate">{attachment.name}</span>
+                        <span className="shrink-0 text-muted-foreground">
+                          {formatBytes(attachment.size)}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={t('messages.attachRemove')}
+                          onClick={() => setAttachment(null)}
+                          className="shrink-0 rounded-full p-0.5 hover:bg-accent"
+                        >
+                          <X className="h-3 w-3" aria-hidden />
+                        </button>
+                      </span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={uploadPct !== null || send.isPending}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        {uploadPct !== null ? (
+                          <>
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+                            {uploadPct}%
+                          </>
+                        ) : (
+                          <>
+                            <Paperclip className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                            {t('messages.attachCta')}
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                   <Button
                     onClick={() => void onReply()}
-                    disabled={send.isPending || !reply.trim()}
+                    disabled={send.isPending || uploadPct !== null || !reply.trim()}
                   >
                     {send.isPending ? t('common.loading') : t('messages.send')}
                   </Button>
@@ -295,7 +417,6 @@ export function MessagesPage(): JSX.Element {
           )}
         </section>
       </div>
-
     </div>
   );
 }

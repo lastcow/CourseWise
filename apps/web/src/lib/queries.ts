@@ -723,7 +723,7 @@ const API_BASE: string =
 export function uploadFile(
   file: File,
   courseId: string,
-  relatedType: 'material' | 'assignment' | 'submission' | 'course' | 'presentation' = 'material',
+  relatedType: 'material' | 'assignment' | 'submission' | 'course' | 'presentation' | 'message' = 'material',
   onProgress?: (pct: number) => void,
 ): Promise<UploadFileResponse> {
   const form = new FormData();

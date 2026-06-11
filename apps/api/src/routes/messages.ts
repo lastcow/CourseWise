@@ -9,7 +9,7 @@ import {
   type MessageThreadSummary,
   type UnreadCountResponse,
 } from '@coursewise/shared';
-import { messageThreads, messages, users } from '../db/schema';
+import { fileAssets, messageThreads, messages, users } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -33,6 +33,9 @@ const sendMessageSchema = z.object({
   subject: z.string().trim().min(1).max(200).optional(),
   body: z.string().trim().min(1).max(8000),
   priority: z.enum(MESSAGE_PRIORITIES).default('normal'),
+  // Optional attachment: a ready file asset the sender uploaded with
+  // relatedType 'message' in this course.
+  fileAssetId: z.string().uuid().optional(),
 });
 
 type SendBody = z.infer<typeof sendMessageSchema>;
@@ -102,7 +105,13 @@ function isParticipant(
   };
 }
 
-function toMessageRecord(row: typeof messages.$inferSelect): MessageRecord {
+function toMessageRecord(
+  row: typeof messages.$inferSelect,
+  asset?: Pick<
+    typeof fileAssets.$inferSelect,
+    'id' | 'originalFilename' | 'contentType' | 'sizeBytes'
+  > | null,
+): MessageRecord {
   return {
     id: row.id,
     threadId: row.threadId,
@@ -111,6 +120,14 @@ function toMessageRecord(row: typeof messages.$inferSelect): MessageRecord {
     priority: (row.priority as MessagePriority) ?? 'normal',
     createdAt: row.createdAt,
     readAtByRecipient: row.readAtByRecipient ?? null,
+    attachment: asset
+      ? {
+          fileAssetId: asset.id,
+          fileName: asset.originalFilename ?? 'attachment',
+          contentType: asset.contentType ?? null,
+          sizeBytes: asset.sizeBytes ?? null,
+        }
+      : null,
   };
 }
 
@@ -176,6 +193,31 @@ r.post('/courses/:cid/messages', validateJson(sendMessageSchema), async (c) => {
     threadId = created.id;
   }
 
+  // Validate the attachment before sending: must be the sender's own ready
+  // upload, in this course, uploaded for messaging, and not already attached
+  // to another message.
+  let attachmentAsset: typeof fileAssets.$inferSelect | null = null;
+  if (input.fileAssetId) {
+    const [asset] = await db
+      .select()
+      .from(fileAssets)
+      .where(eq(fileAssets.id, input.fileAssetId))
+      .limit(1);
+    if (
+      !asset ||
+      asset.status !== 'ready' ||
+      asset.ownerId !== auth.user.id ||
+      asset.courseId !== cid ||
+      asset.relatedType !== 'message'
+    ) {
+      throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'Invalid attachment');
+    }
+    if (asset.relatedId) {
+      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Attachment already used by a message');
+    }
+    attachmentAsset = asset;
+  }
+
   const [msg] = await db
     .insert(messages)
     .values({
@@ -183,10 +225,17 @@ r.post('/courses/:cid/messages', validateJson(sendMessageSchema), async (c) => {
       senderId: auth.user.id,
       body: input.body.trim(),
       priority: input.priority,
+      fileAssetId: attachmentAsset?.id ?? null,
     })
     .returning();
   if (!msg) {
     throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to send message');
+  }
+  if (attachmentAsset) {
+    await db
+      .update(fileAssets)
+      .set({ relatedId: msg.id })
+      .where(eq(fileAssets.id, attachmentAsset.id));
   }
 
   // Touch the thread's denormalized last-message fields and clear the
@@ -212,7 +261,7 @@ r.post('/courses/:cid/messages', validateJson(sendMessageSchema), async (c) => {
     metadata: { courseId: cid, recipientId: input.recipientId, priority: input.priority },
   });
 
-  return success(c, { threadId, message: toMessageRecord(msg) }, 201);
+  return success(c, { threadId, message: toMessageRecord(msg, attachmentAsset) }, 201);
 });
 
 // GET /api/courses/:cid/messages/threads — list my visible threads in this course.
@@ -367,8 +416,9 @@ r.get('/courses/:cid/messages/threads/:tid', async (c) => {
     );
 
   const rows = await db
-    .select()
+    .select({ message: messages, asset: fileAssets })
     .from(messages)
+    .leftJoin(fileAssets, eq(messages.fileAssetId, fileAssets.id))
     .where(eq(messages.threadId, tid))
     .orderBy(asc(messages.createdAt));
 
@@ -388,7 +438,7 @@ r.get('/courses/:cid/messages/threads/:tid', async (c) => {
       name: other?.name ?? '',
       email: other?.email ?? '',
     },
-    messages: rows.map(toMessageRecord),
+    messages: rows.map((r) => toMessageRecord(r.message, r.asset)),
   };
   return success(c, body);
 });

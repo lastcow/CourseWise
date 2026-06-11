@@ -659,6 +659,8 @@ export const en = {
       truncatedNote: 'Note: this material is long, so I can only see the beginning of it.',
     },
     messages: {
+      attachCta: 'Attach file',
+      attachRemove: 'Remove attachment',
       title: 'Messages',
       help: 'Read and send messages with people in this course.',
       composeCta: 'Message',

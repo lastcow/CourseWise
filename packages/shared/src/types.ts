@@ -1417,6 +1417,13 @@ export interface MessageThreadSummary {
   highestUnreadPriority: MessagePriority | null;
 }
 
+export interface MessageAttachment {
+  fileAssetId: string;
+  fileName: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+}
+
 export interface MessageRecord {
   id: string;
   threadId: string;
@@ -1425,6 +1432,7 @@ export interface MessageRecord {
   priority: MessagePriority;
   createdAt: string;
   readAtByRecipient: string | null;
+  attachment: MessageAttachment | null;
 }
 
 export interface MessageThreadDetail {
@@ -1441,6 +1449,8 @@ export interface SendMessageInput {
   subject?: string;
   body: string;
   priority?: MessagePriority;
+  /** A ready file-asset uploaded with relatedType 'message', owned by the sender. */
+  fileAssetId?: string;
 }
 
 export interface UnreadCountResponse {
