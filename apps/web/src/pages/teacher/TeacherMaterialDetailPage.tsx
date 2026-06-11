@@ -10,6 +10,7 @@ import { MarkdownView } from '@/components/ui/markdown';
 import { getDownloadUrl, useMaterial, useModulesList } from '@/lib/queries';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
+import { MaterialTutorChat } from '@/components/ai/MaterialTutorChat';
 
 export function TeacherMaterialDetailPage(): JSX.Element {
   const { t } = useTranslation();
@@ -133,6 +134,12 @@ export function TeacherMaterialDetailPage(): JSX.Element {
           )}
         </CardContent>
       </Card>
+
+      {/* Teachers and admins get the same tutor as students — useful for
+          previewing how it behaves on a material (drafts included). */}
+      {mat.sourceType === 'manual_text' && mat.content ? (
+        <MaterialTutorChat key={mat.id} materialId={mat.id} />
+      ) : null}
     </div>
   );
 }
