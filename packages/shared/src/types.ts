@@ -545,8 +545,19 @@ export interface DiscussionPostSummary {
     name: string;
     role: UserRole;
   };
+  /** Author of the parent post (author-mode listing only) — powers the
+   *  "reply to @name" context line outside the thread view. */
+  parentAuthorName?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Paginated posts response. Thread mode pages over ROOT posts (each page
+ *  carries its complete reply subtrees; total = root count). Author mode is
+ *  a flat page of one student's posts (total = that student's post count). */
+export interface DiscussionPostsPage {
+  posts: DiscussionPostSummary[];
+  total: number;
 }
 
 export interface DiscussionGradeRow {

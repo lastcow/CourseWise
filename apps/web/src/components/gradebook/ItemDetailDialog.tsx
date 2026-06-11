@@ -26,7 +26,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { MarkdownView } from '@/components/ui/markdown';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/toast';
-import { getDownloadUrl, useDiscussionPosts, useQuizAttempt, useSubmission } from '@/lib/queries';
+import { getDownloadUrl, useQuizAttempt, useStudentPosts, useSubmission } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 
 /**
@@ -491,10 +491,8 @@ function DiscussionBody({
   target: Extract<GradebookItemTarget, { kind: 'discussion' }>;
 }): JSX.Element {
   const { t } = useTranslation();
-  const posts = useDiscussionPosts(target.topicId);
-  const mine = (posts.data ?? []).filter(
-    (p) => p.author.id === target.studentId && !p.isDeleted && p.content,
-  );
+  const posts = useStudentPosts(target.topicId, target.studentId);
+  const mine = posts.data?.posts ?? [];
 
   return (
     <Shell

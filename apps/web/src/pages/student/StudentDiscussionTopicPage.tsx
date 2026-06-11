@@ -12,7 +12,7 @@ import { useToast } from '@/components/ui/toast';
 import type { DiscussionPostSummary } from '@coursewise/shared';
 import {
   useCreateDiscussionPost,
-  useDiscussionPosts,
+  useDiscussionThread,
   useDiscussionTopic,
   useReplyDiscussionPost,
   useUpdateDiscussionPost,
@@ -47,7 +47,7 @@ export function StudentDiscussionTopicPage(): JSX.Element {
   const cId = courseId ?? '';
   const tId = topicId ?? '';
   const topic = useDiscussionTopic(tId);
-  const posts = useDiscussionPosts(tId);
+  const posts = useDiscussionThread(tId);
   const createPost = useCreateDiscussionPost(tId);
   const reply = useReplyDiscussionPost(tId);
   const update = useUpdateDiscussionPost(tId);
@@ -62,7 +62,9 @@ export function StudentDiscussionTopicPage(): JSX.Element {
   const [editing, setEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
 
-  const tree = posts.data ? nest(posts.data) : [];
+  const allPosts = posts.data ? posts.data.pages.flatMap((pg) => pg.posts) : [];
+  const tree = nest(allPosts);
+  const rootTotal = posts.data?.pages[0]?.total ?? 0;
 
   const onPost = async () => {
     if (!draft.trim()) return;
@@ -199,7 +201,21 @@ export function StudentDiscussionTopicPage(): JSX.Element {
       ) : tree.length === 0 ? (
         <EmptyState title={t('discussion.noPosts')} />
       ) : (
-        <ul className="space-y-2">{tree.map((n) => renderNode(n, 0))}</ul>
+        <>
+          <ul className="space-y-2">{tree.map((n) => renderNode(n, 0))}</ul>
+          {rootTotal > tree.length ? (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={posts.isFetchingNextPage}
+                onClick={() => void posts.fetchNextPage()}
+              >
+                {t('discussion.loadMore', { count: rootTotal - tree.length })}
+              </Button>
+            </div>
+          ) : null}
+        </>
       )}
 
       {replyTo ? (
