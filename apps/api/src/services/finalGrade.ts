@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, isNotNull, or } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull, or, sql } from 'drizzle-orm';
 import {
   type FinalGradeSummary,
   type GradebookAssignmentItem,
@@ -464,18 +464,76 @@ async function loadStudentItemScores(
   for (const id of studentIds) result.set(id, emptyStudentScores());
   if (studentIds.length === 0) return result;
 
-  // Attendance.
   const sessionCount = ctx.attendanceSessionIds.length;
+  const assignmentIds = Array.from(ctx.assignmentMeta.keys());
+  const quizIds = Array.from(ctx.quizMeta.keys());
+  const topicIds = Array.from(ctx.discussionMeta.keys());
+
+  // The four lookups are independent — run them concurrently (neon-http has
+  // no transactions, so each query is its own round-trip anyway).
+  const [recs, subs, attempts, grades] = await Promise.all([
+    sessionCount > 0
+      ? db
+          .select({ studentId: attendanceRecords.studentId, status: attendanceRecords.status })
+          .from(attendanceRecords)
+          .where(
+            and(
+              inArray(attendanceRecords.sessionId, ctx.attendanceSessionIds),
+              inArray(attendanceRecords.studentId, studentIds),
+            ),
+          )
+      : Promise.resolve([]),
+    assignmentIds.length > 0
+      ? db
+          .select({
+            assignmentId: assignmentSubmissions.assignmentId,
+            studentId: assignmentSubmissions.studentId,
+            score: assignmentSubmissions.score,
+          })
+          .from(assignmentSubmissions)
+          .where(
+            and(
+              inArray(assignmentSubmissions.assignmentId, assignmentIds),
+              inArray(assignmentSubmissions.studentId, studentIds),
+            ),
+          )
+      : Promise.resolve([]),
+    quizIds.length > 0
+      ? db
+          .select({
+            quizId: quizAttempts.quizId,
+            studentId: quizAttempts.studentId,
+            score: quizAttempts.score,
+            maxScore: quizAttempts.maxScore,
+            status: quizAttempts.status,
+          })
+          .from(quizAttempts)
+          .where(
+            and(
+              inArray(quizAttempts.quizId, quizIds),
+              inArray(quizAttempts.studentId, studentIds),
+            ),
+          )
+      : Promise.resolve([]),
+    topicIds.length > 0
+      ? db
+          .select({
+            topicId: discussionGrades.topicId,
+            studentId: discussionGrades.studentId,
+            score: discussionGrades.score,
+          })
+          .from(discussionGrades)
+          .where(
+            and(
+              inArray(discussionGrades.topicId, topicIds),
+              inArray(discussionGrades.studentId, studentIds),
+            ),
+          )
+      : Promise.resolve([]),
+  ]);
+
+  // Attendance.
   if (sessionCount > 0) {
-    const recs = await db
-      .select({ studentId: attendanceRecords.studentId, status: attendanceRecords.status })
-      .from(attendanceRecords)
-      .where(
-        and(
-          inArray(attendanceRecords.sessionId, ctx.attendanceSessionIds),
-          inArray(attendanceRecords.studentId, studentIds),
-        ),
-      );
     const presentByStudent = new Map<string, number>();
     for (const r of recs) {
       if (r.status === 'present' || r.status === 'late' || r.status === 'excused') {
@@ -492,83 +550,33 @@ async function loadStudentItemScores(
   }
 
   // Assignment submissions.
-  const assignmentIds = Array.from(ctx.assignmentMeta.keys());
-  if (assignmentIds.length > 0) {
-    const subs = await db
-      .select({
-        assignmentId: assignmentSubmissions.assignmentId,
-        studentId: assignmentSubmissions.studentId,
-        score: assignmentSubmissions.score,
-      })
-      .from(assignmentSubmissions)
-      .where(
-        and(
-          inArray(assignmentSubmissions.assignmentId, assignmentIds),
-          inArray(assignmentSubmissions.studentId, studentIds),
-        ),
-      );
-    for (const s of subs) {
-      if (s.score === null) continue;
-      const bucket = result.get(s.studentId);
-      if (!bucket) continue;
-      bucket.assignment.set(s.assignmentId, Number(s.score));
-    }
+  for (const s of subs) {
+    if (s.score === null) continue;
+    const bucket = result.get(s.studentId);
+    if (!bucket) continue;
+    bucket.assignment.set(s.assignmentId, Number(s.score));
   }
 
   // Quiz attempts — pick best per (quiz, student).
-  const quizIds = Array.from(ctx.quizMeta.keys());
-  if (quizIds.length > 0) {
-    const attempts = await db
-      .select({
-        quizId: quizAttempts.quizId,
-        studentId: quizAttempts.studentId,
-        score: quizAttempts.score,
-        maxScore: quizAttempts.maxScore,
-        status: quizAttempts.status,
-      })
-      .from(quizAttempts)
-      .where(
-        and(
-          inArray(quizAttempts.quizId, quizIds),
-          inArray(quizAttempts.studentId, studentIds),
-        ),
-      );
-    for (const a of attempts) {
-      if (a.status !== 'submitted' && a.status !== 'expired') continue;
-      if (a.score === null || a.maxScore === null) continue;
-      const bucket = result.get(a.studentId);
-      if (!bucket) continue;
-      const score = Number(a.score);
-      const maxScore = Number(a.maxScore);
-      const prev = bucket.quiz.get(a.quizId);
-      if (!prev || score > prev.score) {
-        bucket.quiz.set(a.quizId, { score, maxScore });
-      }
+  for (const a of attempts) {
+    if (a.status !== 'submitted' && a.status !== 'expired') continue;
+    if (a.score === null || a.maxScore === null) continue;
+    const bucket = result.get(a.studentId);
+    if (!bucket) continue;
+    const score = Number(a.score);
+    const maxScore = Number(a.maxScore);
+    const prev = bucket.quiz.get(a.quizId);
+    if (!prev || score > prev.score) {
+      bucket.quiz.set(a.quizId, { score, maxScore });
     }
   }
 
   // Discussion grades.
-  const topicIds = Array.from(ctx.discussionMeta.keys());
-  if (topicIds.length > 0) {
-    const grades = await db
-      .select({
-        topicId: discussionGrades.topicId,
-        studentId: discussionGrades.studentId,
-        score: discussionGrades.score,
-      })
-      .from(discussionGrades)
-      .where(
-        and(
-          inArray(discussionGrades.topicId, topicIds),
-          inArray(discussionGrades.studentId, studentIds),
-        ),
-      );
-    for (const g of grades) {
-      if (g.score === null) continue;
-      const bucket = result.get(g.studentId);
-      if (!bucket) continue;
-      bucket.discussion.set(g.topicId, Number(g.score));
-    }
+  for (const g of grades) {
+    if (g.score === null) continue;
+    const bucket = result.get(g.studentId);
+    if (!bucket) continue;
+    bucket.discussion.set(g.topicId, Number(g.score));
   }
 
   return result;
@@ -779,23 +787,22 @@ export async function recalculateFinalGrades(
   const scoresByStudent = await loadStudentItemScores(db, ctx, studentIds);
   const snapshot = buildPolicySnapshot(policy, ctx);
   const now = new Date().toISOString();
-  const summaries: FinalGradeSummary[] = [];
-  for (const e of enrolled) {
+  if (enrolled.length === 0) return { updated: 0, rows: [] };
+
+  // Compute every student's grade in memory, then persist the whole roster
+  // with batched upserts — the per-student SELECT + UPDATE/INSERT pair this
+  // replaces was 2N sequential round-trips. The DO UPDATE column list omits
+  // teacher_override_* so stored overrides survive recalculation.
+  const allValues = enrolled.map((e) => {
     const studentScores = scoresByStudent.get(e.studentId)!;
     const input = buildAlgorithmInput(ctx, studentScores, policy.weightAttendance);
     const computed = computeFinalScore(input);
     const rounded = computed.score !== null ? Math.round(computed.score * 100) / 100 : null;
-    // Preserve teacher override.
-    const [existing] = await db
-      .select()
-      .from(finalGrades)
-      .where(and(eq(finalGrades.courseId, courseId), eq(finalGrades.studentId, e.studentId)))
-      .limit(1);
     // The letter follows the computed score. Score overrides happen at the
     // individual assignment/quiz level (and already flow into the computed
     // score); the legacy final-score override no longer bends the letter.
     const letter = computeLetterGrade(rounded ?? 0, policy.letters);
-    const values = {
+    return {
       courseId,
       studentId: e.studentId,
       score: rounded !== null ? rounded.toFixed(2) : null,
@@ -807,16 +814,35 @@ export async function recalculateFinalGrades(
       finalizedById,
       updatedAt: now,
     };
-    let row: typeof finalGrades.$inferSelect | undefined;
-    if (existing) {
-      [row] = await db
-        .update(finalGrades)
-        .set(values)
-        .where(eq(finalGrades.id, existing.id))
-        .returning();
-    } else {
-      [row] = await db.insert(finalGrades).values(values).returning();
-    }
+  });
+
+  const rowByStudent = new Map<string, typeof finalGrades.$inferSelect>();
+  const CHUNK = 100; // keep statements bounded — categoryScores jsonb can be large
+  for (let i = 0; i < allValues.length; i += CHUNK) {
+    const chunk = allValues.slice(i, i + CHUNK);
+    const rows = await db
+      .insert(finalGrades)
+      .values(chunk)
+      .onConflictDoUpdate({
+        target: [finalGrades.courseId, finalGrades.studentId],
+        set: {
+          score: sql`excluded.score`,
+          letterGrade: sql`excluded.letter_grade`,
+          categoryScores: sql`excluded.category_scores`,
+          gradingPolicySnapshot: sql`excluded.grading_policy_snapshot`,
+          isOutdated: sql`excluded.is_outdated`,
+          finalizedAt: sql`excluded.finalized_at`,
+          finalizedById: sql`excluded.finalized_by_id`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      })
+      .returning();
+    for (const row of rows) rowByStudent.set(row.studentId, row);
+  }
+
+  const summaries: FinalGradeSummary[] = [];
+  for (const e of enrolled) {
+    const row = rowByStudent.get(e.studentId);
     if (row) {
       summaries.push(toFinalGradeSummary(row, { studentName: e.name, studentEmail: e.email }));
     }

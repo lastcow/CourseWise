@@ -267,6 +267,13 @@
       "when": 1783728000000,
       "tag": "0037_discussion_posts_author_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1783814400000,
+      "tag": "0038_dashboard_perf_indexes",
+      "breakpoints": true
     }
   ]
 }

@@ -748,6 +748,8 @@ export const assignmentSubmissions = pgTable(
     groupSubmissionIdx: index('assignment_submissions_group_submission_idx').on(
       t.groupSubmissionId,
     ),
+    gradedAtIdx: index('assignment_submissions_graded_at_idx').on(t.gradedAt),
+    submittedAtIdx: index('assignment_submissions_submitted_at_idx').on(t.submittedAt),
   }),
 );
 
@@ -952,6 +954,7 @@ export const quizAttempts = pgTable(
   (t) => ({
     quizStudentIdx: index('quiz_attempts_quiz_student_idx').on(t.quizId, t.studentId),
     scheduleIdx: index('quiz_attempts_schedule_idx').on(t.scheduleId),
+    statusIdx: index('quiz_attempts_status_idx').on(t.status),
   }),
 );
 

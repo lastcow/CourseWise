@@ -42,44 +42,53 @@ r.get('/dashboards/admin', requireScopeGroup('dashboardsRead'), async (c) => {
   if (auth.user.role !== 'admin') {
     throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Admin only');
   }
-  const [usersTotal] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(users);
-  const [teachersTotal] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(users)
-    .where(eq(users.role, 'teacher'));
-  const [studentsTotal] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(users)
-    .where(eq(users.role, 'student'));
-  const [coursesTotal] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(courses);
-  const [activeCoursesTotal] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(courses)
-    .where(eq(courses.status, 'active'));
-  const [openAlertsTotal] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(alerts)
-    .where(eq(alerts.status, 'open'));
   const sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const [lateSubmissions7d] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(assignmentSubmissions)
-    .where(
-      and(
-        eq(assignmentSubmissions.status, 'late'),
-        sql`${assignmentSubmissions.updatedAt} >= ${sinceIso}`,
+  // All eight aggregates are independent — issue them concurrently instead of
+  // serially awaiting eight round-trips to Neon.
+  const [
+    [usersTotal],
+    [teachersTotal],
+    [studentsTotal],
+    [coursesTotal],
+    [activeCoursesTotal],
+    [openAlertsTotal],
+    [lateSubmissions7d],
+    recentAlertRows,
+  ] = await Promise.all([
+    db.select({ c: sql<number>`count(*)::int` }).from(users),
+    db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.role, 'teacher')),
+    db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.role, 'student')),
+    db.select({ c: sql<number>`count(*)::int` }).from(courses),
+    db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(courses)
+      .where(eq(courses.status, 'active')),
+    db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(alerts)
+      .where(eq(alerts.status, 'open')),
+    db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(assignmentSubmissions)
+      .where(
+        and(
+          eq(assignmentSubmissions.status, 'late'),
+          sql`${assignmentSubmissions.updatedAt} >= ${sinceIso}`,
+        ),
       ),
-    );
-  const recentAlertRows = await db
-    .select()
-    .from(alerts)
-    .where(eq(alerts.status, 'open'))
-    .orderBy(desc(alerts.createdAt))
-    .limit(10);
+    db
+      .select()
+      .from(alerts)
+      .where(eq(alerts.status, 'open'))
+      .orderBy(desc(alerts.createdAt))
+      .limit(10),
+  ]);
   const latestAlerts: AlertSummary[] = recentAlertRows.map(toAlertSummary);
   const body: AdminDashboardResponse = {
     totals: {
@@ -136,46 +145,39 @@ r.get('/dashboards/admin/activity', requireScopeGroup('dashboardsRead'), async (
   };
   const dayCount = { n: sql<number>`count(*)::int` };
 
-  fill(
-    await db
+  // Five independent per-day aggregates — run them concurrently.
+  const [newUserRows, enrollmentRows, submissionRows, attemptRows, postRows] = await Promise.all([
+    db
       .select({ day: sql<string>`(date_trunc('day', ${users.createdAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
       .from(users)
       .where(sql`${users.createdAt} >= ${sinceIso}`)
       .groupBy(sql`1`),
-    'newUsers',
-  );
-  fill(
-    await db
+    db
       .select({ day: sql<string>`(date_trunc('day', ${enrollments.createdAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
       .from(enrollments)
       .where(sql`${enrollments.createdAt} >= ${sinceIso}`)
       .groupBy(sql`1`),
-    'enrollments',
-  );
-  fill(
-    await db
+    db
       .select({ day: sql<string>`(date_trunc('day', ${assignmentSubmissions.submittedAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
       .from(assignmentSubmissions)
       .where(sql`${assignmentSubmissions.submittedAt} >= ${sinceIso}`)
       .groupBy(sql`1`),
-    'submissions',
-  );
-  fill(
-    await db
+    db
       .select({ day: sql<string>`(date_trunc('day', ${quizAttempts.startedAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
       .from(quizAttempts)
       .where(sql`${quizAttempts.startedAt} >= ${sinceIso}`)
       .groupBy(sql`1`),
-    'quizAttempts',
-  );
-  fill(
-    await db
+    db
       .select({ day: sql<string>`(date_trunc('day', ${discussionPosts.createdAt} AT TIME ZONE 'UTC'))::date`, ...dayCount })
       .from(discussionPosts)
       .where(and(eq(discussionPosts.isDeleted, false), sql`${discussionPosts.createdAt} >= ${sinceIso}`))
       .groupBy(sql`1`),
-    'posts',
-  );
+  ]);
+  fill(newUserRows, 'newUsers');
+  fill(enrollmentRows, 'enrollments');
+  fill(submissionRows, 'submissions');
+  fill(attemptRows, 'quizAttempts');
+  fill(postRows, 'posts');
 
   const body: AdminActivityResponse = { days, points };
   return success(c, body);
@@ -199,85 +201,79 @@ r.get('/dashboards/teacher', requireScopeGroup('dashboardsRead'), async (c) => {
           .innerJoin(courses, eq(courseTeachers.courseId, courses.id))
           .where(eq(courseTeachers.teacherId, auth.user.id))
           .orderBy(asc(courses.title));
-  const snapshots: TeacherCourseSnapshot[] = [];
-  for (const courseRow of courseRows) {
-    const [enrollmentCount] = await db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(enrollments)
-      .where(and(eq(enrollments.courseId, courseRow.id), eq(enrollments.status, 'enrolled')));
-    // Ungraded submissions: status submitted/late with score null.
-    const courseAssignmentIds = (
-      await db
-        .select({ id: assignments.id })
-        .from(assignments)
-        .where(eq(assignments.courseId, courseRow.id))
-    ).map((a) => a.id);
-    let ungradedSubs = 0;
-    if (courseAssignmentIds.length > 0) {
-      const [row] = await db
-        .select({ c: sql<number>`count(*)::int` })
+  const courseIds = courseRows.map((row) => row.id);
+  if (courseIds.length === 0) {
+    const body: TeacherDashboardResponse = { courses: [], recentAlerts: [] };
+    return success(c, body);
+  }
+  // One grouped aggregate per metric across all courses (instead of ~5
+  // queries per course), all five round-trips issued concurrently.
+  const [enrollmentRows, ungradedSubRows, ungradedAnswerRows, openAlertRows, recentAlerts] =
+    await Promise.all([
+      db
+        .select({ courseId: enrollments.courseId, c: sql<number>`count(*)::int` })
+        .from(enrollments)
+        .where(and(inArray(enrollments.courseId, courseIds), eq(enrollments.status, 'enrolled')))
+        .groupBy(enrollments.courseId),
+      // Ungraded submissions: status submitted/late with score null.
+      db
+        .select({ courseId: assignments.courseId, c: sql<number>`count(*)::int` })
         .from(assignmentSubmissions)
+        .innerJoin(assignments, eq(assignmentSubmissions.assignmentId, assignments.id))
         .where(
           and(
-            inArray(assignmentSubmissions.assignmentId, courseAssignmentIds),
+            inArray(assignments.courseId, courseIds),
             inArray(assignmentSubmissions.status, ['submitted', 'late']),
             isNull(assignmentSubmissions.score),
           ),
-        );
-      ungradedSubs = row?.c ?? 0;
-    }
-    // Ungraded quiz answers (subjective): pointsAwarded null on submitted attempts.
-    const courseQuizIds = (
-      await db
-        .select({ id: quizzes.id })
-        .from(quizzes)
-        .where(eq(quizzes.courseId, courseRow.id))
-    ).map((q) => q.id);
-    let ungradedAnswers = 0;
-    if (courseQuizIds.length > 0) {
-      const [row] = await db
-        .select({ c: sql<number>`count(distinct ${quizAnswers.id})::int` })
+        )
+        .groupBy(assignments.courseId),
+      // Ungraded quiz answers (subjective): pointsAwarded null on submitted attempts.
+      db
+        .select({ courseId: quizzes.courseId, c: sql<number>`count(distinct ${quizAnswers.id})::int` })
         .from(quizAnswers)
         .innerJoin(quizAttempts, eq(quizAnswers.attemptId, quizAttempts.id))
+        .innerJoin(quizzes, eq(quizAttempts.quizId, quizzes.id))
         .where(
           and(
-            inArray(quizAttempts.quizId, courseQuizIds),
+            inArray(quizzes.courseId, courseIds),
             eq(quizAttempts.status, 'submitted'),
             isNull(quizAnswers.pointsAwarded),
           ),
-        );
-      ungradedAnswers = row?.c ?? 0;
+        )
+        .groupBy(quizzes.courseId),
+      db
+        .select({ courseId: alerts.courseId, c: sql<number>`count(*)::int` })
+        .from(alerts)
+        .where(and(inArray(alerts.courseId, courseIds), eq(alerts.status, 'open')))
+        .groupBy(alerts.courseId),
+      db
+        .select()
+        .from(alerts)
+        .where(and(eq(alerts.status, 'open'), inArray(alerts.courseId, courseIds)))
+        .orderBy(desc(alerts.createdAt))
+        .limit(10),
+    ]);
+  const countByCourse = (rows: { courseId: string | null; c: number }[]): Map<string, number> => {
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      if (row.courseId !== null) map.set(row.courseId, row.c);
     }
-    const [openAlertsRow] = await db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(alerts)
-      .where(and(eq(alerts.courseId, courseRow.id), eq(alerts.status, 'open')));
-    snapshots.push({
-      courseId: courseRow.id,
-      courseCode: courseRow.code,
-      courseTitle: courseRow.title,
-      enrollmentCount: enrollmentCount?.c ?? 0,
-      ungradedSubmissions: ungradedSubs,
-      ungradedQuizAnswers: ungradedAnswers,
-      openAlerts: openAlertsRow?.c ?? 0,
-    });
-  }
-  const recentAlerts = await db
-    .select()
-    .from(alerts)
-    .where(
-      and(
-        eq(alerts.status, 'open'),
-        snapshots.length > 0
-          ? inArray(
-              alerts.courseId,
-              snapshots.map((s) => s.courseId),
-            )
-          : sql`false`,
-      ),
-    )
-    .orderBy(desc(alerts.createdAt))
-    .limit(10);
+    return map;
+  };
+  const enrollmentByCourse = countByCourse(enrollmentRows);
+  const ungradedSubsByCourse = countByCourse(ungradedSubRows);
+  const ungradedAnswersByCourse = countByCourse(ungradedAnswerRows);
+  const openAlertsByCourse = countByCourse(openAlertRows);
+  const snapshots: TeacherCourseSnapshot[] = courseRows.map((courseRow) => ({
+    courseId: courseRow.id,
+    courseCode: courseRow.code,
+    courseTitle: courseRow.title,
+    enrollmentCount: enrollmentByCourse.get(courseRow.id) ?? 0,
+    ungradedSubmissions: ungradedSubsByCourse.get(courseRow.id) ?? 0,
+    ungradedQuizAnswers: ungradedAnswersByCourse.get(courseRow.id) ?? 0,
+    openAlerts: openAlertsByCourse.get(courseRow.id) ?? 0,
+  }));
   const body: TeacherDashboardResponse = {
     courses: snapshots,
     recentAlerts: recentAlerts.map(toAlertSummary),
