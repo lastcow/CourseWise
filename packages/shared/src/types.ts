@@ -1058,6 +1058,22 @@ export interface AdminActivityResponse {
   points: AdminActivityPoint[];
 }
 
+/** One day of system-wide AI usage for the admin dashboard chart. */
+export interface AdminAiUsagePoint {
+  date: string; // YYYY-MM-DD
+  neurons: number;
+  requests: number;
+  promptTokens: number;
+  completionTokens: number;
+}
+
+export interface AdminAiUsageResponse {
+  /** Resolved day count ('all' resolves to the span since the first event). */
+  days: number;
+  totals: { neurons: number; requests: number; promptTokens: number; completionTokens: number };
+  points: AdminAiUsagePoint[];
+}
+
 export interface TeacherCourseSnapshot {
   courseId: string;
   courseCode: string;

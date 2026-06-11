@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminActivityResponse,
+  AdminAiUsageResponse,
   AdminDashboardResponse,
   AiArtifactKind,
   AssignmentGroup,
@@ -2392,6 +2393,21 @@ export function useAdminActivity(days: number) {
     queryFn: () => apiCall<AdminActivityResponse>(`/api/dashboards/admin/activity?days=${days}`),
     // Keep the previous range's chart on screen while the new one loads.
     placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * System-wide AI usage for the admin dashboard. `days` is 7|30|90 or 'all'.
+ * Fetch tuning: previous range stays on screen while the next loads
+ * (placeholderData), and a 60s staleTime makes range toggling instant when
+ * flipping back — usage data only moves forward, so brief staleness is fine.
+ */
+export function useAdminAiUsage(days: number | 'all') {
+  return useQuery({
+    queryKey: ['admin-ai-usage', days],
+    queryFn: () => apiCall<AdminAiUsageResponse>(`/api/dashboards/admin/ai-usage?days=${days}`),
+    placeholderData: (prev) => prev,
+    staleTime: 60_000,
   });
 }
 

@@ -943,6 +943,10 @@ export const ROUTES: readonly RouteSpec[] = [
     scopeGroup: 'dashboardsRead',
     roles: ['admin'],
   }),
+  r('get', '/api/dashboards/admin/ai-usage', 'System-wide AI usage per day', 'dashboards', {
+    scopeGroup: 'dashboardsRead',
+    roles: ['admin'],
+  }),
   r('get', '/api/dashboards/teacher', 'Teacher dashboard aggregates', 'dashboards', {
     scopeGroup: 'dashboardsRead',
     roles: ['teacher', 'admin'],
