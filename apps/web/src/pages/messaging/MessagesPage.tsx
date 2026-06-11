@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FileText, Loader2, Paperclip, SquarePen, Trash2, X } from 'lucide-react';
+import { FileText, Loader2, SquarePen, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
@@ -12,7 +12,6 @@ import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm';
 import {
   getDownloadUrl,
-  uploadFile,
   useCourse,
   useCourseStudents,
   useDeleteMessageThread,
@@ -21,26 +20,22 @@ import {
   useSendMessage,
 } from '@/lib/queries';
 import {
+  AttachmentPicker,
+  type PickedAttachment,
+} from '@/components/messaging/AttachmentPicker';
+import { formatBytes } from '@/lib/formatBytes';
+import {
   MessageComposeDialog,
   type RecipientOption,
 } from '@/components/messaging/MessageComposeDialog';
 import { ApiClientError, getStoredAuth } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
-  MAX_UPLOAD_BYTES,
-  MESSAGE_ATTACHMENT_ACCEPT,
   MESSAGE_PRIORITIES,
   type MessageAttachment,
   type MessagePriority,
   type MessageThreadSummary,
 } from '@coursewise/shared';
-
-function formatBytes(n: number | null): string {
-  if (n === null) return '';
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 /** Compact card rendered inside a message bubble for its attachment. */
 function AttachmentCard({ attachment }: { attachment: MessageAttachment }): JSX.Element {
@@ -137,32 +132,9 @@ export function MessagesPage(): JSX.Element {
       return true;
     });
   }, [courseQ.data, studentsQ.data, myUserId]);
-  // Attachment picked for the next send: uploaded immediately on selection,
-  // kept as a chip until the message goes out.
-  const [attachment, setAttachment] = useState<{
-    fileAssetId: string;
-    name: string;
-    size: number;
-  } | null>(null);
-  const [uploadPct, setUploadPct] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  async function onPickFile(file: File): Promise<void> {
-    if (file.size > MAX_UPLOAD_BYTES) {
-      toast.push({ title: t('files.tooLarge'), tone: 'error' });
-      return;
-    }
-    setUploadPct(0);
-    try {
-      const uploaded = await uploadFile(file, cId, 'message', (pct) => setUploadPct(pct));
-      setAttachment({ fileAssetId: uploaded.fileAssetId, name: file.name, size: file.size });
-    } catch (err) {
-      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-      toast.push({ title: t(key), tone: 'error' });
-    } finally {
-      setUploadPct(null);
-    }
-  }
+  // Attachment picked for the next send (uploaded by AttachmentPicker).
+  const [attachment, setAttachment] = useState<PickedAttachment | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const visibleThreads = useMemo(() => {
     const all = threadsQ.data ?? [];
@@ -390,61 +362,16 @@ export function MessagesPage(): JSX.Element {
                   minHeight={120}
                 />
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept={MESSAGE_ATTACHMENT_ACCEPT}
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) void onPickFile(f);
-                        e.target.value = '';
-                      }}
-                    />
-                    {attachment ? (
-                      <span className="flex min-w-0 items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs">
-                        <FileText
-                          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                          aria-hidden
-                        />
-                        <span className="max-w-[14rem] truncate">{attachment.name}</span>
-                        <span className="shrink-0 text-muted-foreground">
-                          {formatBytes(attachment.size)}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={t('messages.attachRemove')}
-                          onClick={() => setAttachment(null)}
-                          className="shrink-0 rounded-full p-0.5 hover:bg-accent"
-                        >
-                          <X className="h-3 w-3" aria-hidden />
-                        </button>
-                      </span>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={uploadPct !== null || send.isPending}
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        {uploadPct !== null ? (
-                          <>
-                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
-                            {uploadPct}%
-                          </>
-                        ) : (
-                          <>
-                            <Paperclip className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                            {t('messages.attachCta')}
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
+                  <AttachmentPicker
+                    courseId={cId}
+                    value={attachment}
+                    onChange={setAttachment}
+                    disabled={send.isPending}
+                    onUploadingChange={setUploading}
+                  />
                   <Button
                     onClick={() => void onReply()}
-                    disabled={send.isPending || uploadPct !== null || !reply.trim()}
+                    disabled={send.isPending || uploading || !reply.trim()}
                   >
                     {send.isPending ? t('common.loading') : t('messages.send')}
                   </Button>

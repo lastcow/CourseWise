@@ -6,6 +6,7 @@ import { Input, Label } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { useToast } from '@/components/ui/toast';
 import { useSendMessage } from '@/lib/queries';
+import { AttachmentPicker, type PickedAttachment } from '@/components/messaging/AttachmentPicker';
 import { ApiClientError } from '@/lib/api';
 import { MESSAGE_PRIORITIES, type MessagePriority } from '@coursewise/shared';
 import { cn } from '@/lib/utils';
@@ -64,6 +65,8 @@ export function MessageComposeDialog({
   const [priority, setPriority] = useState<MessagePriority>(initialPriority);
   const [body, setBody] = useState('');
   const [pickedRecipient, setPickedRecipient] = useState('');
+  const [attachment, setAttachment] = useState<PickedAttachment | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // Re-prime state when the dialog is (re-)opened against a different target.
   useEffect(() => {
@@ -72,12 +75,13 @@ export function MessageComposeDialog({
       setPriority(initialPriority);
       setBody('');
       setPickedRecipient('');
+      setAttachment(null);
     }
   }, [open, initialSubject, initialPriority]);
 
   const effectiveRecipientId = recipientId || pickedRecipient;
   const trimmedBody = body.trim();
-  const disabled = send.isPending || trimmedBody.length === 0 || !effectiveRecipientId;
+  const disabled = send.isPending || uploading || trimmedBody.length === 0 || !effectiveRecipientId;
 
   const onSubmit = async () => {
     if (disabled) return;
@@ -88,6 +92,7 @@ export function MessageComposeDialog({
         subject: subject.trim() || undefined,
         body: trimmedBody,
         priority,
+        ...(attachment ? { fileAssetId: attachment.fileAssetId } : {}),
       });
       toast.push({ title: t('messages.sent'), tone: 'success' });
       onSent?.(result.threadId);
@@ -180,13 +185,22 @@ export function MessageComposeDialog({
           />
         </div>
 
-        <div className="flex justify-end gap-2 pt-1">
-          <Button variant="outline" onClick={onClose} disabled={send.isPending}>
-            {t('common.cancel')}
-          </Button>
-          <Button onClick={() => void onSubmit()} disabled={disabled}>
-            {send.isPending ? t('common.loading') : t('messages.send')}
-          </Button>
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <AttachmentPicker
+            courseId={courseId}
+            value={attachment}
+            onChange={setAttachment}
+            disabled={send.isPending}
+            onUploadingChange={setUploading}
+          />
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} disabled={send.isPending}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={() => void onSubmit()} disabled={disabled}>
+              {send.isPending ? t('common.loading') : t('messages.send')}
+            </Button>
+          </div>
         </div>
       </div>
     </Dialog>
