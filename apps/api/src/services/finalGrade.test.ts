@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { computeFinalScore, isItemPosted, isSessionStarted, rollUpSetScore } from './finalGrade';
+import {
+  computeFinalScore,
+  effectiveItemScore,
+  isItemPosted,
+  isPastEffectiveDeadline,
+  isSessionStarted,
+  rollUpSetScore,
+} from './finalGrade';
 
 describe('isSessionStarted', () => {
   const now = Date.parse('2026-05-29T12:00:00Z');
@@ -43,6 +50,81 @@ describe('isItemPosted', () => {
   it('treats discussions (no start field) as posted once not a draft', () => {
     expect(isItemPosted({ status: 'published', startAt: null }, now)).toBe(true);
     expect(isItemPosted({ status: 'draft', startAt: null }, now)).toBe(false);
+  });
+});
+
+describe('isPastEffectiveDeadline', () => {
+  const now = Date.parse('2026-05-29T12:00:00Z');
+  const past = '2026-05-01T00:00:00Z';
+  const future = '2026-06-15T00:00:00Z';
+
+  it('uses the item deadline when set: past → true, future → false', () => {
+    expect(isPastEffectiveDeadline(past, null, now)).toBe(true);
+    expect(isPastEffectiveDeadline(future, null, now)).toBe(false);
+  });
+
+  it('falls back to the course end date when the item has no deadline', () => {
+    expect(isPastEffectiveDeadline(null, past, now)).toBe(true);
+    expect(isPastEffectiveDeadline(null, future, now)).toBe(false);
+  });
+
+  it('prefers the item deadline over the course end date', () => {
+    expect(isPastEffectiveDeadline(future, past, now)).toBe(false);
+    expect(isPastEffectiveDeadline(past, future, now)).toBe(true);
+  });
+
+  it('returns false when there is no deadline anywhere', () => {
+    expect(isPastEffectiveDeadline(null, null, now)).toBe(false);
+  });
+
+  it('is strict at the boundary (now === deadline is not yet past)', () => {
+    expect(isPastEffectiveDeadline('2026-05-29T12:00:00Z', null, now)).toBe(false);
+  });
+});
+
+describe('effectiveItemScore', () => {
+  const now = Date.parse('2026-05-29T12:00:00Z');
+  const past = '2026-05-01T00:00:00Z';
+  const future = '2026-06-15T00:00:00Z';
+
+  it('zeroes a no-work item past its deadline', () => {
+    expect(effectiveItemScore(null, false, past, null, now, true)).toEqual({ score: 0, zeroed: true });
+  });
+
+  it('excludes a no-work item that is not yet past due', () => {
+    expect(effectiveItemScore(null, false, future, null, now, true)).toEqual({
+      score: null,
+      zeroed: false,
+    });
+  });
+
+  it('excludes a no-work item with no deadline anywhere', () => {
+    expect(effectiveItemScore(null, false, null, null, now, true)).toEqual({
+      score: null,
+      zeroed: false,
+    });
+  });
+
+  it('excludes a submitted-but-ungraded item even when past due (hasWork)', () => {
+    expect(effectiveItemScore(null, true, past, null, now, true)).toEqual({
+      score: null,
+      zeroed: false,
+    });
+  });
+
+  it('keeps a real score regardless of deadline', () => {
+    expect(effectiveItemScore(75, false, past, null, now, true)).toEqual({ score: 75, zeroed: false });
+  });
+
+  it('never zeroes a non-zeroable (group) assignment', () => {
+    expect(effectiveItemScore(null, false, past, null, now, false)).toEqual({
+      score: null,
+      zeroed: false,
+    });
+  });
+
+  it('falls back to the course end date when the item has no deadline', () => {
+    expect(effectiveItemScore(null, false, null, past, now, true)).toEqual({ score: 0, zeroed: true });
   });
 });
 
@@ -164,6 +246,68 @@ describe('computeFinalScore', () => {
       attendance: { rate: null, weight: 0 },
     });
     expect(r.score).toBe(65);
+  });
+});
+
+describe('computeFinalScore — past-due zeros', () => {
+  it('a past-due zero (score 0) drags the group average, unlike an excluded null', () => {
+    const r = computeFinalScore({
+      groups: [
+        {
+          id: 'g1',
+          name: 'HW',
+          weight: 100,
+          items: [
+            { id: 'i1', type: 'assignment', title: 'HW1', score: 90, max: 100 },
+            {
+              id: 'i2',
+              type: 'assignment',
+              title: 'HW2 (past due)',
+              score: 0,
+              max: 100,
+              zeroedAsMissing: true,
+            },
+          ],
+        },
+      ],
+      attendance: { rate: null, weight: 0 },
+    });
+    // (90 + 0) / 2 = 45 — the zero counts, both items are "scored".
+    expect(r.score).toBe(45);
+    const g = r.groups[0]!;
+    expect(g.itemsScored).toBe(2);
+    expect(g.detail.find((d) => d.itemId === 'i2')?.zeroedAsMissing).toBe(true);
+  });
+
+  it('an empty category becomes non-null once a past-due zero is added (renormalization)', () => {
+    const r = computeFinalScore({
+      groups: [
+        {
+          id: 'g1',
+          name: 'HW',
+          weight: 50,
+          items: [{ id: 'i1', type: 'assignment', title: 'HW1', score: 80, max: 100 }],
+        },
+        {
+          id: 'g2',
+          name: 'Quiz',
+          weight: 50,
+          items: [
+            {
+              id: 'q1',
+              type: 'quiz',
+              title: 'Q1 (past due)',
+              score: 0,
+              max: 100,
+              zeroedAsMissing: true,
+            },
+          ],
+        },
+      ],
+      attendance: { rate: null, weight: 0 },
+    });
+    // Both groups now usable: (80*50 + 0*50) / 100 = 40.
+    expect(r.score).toBe(40);
   });
 });
 

@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { GraduationCap, Search } from 'lucide-react';
 import type { FinalGradeSummary } from '@coursewise/shared';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
@@ -11,12 +10,8 @@ import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSec
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm';
-import {
-  downloadGradesCsv,
-  useFinalGrades,
-  useRecalculateFinalGrades,
-  useZeroMissingScores,
-} from '@/lib/queries';
+import { PreparingGradesDialog } from '@/components/gradebook/PreparingGradesDialog';
+import { downloadGradesCsv, useFinalGrades, useZeroMissingScores } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
 
 function StatTile({
@@ -48,7 +43,6 @@ export function TeacherGradebookPage(): JSX.Element {
   const { courseId } = useParams();
   const cid = courseId ?? '';
   const grades = useFinalGrades(cid || null);
-  const recalculate = useRecalculateFinalGrades(cid);
   const zeroMissing = useZeroMissingScores(cid);
   const toast = useToast();
   const confirm = useConfirm();
@@ -68,24 +62,7 @@ export function TeacherGradebookPage(): JSX.Element {
     try {
       const n = await zeroMissing.mutateAsync();
       toast.push({ title: t('grading.zeroMissingDone', { count: n }), tone: 'success' });
-      if (n > 0) {
-        // Zeroed scores change the rollups — recompute right away so the
-        // table doesn't sit in the "outdated" state.
-        const res = await recalculate.mutateAsync();
-        toast.push({ title: t('grading.recalcDone', { count: res.updated }), tone: 'success' });
-      }
-    } catch (err) {
-      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
-    }
-  }
-
-  async function onRecalc() {
-    try {
-      const res = await recalculate.mutateAsync();
-      toast.push({
-        title: t('grading.recalcDone', { count: res.updated }),
-        tone: 'success',
-      });
+      // No recompute needed — final grades recalculate on the next read.
     } catch (err) {
       toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
     }
@@ -139,12 +116,12 @@ export function TeacherGradebookPage(): JSX.Element {
   const stats = useMemo(() => {
     const scored = rows.map((g) => g.score).filter((s): s is number => s !== null);
     const average = scored.length > 0 ? scored.reduce((a, b) => a + b, 0) / scored.length : null;
-    const outdated = rows.filter((g) => g.isOutdated).length;
-    return { enrolled: rows.length, graded: scored.length, average, outdated };
+    return { enrolled: rows.length, graded: scored.length, average };
   }, [rows]);
 
   return (
     <div className="space-y-4">
+      <PreparingGradesDialog open={grades.isLoading} />
       <CourseSectionHeader
         title={t('grading.gradebookTitle')}
         count={grades.data?.length}
@@ -157,12 +134,9 @@ export function TeacherGradebookPage(): JSX.Element {
               variant="outline"
               size="sm"
               onClick={() => void onZeroMissing()}
-              disabled={zeroMissing.isPending || recalculate.isPending}
+              disabled={zeroMissing.isPending}
             >
               {t('grading.zeroMissingCta')}
-            </Button>
-            <Button size="sm" onClick={onRecalc} disabled={recalculate.isPending}>
-              {t('grading.recalculate')}
             </Button>
           </>
         }
@@ -177,7 +151,7 @@ export function TeacherGradebookPage(): JSX.Element {
         />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-3 gap-3">
             <StatTile label={t('grading.summaryEnrolled')} value={String(stats.enrolled)} />
             <StatTile
               label={t('grading.summaryGraded')}
@@ -186,11 +160,6 @@ export function TeacherGradebookPage(): JSX.Element {
             <StatTile
               label={t('grading.summaryAverage')}
               value={stats.average !== null ? stats.average.toFixed(1) : '—'}
-            />
-            <StatTile
-              label={t('grading.summaryOutdated')}
-              value={String(stats.outdated)}
-              tone={stats.outdated > 0 ? 'warning' : 'default'}
             />
           </div>
           <div className="overflow-x-auto rounded-lg border">
@@ -262,13 +231,12 @@ export function TeacherGradebookPage(): JSX.Element {
                   <th className="px-3 py-2 font-medium">{t('grading.score')}</th>
                   <th className="px-3 py-2 font-medium">{t('grading.letter')}</th>
                   <th className="px-3 py-2 font-medium">{t('grading.overrides')}</th>
-                  <th className="px-3 py-2 font-medium">{t('grading.status')}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={4} className="px-3 py-8 text-center text-sm text-muted-foreground">
                       {t('grading.filterNoMatch')}
                     </td>
                   </tr>
@@ -295,13 +263,6 @@ export function TeacherGradebookPage(): JSX.Element {
                     <td className="px-3 py-2 font-mono">{g.letterGrade ?? '—'}</td>
                     <td className="px-3 py-2 font-mono tabular-nums">
                       {(g.overrideCount ?? 0) > 0 ? g.overrideCount : '—'}
-                    </td>
-                    <td className="px-3 py-2">
-                      {g.isOutdated ? (
-                        <Badge variant="secondary">{t('grading.outdated')}</Badge>
-                      ) : (
-                        <Badge variant="success">{t('grading.current')}</Badge>
-                      )}
                     </td>
                   </tr>
                 ))}

@@ -20,6 +20,7 @@ import {
   assignments,
   attendanceRecords,
   attendanceSessions,
+  courses,
   discussionGrades,
   discussionPosts,
   discussionTopics,
@@ -65,6 +66,41 @@ export function isSessionStarted(sessionDate: string, now: number = Date.now()):
   return Date.parse(sessionDate) <= now;
 }
 
+// A gradable item the student never submitted/attempted counts as 0 once it is
+// past its *effective* deadline: the item's own deadline (assignment due date /
+// quiz close time) when set, otherwise the course's end date (semester end).
+// With neither there is no deadline to be "past", so the item stays excluded —
+// the lenient default. Strict comparison: `now === deadline` is not yet past.
+// Discussions have no per-item deadline and fall back to the course end date.
+export function isPastEffectiveDeadline(
+  itemDeadline: string | null,
+  courseEndDate: string | null,
+  now: number = Date.now(),
+): boolean {
+  const effective = itemDeadline ?? courseEndDate;
+  if (!effective) return false;
+  return now > Date.parse(effective);
+}
+
+// The score an item contributes under the past-due rule: an unscored, no-work,
+// `zeroable` item that is past its effective deadline counts as 0; everything
+// else keeps its score (a null stays excluded — "awaiting grade", not yet due,
+// or no deadline at all). Pure so the decision matrix is unit-testable without a
+// database. `zeroable` is false for group assignments (team-graded, synced lazily).
+export function effectiveItemScore(
+  score: number | null,
+  hasWork: boolean,
+  deadline: string | null,
+  courseEndDate: string | null,
+  now: number,
+  zeroable: boolean,
+): { score: number | null; zeroed: boolean } {
+  if (score === null && zeroable && !hasWork && isPastEffectiveDeadline(deadline, courseEndDate, now)) {
+    return { score: 0, zeroed: true };
+  }
+  return { score, zeroed: false };
+}
+
 // ---------------------------------------------------------------------------
 // Pure scoring algorithm. Lives at the top so it can be unit-tested without a
 // database. `summarizeFinalGrade` and the route-facing helpers assemble the
@@ -84,6 +120,10 @@ interface ComputeFinalScoreInput {
       max: number;
       // Only for type 'set': the member assignments behind the rolled-up score.
       members?: GroupScoreItem[];
+      // Set by buildAlgorithmInput when `score` was forced to 0 because the item
+      // is past its effective deadline with no work — flows through to the
+      // breakdown detail so the UI can flag it. The score itself is already 0.
+      zeroedAsMissing?: boolean;
     }>;
   }>;
   attendance: { rate: number | null; weight: number };
@@ -144,6 +184,7 @@ export function computeFinalScore(input: ComputeFinalScoreInput): ComputeFinalSc
         score: i.score,
         max: i.max,
         ...(i.members ? { members: i.members } : {}),
+        ...(i.zeroedAsMissing ? { zeroedAsMissing: true } : {}),
       })),
     };
   });
@@ -234,9 +275,24 @@ interface CourseGradingContext {
   groups: CourseGroupDef[];
   sets: CourseSetDef[];
   quizSets: CourseQuizSetDef[];
-  assignmentMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
-  quizMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
-  discussionMeta: Map<string, { groupId: string; title: string; maxScore: number }>;
+  // `deadline` is the item's own due/close time (assignment dueDate, quiz
+  // endTime; discussions have none → null), used with `courseEndDate` to decide
+  // past-due zeroing. `isGroup` assignments are excluded from auto-zeroing — the
+  // grade is team-shared and member rows are synced lazily, so the batch loader
+  // can't reliably tell a late-joining member apart from a genuine no-show.
+  assignmentMeta: Map<
+    string,
+    { groupId: string; title: string; maxScore: number; deadline: string | null; isGroup: boolean }
+  >;
+  quizMeta: Map<
+    string,
+    { groupId: string; title: string; maxScore: number; deadline: string | null }
+  >;
+  discussionMeta: Map<
+    string,
+    { groupId: string; title: string; maxScore: number; deadline: string | null }
+  >;
+  courseEndDate: string | null;
   attendanceSessionIds: string[];
 }
 
@@ -294,9 +350,16 @@ async function loadCourseGradingContext(
   }));
   const quizSetIndex = new Map(quizSetDefs.map((s) => [s.id, s]));
 
-  const assignmentMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
-  const quizMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
-  const discussionMeta = new Map<string, { groupId: string; title: string; maxScore: number }>();
+  const assignmentMeta: CourseGradingContext['assignmentMeta'] = new Map();
+  const quizMeta: CourseGradingContext['quizMeta'] = new Map();
+  const discussionMeta: CourseGradingContext['discussionMeta'] = new Map();
+
+  const [courseRow] = await db
+    .select({ endDate: courses.endDate })
+    .from(courses)
+    .where(eq(courses.id, courseId))
+    .limit(1);
+  const courseEndDate = courseRow?.endDate ?? null;
 
   const now = Date.now();
 
@@ -313,6 +376,8 @@ async function loadCourseGradingContext(
         setId: assignments.setId,
         status: assignments.status,
         startDate: assignments.startDate,
+        dueDate: assignments.dueDate,
+        submissionMode: assignments.submissionMode,
       })
       .from(assignments)
       .where(
@@ -331,6 +396,8 @@ async function loadCourseGradingContext(
           groupId: set.groupId ?? '',
           title: a.title,
           maxScore: a.maxScore !== null ? Number(a.maxScore) : 100,
+          deadline: a.dueDate,
+          isGroup: a.submissionMode === 'group',
         });
         continue;
       }
@@ -342,6 +409,8 @@ async function loadCourseGradingContext(
         groupId: a.groupId,
         title: a.title,
         maxScore: a.maxScore !== null ? Number(a.maxScore) : 100,
+        deadline: a.dueDate,
+        isGroup: a.submissionMode === 'group',
       });
     }
 
@@ -358,6 +427,7 @@ async function loadCourseGradingContext(
         setId: quizzes.setId,
         status: quizzes.status,
         startTime: quizzes.startTime,
+        endTime: quizzes.endTime,
       })
       .from(quizzes)
       .where(
@@ -376,6 +446,7 @@ async function loadCourseGradingContext(
           groupId: quizSet.groupId ?? '',
           title: q.title,
           maxScore: q.maxScore !== null ? Number(q.maxScore) : 100,
+          deadline: q.endTime,
         });
         continue;
       }
@@ -387,6 +458,7 @@ async function loadCourseGradingContext(
         groupId: q.groupId,
         title: q.title,
         maxScore: q.maxScore !== null ? Number(q.maxScore) : 100,
+        deadline: q.endTime,
       });
     }
 
@@ -417,6 +489,7 @@ async function loadCourseGradingContext(
         groupId: t.groupId,
         title: t.title,
         maxScore: t.maxScore !== null ? Number(t.maxScore) : 100,
+        deadline: null,
       });
     }
   }
@@ -435,14 +508,19 @@ async function loadCourseGradingContext(
     assignmentMeta,
     quizMeta,
     discussionMeta,
+    courseEndDate,
     attendanceSessionIds: sessionRows.map((s) => s.id),
   };
 }
 
 interface StudentItemScores {
-  assignment: Map<string, number>; // assignmentId → score
-  quiz: Map<string, { score: number; maxScore: number }>; // quizId → best attempt
-  discussion: Map<string, number>; // topicId → score
+  // `score` is null when a row exists without a grade yet (submitted-but-
+  // ungraded); `hasWork` is true when any submission / attempt / post exists.
+  // That distinction keeps "awaiting grade" excluded while "never turned in"
+  // becomes eligible for a past-due zero.
+  assignment: Map<string, { score: number | null; hasWork: boolean }>;
+  quiz: Map<string, { score: number | null; maxScore: number | null; hasWork: boolean }>;
+  discussion: Map<string, { score: number | null; hasWork: boolean }>;
   attendance: { sessionsCount: number; presentCount: number; rate: number | null };
 }
 
@@ -471,7 +549,7 @@ async function loadStudentItemScores(
 
   // The four lookups are independent — run them concurrently (neon-http has
   // no transactions, so each query is its own round-trip anyway).
-  const [recs, subs, attempts, grades] = await Promise.all([
+  const [recs, subs, attempts, grades, postCounts] = await Promise.all([
     sessionCount > 0
       ? db
           .select({ studentId: attendanceRecords.studentId, status: attendanceRecords.status })
@@ -489,6 +567,7 @@ async function loadStudentItemScores(
             assignmentId: assignmentSubmissions.assignmentId,
             studentId: assignmentSubmissions.studentId,
             score: assignmentSubmissions.score,
+            status: assignmentSubmissions.status,
           })
           .from(assignmentSubmissions)
           .where(
@@ -530,6 +609,25 @@ async function loadStudentItemScores(
             ),
           )
       : Promise.resolve([]),
+    // Post presence per (topic, student) — lets a topic the student posted in
+    // (but isn't graded on yet) count as work, so it isn't auto-zeroed.
+    topicIds.length > 0
+      ? db
+          .select({
+            topicId: discussionPosts.topicId,
+            studentId: discussionPosts.authorId,
+            n: count(),
+          })
+          .from(discussionPosts)
+          .where(
+            and(
+              inArray(discussionPosts.topicId, topicIds),
+              inArray(discussionPosts.authorId, studentIds),
+              eq(discussionPosts.isDeleted, false),
+            ),
+          )
+          .groupBy(discussionPosts.topicId, discussionPosts.authorId)
+      : Promise.resolve([]),
   ]);
 
   // Attendance.
@@ -549,34 +647,60 @@ async function loadStudentItemScores(
     }
   }
 
-  // Assignment submissions.
+  // Assignment submissions. Record every row (not just graded ones): a non-draft
+  // row means "turned in" (hasWork → excluded while awaiting a grade); a draft or
+  // a missing row is eligible for a past-due zero.
   for (const s of subs) {
-    if (s.score === null) continue;
     const bucket = result.get(s.studentId);
     if (!bucket) continue;
-    bucket.assignment.set(s.assignmentId, Number(s.score));
+    bucket.assignment.set(s.assignmentId, {
+      score: s.score !== null ? Number(s.score) : null,
+      hasWork: s.status !== 'draft',
+    });
   }
 
-  // Quiz attempts — pick best per (quiz, student).
+  // Quiz attempts. Any attempt (even in-progress) marks hasWork, so a student
+  // who has engaged is never auto-zeroed; only a quiz with no attempt at all is
+  // eligible. The best graded submitted/expired attempt supplies the score.
   for (const a of attempts) {
-    if (a.status !== 'submitted' && a.status !== 'expired') continue;
-    if (a.score === null || a.maxScore === null) continue;
     const bucket = result.get(a.studentId);
     if (!bucket) continue;
-    const score = Number(a.score);
-    const maxScore = Number(a.maxScore);
-    const prev = bucket.quiz.get(a.quizId);
-    if (!prev || score > prev.score) {
-      bucket.quiz.set(a.quizId, { score, maxScore });
+    const entry: { score: number | null; maxScore: number | null; hasWork: boolean } =
+      bucket.quiz.get(a.quizId) ?? { score: null, maxScore: null, hasWork: false };
+    entry.hasWork = true;
+    if (
+      (a.status === 'submitted' || a.status === 'expired') &&
+      a.score !== null &&
+      a.maxScore !== null
+    ) {
+      const score = Number(a.score);
+      if (entry.score === null || score > entry.score) {
+        entry.score = score;
+        entry.maxScore = Number(a.maxScore);
+      }
     }
+    bucket.quiz.set(a.quizId, entry);
   }
 
-  // Discussion grades.
+  // Discussion grades + post presence. A grade row supplies the score and marks
+  // work; any non-deleted post also marks work (so a posted-but-ungraded topic
+  // isn't zeroed). A topic never posted in and never graded is eligible for a
+  // past-due zero (its only deadline is the course end date).
   for (const g of grades) {
-    if (g.score === null) continue;
     const bucket = result.get(g.studentId);
     if (!bucket) continue;
-    bucket.discussion.set(g.topicId, Number(g.score));
+    bucket.discussion.set(g.topicId, {
+      score: g.score !== null ? Number(g.score) : null,
+      hasWork: true,
+    });
+  }
+  for (const p of postCounts) {
+    if (Number(p.n) <= 0) continue;
+    const bucket = result.get(p.studentId);
+    if (!bucket) continue;
+    const entry = bucket.discussion.get(p.topicId);
+    if (entry) entry.hasWork = true;
+    else bucket.discussion.set(p.topicId, { score: null, hasWork: true });
   }
 
   return result;
@@ -586,7 +710,17 @@ function buildAlgorithmInput(
   ctx: CourseGradingContext,
   studentScores: StudentItemScores,
   attendanceWeight: number,
+  now: number,
 ): ComputeFinalScoreInput {
+  // A no-score item becomes a 0 once it is past its effective deadline with no
+  // work in. `zeroable` is false for group assignments (see CourseGradingContext).
+  const zeroedScore = (
+    score: number | null,
+    hasWork: boolean,
+    deadline: string | null,
+    zeroable: boolean,
+  ) => effectiveItemScore(score, hasWork, deadline, ctx.courseEndDate, now, zeroable);
+
   const groups: ComputeFinalScoreInput['groups'] = ctx.groups.map((g) => ({
     id: g.id,
     name: g.name,
@@ -594,37 +728,58 @@ function buildAlgorithmInput(
     items: [
       ...g.assignmentIds.map((aid) => {
         const meta = ctx.assignmentMeta.get(aid)!;
-        const score = studentScores.assignment.get(aid);
+        const entry = studentScores.assignment.get(aid);
+        const { score, zeroed } = zeroedScore(
+          entry?.score ?? null,
+          entry?.hasWork ?? false,
+          meta.deadline,
+          !meta.isGroup,
+        );
         return {
           id: aid,
           type: 'assignment' as const,
           title: meta.title,
-          score: score !== undefined ? score : null,
+          score,
           max: meta.maxScore || 100,
+          ...(zeroed ? { zeroedAsMissing: true } : {}),
         };
       }),
       ...g.quizIds.map((qid) => {
         const meta = ctx.quizMeta.get(qid)!;
         const attempt = studentScores.quiz.get(qid);
+        const { score, zeroed } = zeroedScore(
+          attempt?.score ?? null,
+          attempt?.hasWork ?? false,
+          meta.deadline,
+          true,
+        );
         return {
           id: qid,
           type: 'quiz' as const,
           title: meta.title,
-          score: attempt ? attempt.score : null,
-          // Prefer the attempt's maxScore (it's the source of truth for that
-          // attempt's possible points); fall back to the quiz's configured max.
-          max: attempt ? attempt.maxScore || meta.maxScore || 100 : meta.maxScore || 100,
+          score,
+          // Prefer the attempt's maxScore (source of truth for that attempt's
+          // possible points); fall back to the quiz's configured max.
+          max: attempt?.maxScore || meta.maxScore || 100,
+          ...(zeroed ? { zeroedAsMissing: true } : {}),
         };
       }),
       ...g.discussionIds.map((did) => {
         const meta = ctx.discussionMeta.get(did)!;
-        const score = studentScores.discussion.get(did);
+        const entry = studentScores.discussion.get(did);
+        const { score, zeroed } = zeroedScore(
+          entry?.score ?? null,
+          entry?.hasWork ?? false,
+          meta.deadline,
+          true,
+        );
         return {
           id: did,
           type: 'discussion' as const,
           title: meta.title,
-          score: score !== undefined ? score : null,
+          score,
           max: meta.maxScore || 100,
+          ...(zeroed ? { zeroedAsMissing: true } : {}),
         };
       }),
     ],
@@ -641,13 +796,20 @@ function buildAlgorithmInput(
     if (!target) continue;
     const members: GroupScoreItem[] = set.memberIds.map((mid) => {
       const meta = ctx.assignmentMeta.get(mid)!;
-      const score = studentScores.assignment.get(mid);
+      const entry = studentScores.assignment.get(mid);
+      const { score, zeroed } = zeroedScore(
+        entry?.score ?? null,
+        entry?.hasWork ?? false,
+        meta.deadline,
+        !meta.isGroup,
+      );
       return {
         itemId: mid,
         itemType: 'assignment',
         title: meta.title,
-        score: score !== undefined ? score : null,
+        score,
         max: meta.maxScore || 100,
+        ...(zeroed ? { zeroedAsMissing: true } : {}),
       };
     });
     const scored = members.filter((m) => m.score !== null && m.max > 0);
@@ -674,14 +836,21 @@ function buildAlgorithmInput(
     const members: GroupScoreItem[] = set.memberQuizIds.map((qid) => {
       const meta = ctx.quizMeta.get(qid)!;
       const attempt = studentScores.quiz.get(qid);
+      const { score, zeroed } = zeroedScore(
+        attempt?.score ?? null,
+        attempt?.hasWork ?? false,
+        meta.deadline,
+        true,
+      );
       return {
         itemId: qid,
         itemType: 'quiz',
         title: meta.title,
-        score: attempt ? attempt.score : null,
+        score,
         // Prefer the attempt's maxScore (source of truth for that attempt's
         // possible points); fall back to the quiz's configured max.
-        max: attempt ? attempt.maxScore || meta.maxScore || 100 : meta.maxScore || 100,
+        max: attempt?.maxScore || meta.maxScore || 100,
+        ...(zeroed ? { zeroedAsMissing: true } : {}),
       };
     });
     const scored = members.filter((m) => m.score !== null && m.max > 0);
@@ -787,6 +956,7 @@ export async function recalculateFinalGrades(
   const scoresByStudent = await loadStudentItemScores(db, ctx, studentIds);
   const snapshot = buildPolicySnapshot(policy, ctx);
   const now = new Date().toISOString();
+  const nowMs = Date.now();
   if (enrolled.length === 0) return { updated: 0, rows: [] };
 
   // Compute every student's grade in memory, then persist the whole roster
@@ -795,7 +965,7 @@ export async function recalculateFinalGrades(
   // teacher_override_* so stored overrides survive recalculation.
   const allValues = enrolled.map((e) => {
     const studentScores = scoresByStudent.get(e.studentId)!;
-    const input = buildAlgorithmInput(ctx, studentScores, policy.weightAttendance);
+    const input = buildAlgorithmInput(ctx, studentScores, policy.weightAttendance, nowMs);
     const computed = computeFinalScore(input);
     const rounded = computed.score !== null ? Math.round(computed.score * 100) / 100 : null;
     // The letter follows the computed score. Score overrides happen at the
@@ -848,6 +1018,77 @@ export async function recalculateFinalGrades(
     }
   }
   return { updated: summaries.length, rows: summaries };
+}
+
+// Compute-on-read for a single student: recompute their final grade from current
+// data + `now` (so past-due zeros apply) and write it through to the cache,
+// preserving any teacher override (the DO UPDATE column list omits the override
+// columns). Returns the fresh summary, or null when the student isn't enrolled.
+// Used by the per-student read endpoints so a single-student view doesn't
+// recompute the whole roster.
+export async function computeAndPersistOne(
+  db: Db,
+  courseId: string,
+  studentId: string,
+  policy: GradingPolicySummary,
+  finalizedById: string,
+): Promise<FinalGradeSummary | null> {
+  const [enrolled] = await db
+    .select({ studentId: enrollments.studentId, name: users.name, email: users.email })
+    .from(enrollments)
+    .innerJoin(users, eq(enrollments.studentId, users.id))
+    .where(
+      and(
+        eq(enrollments.courseId, courseId),
+        eq(enrollments.studentId, studentId),
+        eq(enrollments.status, 'enrolled'),
+      ),
+    )
+    .limit(1);
+  if (!enrolled) return null;
+
+  const ctx = await loadCourseGradingContext(db, courseId);
+  const scoresByStudent = await loadStudentItemScores(db, ctx, [studentId]);
+  const studentScores = scoresByStudent.get(studentId)!;
+  const snapshot = buildPolicySnapshot(policy, ctx);
+  const nowIso = new Date().toISOString();
+
+  const input = buildAlgorithmInput(ctx, studentScores, policy.weightAttendance, Date.now());
+  const computed = computeFinalScore(input);
+  const rounded = computed.score !== null ? Math.round(computed.score * 100) / 100 : null;
+  const letter = computeLetterGrade(rounded ?? 0, policy.letters);
+
+  const [row] = await db
+    .insert(finalGrades)
+    .values({
+      courseId,
+      studentId,
+      score: rounded !== null ? rounded.toFixed(2) : null,
+      letterGrade: letter,
+      categoryScores: { groups: computed.groups, attendance: computed.attendance },
+      gradingPolicySnapshot: snapshot,
+      isOutdated: false,
+      finalizedAt: nowIso,
+      finalizedById,
+      updatedAt: nowIso,
+    })
+    .onConflictDoUpdate({
+      target: [finalGrades.courseId, finalGrades.studentId],
+      set: {
+        score: sql`excluded.score`,
+        letterGrade: sql`excluded.letter_grade`,
+        categoryScores: sql`excluded.category_scores`,
+        gradingPolicySnapshot: sql`excluded.grading_policy_snapshot`,
+        isOutdated: sql`excluded.is_outdated`,
+        finalizedAt: sql`excluded.finalized_at`,
+        finalizedById: sql`excluded.finalized_by_id`,
+        updatedAt: sql`excluded.updated_at`,
+      },
+    })
+    .returning();
+  return row
+    ? toFinalGradeSummary(row, { studentName: enrolled.name, studentEmail: enrolled.email })
+    : null;
 }
 
 export async function applyTeacherOverride(
@@ -925,6 +1166,15 @@ export async function buildGradebookStudentDetail(
   // what counts toward the final grade. See isItemPosted.
   const now = Date.now();
 
+  // Semester end is the fallback deadline for past-due zeroing when an item has
+  // no due date of its own (and the only deadline graded discussions ever have).
+  const [courseRow] = await db
+    .select({ endDate: courses.endDate })
+    .from(courses)
+    .where(eq(courses.id, courseId))
+    .limit(1);
+  const courseEndDate = courseRow?.endDate ?? null;
+
   // Attendance items (every session in the course, joined to the student's record).
   const sessions = (
     await db
@@ -974,6 +1224,7 @@ export async function buildGradebookStudentDetail(
         maxScore: assignments.maxScore,
         status: assignments.status,
         startDate: assignments.startDate,
+        dueDate: assignments.dueDate,
         submissionMode: assignments.submissionMode,
         groupSetId: assignments.groupSetId,
       })
@@ -1014,18 +1265,30 @@ export async function buildGradebookStudentDetail(
   const assignmentItems: GradebookAssignmentItem[] = [];
   for (const a of courseAssignments) {
     const sub = subByAssignment.get(a.id);
+    const score = sub?.score !== null && sub?.score !== undefined ? Number(sub.score) : null;
+    const isGroup = a.submissionMode === 'group';
+    // Mirrors the calc engine: a non-draft row is "turned in" (excluded while
+    // awaiting a grade); group assignments are never auto-zeroed. `score` stays
+    // null so the inline input is editable — the flag drives the "past due" badge.
+    const hasWork = !!sub && sub.status !== 'draft';
+    const zeroedAsMissing =
+      score === null &&
+      !isGroup &&
+      !hasWork &&
+      isPastEffectiveDeadline(a.dueDate, courseEndDate, now);
     assignmentItems.push({
       assignmentId: a.id,
       submissionId: sub?.id ?? null,
       title: a.title,
       maxScore: a.maxScore !== null ? Number(a.maxScore) : 100,
-      score: sub?.score !== null && sub?.score !== undefined ? Number(sub.score) : null,
+      score,
       submittedAt: sub?.submittedAt ?? null,
       status: sub?.status ?? null,
       feedback: sub?.feedback ?? null,
       isFinalProject: false,
-      isGroup: a.submissionMode === 'group',
+      isGroup,
       gradedAt: sub?.gradedAt ?? null,
+      ...(zeroedAsMissing ? { zeroedAsMissing: true } : {}),
     });
   }
 
@@ -1038,6 +1301,7 @@ export async function buildGradebookStudentDetail(
         maxScore: quizzes.maxScore,
         status: quizzes.status,
         startTime: quizzes.startTime,
+        endTime: quizzes.endTime,
       })
       .from(quizzes)
       .where(eq(quizzes.courseId, courseId))
@@ -1067,11 +1331,16 @@ export async function buildGradebookStudentDetail(
   const quizItems: GradebookQuizItem[] = [];
   for (const q of courseQuizzes) {
     const a = bestByQuiz.get(q.id);
+    const score = a?.score !== null && a?.score !== undefined ? Number(a.score) : null;
+    // Any attempt counts as work; only a quiz with no attempt is eligible for a
+    // past-due zero once its close time (endTime) — or the semester end — passes.
+    const zeroedAsMissing =
+      score === null && !a && isPastEffectiveDeadline(q.endTime, courseEndDate, now);
     quizItems.push({
       quizId: q.id,
       attemptId: a?.id ?? null,
       title: q.title,
-      score: a?.score !== null && a?.score !== undefined ? Number(a.score) : null,
+      score,
       maxScore:
         a?.maxScore !== null && a?.maxScore !== undefined
           ? Number(a.maxScore)
@@ -1081,6 +1350,7 @@ export async function buildGradebookStudentDetail(
       status: a?.status ?? null,
       teacherReviewed: a?.teacherReviewed ?? false,
       pendingReviewCount: 0,
+      ...(zeroedAsMissing ? { zeroedAsMissing: true } : {}),
     });
   }
 
@@ -1133,14 +1403,22 @@ export async function buildGradebookStudentDetail(
   const postCountByTopic = new Map(postCounts.map((r) => [r.topicId, Number(r.n)]));
   const discussionItems: GradebookDiscussionItem[] = topics.map((t) => {
     const g = gradeByTopic.get(t.id);
+    const score = g?.score !== null && g?.score !== undefined ? Number(g.score) : null;
+    const postCount = postCountByTopic.get(t.id) ?? 0;
+    // A grade row or any post counts as work. Discussions have no per-item
+    // deadline, so the only thing to be "past due" of is the semester end.
+    const hasWork = !!g || postCount > 0;
+    const zeroedAsMissing =
+      score === null && !hasWork && isPastEffectiveDeadline(null, courseEndDate, now);
     return {
       topicId: t.id,
       title: t.title,
       maxScore: t.maxScore !== null ? Number(t.maxScore) : 100,
-      score: g?.score !== null && g?.score !== undefined ? Number(g.score) : null,
+      score,
       feedback: g?.feedback ?? null,
       gradedAt: g?.gradedAt ?? null,
-      postCount: postCountByTopic.get(t.id) ?? 0,
+      postCount,
+      ...(zeroedAsMissing ? { zeroedAsMissing: true } : {}),
     };
   });
 

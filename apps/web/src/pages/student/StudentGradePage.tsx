@@ -87,14 +87,16 @@ export function StudentGradePage(): JSX.Element {
         key: `a-${a.assignmentId}`,
         type: 'assignment',
         title: a.title,
-        score: a.score,
+        score: a.zeroedAsMissing ? 0 : a.score,
         max: a.maxScore,
         statusLabel: graded
           ? t('grading.graded')
-          : submitted
-            ? t('grading.awaitingGrade')
-            : t('grading.notSubmitted'),
-        statusTone: graded ? 'success' : submitted ? 'warning' : 'muted',
+          : a.zeroedAsMissing
+            ? t('grading.pastDueZero')
+            : submitted
+              ? t('grading.awaitingGrade')
+              : t('grading.notSubmitted'),
+        statusTone: graded ? 'success' : a.zeroedAsMissing || submitted ? 'warning' : 'muted',
         feedback: a.feedback,
       };
     };
@@ -105,14 +107,16 @@ export function StudentGradePage(): JSX.Element {
         key: `q-${q.quizId}`,
         type: 'quiz',
         title: q.title,
-        score: q.score,
+        score: q.zeroedAsMissing ? 0 : q.score,
         max: q.maxScore,
         statusLabel: graded
           ? t('grading.graded')
-          : attempted
-            ? t('grading.awaitingGrade')
-            : t('grading.noAttempt'),
-        statusTone: graded ? 'success' : attempted ? 'warning' : 'muted',
+          : q.zeroedAsMissing
+            ? t('grading.pastDueZero')
+            : attempted
+              ? t('grading.awaitingGrade')
+              : t('grading.noAttempt'),
+        statusTone: graded ? 'success' : q.zeroedAsMissing || attempted ? 'warning' : 'muted',
         feedback: null,
       };
     };
@@ -122,9 +126,13 @@ export function StudentGradePage(): JSX.Element {
         key: `d-${d.topicId}`,
         type: 'discussion',
         title: d.title,
-        score: d.score,
+        score: d.zeroedAsMissing ? 0 : d.score,
         max: d.maxScore,
-        statusLabel: graded ? t('grading.graded') : t('grading.awaitingGrade'),
+        statusLabel: graded
+          ? t('grading.graded')
+          : d.zeroedAsMissing
+            ? t('grading.pastDueZero')
+            : t('grading.awaitingGrade'),
         statusTone: graded ? 'success' : 'warning',
         feedback: d.feedback,
       };
@@ -273,7 +281,11 @@ function buildView(
             title: m.title,
             score: m.score,
             max: m.max,
-            statusLabel: m.score !== null ? t('grading.graded') : t('grading.notSubmitted'),
+            statusLabel: m.zeroedAsMissing
+              ? t('grading.pastDueZero')
+              : m.score !== null
+                ? t('grading.graded')
+                : t('grading.notSubmitted'),
             statusTone: 'muted',
             feedback: null,
             indent: true,
@@ -351,17 +363,11 @@ function GradeHero({ detail }: { detail: GradebookStudentDetail }): JSX.Element 
               ) : null}
             </div>
           </div>
-          <div className="mb-1 flex items-center gap-2">
-            {fg ? (
-              fg.isOutdated ? (
-                <Badge variant="warning">{t('grading.outdated')}</Badge>
-              ) : (
-                <Badge variant="success">{t('grading.current')}</Badge>
-              )
-            ) : (
+          {!fg ? (
+            <div className="mb-1 flex items-center gap-2">
               <Badge variant="secondary">{t('grading.myGradePending')}</Badge>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
       {fg?.teacherOverrideScore !== null && fg?.teacherOverrideScore !== undefined ? (

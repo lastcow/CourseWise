@@ -1841,6 +1841,9 @@ export function useFinalGrades(courseId: string | null) {
   return useQuery({
     queryKey: ['final-grades', courseId],
     enabled: !!courseId,
+    // Past-due zeros are time-based and the API recomputes on every read, so
+    // never serve a stale cached grade — always refetch on mount.
+    staleTime: 0,
     queryFn: () => apiCall<FinalGradeSummary[]>(`/api/courses/${courseId}/final-grades`),
   });
 }
@@ -1877,6 +1880,7 @@ export function useGradebookStudentDetail(courseId: string | null, studentId: st
   return useQuery({
     queryKey: ['gradebook-student-detail', courseId, studentId],
     enabled: !!courseId && !!studentId,
+    staleTime: 0,
     queryFn: () =>
       apiCall<GradebookStudentDetail>(
         `/api/courses/${courseId}/students/${studentId}/gradebook-detail`,
@@ -1888,6 +1892,7 @@ export function useMyFinalGrade(courseId: string | null) {
   return useQuery({
     queryKey: ['my-final-grade', courseId],
     enabled: !!courseId,
+    staleTime: 0,
     queryFn: () => apiCall<FinalGradeSummary | null>(`/api/me/courses/${courseId}/final-grade`),
   });
 }
@@ -1900,6 +1905,7 @@ export function useMyGradebookDetail(courseId: string | null) {
   return useQuery({
     queryKey: ['my-gradebook-detail', courseId],
     enabled: !!courseId,
+    staleTime: 0,
     queryFn: () => apiCall<GradebookStudentDetail>(`/api/me/courses/${courseId}/gradebook-detail`),
   });
 }
