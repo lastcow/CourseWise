@@ -245,19 +245,6 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
         </h2>
       </header>
 
-      {/* Read-only assignment requirements, opened in a dialog — sits above the
-          inbox so a teacher can re-read what was asked before grading. */}
-      {assignment.data ? (
-        <button
-          type="button"
-          onClick={() => setReqOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full border bg-card px-3.5 py-1.5 text-sm font-medium shadow-sm transition-colors hover:border-primary/50 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <ClipboardList className="h-4 w-4 text-muted-foreground" aria-hidden />
-          {t('submissions.viewRequirements')}
-        </button>
-      ) : null}
-
       <div className="grid items-start gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
         {/* Roster */}
         <Card className="overflow-hidden">
@@ -275,13 +262,20 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
               </Badge>
             ) : null}
           </div>
-          <div className="border-b bg-muted/30 px-2 pb-2">
+          <div className="flex items-center gap-2 border-b bg-muted/30 px-2 py-2">
             <Input
               type="search"
               value={rosterSearch}
               onChange={(e) => setRosterSearch(e.target.value)}
               placeholder={t('submissions.searchPlaceholder')}
-              className="h-8"
+              className="h-8 min-w-0 flex-1"
+            />
+            <ActionIconButton
+              icon={ClipboardList}
+              label={t('submissions.viewRequirements')}
+              color="sky"
+              onClick={() => setReqOpen(true)}
+              disabled={!assignment.data}
             />
           </div>
           <CardContent className="p-1">
