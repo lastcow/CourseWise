@@ -895,6 +895,7 @@ export function toFinalGradeSummary(
     studentEmail?: string;
     studentNumber?: string | null;
     overrideCount?: number;
+    groupNames?: string[];
   },
 ): FinalGradeSummary {
   const rawCategory = row.categoryScores;
@@ -919,6 +920,7 @@ export function toFinalGradeSummary(
     studentEmail: extra?.studentEmail,
     studentNumber: extra?.studentNumber ?? null,
     overrideCount: extra?.overrideCount,
+    groupNames: extra?.groupNames,
     score: row.score !== null ? Number(row.score) : null,
     letterGrade: row.letterGrade ?? null,
     groups,

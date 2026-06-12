@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, Search } from 'lucide-react';
+import { GraduationCap, Search, Users } from 'lucide-react';
 import type { FinalGradeSummary } from '@coursewise/shared';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -229,14 +229,12 @@ export function TeacherGradebookPage(): JSX.Element {
                 <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="px-3 py-2 font-medium">{t('grading.student')}</th>
                   <th className="px-3 py-2 font-medium">{t('grading.score')}</th>
-                  <th className="px-3 py-2 font-medium">{t('grading.letter')}</th>
-                  <th className="px-3 py-2 font-medium">{t('grading.overrides')}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={2} className="px-3 py-8 text-center text-sm text-muted-foreground">
                       {t('grading.filterNoMatch')}
                     </td>
                   </tr>
@@ -256,13 +254,22 @@ export function TeacherGradebookPage(): JSX.Element {
                           <span className="tabular-nums"> · #{g.studentNumber}</span>
                         ) : null}
                       </div>
+                      {g.groupNames && g.groupNames.length > 0 ? (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {g.groupNames.map((name) => (
+                            <span
+                              key={name}
+                              className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                            >
+                              <Users className="h-3 w-3" aria-hidden />
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 font-mono tabular-nums">
                       {g.score?.toFixed(1) ?? '—'}
-                    </td>
-                    <td className="px-3 py-2 font-mono">{g.letterGrade ?? '—'}</td>
-                    <td className="px-3 py-2 font-mono tabular-nums">
-                      {(g.overrideCount ?? 0) > 0 ? g.overrideCount : '—'}
                     </td>
                   </tr>
                 ))}
