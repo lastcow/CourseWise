@@ -1266,6 +1266,8 @@ export const fr = {
     submissions: {
       title: 'Soumissions',
       inbox: 'Boîte de réception',
+      searchPlaceholder: 'Rechercher par nom ou e-mail…',
+      noSearchMatch: 'Aucun résultat',
       viewRequirements: 'Voir les consignes du devoir',
       requirementsKicker: 'Consignes',
       empty: 'Aucune soumission pour le moment.',
@@ -1569,6 +1571,8 @@ export const fr = {
       },
       noAttempts: 'Aucune tentative pour le moment.',
       attemptsListTitle: 'Tentatives',
+      attemptsSearchPlaceholder: 'Rechercher par nom ou e-mail…',
+      attemptsNoMatch: 'Aucun résultat',
       attemptsFor: 'Tentatives — {{title}}',
       pickAttempt:
         'Sélectionnez la tentative d’un étudiant dans la liste pour commencer la notation.',

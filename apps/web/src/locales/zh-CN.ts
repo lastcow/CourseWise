@@ -1205,6 +1205,8 @@ export const zhCN = {
     submissions: {
       title: '提交',
       inbox: '收件箱',
+      searchPlaceholder: '按姓名或邮箱搜索…',
+      noSearchMatch: '没有匹配项',
       viewRequirements: '查看作业要求',
       requirementsKicker: '作业要求',
       empty: '暂无提交。',
@@ -1496,6 +1498,8 @@ export const zhCN = {
       },
       noAttempts: '尚无作答记录。',
       attemptsListTitle: '作答记录',
+      attemptsSearchPlaceholder: '按姓名或邮箱搜索…',
+      attemptsNoMatch: '没有匹配项',
       attemptsFor: '作答 — {{title}}',
       pickAttempt: '从列表中选择一名学生的作答开始评阅。',
       gradingTitle: '评阅',
