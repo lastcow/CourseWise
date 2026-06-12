@@ -698,6 +698,8 @@ export const en = {
     },
     materials: {
       title: 'Reading materials',
+      searchPlaceholder: 'Search materials…',
+      noSearchMatch: 'No materials match your search.',
       empty: 'No materials yet.',
       emptyInModule: 'No materials in this module yet.',
       openLink: 'Open link',

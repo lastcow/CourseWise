@@ -703,6 +703,8 @@ export const fr = {
     },
     materials: {
       title: 'Supports de lecture',
+      searchPlaceholder: 'Rechercher des supports…',
+      noSearchMatch: 'Aucun support ne correspond à votre recherche.',
       empty: 'Aucun support pour le moment.',
       emptyInModule: 'Aucun support dans ce module pour le moment.',
       openLink: 'Ouvrir le lien',
