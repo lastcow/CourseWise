@@ -6,13 +6,17 @@ import {
   CircleCheck,
   Download,
   ExternalLink,
+  FilePlus,
   FileText,
+  Link2,
   Pencil,
   RefreshCw,
   Trash2,
+  Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
+import { ActionMenu, ActionMenuItem } from '@/components/ui/action-menu';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -63,6 +67,7 @@ export function TeacherMaterialsPage(): JSX.Element {
   const [showCreate, setShowCreate] = useState<Exclude<MaterialSourceType, 'upload'> | null>(null);
   const [deleting, setDeleting] = useState<MaterialSummary | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const moduleTitleById = useMemo(
@@ -74,6 +79,15 @@ export function TeacherMaterialsPage(): JSX.Element {
     () => sortForTable(materialsQ.data ?? [], modulesQ.data ?? []),
     [materialsQ.data, modulesQ.data],
   );
+
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((m) => {
+      const moduleName = m.moduleId ? (moduleTitleById.get(m.moduleId) ?? '') : '';
+      return `${m.title} ${m.description ?? ''} ${moduleName}`.toLowerCase().includes(q);
+    });
+  }, [rows, search, moduleTitleById]);
 
   const onUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
@@ -134,43 +148,7 @@ export function TeacherMaterialsPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <CourseSectionHeader
-        title={t('materials.title')}
-        count={materialsQ.data?.length}
-        actions={
-          <>
-            {/* The hidden file input lives inside the upload button label so
-                picking a file triggers the existing onUpload handler. */}
-            <Button asChild variant="outline" size="sm">
-              <label>
-                {t('materials.uploadCta')}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept={UPLOAD_ACCEPT}
-                  onChange={onUpload}
-                />
-              </label>
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowCreate('external_link')}>
-              {t('materials.linkCta')}
-            </Button>
-            <Button size="sm" onClick={() => setShowCreate('manual_text')}>
-              {t('materials.textCta')}
-            </Button>
-            <ActionIconButton
-              icon={RefreshCw}
-              label={t('common.refresh')}
-              color="sky"
-              size="sm"
-              onClick={() => void materialsQ.refetch()}
-              disabled={materialsQ.isFetching}
-              className={cn(materialsQ.isFetching && '[&_svg]:animate-spin')}
-            />
-          </>
-        }
-      />
+      <CourseSectionHeader title={t('materials.title')} count={materialsQ.data?.length} />
 
       {uploadProgress !== null ? (
         <div className="rounded-md border bg-muted/30 p-3 text-sm">
@@ -186,113 +164,160 @@ export function TeacherMaterialsPage(): JSX.Element {
 
       {materialsQ.isLoading ? (
         <ListSkeleton />
-      ) : rows.length === 0 ? (
-        <EmptyState icon={<FileText className="h-6 w-6" />} title={t('materials.empty')} />
       ) : (
         <div className="overflow-hidden rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('materials.colTitle')}</TableHead>
-                <TableHead>{t('materials.colDescription')}</TableHead>
-                <TableHead>{t('materials.colModule')}</TableHead>
-                <TableHead>{t('materials.colSource')}</TableHead>
-                <TableHead>{t('materials.colStatus')}</TableHead>
-                <TableHead>{t('materials.colUpdated')}</TableHead>
-                <TableHead className="text-right">{t('materials.colActions')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell className="font-medium">
-                    <Link
-                      to={`/teacher/courses/${id}/materials/${m.id}`}
-                      className="hover:underline"
-                    >
-                      {m.title}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="max-w-[28ch] text-muted-foreground">
-                    <span className="line-clamp-1">{m.description ?? '—'}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className={m.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
-                      {m.moduleId
-                        ? (moduleTitleById.get(m.moduleId) ?? '—')
-                        : t('materials.unassigned')}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="info">{t(kindKey(m.sourceType))}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant(m.status)}>{t(statusKey(m.status))}</Badge>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {new Date(m.updatedAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1.5">
-                      {m.sourceType === 'upload' && m.fileAssetId ? (
-                        // Stream the original file via the presigned URL —
-                        // generating a markdown stand-in would lose
-                        // formatting / images / non-text payloads.
-                        <ActionIconButton
-                          icon={Download}
-                          label={t('materials.download')}
-                          color="sky"
-                          onClick={() => void onDownloadFile(m.fileAssetId!)}
-                        />
-                      ) : (
-                        // Manual text / external link: build a markdown
-                        // blob client-side from the row's content so every
-                        // material has a download option.
-                        <ActionIconButton
-                          icon={Download}
-                          label={t('materials.download')}
-                          color="sky"
-                          onClick={() => downloadMaterialAsMarkdown(m)}
-                        />
-                      )}
-                      {m.sourceType === 'external_link' && m.externalUrl ? (
-                        <ActionIconButton
-                          asChild
-                          icon={ExternalLink}
-                          label={t('materials.open')}
-                          color="sky"
-                        >
-                          <a href={m.externalUrl} target="_blank" rel="noreferrer" />
-                        </ActionIconButton>
-                      ) : null}
-                      <ActionIconButton
-                        icon={m.status === 'published' ? Archive : CircleCheck}
-                        label={
-                          m.status === 'published'
-                            ? t('materials.unpublish')
-                            : t('materials.publish')
-                        }
-                        color={m.status === 'published' ? 'orange' : 'emerald'}
-                        onClick={() => void onPublishToggle(m)}
-                      />
-                      <ActionIconButton
-                        icon={Pencil}
-                        label={t('common.edit')}
-                        color="yellow"
-                        onClick={() => navigate(`/teacher/courses/${id}/materials/${m.id}/edit`)}
-                      />
-                      <ActionIconButton
-                        icon={Trash2}
-                        label={t('common.delete')}
-                        color="red"
-                        onClick={() => setDeleting(m)}
-                      />
-                    </div>
-                  </TableCell>
+          {/* Toolbar attached to the table: search on the left; upload / add
+              link / add text + refresh (icon-only) at the right, with a
+              vertical separator before refresh. */}
+          <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept={UPLOAD_ACCEPT}
+              onChange={onUpload}
+            />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('materials.searchPlaceholder')}
+              className="h-8 w-56"
+            />
+            <div className="ml-auto flex items-center gap-2">
+              <ActionIconButton
+                icon={Upload}
+                label={t('materials.uploadCta')}
+                color="emerald"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadProgress !== null}
+              />
+              <ActionIconButton
+                icon={Link2}
+                label={t('materials.linkCta')}
+                color="sky"
+                size="sm"
+                onClick={() => setShowCreate('external_link')}
+              />
+              <ActionIconButton
+                icon={FilePlus}
+                label={t('materials.textCta')}
+                color="sky"
+                size="sm"
+                onClick={() => setShowCreate('manual_text')}
+              />
+              <div className="mx-1 h-5 w-px bg-border" aria-hidden />
+              <ActionIconButton
+                icon={RefreshCw}
+                label={t('common.refresh')}
+                color="sky"
+                size="sm"
+                onClick={() => void materialsQ.refetch()}
+                disabled={materialsQ.isFetching}
+                className={cn(materialsQ.isFetching && '[&_svg]:animate-spin')}
+              />
+            </div>
+          </div>
+
+          {rows.length === 0 ? (
+            <EmptyState icon={<FileText className="h-6 w-6" />} title={t('materials.empty')} />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('materials.colTitle')}</TableHead>
+                  <TableHead>{t('materials.colSource')}</TableHead>
+                  <TableHead>{t('materials.colStatus')}</TableHead>
+                  <TableHead>{t('materials.colUpdated')}</TableHead>
+                  <TableHead className="text-right">{t('materials.colActions')}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="py-8 text-center text-sm text-muted-foreground"
+                    >
+                      {t('materials.noSearchMatch')}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredRows.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell className="font-medium">
+                        <Link
+                          to={`/teacher/courses/${id}/materials/${m.id}`}
+                          className="hover:underline"
+                        >
+                          {m.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="info">{t(kindKey(m.sourceType))}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant(m.status)}>{t(statusKey(m.status))}</Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {new Date(m.updatedAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end">
+                          <ActionMenu label={t('materials.colActions')} size="sm">
+                            <ActionMenuItem
+                              icon={Download}
+                              onSelect={() => {
+                                if (m.sourceType === 'upload' && m.fileAssetId)
+                                  void onDownloadFile(m.fileAssetId);
+                                else downloadMaterialAsMarkdown(m);
+                              }}
+                            >
+                              {t('materials.download')}
+                            </ActionMenuItem>
+                            {m.sourceType === 'external_link' && m.externalUrl ? (
+                              <ActionMenuItem
+                                icon={ExternalLink}
+                                onSelect={() =>
+                                  window.open(m.externalUrl!, '_blank', 'noopener,noreferrer')
+                                }
+                              >
+                                {t('materials.open')}
+                              </ActionMenuItem>
+                            ) : null}
+                            <ActionMenuItem
+                              icon={m.status === 'published' ? Archive : CircleCheck}
+                              onSelect={() => void onPublishToggle(m)}
+                            >
+                              {m.status === 'published'
+                                ? t('materials.unpublish')
+                                : t('materials.publish')}
+                            </ActionMenuItem>
+                            <ActionMenuItem
+                              icon={Pencil}
+                              onSelect={() =>
+                                navigate(`/teacher/courses/${id}/materials/${m.id}/edit`)
+                              }
+                            >
+                              {t('common.edit')}
+                            </ActionMenuItem>
+                            <ActionMenuItem
+                              icon={Trash2}
+                              tone="destructive"
+                              onSelect={() => setDeleting(m)}
+                            >
+                              {t('common.delete')}
+                            </ActionMenuItem>
+                          </ActionMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </div>
       )}
 

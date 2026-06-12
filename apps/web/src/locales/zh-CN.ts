@@ -676,6 +676,8 @@ export const zhCN = {
     },
     materials: {
       title: '阅读资料',
+      searchPlaceholder: '搜索资料…',
+      noSearchMatch: '没有匹配的资料。',
       empty: '暂无资料。',
       emptyInModule: '该章节暂无资料。',
       openLink: '打开链接',
