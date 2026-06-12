@@ -1261,6 +1261,8 @@ export const fr = {
     submissions: {
       title: 'Soumissions',
       inbox: 'Boîte de réception',
+      viewRequirements: 'Voir les consignes du devoir',
+      requirementsKicker: 'Consignes',
       empty: 'Aucune soumission pour le moment.',
       selectPrompt:
         'Sélectionnez la soumission d’un étudiant dans la liste pour commencer la notation.',

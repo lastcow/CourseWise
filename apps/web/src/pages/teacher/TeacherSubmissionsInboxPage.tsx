@@ -5,6 +5,7 @@ import {
   CalendarClock,
   CheckCircle2,
   ClipboardCheck,
+  ClipboardList,
   Clock,
   Download,
   Mail,
@@ -14,6 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
+import { AssignmentRequirementDialog } from '@/components/assignments/AssignmentRequirementDialog';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -81,6 +83,7 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const [feedback, setFeedback] = useState('');
   const [waiveLate, setWaiveLate] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [reqOpen, setReqOpen] = useState(false);
 
   const selectedIndividual = !isGroupMode
     ? ((submissions.data ?? []).find((s) => s.id === selectedId) ?? null)
@@ -225,6 +228,19 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
           {t('submissions.title')}
         </h2>
       </header>
+
+      {/* Read-only assignment requirements, opened in a dialog — sits above the
+          inbox so a teacher can re-read what was asked before grading. */}
+      {assignment.data ? (
+        <button
+          type="button"
+          onClick={() => setReqOpen(true)}
+          className="inline-flex items-center gap-2 rounded-full border bg-card px-3.5 py-1.5 text-sm font-medium shadow-sm transition-colors hover:border-primary/50 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <ClipboardList className="h-4 w-4 text-muted-foreground" aria-hidden />
+          {t('submissions.viewRequirements')}
+        </button>
+      ) : null}
 
       <div className="grid items-start gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
         {/* Roster */}
@@ -578,6 +594,14 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
           }
           initialSubject={t('messages.aboutAssignment', { title: assignment.data?.title ?? '' })}
           contextLine={t('messages.contextAssignment', { title: assignment.data?.title ?? '' })}
+        />
+      ) : null}
+
+      {assignment.data ? (
+        <AssignmentRequirementDialog
+          assignment={assignment.data}
+          open={reqOpen}
+          onClose={() => setReqOpen(false)}
         />
       ) : null}
     </div>
