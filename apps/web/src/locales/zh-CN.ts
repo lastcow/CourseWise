@@ -1810,6 +1810,7 @@ export const zhCN = {
       expandGrades: '展开成绩',
       collapseGrades: '收起成绩',
       ungradedHint: '{{count}} 项已提交待评分',
+      openSubmission: '查看提交',
       detailMax: '满分',
       detailFeedback: '反馈',
       detailSaveScore: '保存',

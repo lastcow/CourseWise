@@ -1903,6 +1903,7 @@ export const fr = {
       expandGrades: 'Afficher les notes',
       collapseGrades: 'Masquer les notes',
       ungradedHint: '{{count}} remis, en attente de notation',
+      openSubmission: 'Ouvrir la remise',
       detailMax: 'Max',
       detailFeedback: 'Commentaire',
       detailSaveScore: 'Enregistrer',
