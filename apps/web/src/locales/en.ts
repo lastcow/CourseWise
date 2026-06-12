@@ -1246,6 +1246,8 @@ export const en = {
     submissions: {
       title: 'Submissions',
       inbox: 'Inbox',
+      viewRequirements: 'View assignment requirements',
+      requirementsKicker: 'Requirements',
       empty: 'No submissions yet.',
       selectPrompt: 'Select a student submission from the list to start grading.',
       // Grading page (teacher)

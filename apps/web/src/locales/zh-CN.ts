@@ -1200,6 +1200,8 @@ export const zhCN = {
     submissions: {
       title: '提交',
       inbox: '收件箱',
+      viewRequirements: '查看作业要求',
+      requirementsKicker: '作业要求',
       empty: '暂无提交。',
       selectPrompt: '请在左侧选择一名学生的提交开始评分。',
       // 评分页面（教师）
