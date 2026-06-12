@@ -665,6 +665,7 @@ export const fr = {
     },
     messages: {
       newCta: 'Nouveau message',
+      messageTeacherCta: "Message à l'enseignant",
       composeNewTitle: 'Nouveau message',
       recipientLabel: 'À',
       recipientPlaceholder: 'Choisir un destinataire…',

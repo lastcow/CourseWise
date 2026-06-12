@@ -660,6 +660,7 @@ export const en = {
     },
     messages: {
       newCta: 'New message',
+      messageTeacherCta: 'Message teacher',
       composeNewTitle: 'New message',
       recipientLabel: 'To',
       recipientPlaceholder: 'Choose a recipient…',

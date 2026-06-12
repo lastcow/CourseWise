@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FileText, Loader2, SquarePen, Trash2 } from 'lucide-react';
+import { FileText, GraduationCap, Loader2, SquarePen, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
@@ -111,27 +111,32 @@ export function MessagesPage(): JSX.Element {
   const [reply, setReply] = useState('');
   const [replyPriority, setReplyPriority] = useState<MessagePriority>('normal');
   const [composeOpen, setComposeOpen] = useState(false);
+  const [teacherComposeOpen, setTeacherComposeOpen] = useState(false);
 
   // Everyone messageable in this course: teachers + enrolled students,
-  // excluding myself. Same population the API's recipient check allows.
-  const courseQ = useCourse(composeOpen ? cId : null);
+  // excluding myself. Same population the API's recipient check allows. The
+  // course (teachers) loads eagerly so the "Message teacher" button knows its
+  // recipient up front; the heavier student roster loads only when composing.
+  const courseQ = useCourse(cId || null);
   const studentsQ = useCourseStudents(composeOpen ? cId : undefined);
+  const teacherRecipients = useMemo<RecipientOption[]>(
+    () =>
+      (courseQ.data?.teachers ?? [])
+        .filter((u) => u.id !== myUserId)
+        .map((u) => ({ id: u.id, name: u.name, email: u.email })),
+    [courseQ.data, myUserId],
+  );
   const recipientOptions = useMemo<RecipientOption[]>(() => {
-    const teachers = (courseQ.data?.teachers ?? []).map((u) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-    }));
     const students = (studentsQ.data ?? [])
       .filter((row) => row.status === 'enrolled')
       .map((row) => ({ id: row.studentId, name: row.studentName, email: row.studentEmail }));
     const seen = new Set<string>();
-    return [...teachers, ...students].filter((u) => {
+    return [...teacherRecipients, ...students].filter((u) => {
       if (u.id === myUserId || seen.has(u.id)) return false;
       seen.add(u.id);
       return true;
     });
-  }, [courseQ.data, studentsQ.data, myUserId]);
+  }, [teacherRecipients, studentsQ.data, myUserId]);
   // Attachment picked for the next send (uploaded by AttachmentPicker).
   const [attachment, setAttachment] = useState<PickedAttachment | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -197,7 +202,24 @@ export function MessagesPage(): JSX.Element {
         <p className="mt-1 text-sm text-muted-foreground">{t('messages.help')}</p>
       </header>
 
-      <div className="grid h-[calc(100vh-220px)] grid-cols-1 gap-3 md:grid-cols-[320px_1fr]">
+      {/* Compose actions in their own bar above the message list. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+        <Button size="sm" onClick={() => setComposeOpen(true)}>
+          <SquarePen className="h-3.5 w-3.5" aria-hidden />
+          {t('messages.newCta')}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setTeacherComposeOpen(true)}
+          disabled={teacherRecipients.length === 0}
+        >
+          <GraduationCap className="h-3.5 w-3.5" aria-hidden />
+          {t('messages.messageTeacherCta')}
+        </Button>
+      </div>
+
+      <div className="grid h-[calc(100vh-280px)] grid-cols-1 gap-3 md:grid-cols-[320px_1fr]">
         {/* Threads pane */}
         <aside className="flex h-full flex-col overflow-hidden rounded-md border">
           <div className="flex items-center gap-2 border-b bg-muted/30 p-2">
@@ -208,15 +230,6 @@ export function MessagesPage(): JSX.Element {
               placeholder={t('messages.searchPlaceholder')}
               className="h-8"
             />
-            <Button
-              size="sm"
-              className="h-8 shrink-0"
-              onClick={() => setComposeOpen(true)}
-              title={t('messages.newCta')}
-            >
-              <SquarePen className="h-3.5 w-3.5 sm:mr-1.5" aria-hidden />
-              <span className="hidden sm:inline">{t('messages.newCta')}</span>
-            </Button>
           </div>
           <div className="flex-1 overflow-y-auto">
             {threadsQ.isLoading ? (
@@ -387,6 +400,18 @@ export function MessagesPage(): JSX.Element {
         onClose={() => setComposeOpen(false)}
         courseId={cId}
         recipientOptions={recipientOptions}
+        onSent={(threadId) => setActiveThreadId(threadId)}
+      />
+
+      {/* Same composer as "New message", but locked to the course teacher (or a
+          teacher-only picker when the course has more than one). */}
+      <MessageComposeDialog
+        open={teacherComposeOpen}
+        onClose={() => setTeacherComposeOpen(false)}
+        courseId={cId}
+        {...(teacherRecipients.length === 1
+          ? { recipientId: teacherRecipients[0]!.id, recipientName: teacherRecipients[0]!.name }
+          : { recipientOptions: teacherRecipients })}
         onSent={(threadId) => setActiveThreadId(threadId)}
       />
     </div>
