@@ -1902,6 +1902,7 @@ export const fr = {
       detailNoItems: 'Rien à noter dans cette catégorie.',
       expandGrades: 'Afficher les notes',
       collapseGrades: 'Masquer les notes',
+      ungradedHint: '{{count}} remis, en attente de notation',
       detailMax: 'Max',
       detailFeedback: 'Commentaire',
       detailSaveScore: 'Enregistrer',

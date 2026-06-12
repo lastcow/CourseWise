@@ -827,6 +827,9 @@ export interface FinalGradeSummary {
   /** Team/group name(s) the student belongs to, across the course's group
    *  sets (≤1 per set). Roster display only. */
   groupNames?: string[];
+  /** Count of the student's assignment submissions handed in but not yet
+   *  graded (status submitted/late). Roster display only. */
+  ungradedCount?: number;
   score: number | null;
   letterGrade: string | null;
   groups: GroupScoreBreakdown[];

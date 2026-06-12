@@ -1876,6 +1876,7 @@ export const en = {
       detailNoItems: 'Nothing to grade in this category.',
       expandGrades: 'Show grades',
       collapseGrades: 'Hide grades',
+      ungradedHint: '{{count}} submitted, awaiting grade',
       detailMax: 'Max',
       detailFeedback: 'Feedback',
       detailSaveScore: 'Save',

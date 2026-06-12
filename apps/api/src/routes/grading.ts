@@ -157,6 +157,19 @@ r.get(
       list.push(row.name);
       groupsBySid.set(row.sid, list);
     }
+    // Per-student count of work handed in but still awaiting a grade: assignment
+    // submissions in 'submitted'/'late' status (matches the inbox's "to grade").
+    const ungradedRows = await db.execute(sql`
+      SELECT s.student_id AS sid, count(*)::int AS n
+      FROM assignment_submissions s
+      JOIN assignments a ON a.id = s.assignment_id
+      WHERE a.course_id = ${courseId}
+        AND s.status IN ('submitted', 'late')
+      GROUP BY s.student_id
+    `);
+    const ungradedBySid = new Map(
+      (ungradedRows.rows as Array<{ sid: string; n: number }>).map((r) => [r.sid, Number(r.n)]),
+    );
     const out: FinalGradeSummary[] = rows.map(({ g, name, email, studentNumber }) =>
       toFinalGradeSummary(g, {
         studentName: name,
@@ -164,6 +177,7 @@ r.get(
         studentNumber,
         overrideCount: overrideBySid.get(g.studentId) ?? 0,
         groupNames: groupsBySid.get(g.studentId) ?? [],
+        ungradedCount: ungradedBySid.get(g.studentId) ?? 0,
       }),
     );
     return success(c, out);
