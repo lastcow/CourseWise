@@ -1900,6 +1900,8 @@ export const fr = {
       detailNoGrade: 'Non notée',
       detailNoRecord: 'Non enregistrée',
       detailNoItems: 'Rien à noter dans cette catégorie.',
+      expandGrades: 'Afficher les notes',
+      collapseGrades: 'Masquer les notes',
       detailMax: 'Max',
       detailFeedback: 'Commentaire',
       detailSaveScore: 'Enregistrer',
