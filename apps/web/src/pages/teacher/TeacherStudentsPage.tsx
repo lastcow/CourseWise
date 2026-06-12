@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Check,
   ChevronRight,
   Clock,
   Copy,
+  GraduationCap,
   KeyRound,
   Lock,
   Mail,
@@ -102,6 +103,7 @@ function ResetStudentCard({
  */
 export function TeacherStudentsPage(): JSX.Element {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { courseId } = useParams();
   const cId = courseId ?? '';
   const toast = useToast();
@@ -559,6 +561,9 @@ export function TeacherStudentsPage(): JSX.Element {
               setMessageTarget({ id: row.studentId, name: row.studentName })
             }
             onEdit={(row) => setEditTargetId(row.studentId)}
+            onViewGrades={(row) =>
+              navigate(`/teacher/courses/${cId}/gradebook/${row.studentId}`)
+            }
             onSendReset={onSendReset}
             t={t}
           />
@@ -878,6 +883,7 @@ function FlatRosterTable({
   loading,
   onMessage,
   onEdit,
+  onViewGrades,
   onSendReset,
   t,
 }: {
@@ -885,6 +891,7 @@ function FlatRosterTable({
   loading: boolean;
   onMessage: (row: EnrollmentRow) => void;
   onEdit: (row: EnrollmentRow) => void;
+  onViewGrades: (row: EnrollmentRow) => void;
   onSendReset: (row: EnrollmentRow) => void;
   t: (k: string, v?: Record<string, unknown>) => string;
 }) {
@@ -936,6 +943,13 @@ function FlatRosterTable({
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1.5">
+                    <ActionIconButton
+                      icon={GraduationCap}
+                      label={t('grading.viewGradesCta')}
+                      color="emerald"
+                      size="sm"
+                      onClick={() => onViewGrades(r)}
+                    />
                     <ActionIconButton
                       icon={Pencil}
                       label={t('studentProfile.editCta')}

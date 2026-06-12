@@ -1864,6 +1864,7 @@ export const fr = {
       weighted: 'Pondérée',
       detailTitle: "Carnet de notes de l'étudiant",
       detailBack: 'Retour au carnet de notes',
+      viewGradesCta: 'Voir les notes',
       detailRecalc: 'Recalculer la note finale',
       zeroMissingCta: 'Mettre les manquants à 0',
       zeroMissingTitle: 'Mettre le travail manquant à 0 ?',
