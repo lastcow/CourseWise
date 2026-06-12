@@ -1874,6 +1874,8 @@ export const en = {
       detailNoGrade: 'Not graded',
       detailNoRecord: 'Not recorded',
       detailNoItems: 'Nothing to grade in this category.',
+      expandGrades: 'Show grades',
+      collapseGrades: 'Hide grades',
       detailMax: 'Max',
       detailFeedback: 'Feedback',
       detailSaveScore: 'Save',

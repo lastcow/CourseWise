@@ -1807,6 +1807,8 @@ export const zhCN = {
       detailNoGrade: '未评分',
       detailNoRecord: '未记录',
       detailNoItems: '该分类暂无可评分内容。',
+      expandGrades: '展开成绩',
+      collapseGrades: '收起成绩',
       detailMax: '满分',
       detailFeedback: '反馈',
       detailSaveScore: '保存',

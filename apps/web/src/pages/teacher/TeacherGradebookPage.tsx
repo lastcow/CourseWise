@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, Search, Users } from 'lucide-react';
+import { ChevronRight, GraduationCap, Search, Users } from 'lucide-react';
 import type { FinalGradeSummary } from '@coursewise/shared';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm';
 import { PreparingGradesDialog } from '@/components/gradebook/PreparingGradesDialog';
+import { StudentGradesSubsection } from '@/components/gradebook/StudentGradesSubsection';
 import { downloadGradesCsv, useFinalGrades, useZeroMissingScores } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
 
@@ -50,6 +51,17 @@ export function TeacherGradebookPage(): JSX.Element {
   // Toolbar: free-text search (name / student number / email) + letter chips.
   const [search, setSearch] = useState('');
   const [letterFilter, setLetterFilter] = useState<Set<string>>(new Set());
+  // Per-student expand-to-edit subsection (keyed by studentId).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(studentId: string): void {
+    setExpanded((cur) => {
+      const next = new Set(cur);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
+  }
 
   async function onZeroMissing(): Promise<void> {
     const ok = await confirm({
@@ -227,6 +239,7 @@ export function TeacherGradebookPage(): JSX.Element {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="w-8 px-1 py-2" aria-hidden />
                   <th className="px-3 py-2 font-medium">{t('grading.student')}</th>
                   <th className="px-3 py-2 font-medium">{t('grading.score')}</th>
                 </tr>
@@ -234,13 +247,30 @@ export function TeacherGradebookPage(): JSX.Element {
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={2} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={3} className="px-3 py-8 text-center text-sm text-muted-foreground">
                       {t('grading.filterNoMatch')}
                     </td>
                   </tr>
                 ) : null}
-                {filteredRows.map((g) => (
-                  <tr key={g.id} className="border-b last:border-0 hover:bg-muted/30">
+                {filteredRows.map((g) => {
+                  const isOpen = expanded.has(g.studentId);
+                  return (
+                    <Fragment key={g.id}>
+                  <tr className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="w-8 px-1 align-top">
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(g.studentId)}
+                        aria-expanded={isOpen}
+                        aria-label={isOpen ? t('grading.collapseGrades') : t('grading.expandGrades')}
+                        className="mt-1.5 flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <ChevronRight
+                          className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-90')}
+                          aria-hidden
+                        />
+                      </button>
+                    </td>
                     <td className="px-3 py-2">
                       <Link
                         to={`/teacher/courses/${cid}/gradebook/${g.studentId}`}
@@ -268,11 +298,21 @@ export function TeacherGradebookPage(): JSX.Element {
                         </div>
                       ) : null}
                     </td>
-                    <td className="px-3 py-2 font-mono tabular-nums">
+                    <td className="px-3 py-2 font-mono tabular-nums align-top">
                       {g.score?.toFixed(1) ?? '—'}
                     </td>
                   </tr>
-                ))}
+                  {isOpen ? (
+                    <tr className="border-b bg-muted/20 last:border-0">
+                      <td aria-hidden />
+                      <td colSpan={2} className="py-3 pr-4">
+                        <StudentGradesSubsection courseId={cid} studentId={g.studentId} />
+                      </td>
+                    </tr>
+                  ) : null}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
