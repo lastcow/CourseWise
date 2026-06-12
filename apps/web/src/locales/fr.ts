@@ -1467,6 +1467,8 @@ export const fr = {
       empty: 'Aucun quiz pour le moment.',
       studentEmpty: 'Aucun quiz disponible pour le moment.',
       newCta: '+ Nouveau quiz',
+      searchPlaceholder: 'Rechercher un titre ou un module',
+      noMatches: 'Aucun quiz ne correspond à votre recherche.',
       newTitle: 'Nouveau quiz',
       titleLabel: 'Titre',
       descriptionLabel: 'Description',

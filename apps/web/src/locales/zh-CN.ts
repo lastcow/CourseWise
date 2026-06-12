@@ -1397,6 +1397,8 @@ export const zhCN = {
       empty: '暂无测验。',
       studentEmpty: '暂无可参加的测验。',
       newCta: '+ 新测验',
+      searchPlaceholder: '搜索标题或所属章节',
+      noMatches: '没有匹配的测验。',
       newTitle: '新测验',
       titleLabel: '标题',
       descriptionLabel: '说明',
