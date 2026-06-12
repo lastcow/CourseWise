@@ -669,6 +669,8 @@ export const fr = {
       composeNewTitle: 'Nouveau message',
       recipientLabel: 'À',
       recipientPlaceholder: 'Choisir un destinataire…',
+      recipientSearchPlaceholder: 'Rechercher par nom ou e-mail…',
+      recipientNoMatch: 'Aucune personne correspondante',
       attachCta: 'Joindre un fichier',
       attachRemove: 'Retirer la pièce jointe',
       title: 'Messages',

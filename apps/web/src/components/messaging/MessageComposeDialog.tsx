@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -124,20 +124,12 @@ export function MessageComposeDialog({
         {recipientOptions && !recipientId ? (
           <div className="space-y-1">
             <Label htmlFor="mc-recipient">{t('messages.recipientLabel')}</Label>
-            <select
-              id="mc-recipient"
+            <RecipientCombobox
+              options={recipientOptions}
               value={pickedRecipient}
-              onChange={(e) => setPickedRecipient(e.target.value)}
+              onChange={setPickedRecipient}
               disabled={send.isPending}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">{t('messages.recipientPlaceholder')}</option>
-              {recipientOptions.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name ? `${r.name} — ${r.email}` : r.email}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         ) : null}
 
@@ -204,5 +196,114 @@ export function MessageComposeDialog({
         </div>
       </div>
     </Dialog>
+  );
+}
+
+/**
+ * Searchable recipient picker: a text input that filters the options by name OR
+ * email as you type, with a click/Enter-to-pick dropdown. Replaces a plain
+ * <select> so large rosters stay navigable. Self-contained (no external combobox
+ * dep); the parent owns the selected id via `value`/`onChange`.
+ */
+function RecipientCombobox({
+  options,
+  value,
+  onChange,
+  disabled,
+}: {
+  options: RecipientOption[];
+  value: string;
+  onChange: (id: string) => void;
+  disabled?: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const labelFor = (r: RecipientOption): string => r.name || r.email;
+
+  // Outside-click dismiss while open (Esc is handled on the input itself).
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent): void => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? options.filter((r) => `${r.name} ${r.email}`.toLowerCase().includes(q))
+    : options;
+
+  const pick = (r: RecipientOption): void => {
+    onChange(r.id);
+    setQuery(labelFor(r));
+    setOpen(false);
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <Input
+        id="mc-recipient"
+        type="text"
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+        autoComplete="off"
+        value={query}
+        disabled={disabled}
+        placeholder={t('messages.recipientSearchPlaceholder')}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+          // Typing a new search invalidates any prior pick until one is chosen.
+          if (value) onChange('');
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setOpen(false);
+          } else if (e.key === 'Enter' && open && filtered.length > 0) {
+            e.preventDefault();
+            pick(filtered[0]!);
+          }
+        }}
+      />
+      {open ? (
+        <ul
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-card text-card-foreground shadow-lg"
+        >
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-muted-foreground">
+              {t('messages.recipientNoMatch')}
+            </li>
+          ) : (
+            filtered.map((r) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={r.id === value}
+                  // Keep the input focused so this click registers before blur.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pick(r)}
+                  className={cn(
+                    'flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none',
+                    r.id === value && 'bg-accent',
+                  )}
+                >
+                  <span className="text-sm font-medium">{r.name || r.email}</span>
+                  {r.name ? <span className="text-xs text-muted-foreground">{r.email}</span> : null}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      ) : null}
+    </div>
   );
 }

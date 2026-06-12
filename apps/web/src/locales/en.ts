@@ -664,6 +664,8 @@ export const en = {
       composeNewTitle: 'New message',
       recipientLabel: 'To',
       recipientPlaceholder: 'Choose a recipient…',
+      recipientSearchPlaceholder: 'Search by name or email…',
+      recipientNoMatch: 'No matching people',
       attachCta: 'Attach file',
       attachRemove: 'Remove attachment',
       title: 'Messages',
