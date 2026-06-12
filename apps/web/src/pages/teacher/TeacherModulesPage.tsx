@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
+import { ActionMenu, ActionMenuItem } from '@/components/ui/action-menu';
 import {
   Accordion,
   AccordionContent,
@@ -236,6 +237,32 @@ export function TeacherModulesPage(): JSX.Element {
     }
   };
 
+  // Run a module mutation and surface a success/error toast — the shared
+  // try/catch the per-module action-menu items delegate to.
+  const runModuleAction = async (
+    fn: () => Promise<unknown>,
+    successKey: string,
+  ): Promise<void> => {
+    try {
+      await fn();
+      toast.push({ title: t(successKey), tone: 'success' });
+    } catch (err) {
+      const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(i18n), tone: 'error' });
+    }
+  };
+
+  const onDeleteModule = async (mod: { id: string; title: string }): Promise<void> => {
+    const ok = await confirm({
+      title: t('modules.deleteTitle'),
+      description: t('modules.deleteBody'),
+      detail: { name: mod.title },
+      confirmLabel: t('common.delete'),
+    });
+    if (!ok) return;
+    await runModuleAction(() => del.mutateAsync(mod.id), 'modules.deleted');
+  };
+
   return (
     <div className="space-y-4">
       {course.data ? (
@@ -346,102 +373,68 @@ export function TeacherModulesPage(): JSX.Element {
                     </span>
                   }
                   trailing={
-                    <>
+                    <ActionMenu label={t('common.actions')}>
                       {m.status === 'draft' ? (
-                        <ActionIconButton
+                        <ActionMenuItem
                           icon={CircleCheck}
-                          label={t('modules.publish')}
-                          color="emerald"
-                          onClick={async () => {
-                            try {
-                              await transitionModule.mutateAsync({ id: m.id, action: 'publish' });
-                              toast.push({ title: t('modules.published'), tone: 'success' });
-                            } catch (err) {
-                              const i18n =
-                                err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-                              toast.push({ title: t(i18n), tone: 'error' });
-                            }
-                          }}
-                        />
+                          onSelect={() =>
+                            void runModuleAction(
+                              () => transitionModule.mutateAsync({ id: m.id, action: 'publish' }),
+                              'modules.published',
+                            )
+                          }
+                        >
+                          {t('modules.publish')}
+                        </ActionMenuItem>
                       ) : (
-                        <ActionIconButton
+                        <ActionMenuItem
                           icon={CircleOff}
-                          label={t('modules.unpublish')}
-                          color="orange"
-                          onClick={async () => {
-                            try {
-                              await transitionModule.mutateAsync({ id: m.id, action: 'unpublish' });
-                              toast.push({ title: t('modules.unpublished'), tone: 'success' });
-                            } catch (err) {
-                              const i18n =
-                                err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-                              toast.push({ title: t(i18n), tone: 'error' });
-                            }
-                          }}
-                        />
+                          onSelect={() =>
+                            void runModuleAction(
+                              () => transitionModule.mutateAsync({ id: m.id, action: 'unpublish' }),
+                              'modules.unpublished',
+                            )
+                          }
+                        >
+                          {t('modules.unpublish')}
+                        </ActionMenuItem>
                       )}
                       {m.closedAt ? (
-                        <ActionIconButton
+                        <ActionMenuItem
                           icon={LockOpen}
-                          label={t('modules.reopen')}
-                          color="teal"
-                          onClick={async () => {
-                            try {
-                              await update.mutateAsync({ id: m.id, input: { closed: false } });
-                              toast.push({ title: t('modules.reopened'), tone: 'success' });
-                            } catch (err) {
-                              const i18n =
-                                err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-                              toast.push({ title: t(i18n), tone: 'error' });
-                            }
-                          }}
-                        />
-                      ) : (
-                        <ActionIconButton
-                          icon={Lock}
-                          label={t('modules.close')}
-                          color="amber"
-                          onClick={async () => {
-                            try {
-                              await update.mutateAsync({ id: m.id, input: { closed: true } });
-                              toast.push({ title: t('modules.closedToast'), tone: 'success' });
-                            } catch (err) {
-                              const i18n =
-                                err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-                              toast.push({ title: t(i18n), tone: 'error' });
-                            }
-                          }}
-                        />
-                      )}
-                      <ActionIconButton
-                        icon={Pencil}
-                        label={t('common.edit')}
-                        color="yellow"
-                        onClick={() => setEditingId(m.id)}
-                      />
-                      <ActionIconButton
-                        icon={Trash2}
-                        label={t('common.delete')}
-                        color="red"
-                        onClick={async () => {
-                          const ok = await confirm({
-                            title: t('modules.deleteTitle'),
-                            description: t('modules.deleteBody'),
-                            detail: { name: m.title },
-                            confirmLabel: t('common.delete'),
-                          });
-                          if (!ok) return;
-                          try {
-                            await del.mutateAsync(m.id);
-                            toast.push({ title: t('modules.deleted'), tone: 'success' });
-                          } catch (err) {
-                            const i18n =
-                              err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
-                            toast.push({ title: t(i18n), tone: 'error' });
+                          onSelect={() =>
+                            void runModuleAction(
+                              () => update.mutateAsync({ id: m.id, input: { closed: false } }),
+                              'modules.reopened',
+                            )
                           }
-                        }}
-                      />
-                    </>
+                        >
+                          {t('modules.reopen')}
+                        </ActionMenuItem>
+                      ) : (
+                        <ActionMenuItem
+                          icon={Lock}
+                          onSelect={() =>
+                            void runModuleAction(
+                              () => update.mutateAsync({ id: m.id, input: { closed: true } }),
+                              'modules.closedToast',
+                            )
+                          }
+                        >
+                          {t('modules.close')}
+                        </ActionMenuItem>
+                      )}
+                      <ActionMenuItem icon={Pencil} onSelect={() => setEditingId(m.id)}>
+                        {t('common.edit')}
+                      </ActionMenuItem>
+                      <ActionMenuItem
+                        icon={Trash2}
+                        tone="destructive"
+                        onSelect={() => void onDeleteModule(m)}
+                      >
+                        {t('common.delete')}
+                      </ActionMenuItem>
+                    </ActionMenu>
                   }
                 >
                   <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
