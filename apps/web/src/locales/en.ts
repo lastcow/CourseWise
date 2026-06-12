@@ -1450,6 +1450,8 @@ export const en = {
       empty: 'No quizzes yet.',
       studentEmpty: 'No quizzes available yet.',
       newCta: '+ New quiz',
+      searchPlaceholder: 'Search title or module',
+      noMatches: 'No quizzes match your search.',
       newTitle: 'New quiz',
       titleLabel: 'Title',
       descriptionLabel: 'Description',

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,6 +11,7 @@ import {
   Layers,
   ListChecks,
   Lock,
+  Plus,
   RefreshCw,
   SquarePen,
   Trash2,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
+import { ActionMenu, ActionMenuItem } from '@/components/ui/action-menu';
 import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
@@ -117,6 +119,7 @@ export function TeacherQuizzesPage(): JSX.Element {
   const [moveTarget, setMoveTarget] = useState<QuizSummary | null>(null);
   const [moveModuleId, setMoveModuleId] = useState<string>('');
   const [manageOpen, setManageOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
   // Multi-select → quiz-set assignment (mirrors the assignments page).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -136,8 +139,21 @@ export function TeacherQuizzesPage(): JSX.Element {
   const setById = new Map(setList.map((s) => [s.id, s]));
   const quizList = list.data ?? [];
 
+  const filteredQuizzes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const all = list.data ?? [];
+    if (!q) return all;
+    return all.filter((quiz) => {
+      if (quiz.title.toLowerCase().includes(q)) return true;
+      const moduleTitle = quiz.moduleId ? moduleTitleById.get(quiz.moduleId) : undefined;
+      return moduleTitle ? moduleTitle.toLowerCase().includes(q) : false;
+    });
+    // moduleTitleById is rebuilt every render from modulesQ.data, so depend on
+    // the underlying data rather than the Map identity.
+  }, [search, list.data, modulesQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const allVisibleSelected =
-    quizList.length > 0 && quizList.every((q) => selectedIds.has(q.id));
+    filteredQuizzes.length > 0 && filteredQuizzes.every((q) => selectedIds.has(q.id));
 
   function toggleRow(qid: string): void {
     setSelectedIds((prev) => {
@@ -149,7 +165,22 @@ export function TeacherQuizzesPage(): JSX.Element {
   }
 
   function toggleAll(): void {
-    setSelectedIds(allVisibleSelected ? new Set() : new Set(quizList.map((q) => q.id)));
+    setSelectedIds(allVisibleSelected ? new Set() : new Set(filteredQuizzes.map((q) => q.id)));
+  }
+
+  // Run a quiz transition and surface a success/error toast — the shared
+  // try/catch the per-quiz action-menu items delegate to.
+  async function runQuizAction(
+    fn: () => Promise<unknown>,
+    successKey: string,
+    errorKey = 'errors.internal',
+  ): Promise<void> {
+    try {
+      await fn();
+      toast.push({ title: t(successKey), tone: 'success' });
+    } catch (err) {
+      toast.push({ title: t(pickI18nKey(err, errorKey)), tone: 'error' });
+    }
   }
 
   async function onGroupIntoSet(): Promise<void> {
@@ -231,219 +262,223 @@ export function TeacherQuizzesPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <CourseSectionHeader
-        title={t('quizzes.title')}
-        count={list.data?.length}
-        actions={
-          <>
-            <Button size="sm" onClick={() => setOpenCreate(true)}>
-              {t('quizzes.newCta')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void list.refetch()}
-              disabled={list.isFetching}
-              aria-label={t('common.refresh')}
-              title={t('common.refresh')}
-            >
-              <RefreshCw
-                className={list.isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
-                aria-hidden
-              />
-            </Button>
-          </>
-        }
-      />
+      <CourseSectionHeader title={t('quizzes.title')} count={list.data?.length} />
 
       {list.isLoading ? (
         <ListSkeleton />
       ) : !list.data || list.data.length === 0 ? (
-        <EmptyState icon={<ListChecks className="h-6 w-6" />} title={t('quizzes.empty')} />
+        <EmptyState
+          icon={<ListChecks className="h-6 w-6" />}
+          title={t('quizzes.empty')}
+          action={<Button onClick={() => setOpenCreate(true)}>{t('quizzes.newCta')}</Button>}
+        />
       ) : (
-        <div className="space-y-3">
-          {/* Bulk-select tools sit next to the table they act on. */}
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="overflow-hidden rounded-md border">
+          {/* Toolbar attached to the table: search + set operations on the
+              left; new quiz (icon-only) and refresh on the right, with a
+              vertical separator before refresh. */}
+          <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('quizzes.searchPlaceholder')}
+              className="h-8 w-full sm:w-60"
+            />
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5"
+              className="h-8 gap-1.5"
               disabled={selectedIds.size === 0}
               onClick={() => setGroupDialogOpen(true)}
             >
               <Layers className="h-4 w-4" aria-hidden />
               {t('quizzes.sets.groupIntoSet', { count: selectedIds.size })}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setManageOpen(true)}>
+            <Button variant="ghost" size="sm" className="h-8" onClick={() => setManageOpen(true)}>
               {t('quizzes.manageSets')}
             </Button>
+            <div className="ml-auto flex items-center gap-2">
+              <ActionIconButton
+                icon={Plus}
+                label={t('quizzes.newCta')}
+                color="emerald"
+                size="sm"
+                onClick={() => setOpenCreate(true)}
+              />
+              <div className="mx-1 h-5 w-px bg-border" aria-hidden />
+              <ActionIconButton
+                icon={RefreshCw}
+                label={t('common.refresh')}
+                color="sky"
+                size="sm"
+                onClick={() => void list.refetch()}
+                disabled={list.isFetching}
+                className={cn(list.isFetching && '[&_svg]:animate-spin')}
+              />
+            </div>
           </div>
-          <div className="overflow-hidden rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8">
-                  <input
-                    type="checkbox"
-                    aria-label={t('quizzes.sets.selectAll')}
-                    checked={allVisibleSelected}
-                    onChange={toggleAll}
-                    className="h-4 w-4 cursor-pointer align-middle"
-                  />
-                </TableHead>
-                <TableHead>{t('quizzes.colTitle')}</TableHead>
-                <TableHead>{t('quizzes.sets.colSet')}</TableHead>
-                <TableHead>{t('quizzes.colDescription')}</TableHead>
-                <TableHead>{t('quizzes.colModule')}</TableHead>
-                <TableHead className="text-right">{t('quizzes.colQuestions')}</TableHead>
-                <TableHead>{t('quizzes.colWindow')}</TableHead>
-                <TableHead className="text-right">{t('quizzes.colTimeLimit')}</TableHead>
-                <TableHead className="text-right">{t('quizzes.colActions')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {quizList.map((q) => (
-                <TableRow key={q.id} data-state={selectedIds.has(q.id) ? 'selected' : undefined}>
-                  <TableCell>
+
+          {filteredQuizzes.length === 0 ? (
+            <EmptyState title={t('quizzes.noMatches')} />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8">
                     <input
                       type="checkbox"
-                      aria-label={t('quizzes.sets.selectRow', { title: q.title })}
-                      checked={selectedIds.has(q.id)}
-                      onChange={() => toggleRow(q.id)}
+                      aria-label={t('quizzes.sets.selectAll')}
+                      checked={allVisibleSelected}
+                      onChange={toggleAll}
                       className="h-4 w-4 cursor-pointer align-middle"
                     />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <StatusIcon status={q.status} />
-                      <Link
-                        to={`/teacher/courses/${id}/quizzes/${q.id}`}
-                        className="hover:underline"
-                      >
-                        {q.title}
-                      </Link>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {q.setId && setById.get(q.setId) ? (
-                      <Badge variant="secondary" className="gap-1">
-                        <Layers className="h-3 w-3" aria-hidden />
-                        {setById.get(q.setId)!.name}
-                        <button
-                          type="button"
-                          aria-label={t('quizzes.sets.removeFromSet')}
-                          title={t('quizzes.sets.removeFromSet')}
-                          onClick={() => void onRemoveFromSet(q.id)}
-                          className="ml-0.5 rounded hover:text-foreground"
-                        >
-                          <X className="h-3 w-3" aria-hidden />
-                        </button>
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[24ch] text-muted-foreground">
-                    <span className="line-clamp-1">{q.description ?? '—'}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={q.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
-                        {q.moduleId ? (moduleTitleById.get(q.moduleId) ?? '—') : '—'}
-                      </span>
-                      <ActionIconButton
-                        icon={FolderInput}
-                        label={t('quizzes.linkModuleAction')}
-                        color="sky"
-                        size="sm"
-                        onClick={() => {
-                          setMoveModuleId(q.moduleId ?? '');
-                          setMoveTarget(q);
-                        }}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{q.questionCount ?? 0}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatWindow(q.startTime, q.endTime)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {q.timeLimitMinutes ? `${q.timeLimitMinutes} min` : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1.5">
-                      <ViewAttemptsButton
-                        label={t('quizzes.viewAttempts')}
-                        pending={q.pendingReviewCount ?? 0}
-                        total={q.attemptCount ?? 0}
-                        onClick={() => navigate(`/teacher/courses/${id}/quizzes/${q.id}/attempts`)}
-                      />
-                      <ActionIconButton
-                        icon={SquarePen}
-                        label={t('common.edit')}
-                        color="yellow"
-                        onClick={() => navigate(`/teacher/courses/${id}/quizzes/${q.id}`)}
-                      />
-                      {q.status === 'draft' ? (
-                        <ActionIconButton
-                          icon={CircleCheck}
-                          label={t('quizzes.publish')}
-                          color="emerald"
-                          onClick={async () => {
-                            try {
-                              await transition.mutateAsync({ id: q.id, action: 'publish' });
-                              toast.push({ title: t('quizzes.published'), tone: 'success' });
-                            } catch (err) {
-                              toast.push({
-                                title: t(pickI18nKey(err, 'quizzes.publishBlocked')),
-                                tone: 'error',
-                              });
-                            }
-                          }}
-                        />
-                      ) : null}
-                      {q.status === 'published' ? (
-                        <ActionIconButton
-                          icon={Lock}
-                          label={t('quizzes.close')}
-                          color="sky"
-                          onClick={async () => {
-                            await transition.mutateAsync({ id: q.id, action: 'close' });
-                            toast.push({ title: t('quizzes.closed'), tone: 'success' });
-                          }}
-                        />
-                      ) : null}
-                      {q.status !== 'archived' ? (
-                        <ActionIconButton
-                          icon={Archive}
-                          label={t('quizzes.archive')}
-                          color="orange"
-                          onClick={async () => {
-                            await transition.mutateAsync({ id: q.id, action: 'archive' });
-                            toast.push({ title: t('quizzes.archived'), tone: 'success' });
-                          }}
-                        />
-                      ) : (
-                        <ActionIconButton
-                          icon={ArchiveRestore}
-                          label={t('quizzes.unarchive')}
-                          color="emerald"
-                          onClick={() => setUnarchiveTarget(q)}
-                        />
-                      )}
-                      <ActionIconButton
-                        icon={Trash2}
-                        label={t('common.delete')}
-                        color="red"
-                        onClick={() => setDeleteTarget(q)}
-                      />
-                    </div>
-                  </TableCell>
+                  </TableHead>
+                  <TableHead>{t('quizzes.colTitle')}</TableHead>
+                  <TableHead>{t('quizzes.sets.colSet')}</TableHead>
+                  <TableHead className="text-right">{t('quizzes.colQuestions')}</TableHead>
+                  <TableHead>{t('quizzes.colWindow')}</TableHead>
+                  <TableHead className="text-right">{t('quizzes.colTimeLimit')}</TableHead>
+                  <TableHead className="text-right">{t('quizzes.colActions')}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          </div>
+              </TableHeader>
+              <TableBody>
+                {filteredQuizzes.map((q) => (
+                  <TableRow key={q.id} data-state={selectedIds.has(q.id) ? 'selected' : undefined}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        aria-label={t('quizzes.sets.selectRow', { title: q.title })}
+                        checked={selectedIds.has(q.id)}
+                        onChange={() => toggleRow(q.id)}
+                        className="h-4 w-4 cursor-pointer align-middle"
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <StatusIcon status={q.status} />
+                        <Link
+                          to={`/teacher/courses/${id}/quizzes/${q.id}`}
+                          className="hover:underline"
+                        >
+                          {q.title}
+                        </Link>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {q.setId && setById.get(q.setId) ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <Layers className="h-3 w-3" aria-hidden />
+                          {setById.get(q.setId)!.name}
+                          <button
+                            type="button"
+                            aria-label={t('quizzes.sets.removeFromSet')}
+                            title={t('quizzes.sets.removeFromSet')}
+                            onClick={() => void onRemoveFromSet(q.id)}
+                            className="ml-0.5 rounded hover:text-foreground"
+                          >
+                            <X className="h-3 w-3" aria-hidden />
+                          </button>
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{q.questionCount ?? 0}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatWindow(q.startTime, q.endTime)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {q.timeLimitMinutes ? `${q.timeLimitMinutes} min` : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <ViewAttemptsButton
+                          label={t('quizzes.viewAttempts')}
+                          pending={q.pendingReviewCount ?? 0}
+                          total={q.attemptCount ?? 0}
+                          onClick={() =>
+                            navigate(`/teacher/courses/${id}/quizzes/${q.id}/attempts`)
+                          }
+                        />
+                        <ActionMenu label={t('quizzes.colActions')} size="sm">
+                          <ActionMenuItem
+                            icon={SquarePen}
+                            onSelect={() => navigate(`/teacher/courses/${id}/quizzes/${q.id}`)}
+                          >
+                            {t('common.edit')}
+                          </ActionMenuItem>
+                          <ActionMenuItem
+                            icon={FolderInput}
+                            onSelect={() => {
+                              setMoveModuleId(q.moduleId ?? '');
+                              setMoveTarget(q);
+                            }}
+                          >
+                            {t('quizzes.linkModuleAction')}
+                          </ActionMenuItem>
+                          {q.status === 'draft' ? (
+                            <ActionMenuItem
+                              icon={CircleCheck}
+                              onSelect={() =>
+                                void runQuizAction(
+                                  () => transition.mutateAsync({ id: q.id, action: 'publish' }),
+                                  'quizzes.published',
+                                  'quizzes.publishBlocked',
+                                )
+                              }
+                            >
+                              {t('quizzes.publish')}
+                            </ActionMenuItem>
+                          ) : null}
+                          {q.status === 'published' ? (
+                            <ActionMenuItem
+                              icon={Lock}
+                              onSelect={() =>
+                                void runQuizAction(
+                                  () => transition.mutateAsync({ id: q.id, action: 'close' }),
+                                  'quizzes.closed',
+                                )
+                              }
+                            >
+                              {t('quizzes.close')}
+                            </ActionMenuItem>
+                          ) : null}
+                          {q.status !== 'archived' ? (
+                            <ActionMenuItem
+                              icon={Archive}
+                              onSelect={() =>
+                                void runQuizAction(
+                                  () => transition.mutateAsync({ id: q.id, action: 'archive' }),
+                                  'quizzes.archived',
+                                )
+                              }
+                            >
+                              {t('quizzes.archive')}
+                            </ActionMenuItem>
+                          ) : (
+                            <ActionMenuItem
+                              icon={ArchiveRestore}
+                              onSelect={() => setUnarchiveTarget(q)}
+                            >
+                              {t('quizzes.unarchive')}
+                            </ActionMenuItem>
+                          )}
+                          <ActionMenuItem
+                            icon={Trash2}
+                            tone="destructive"
+                            onSelect={() => setDeleteTarget(q)}
+                          >
+                            {t('common.delete')}
+                          </ActionMenuItem>
+                        </ActionMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
       )}
 
