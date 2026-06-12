@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { Check, Loader2, Users } from 'lucide-react';
+import { Check, Eye, Loader2, Users } from 'lucide-react';
 import type {
   GradebookAssignmentItem,
   GradebookDiscussionItem,
@@ -18,6 +18,8 @@ import {
   useGradebookStudentDetail,
 } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { ItemDetailDialog, type GradebookItemTarget } from './ItemDetailDialog';
 
 // Hide the number spinner — the score reads as "x / max" and the arrows add noise.
 const SCORE_INPUT_CLASS =
@@ -166,16 +168,27 @@ function ItemRow({
   title,
   isGroup,
   badges,
+  action,
   right,
+  highlight,
 }: {
   title: string;
   isGroup?: boolean;
   badges?: ReactNode;
+  action?: ReactNode;
   right: ReactNode;
+  highlight?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <div className="flex items-start justify-between gap-3 px-3 py-2">
+    <div
+      className={cn(
+        // A transparent left rail keeps content aligned whether or not a row is
+        // highlighted; ungraded submissions light it amber with a faint tint.
+        'flex items-start justify-between gap-3 border-l-2 border-l-transparent px-3 py-2',
+        highlight && 'border-l-amber-400 bg-amber-50/60 dark:bg-amber-950/20',
+      )}
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-1.5">
           {/* Title is allowed to wrap onto multiple lines. */}
@@ -188,6 +201,7 @@ function ItemRow({
           ) : null}
         </div>
         {badges ? <div className="mt-1 flex flex-wrap items-center gap-1.5">{badges}</div> : null}
+        {action ? <div className="mt-1.5">{action}</div> : null}
       </div>
       <div className="shrink-0 pt-0.5">{right}</div>
     </div>
@@ -198,10 +212,12 @@ function InlineAssignmentRow({
   courseId,
   studentId,
   item,
+  onOpen,
 }: {
   courseId: string;
   studentId: string;
   item: GradebookAssignmentItem;
+  onOpen: (target: GradebookItemTarget) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -224,6 +240,9 @@ function InlineAssignmentRow({
     await refreshGradebook(qc, courseId, studentId);
   };
 
+  // Handed in but not yet graded — the row to draw the teacher's eye to.
+  const needsGrading = item.status === 'submitted' || item.status === 'late';
+
   const badges = (
     <>
       {item.zeroedAsMissing ? <Badge variant="warning">{t('grading.pastDueBadge')}</Badge> : null}
@@ -239,7 +258,27 @@ function InlineAssignmentRow({
     <ItemRow
       title={item.title}
       isGroup={item.isGroup}
+      highlight={needsGrading}
       badges={item.zeroedAsMissing || item.status ? badges : null}
+      action={
+        item.submissionId ? (
+          <button
+            type="button"
+            onClick={() =>
+              onOpen({
+                kind: 'assignment',
+                title: item.title,
+                submissionId: item.submissionId!,
+                maxScore: item.maxScore,
+              })
+            }
+            className="inline-flex items-center gap-1 text-xs font-medium text-sky-600 transition-colors hover:text-sky-700 hover:underline focus-visible:outline-none focus-visible:underline dark:text-sky-400 dark:hover:text-sky-300"
+          >
+            <Eye className="h-3.5 w-3.5" aria-hidden />
+            {t('grading.openSubmission')}
+          </button>
+        ) : null
+      }
       right={
         <InlineScoreField
           initial={item.score}
@@ -378,6 +417,7 @@ export function StudentGradesSubsection({
 }): JSX.Element {
   const { t } = useTranslation();
   const detail = useGradebookStudentDetail(courseId, studentId);
+  const [target, setTarget] = useState<GradebookItemTarget | null>(null);
 
   if (detail.isLoading) {
     return (
@@ -412,6 +452,7 @@ export function StudentGradesSubsection({
             courseId={courseId}
             studentId={studentId}
             item={it}
+            onOpen={setTarget}
           />
         ))}
       </CategoryBlock>
@@ -425,6 +466,7 @@ export function StudentGradesSubsection({
             courseId={courseId}
             studentId={studentId}
             item={it}
+            onOpen={setTarget}
           />
         ))}
       </CategoryBlock>
@@ -443,6 +485,7 @@ export function StudentGradesSubsection({
           <InlineQuizRow key={it.quizId} courseId={courseId} item={it} />
         ))}
       </CategoryBlock>
+      {target ? <ItemDetailDialog target={target} onClose={() => setTarget(null)} /> : null}
     </div>
   );
 }

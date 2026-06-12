@@ -1877,6 +1877,7 @@ export const en = {
       expandGrades: 'Show grades',
       collapseGrades: 'Hide grades',
       ungradedHint: '{{count}} submitted, awaiting grade',
+      openSubmission: 'Open submission',
       detailMax: 'Max',
       detailFeedback: 'Feedback',
       detailSaveScore: 'Save',
