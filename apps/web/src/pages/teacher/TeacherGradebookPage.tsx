@@ -242,12 +242,13 @@ export function TeacherGradebookPage(): JSX.Element {
                   <th className="w-8 px-1 py-2" aria-hidden />
                   <th className="px-3 py-2 font-medium">{t('grading.student')}</th>
                   <th className="px-3 py-2 font-medium">{t('grading.score')}</th>
+                  <th className="px-3 py-2" aria-hidden />
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={4} className="px-3 py-8 text-center text-sm text-muted-foreground">
                       {t('grading.filterNoMatch')}
                     </td>
                   </tr>
@@ -271,41 +272,49 @@ export function TeacherGradebookPage(): JSX.Element {
                         />
                       </button>
                     </td>
-                    <td className="px-3 py-2">
-                      <Link
-                        to={`/teacher/courses/${cid}/gradebook/${g.studentId}`}
-                        className="font-medium hover:underline"
-                      >
-                        {g.studentName ?? '—'}
-                      </Link>
+                    <td className="px-3 py-2 align-top">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <Link
+                          to={`/teacher/courses/${cid}/gradebook/${g.studentId}`}
+                          className="font-medium hover:underline"
+                        >
+                          {g.studentName ?? '—'}
+                        </Link>
+                        {g.groupNames?.map((name) => (
+                          <span
+                            key={name}
+                            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          >
+                            <Users className="h-3 w-3" aria-hidden />
+                            {name}
+                          </span>
+                        ))}
+                      </div>
                       <div className="text-xs text-muted-foreground">
                         {g.studentEmail}
                         {g.studentNumber ? (
                           <span className="tabular-nums"> · #{g.studentNumber}</span>
                         ) : null}
                       </div>
-                      {g.groupNames && g.groupNames.length > 0 ? (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {g.groupNames.map((name) => (
-                            <span
-                              key={name}
-                              className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
-                            >
-                              <Users className="h-3 w-3" aria-hidden />
-                              {name}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
                     </td>
                     <td className="px-3 py-2 font-mono tabular-nums align-top">
                       {g.score?.toFixed(1) ?? '—'}
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      {(g.ungradedCount ?? 0) > 0 ? (
+                        <span
+                          title={t('grading.ungradedHint', { count: g.ungradedCount })}
+                          className="inline-flex items-center border border-amber-500/70 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-600 dark:border-amber-400/70 dark:text-amber-400"
+                        >
+                          {g.ungradedCount}
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
                   {isOpen ? (
                     <tr className="border-b bg-muted/20 last:border-0">
                       <td aria-hidden />
-                      <td colSpan={2} className="py-3 pr-4">
+                      <td colSpan={3} className="py-3 pr-4">
                         <StudentGradesSubsection courseId={cid} studentId={g.studentId} />
                       </td>
                     </tr>
