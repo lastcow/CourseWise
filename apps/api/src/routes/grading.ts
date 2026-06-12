@@ -17,7 +17,9 @@ import {
   enrollments,
   finalGrades,
   groupMemberships,
+  groupSets,
   groupSubmissions,
+  groups,
   studentProfiles,
   users,
 } from '../db/schema';
@@ -140,12 +142,28 @@ r.get(
     const overrideBySid = new Map(
       (overrideRows.rows as Array<{ sid: string; n: number }>).map((r) => [r.sid, Number(r.n)]),
     );
+    // Each student's team/group name(s) across this course's group sets, for
+    // the roster's student column. A student has at most one group per set.
+    const groupRows = await db
+      .select({ sid: groupMemberships.studentId, name: groups.name })
+      .from(groupMemberships)
+      .innerJoin(groups, eq(groups.id, groupMemberships.groupId))
+      .innerJoin(groupSets, eq(groupSets.id, groupMemberships.groupSetId))
+      .where(eq(groupSets.courseId, courseId))
+      .orderBy(asc(groups.name));
+    const groupsBySid = new Map<string, string[]>();
+    for (const row of groupRows) {
+      const list = groupsBySid.get(row.sid) ?? [];
+      list.push(row.name);
+      groupsBySid.set(row.sid, list);
+    }
     const out: FinalGradeSummary[] = rows.map(({ g, name, email, studentNumber }) =>
       toFinalGradeSummary(g, {
         studentName: name,
         studentEmail: email,
         studentNumber,
         overrideCount: overrideBySid.get(g.studentId) ?? 0,
+        groupNames: groupsBySid.get(g.studentId) ?? [],
       }),
     );
     return success(c, out);

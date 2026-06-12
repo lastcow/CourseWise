@@ -824,6 +824,9 @@ export interface FinalGradeSummary {
   /** How many of this student's item scores were teacher-entered without a
    *  submission (work handed in by email/paper). Roster display only. */
   overrideCount?: number;
+  /** Team/group name(s) the student belongs to, across the course's group
+   *  sets (≤1 per set). Roster display only. */
+  groupNames?: string[];
   score: number | null;
   letterGrade: string | null;
   groups: GroupScoreBreakdown[];
