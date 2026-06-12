@@ -1771,6 +1771,7 @@ export const zhCN = {
       weighted: '加权',
       detailTitle: '学生成绩单',
       detailBack: '返回成绩册',
+      viewGradesCta: '查看成绩',
       detailRecalc: '重新计算最终成绩',
       zeroMissingCta: '未交记 0 分',
       zeroMissingTitle: '将未交作业记 0 分?',

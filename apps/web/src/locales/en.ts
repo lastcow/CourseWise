@@ -1838,6 +1838,7 @@ export const en = {
       weighted: 'Weighted',
       detailTitle: 'Student gradebook',
       detailBack: 'Back to gradebook',
+      viewGradesCta: 'View grades',
       detailRecalc: 'Recalculate final grade',
       zeroMissingCta: 'Set missing to 0',
       zeroMissingTitle: 'Set missing work to 0?',
