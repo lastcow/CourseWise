@@ -1573,6 +1573,9 @@ export const fr = {
       attemptsListTitle: 'Tentatives',
       attemptsSearchPlaceholder: 'Rechercher par nom ou e-mail…',
       attemptsNoMatch: 'Aucun résultat',
+      viewQuiz: 'Voir le quiz',
+      detailsKicker: 'Quiz',
+      timeLimitLabel: 'Durée limite',
       attemptsFor: 'Tentatives — {{title}}',
       pickAttempt:
         'Sélectionnez la tentative d’un étudiant dans la liste pour commencer la notation.',

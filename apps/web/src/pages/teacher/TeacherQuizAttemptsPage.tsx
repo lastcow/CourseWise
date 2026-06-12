@@ -21,6 +21,7 @@ import type {
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Button } from '@/components/ui/button';
 import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
+import { QuizRequirementDialog } from '@/components/quizzes/QuizRequirementDialog';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -96,6 +97,7 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
   const attempt = useQuizAttempt(selectedAttemptId);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [reqOpen, setReqOpen] = useState(false);
   const [rosterSearch, setRosterSearch] = useState('');
   const selectedAttempt = attempts.data?.find((a) => a.id === selectedAttemptId) ?? null;
 
@@ -145,13 +147,20 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
               </Badge>
             ) : null}
           </div>
-          <div className="border-b bg-muted/30 px-2 pb-2">
+          <div className="flex items-center gap-2 border-b bg-muted/30 px-2 py-2">
             <Input
               type="search"
               value={rosterSearch}
               onChange={(e) => setRosterSearch(e.target.value)}
               placeholder={t('quizzes.attemptsSearchPlaceholder')}
-              className="h-8"
+              className="h-8 min-w-0 flex-1"
+            />
+            <ActionIconButton
+              icon={ListChecks}
+              label={t('quizzes.viewQuiz')}
+              color="sky"
+              onClick={() => setReqOpen(true)}
+              disabled={!quiz.data}
             />
           </div>
           <CardContent className="p-1">
@@ -344,6 +353,14 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
           recipientName={selectedAttempt.student.name}
           initialSubject={t('messages.aboutQuiz', { title: quiz.data?.title ?? '' })}
           contextLine={t('messages.contextQuiz', { title: quiz.data?.title ?? '' })}
+        />
+      ) : null}
+
+      {quiz.data ? (
+        <QuizRequirementDialog
+          quiz={quiz.data}
+          open={reqOpen}
+          onClose={() => setReqOpen(false)}
         />
       ) : null}
     </div>
