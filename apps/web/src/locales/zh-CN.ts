@@ -638,6 +638,7 @@ export const zhCN = {
     },
     messages: {
       newCta: '新建消息',
+      messageTeacherCta: '给老师发消息',
       composeNewTitle: '新建消息',
       recipientLabel: '收件人',
       recipientPlaceholder: '选择收件人…',
