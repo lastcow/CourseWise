@@ -11,6 +11,7 @@ import {
   Inbox,
   Layers,
   Lock,
+  Plus,
   RefreshCw,
   SquarePen,
   Trash2,
@@ -18,13 +19,13 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
+import { ActionMenu, ActionMenuItem } from '@/components/ui/action-menu';
 import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { SetWeightsEditor } from '@/components/sets/SetWeightsEditor';
 import { Input, Label } from '@/components/ui/input';
-import { stripMarkdown } from '@/components/ui/markdown';
 import {
   Table,
   TableBody,
@@ -239,30 +240,7 @@ export function TeacherAssignmentsPage(): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <CourseSectionHeader
-        title={t('assignments.title')}
-        count={list.data?.length}
-        actions={
-          <>
-            <Button size="sm" asChild>
-              <Link to={`/teacher/courses/${id}/assignments/new`}>{t('assignments.newCta')}</Link>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void list.refetch()}
-              disabled={list.isFetching}
-              aria-label={t('common.refresh')}
-              title={t('common.refresh')}
-            >
-              <RefreshCw
-                className={list.isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
-                aria-hidden
-              />
-            </Button>
-          </>
-        }
-      />
+      <CourseSectionHeader title={t('assignments.title')} count={list.data?.length} />
 
       {list.isLoading ? (
         <ListSkeleton />
@@ -277,205 +255,217 @@ export function TeacherAssignmentsPage(): JSX.Element {
           }
         />
       ) : (
-        <div className="space-y-3">
-          {/* Filter + bulk-select tools sit next to the table they act on. */}
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="overflow-hidden rounded-md border">
+          {/* Toolbar attached to the table: search + set operations on the
+              left; new assignment (icon-only) and refresh at the right, with a
+              vertical separator before refresh. */}
+          <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
             <Input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('assignments.searchPlaceholder')}
-              className="h-9 w-full sm:w-64"
+              className="h-8 w-full sm:w-60"
             />
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5"
+              className="h-8 gap-1.5"
               disabled={selectedIds.size === 0}
               onClick={() => setGroupDialogOpen(true)}
             >
               <Layers className="h-4 w-4" aria-hidden />
               {t('assignments.groupIntoSet', { count: selectedIds.size })}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setManageOpen(true)}>
+            <Button variant="ghost" size="sm" className="h-8" onClick={() => setManageOpen(true)}>
               {t('assignments.manageSets')}
             </Button>
+            <div className="ml-auto flex items-center gap-2">
+              <ActionIconButton
+                icon={Plus}
+                label={t('assignments.newCta')}
+                color="emerald"
+                size="sm"
+                onClick={() => navigate(`/teacher/courses/${id}/assignments/new`)}
+              />
+              <div className="mx-1 h-5 w-px bg-border" aria-hidden />
+              <ActionIconButton
+                icon={RefreshCw}
+                label={t('common.refresh')}
+                color="sky"
+                size="sm"
+                onClick={() => void list.refetch()}
+                disabled={list.isFetching}
+                className={cn(list.isFetching && '[&_svg]:animate-spin')}
+              />
+            </div>
           </div>
+
           {filteredAssignments.length === 0 ? (
             <EmptyState title={t('assignments.noMatches')} />
           ) : (
-            <div className="overflow-hidden rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8">
-                  <input
-                    type="checkbox"
-                    aria-label={t('assignments.selectAll')}
-                    checked={allVisibleSelected}
-                    onChange={toggleAll}
-                    className="h-4 w-4 cursor-pointer align-middle"
-                  />
-                </TableHead>
-                <TableHead>{t('assignments.colTitle')}</TableHead>
-                <TableHead>{t('assignments.colSet')}</TableHead>
-                <TableHead>{t('assignments.colDescription')}</TableHead>
-                <TableHead>{t('assignments.colModule')}</TableHead>
-                <TableHead>{t('assignments.colDue')}</TableHead>
-                <TableHead className="text-right">{t('assignments.colMaxScore')}</TableHead>
-                <TableHead className="text-right">{t('assignments.colActions')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAssignments.map((a) => (
-                <TableRow key={a.id} data-state={selectedIds.has(a.id) ? 'selected' : undefined}>
-                  <TableCell>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8">
                     <input
                       type="checkbox"
-                      aria-label={t('assignments.selectRow', { title: a.title })}
-                      checked={selectedIds.has(a.id)}
-                      onChange={() => toggleRow(a.id)}
+                      aria-label={t('assignments.selectAll')}
+                      checked={allVisibleSelected}
+                      onChange={toggleAll}
                       className="h-4 w-4 cursor-pointer align-middle"
                     />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <StatusIcon status={a.status} />
-                      <Link
-                        to={`/teacher/courses/${id}/assignments/${a.id}`}
-                        className="hover:underline"
-                      >
-                        {a.title}
-                      </Link>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {a.setId && setById.get(a.setId) ? (
-                      <Badge variant="secondary" className="gap-1">
-                        <Layers className="h-3 w-3" aria-hidden />
-                        {setById.get(a.setId)!.name}
-                        <button
-                          type="button"
-                          aria-label={t('assignments.removeFromSet')}
-                          title={t('assignments.removeFromSet')}
-                          onClick={() => void onRemoveFromSet(a.id)}
-                          className="ml-0.5 rounded hover:text-foreground"
-                        >
-                          <X className="h-3 w-3" aria-hidden />
-                        </button>
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[24ch] text-muted-foreground">
-                    <span className="line-clamp-1">
-                      {a.description ? stripMarkdown(a.description) : '—'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={a.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
-                        {a.moduleId ? (moduleTitleById.get(a.moduleId) ?? '—') : '—'}
-                      </span>
-                      <ActionIconButton
-                        icon={FolderInput}
-                        label={t('assignments.linkModuleAction')}
-                        color="sky"
-                        className="shrink-0"
-                        onClick={() => {
-                          setMoveModuleId(a.moduleId ?? '');
-                          setMoveTarget(a);
-                        }}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{formatDate(a.dueDate)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{a.maxScore ?? '—'}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1.5">
-                      <ViewSubmissionsButton
-                        label={
-                          (a.ungradedSubmissionCount ?? 0) > 0
-                            ? t('assignments.viewSubmissionsActionWithUngraded', {
-                                count: a.submissionCount ?? 0,
-                                ungraded: a.ungradedSubmissionCount ?? 0,
-                              })
-                            : t('assignments.viewSubmissionsAction', {
-                                count: a.submissionCount ?? 0,
-                              })
-                        }
-                        ungraded={a.ungradedSubmissionCount ?? 0}
-                        total={a.submissionCount ?? 0}
-                        onClick={() =>
-                          navigate(`/teacher/courses/${id}/assignments/${a.id}/submissions`)
-                        }
-                      />
-                      <ActionIconButton
-                        icon={SquarePen}
-                        label={t('common.edit')}
-                        color="yellow"
-                        onClick={() => navigate(`/teacher/courses/${id}/assignments/${a.id}`)}
-                      />
-                      {a.status === 'draft' ? (
-                        <ActionIconButton
-                          icon={CircleCheck}
-                          label={t('assignments.publish')}
-                          color="emerald"
-                          onClick={async () => {
-                            try {
-                              await transition.mutateAsync({ id: a.id, action: 'publish' });
-                              toast.push({
-                                title: t('assignments.published'),
-                                tone: 'success',
-                              });
-                            } catch {
-                              toast.push({
-                                title: t('assignments.publishBlocked'),
-                                tone: 'error',
-                              });
-                            }
-                          }}
-                        />
-                      ) : null}
-                      {a.status === 'published' ? (
-                        <ActionIconButton
-                          icon={Lock}
-                          label={t('assignments.close')}
-                          color="sky"
-                          onClick={async () => {
-                            await transition.mutateAsync({ id: a.id, action: 'close' });
-                          }}
-                        />
-                      ) : null}
-                      {a.status !== 'archived' ? (
-                        <ActionIconButton
-                          icon={Archive}
-                          label={t('assignments.archive')}
-                          color="orange"
-                          onClick={() => setArchiveTarget({ assignment: a, action: 'archive' })}
-                        />
-                      ) : (
-                        <ActionIconButton
-                          icon={ArchiveRestore}
-                          label={t('assignments.unarchive')}
-                          color="emerald"
-                          onClick={() => setArchiveTarget({ assignment: a, action: 'unarchive' })}
-                        />
-                      )}
-                      <ActionIconButton
-                        icon={Trash2}
-                        label={t('common.delete')}
-                        color="red"
-                        onClick={() => setDeleteTarget(a)}
-                      />
-                    </div>
-                  </TableCell>
+                  </TableHead>
+                  <TableHead>{t('assignments.colTitle')}</TableHead>
+                  <TableHead>{t('assignments.colSet')}</TableHead>
+                  <TableHead>{t('assignments.colDue')}</TableHead>
+                  <TableHead className="text-right">{t('assignments.colMaxScore')}</TableHead>
+                  <TableHead className="text-right">{t('assignments.colActions')}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-              </Table>
-            </div>
+              </TableHeader>
+              <TableBody>
+                {filteredAssignments.map((a) => (
+                  <TableRow key={a.id} data-state={selectedIds.has(a.id) ? 'selected' : undefined}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        aria-label={t('assignments.selectRow', { title: a.title })}
+                        checked={selectedIds.has(a.id)}
+                        onChange={() => toggleRow(a.id)}
+                        className="h-4 w-4 cursor-pointer align-middle"
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <StatusIcon status={a.status} />
+                        <Link
+                          to={`/teacher/courses/${id}/assignments/${a.id}`}
+                          className="hover:underline"
+                        >
+                          {a.title}
+                        </Link>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {a.setId && setById.get(a.setId) ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <Layers className="h-3 w-3" aria-hidden />
+                          {setById.get(a.setId)!.name}
+                          <button
+                            type="button"
+                            aria-label={t('assignments.removeFromSet')}
+                            title={t('assignments.removeFromSet')}
+                            onClick={() => void onRemoveFromSet(a.id)}
+                            className="ml-0.5 rounded hover:text-foreground"
+                          >
+                            <X className="h-3 w-3" aria-hidden />
+                          </button>
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(a.dueDate)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{a.maxScore ?? '—'}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <ViewSubmissionsButton
+                          label={
+                            (a.ungradedSubmissionCount ?? 0) > 0
+                              ? t('assignments.viewSubmissionsActionWithUngraded', {
+                                  count: a.submissionCount ?? 0,
+                                  ungraded: a.ungradedSubmissionCount ?? 0,
+                                })
+                              : t('assignments.viewSubmissionsAction', {
+                                  count: a.submissionCount ?? 0,
+                                })
+                          }
+                          ungraded={a.ungradedSubmissionCount ?? 0}
+                          total={a.submissionCount ?? 0}
+                          onClick={() =>
+                            navigate(`/teacher/courses/${id}/assignments/${a.id}/submissions`)
+                          }
+                        />
+                        <ActionMenu label={t('assignments.colActions')} size="sm">
+                          <ActionMenuItem
+                            icon={SquarePen}
+                            onSelect={() => navigate(`/teacher/courses/${id}/assignments/${a.id}`)}
+                          >
+                            {t('common.edit')}
+                          </ActionMenuItem>
+                          <ActionMenuItem
+                            icon={FolderInput}
+                            onSelect={() => {
+                              setMoveModuleId(a.moduleId ?? '');
+                              setMoveTarget(a);
+                            }}
+                          >
+                            {t('assignments.linkModuleAction')}
+                          </ActionMenuItem>
+                          {a.status === 'draft' ? (
+                            <ActionMenuItem
+                              icon={CircleCheck}
+                              onSelect={() =>
+                                void transition
+                                  .mutateAsync({ id: a.id, action: 'publish' })
+                                  .then(() =>
+                                    toast.push({
+                                      title: t('assignments.published'),
+                                      tone: 'success',
+                                    }),
+                                  )
+                                  .catch(() =>
+                                    toast.push({
+                                      title: t('assignments.publishBlocked'),
+                                      tone: 'error',
+                                    }),
+                                  )
+                              }
+                            >
+                              {t('assignments.publish')}
+                            </ActionMenuItem>
+                          ) : null}
+                          {a.status === 'published' ? (
+                            <ActionMenuItem
+                              icon={Lock}
+                              onSelect={() =>
+                                void transition.mutateAsync({ id: a.id, action: 'close' })
+                              }
+                            >
+                              {t('assignments.close')}
+                            </ActionMenuItem>
+                          ) : null}
+                          {a.status !== 'archived' ? (
+                            <ActionMenuItem
+                              icon={Archive}
+                              onSelect={() => setArchiveTarget({ assignment: a, action: 'archive' })}
+                            >
+                              {t('assignments.archive')}
+                            </ActionMenuItem>
+                          ) : (
+                            <ActionMenuItem
+                              icon={ArchiveRestore}
+                              onSelect={() =>
+                                setArchiveTarget({ assignment: a, action: 'unarchive' })
+                              }
+                            >
+                              {t('assignments.unarchive')}
+                            </ActionMenuItem>
+                          )}
+                          <ActionMenuItem
+                            icon={Trash2}
+                            tone="destructive"
+                            onSelect={() => setDeleteTarget(a)}
+                          >
+                            {t('common.delete')}
+                          </ActionMenuItem>
+                        </ActionMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </div>
       )}
@@ -853,8 +843,7 @@ function ViewSubmissionsButton({
   total: number;
   onClick: () => void;
 }): JSX.Element {
-  const tone =
-    ungraded > 0 ? 'amber' : total > 0 ? 'emerald' : 'teal';
+  const tone = ungraded > 0 ? 'amber' : total > 0 ? 'emerald' : 'teal';
   const borderTone = {
     amber: 'border-amber-500/60 hover:bg-amber-500/10',
     emerald: 'border-emerald-500/50 hover:bg-emerald-500/10',
@@ -872,8 +861,7 @@ function ViewSubmissionsButton({
   }[tone];
   const countTone = {
     amber: 'bg-amber-500/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200',
-    emerald:
-      'bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200',
+    emerald: 'bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200',
     teal: 'bg-teal-500/10 text-teal-700 dark:bg-teal-500/15 dark:text-teal-200',
   }[tone];
 
@@ -891,9 +879,7 @@ function ViewSubmissionsButton({
       <span className={cn('inline-flex items-center px-2', iconTone)}>
         <Inbox className="h-3.5 w-3.5" aria-hidden />
       </span>
-      <span
-        className={cn('inline-flex items-center border-l px-2', dividerTone, countTone)}
-      >
+      <span className={cn('inline-flex items-center border-l px-2', dividerTone, countTone)}>
         {ungraded}/{total}
       </span>
     </button>
