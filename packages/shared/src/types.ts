@@ -872,6 +872,10 @@ export interface GroupScoreItem {
   // Only present when itemType === 'set': the individual member assignments and
   // their scores, for display beneath the set's rolled-up row.
   members?: GroupScoreItem[];
+  // True when `score` is shown as 0 because the item is past its effective
+  // deadline with no submitted/attempted work — a computed zero, not a stored
+  // grade. Drives the "past due" badge in the gradebook.
+  zeroedAsMissing?: boolean;
 }
 
 // Roll-up rule for an assignment set.
@@ -946,6 +950,8 @@ export interface GradebookAssignmentItem {
   /** Group-mode assignment: the grade is shared by the whole team. */
   isGroup?: boolean;
   gradedAt: string | null;
+  /** Computed 0 because past due with no submission/draft (not a stored score). */
+  zeroedAsMissing?: boolean;
 }
 
 export interface GradebookQuizItem {
@@ -957,6 +963,8 @@ export interface GradebookQuizItem {
   status: QuizAttemptStatus | null;
   teacherReviewed: boolean;
   pendingReviewCount: number;
+  /** Computed 0 because past due (quiz closed) with no submitted attempt. */
+  zeroedAsMissing?: boolean;
 }
 
 export interface GradebookDiscussionItem {
@@ -968,6 +976,8 @@ export interface GradebookDiscussionItem {
   gradedAt: string | null;
   /** Student's non-deleted posts in the topic; 0 means nothing to grade yet. */
   postCount: number;
+  /** Computed 0 because past due (course ended) with no posts/grade. */
+  zeroedAsMissing?: boolean;
 }
 
 export interface GradebookAttendanceItem {

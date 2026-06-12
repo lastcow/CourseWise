@@ -33,6 +33,7 @@ import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/c
 import {
   applyTeacherOverride,
   buildGradebookStudentDetail,
+  computeAndPersistOne,
   isItemPosted,
   recalculateFinalGrades,
   toFinalGradeSummary,
@@ -107,6 +108,11 @@ r.get(
     if (auth.user.role === 'student') {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot list course grades');
     }
+    // Compute-on-read: refresh the whole roster's cached final grades from
+    // current data and the current time (so past-due zeros apply) before reading
+    // them back. Replaces the old manual "Recalculate" step.
+    const policy = await ensureGradingPolicy(db, courseId);
+    await recalculateFinalGrades(db, courseId, policy, auth.user.id);
     const rows = await db
       .select({
         g: finalGrades,
@@ -281,12 +287,7 @@ r.post(
     }
 
     const updated = draftIds.length + missingPairs.length;
-    if (updated > 0) {
-      await db
-        .update(finalGrades)
-        .set({ isOutdated: true, updatedAt: nowIso })
-        .where(eq(finalGrades.courseId, courseId));
-    }
+    // Final grades recompute on read now, so there's nothing to flag stale here.
     await recordAudit(db, {
       actorType: auth.method === 'jwt' ? 'user' : 'api_token',
       actorUserId: auth.user.id,
@@ -398,6 +399,8 @@ r.get(
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot view gradebook detail');
     }
     const policy = await ensureGradingPolicy(db, courseId);
+    // Compute-on-read: refresh this student's cached grade before building detail.
+    await computeAndPersistOne(db, courseId, studentId, policy, auth.user.id);
     const detail = await buildGradebookStudentDetail(db, courseId, studentId, policy);
     if (!detail) {
       throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Student is not enrolled in this course');
@@ -435,6 +438,9 @@ r.get('/me/courses/:courseId/final-grade', requireScopeGroup('gradesRead'), asyn
   if (!studentId) {
     throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'studentId required');
   }
+  // Compute-on-read: refresh the cached grade before reading it back.
+  const policy = await ensureGradingPolicy(db, courseId);
+  await computeAndPersistOne(db, courseId, studentId, policy, auth.user.id);
   const [row] = await db
     .select()
     .from(finalGrades)
@@ -468,6 +474,8 @@ r.get('/me/courses/:courseId/gradebook-detail', requireScopeGroup('gradesRead'),
     throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
   }
   const policy = await ensureGradingPolicy(db, courseId);
+  // Compute-on-read: refresh this student's cached grade before building detail.
+  await computeAndPersistOne(db, courseId, auth.user.id, policy, auth.user.id);
   const detail = await buildGradebookStudentDetail(db, courseId, auth.user.id, policy);
   if (!detail) {
     throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'You are not enrolled in this course');
@@ -612,6 +620,10 @@ r.get(
       .innerJoin(users, eq(enrollments.studentId, users.id))
       .where(and(eq(enrollments.courseId, courseId), eq(enrollments.status, 'enrolled')))
       .orderBy(asc(users.name));
+    // Compute-on-read: refresh cached grades so the export reflects current data
+    // (including past-due zeros), not a stale snapshot.
+    const policy = await ensureGradingPolicy(db, courseId);
+    await recalculateFinalGrades(db, courseId, policy, auth.user.id);
     const gradeRows = await db.select().from(finalGrades).where(eq(finalGrades.courseId, courseId));
     const byStudent = new Map<string, typeof finalGrades.$inferSelect>();
     for (const g of gradeRows) byStudent.set(g.studentId, g);

@@ -1835,7 +1835,11 @@ export const fr = {
       filterNoMatch: 'Aucun étudiant ne correspond aux filtres.',
       gradebookEmpty: 'Aucune note finale calculée pour le moment.',
       gradebookEmptyHint:
-        'Cliquez sur « Recalculer » pour calculer les notes finales à partir des données actuelles.',
+        'Les notes finales se mettent à jour automatiquement au fil des corrections.',
+      pastDueBadge: 'En retard',
+      pastDueZero: '0 — en retard',
+      preparingTitle: 'Préparation des notes',
+      preparingBody: 'Calcul des notes finales à partir des données les plus récentes…',
       recalculate: 'Recalculer',
       recalcDone: '{{count}} notes recalculées',
       exportCsv: 'Exporter les notes (CSV)',

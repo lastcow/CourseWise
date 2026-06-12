@@ -50,7 +50,6 @@ import {
   useGradeStudentScore,
   useGradeSubmission,
   useGradebookStudentDetail,
-  useRecalculateFinalGrades,
 } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
 
@@ -201,8 +200,6 @@ export function TeacherGradebookStudentPage(): JSX.Element {
   const cid = courseId ?? '';
   const sid = studentId ?? '';
   const detail = useGradebookStudentDetail(cid || null, sid || null);
-  const recalc = useRecalculateFinalGrades(cid);
-  const toast = useToast();
   const qc = useQueryClient();
 
   // Sections start collapsed; the trigger rows carry enough summary to scan.
@@ -212,16 +209,6 @@ export function TeacherGradebookStudentPage(): JSX.Element {
   async function refreshAll(): Promise<void> {
     await qc.invalidateQueries({ queryKey: ['gradebook-student-detail', cid, sid] });
     await qc.invalidateQueries({ queryKey: ['final-grades', cid] });
-  }
-
-  async function onRecalc(): Promise<void> {
-    try {
-      await recalc.mutateAsync();
-      await refreshAll();
-      toast.push({ title: t('grading.recalcDone', { count: 1 }), tone: 'success' });
-    } catch (err) {
-      toast.push({ title: t(pickI18nKey(err, 'errors.internal')), tone: 'error' });
-    }
   }
 
   // Pool every editable item into lookup maps by item ID. The groups[] array
@@ -250,7 +237,6 @@ export function TeacherGradebookStudentPage(): JSX.Element {
   const d = detail.data;
   const finalGroups = d.finalGrade?.groups ?? [];
   const attendance = d.finalGrade?.attendance ?? null;
-  const outdated = d.finalGrade?.isOutdated ?? false;
   const finalScore = d.finalGrade?.score ?? null;
 
   const allSectionIds = ['attendance', ...finalGroups.map((g) => g.groupId)];
@@ -276,19 +262,11 @@ export function TeacherGradebookStudentPage(): JSX.Element {
             <div className="truncate text-sm text-muted-foreground">{d.studentEmail}</div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {outdated ? (
-              <Badge variant="warning">{t('grading.outdated')}</Badge>
-            ) : (
-              <Badge variant="success">{t('grading.current')}</Badge>
-            )}
             <Link to={`/teacher/courses/${cid}/gradebook`}>
               <Button variant="outline" size="sm">
                 {t('grading.detailBack')}
               </Button>
             </Link>
-            <Button size="sm" onClick={onRecalc} disabled={recalc.isPending}>
-              {t('grading.detailRecalc')}
-            </Button>
           </div>
         </div>
         <CardContent className="space-y-4 pt-5">
@@ -312,11 +290,7 @@ export function TeacherGradebookStudentPage(): JSX.Element {
                 </span>
               ) : null}
             </div>
-            <Progress
-              value={finalScore ?? 0}
-              className="mt-2 h-2"
-              barClassName={outdated ? 'bg-amber-400' : 'bg-emerald-500'}
-            />
+            <Progress value={finalScore ?? 0} className="mt-2 h-2" barClassName="bg-emerald-500" />
           </div>
           <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Fact icon={PenLine} label={t('grading.overrides')} value={String(overrideCount)} />
@@ -775,6 +749,8 @@ function AssignmentRow({
             <Badge variant={submissionStatusVariant(item.status)}>
               {submissionStatusLabel(t, item.status)}
             </Badge>
+          ) : item.zeroedAsMissing ? (
+            <Badge variant="warning">{t('grading.pastDueBadge')}</Badge>
           ) : (
             <span className="text-xs text-muted-foreground">—</span>
           )}
@@ -847,6 +823,8 @@ function QuizRow({
           >
             {t(`quizzes.attemptStatus.${item.status}`)}
           </Badge>
+        ) : item.zeroedAsMissing ? (
+          <Badge variant="warning">{t('grading.pastDueBadge')}</Badge>
         ) : (
           <span className="text-xs text-muted-foreground">
             {item.attemptId ? '—' : t('grading.detailNoAttempt')}
@@ -955,6 +933,8 @@ function DiscussionRow({
             ) : (
               <Badge variant="warning">{t('grading.awaitingGrade')}</Badge>
             )
+          ) : item.zeroedAsMissing ? (
+            <Badge variant="warning">{t('grading.pastDueBadge')}</Badge>
           ) : (
             <Badge variant="secondary">{t('grading.notSubmitted')}</Badge>
           )}
