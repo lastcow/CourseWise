@@ -84,6 +84,7 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const [waiveLate, setWaiveLate] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [reqOpen, setReqOpen] = useState(false);
+  const [rosterSearch, setRosterSearch] = useState('');
 
   const selectedIndividual = !isGroupMode
     ? ((submissions.data ?? []).find((s) => s.id === selectedId) ?? null)
@@ -212,6 +213,21 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const heroPct =
     storedScore !== null && maxScore && maxScore > 0 ? (storedScore / maxScore) * 100 : null;
 
+  // Inbox search: filter the roster by student name / email (group mode also
+  // matches the group name and any member).
+  const rq = rosterSearch.trim().toLowerCase();
+  const matchesPerson = (name: string, email: string): boolean =>
+    !rq || `${name} ${email}`.toLowerCase().includes(rq);
+  const filteredSubs = (submissions.data ?? []).filter((s) =>
+    matchesPerson(s.student.name, s.student.email),
+  );
+  const filteredGroups = (grouped.data?.groups ?? []).filter(
+    (g) =>
+      !rq ||
+      g.groupName.toLowerCase().includes(rq) ||
+      g.members.some((m) => matchesPerson(m.student.name, m.student.email)),
+  );
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
@@ -259,15 +275,28 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
               </Badge>
             ) : null}
           </div>
+          <div className="border-b bg-muted/30 px-2 pb-2">
+            <Input
+              type="search"
+              value={rosterSearch}
+              onChange={(e) => setRosterSearch(e.target.value)}
+              placeholder={t('submissions.searchPlaceholder')}
+              className="h-8"
+            />
+          </div>
           <CardContent className="p-1">
             {(isGroupMode ? grouped.isLoading : submissions.isLoading) ? (
               <p className="px-2 py-2 text-sm text-muted-foreground">{t('common.loading')}</p>
             ) : isGroupMode ? (
               !grouped.data || grouped.data.groups.length === 0 ? (
                 <EmptyState title={t('submissions.empty')} />
+              ) : filteredGroups.length === 0 ? (
+                <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                  {t('submissions.noSearchMatch')}
+                </p>
               ) : (
                 <div className="space-y-0.5">
-                  {[...grouped.data.groups]
+                  {[...filteredGroups]
                     .sort(
                       (a, b) =>
                         submissionGradingRank(groupRepresentative(a)?.status ?? 'submitted') -
@@ -289,7 +318,7 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
                         />
                       );
                     })}
-                  {grouped.data.ungroupedStudents.length > 0 ? (
+                  {!rq && grouped.data.ungroupedStudents.length > 0 ? (
                     <div className="mt-2 rounded border border-dashed p-2 text-xs text-muted-foreground">
                       <p className="font-medium">{t('submissions.notSubmittedYet')}</p>
                       <p className="mt-1">
@@ -301,9 +330,13 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
               )
             ) : !submissions.data || submissions.data.length === 0 ? (
               <EmptyState title={t('submissions.empty')} />
+            ) : filteredSubs.length === 0 ? (
+              <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                {t('submissions.noSearchMatch')}
+              </p>
             ) : (
               <div className="space-y-0.5">
-                {submissions.data.map((s) => (
+                {filteredSubs.map((s) => (
                   <RosterRow
                     key={s.id}
                     title={s.student.name}

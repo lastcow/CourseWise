@@ -1251,6 +1251,8 @@ export const en = {
     submissions: {
       title: 'Submissions',
       inbox: 'Inbox',
+      searchPlaceholder: 'Search by name or email…',
+      noSearchMatch: 'No match',
       viewRequirements: 'View assignment requirements',
       requirementsKicker: 'Requirements',
       empty: 'No submissions yet.',
@@ -1551,6 +1553,8 @@ export const en = {
       },
       noAttempts: 'No attempts yet.',
       attemptsListTitle: 'Attempts',
+      attemptsSearchPlaceholder: 'Search by name or email…',
+      attemptsNoMatch: 'No match',
       attemptsFor: 'Attempts — {{title}}',
       pickAttempt: 'Select a student attempt from the list to start grading.',
       gradingTitle: 'Grading',

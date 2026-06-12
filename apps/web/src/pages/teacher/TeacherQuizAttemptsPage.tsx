@@ -96,6 +96,7 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
   const attempt = useQuizAttempt(selectedAttemptId);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [rosterSearch, setRosterSearch] = useState('');
   const selectedAttempt = attempts.data?.find((a) => a.id === selectedAttemptId) ?? null;
 
   // Roster ordering: attempts awaiting grading float to the top, then by name.
@@ -109,6 +110,10 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
     });
   }, [attempts.data]);
   const toGradeCount = roster.filter(needsGrading).length;
+  const rq = rosterSearch.trim().toLowerCase();
+  const filteredRoster = rq
+    ? roster.filter((a) => `${a.student.name} ${a.student.email}`.toLowerCase().includes(rq))
+    : roster;
 
   const d = attempt.data;
   const pct =
@@ -140,14 +145,27 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
               </Badge>
             ) : null}
           </div>
+          <div className="border-b bg-muted/30 px-2 pb-2">
+            <Input
+              type="search"
+              value={rosterSearch}
+              onChange={(e) => setRosterSearch(e.target.value)}
+              placeholder={t('quizzes.attemptsSearchPlaceholder')}
+              className="h-8"
+            />
+          </div>
           <CardContent className="p-1">
             {attempts.isLoading ? (
               <p className="px-2 py-2 text-sm text-muted-foreground">{t('common.loading')}</p>
             ) : roster.length === 0 ? (
               <EmptyState title={t('quizzes.noAttempts')} />
+            ) : filteredRoster.length === 0 ? (
+              <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                {t('quizzes.attemptsNoMatch')}
+              </p>
             ) : (
               <ul className="space-y-0.5">
-                {roster.map((a) => {
+                {filteredRoster.map((a) => {
                   const ng = needsGrading(a);
                   const aPct =
                     a.score !== null && a.maxScore && a.maxScore > 0
