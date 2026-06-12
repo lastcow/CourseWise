@@ -642,6 +642,8 @@ export const zhCN = {
       composeNewTitle: '新建消息',
       recipientLabel: '收件人',
       recipientPlaceholder: '选择收件人…',
+      recipientSearchPlaceholder: '按姓名或邮箱搜索…',
+      recipientNoMatch: '没有匹配的人员',
       attachCta: '添加附件',
       attachRemove: '移除附件',
       title: '消息',
