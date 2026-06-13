@@ -333,12 +333,18 @@ r.get('/files/:fileId/download-url', async (c) => {
   }
 
   const cfg = signerConfig(c.env);
+  // Message attachments open inline so the browser previews them (and falls
+  // back to downloading whatever it can't render); every other file type
+  // forces a download so it saves straight to disk.
+  const disposition = row.relatedType === 'message' ? 'inline' : 'attachment';
   const presigned = await presignR2Url(cfg, {
     method: 'GET',
     key: row.objectKey,
     expiresInSeconds: PRESIGN_EXPIRES,
     extraQuery: row.originalFilename
-      ? { 'response-content-disposition': `attachment; filename="${row.originalFilename.replace(/"/g, '')}"` }
+      ? {
+          'response-content-disposition': `${disposition}; filename="${row.originalFilename.replace(/"/g, '')}"`,
+        }
       : undefined,
   });
 
