@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Archive,
   ArchiveRestore,
+  ChevronRight,
   Circle,
   CircleCheck,
   ClipboardList,
@@ -25,6 +26,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { SetWeightsEditor } from '@/components/sets/SetWeightsEditor';
+import { AssignmentSubmissionsSubsection } from '@/components/submissions/AssignmentSubmissionsSubsection';
 import { Input, Label } from '@/components/ui/input';
 import {
   Table,
@@ -112,6 +114,16 @@ export function TeacherAssignmentsPage(): JSX.Element {
   const [moveTarget, setMoveTarget] = useState<AssignmentSummary | null>(null);
   const [moveModuleId, setMoveModuleId] = useState<string>('');
   const [search, setSearch] = useState('');
+
+  // Per-assignment expand-to-grade submissions subsection (keyed by id).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (assignmentId: string): void =>
+    setExpanded((cur) => {
+      const next = new Set(cur);
+      if (next.has(assignmentId)) next.delete(assignmentId);
+      else next.add(assignmentId);
+      return next;
+    });
 
   // Multi-select → assignment-set assignment.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -324,8 +336,11 @@ export function TeacherAssignmentsPage(): JSX.Element {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAssignments.map((a) => (
-                  <TableRow key={a.id} data-state={selectedIds.has(a.id) ? 'selected' : undefined}>
+                {filteredAssignments.map((a) => {
+                  const isOpen = expanded.has(a.id);
+                  return (
+                  <Fragment key={a.id}>
+                  <TableRow data-state={selectedIds.has(a.id) ? 'selected' : undefined}>
                     <TableCell>
                       <input
                         type="checkbox"
@@ -337,6 +352,22 @@ export function TeacherAssignmentsPage(): JSX.Element {
                     </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(a.id)}
+                          aria-expanded={isOpen}
+                          aria-label={
+                            isOpen
+                              ? t('assignments.collapseSubmissions')
+                              : t('assignments.expandSubmissions')
+                          }
+                          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <ChevronRight
+                            className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-90')}
+                            aria-hidden
+                          />
+                        </button>
                         <StatusIcon status={a.status} />
                         <Link
                           to={`/teacher/courses/${id}/assignments/${a.id}`}
@@ -463,7 +494,17 @@ export function TeacherAssignmentsPage(): JSX.Element {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  {isOpen ? (
+                    <TableRow className="bg-muted/20">
+                      <TableCell />
+                      <TableCell colSpan={5} className="py-3 pr-4">
+                        <AssignmentSubmissionsSubsection assignment={a} />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  </Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

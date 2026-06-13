@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Archive,
   ArchiveRestore,
+  ChevronRight,
   Circle,
   CircleCheck,
   FolderInput,
@@ -25,6 +26,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { SetWeightsEditor } from '@/components/sets/SetWeightsEditor';
+import { QuizAttemptsSubsection } from '@/components/submissions/QuizAttemptsSubsection';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import {
   Table,
@@ -120,6 +122,16 @@ export function TeacherQuizzesPage(): JSX.Element {
   const [moveModuleId, setMoveModuleId] = useState<string>('');
   const [manageOpen, setManageOpen] = useState(false);
   const [search, setSearch] = useState('');
+
+  // Per-quiz expand-to-view attempts subsection (keyed by id).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (quizId: string): void =>
+    setExpanded((cur) => {
+      const next = new Set(cur);
+      if (next.has(quizId)) next.delete(quizId);
+      else next.add(quizId);
+      return next;
+    });
 
   // Multi-select → quiz-set assignment (mirrors the assignments page).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -343,8 +355,11 @@ export function TeacherQuizzesPage(): JSX.Element {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredQuizzes.map((q) => (
-                  <TableRow key={q.id} data-state={selectedIds.has(q.id) ? 'selected' : undefined}>
+                {filteredQuizzes.map((q) => {
+                  const isOpen = expanded.has(q.id);
+                  return (
+                  <Fragment key={q.id}>
+                  <TableRow data-state={selectedIds.has(q.id) ? 'selected' : undefined}>
                     <TableCell>
                       <input
                         type="checkbox"
@@ -356,6 +371,22 @@ export function TeacherQuizzesPage(): JSX.Element {
                     </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(q.id)}
+                          aria-expanded={isOpen}
+                          aria-label={
+                            isOpen
+                              ? t('quizzes.collapseAttempts')
+                              : t('quizzes.expandAttempts')
+                          }
+                          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <ChevronRight
+                            className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-90')}
+                            aria-hidden
+                          />
+                        </button>
                         <StatusIcon status={q.status} />
                         <Link
                           to={`/teacher/courses/${id}/quizzes/${q.id}`}
@@ -475,7 +506,17 @@ export function TeacherQuizzesPage(): JSX.Element {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  {isOpen ? (
+                    <TableRow className="bg-muted/20">
+                      <TableCell />
+                      <TableCell colSpan={6} className="py-3 pr-4">
+                        <QuizAttemptsSubsection courseId={id} quizId={q.id} />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  </Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
