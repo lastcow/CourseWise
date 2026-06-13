@@ -1,6 +1,7 @@
 import { and, asc, count, eq, inArray, isNotNull, or, sql } from 'drizzle-orm';
 import {
   type FinalGradeSummary,
+  type GradebookGroupMembership,
   type GradebookAssignmentItem,
   type GradebookAttendanceItem,
   type GradebookCategoryRollup,
@@ -895,7 +896,7 @@ export function toFinalGradeSummary(
     studentEmail?: string;
     studentNumber?: string | null;
     overrideCount?: number;
-    groupNames?: string[];
+    groupMemberships?: GradebookGroupMembership[];
     ungradedCount?: number;
   },
 ): FinalGradeSummary {
@@ -921,7 +922,7 @@ export function toFinalGradeSummary(
     studentEmail: extra?.studentEmail,
     studentNumber: extra?.studentNumber ?? null,
     overrideCount: extra?.overrideCount,
-    groupNames: extra?.groupNames,
+    groupMemberships: extra?.groupMemberships,
     ungradedCount: extra?.ungradedCount,
     score: row.score !== null ? Number(row.score) : null,
     letterGrade: row.letterGrade ?? null,

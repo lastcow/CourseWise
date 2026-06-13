@@ -1848,6 +1848,8 @@ export const fr = {
       searchStudents: 'Rechercher par nom ou numéro étudiant',
       filterShowing: '{{shown}} étudiants sur {{total}}',
       filterClear: 'Effacer',
+      filterByGroup: 'Filtrer par groupe',
+      filterAllGroups: 'Tous les groupes',
       filterNoMatch: 'Aucun étudiant ne correspond aux filtres.',
       gradebookEmpty: 'Aucune note finale calculée pour le moment.',
       gradebookEmptyHint:

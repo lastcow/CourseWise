@@ -1823,6 +1823,8 @@ export const en = {
       searchStudents: 'Search by name or student ID',
       filterShowing: '{{shown}} of {{total}} students',
       filterClear: 'Clear',
+      filterByGroup: 'Filter by group',
+      filterAllGroups: 'All groups',
       filterNoMatch: 'No students match the current filters.',
       gradebookEmpty: 'No final grades calculated yet.',
       gradebookEmptyHint: 'Final grades update automatically as you grade.',

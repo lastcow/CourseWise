@@ -814,6 +814,15 @@ export interface GradingPolicySummary {
 }
 
 // ---------- M5: Final Grades ----------
+/** A student's membership in one group, carrying the parent group set ("group
+ *  type") so the gradebook can label and section a group filter by set. */
+export interface GradebookGroupMembership {
+  groupSetId: string;
+  groupSetName: string;
+  groupId: string;
+  groupName: string;
+}
+
 export interface FinalGradeSummary {
   id: string;
   courseId: string;
@@ -824,9 +833,9 @@ export interface FinalGradeSummary {
   /** How many of this student's item scores were teacher-entered without a
    *  submission (work handed in by email/paper). Roster display only. */
   overrideCount?: number;
-  /** Team/group name(s) the student belongs to, across the course's group
-   *  sets (≤1 per set). Roster display only. */
-  groupNames?: string[];
+  /** The student's group memberships across the course's group sets (≤1 per
+   *  set). Drives the roster's group chips and the group filter. */
+  groupMemberships?: GradebookGroupMembership[];
   /** Count of the student's assignment submissions handed in but not yet
    *  graded (status submitted/late). Roster display only. */
   ungradedCount?: number;

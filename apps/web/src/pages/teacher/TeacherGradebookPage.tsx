@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm';
 import { PreparingGradesDialog } from '@/components/gradebook/PreparingGradesDialog';
 import { StudentGradesSubsection } from '@/components/gradebook/StudentGradesSubsection';
+import { GroupFilterMenu } from '@/components/gradebook/GroupFilterMenu';
 import { downloadGradesCsv, useFinalGrades, useZeroMissingScores } from '@/lib/queries';
 import { pickI18nKey } from '@/lib/api';
 
@@ -48,9 +49,11 @@ export function TeacherGradebookPage(): JSX.Element {
   const toast = useToast();
   const confirm = useConfirm();
 
-  // Toolbar: free-text search (name / student number / email) + letter chips.
+  // Toolbar: free-text search (name / student number / email) + letter chips +
+  // group filter (a single groupId, or null for all).
   const [search, setSearch] = useState('');
   const [letterFilter, setLetterFilter] = useState<Set<string>>(new Set());
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
   // Per-student expand-to-edit subsection (keyed by studentId).
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -96,6 +99,34 @@ export function TeacherGradebookPage(): JSX.Element {
     return counts;
   }, [rows]);
 
+  // Groups present in the roster, bucketed by their group set ("type") and
+  // counted, so the filter only offers groups that actually have students.
+  const groupSections = useMemo(() => {
+    const sets = new Map<
+      string,
+      { setName: string; groups: Map<string, { name: string; count: number }> }
+    >();
+    for (const g of rows) {
+      for (const m of g.groupMemberships ?? []) {
+        let set = sets.get(m.groupSetId);
+        if (!set) {
+          set = { setName: m.groupSetName, groups: new Map() };
+          sets.set(m.groupSetId, set);
+        }
+        const grp = set.groups.get(m.groupId);
+        if (grp) grp.count += 1;
+        else set.groups.set(m.groupId, { name: m.groupName, count: 1 });
+      }
+    }
+    return Array.from(sets, ([setId, s]) => ({
+      setId,
+      setName: s.setName,
+      groups: Array.from(s.groups, ([id, v]) => ({ id, name: v.name, count: v.count })).sort(
+        (a, b) => a.name.localeCompare(b.name),
+      ),
+    })).sort((a, b) => a.setName.localeCompare(b.setName));
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((g) => {
@@ -110,11 +141,14 @@ export function TeacherGradebookPage(): JSX.Element {
         const l = letterOf(g);
         if (!l || !letterFilter.has(l)) return false;
       }
+      if (groupFilter && !(g.groupMemberships ?? []).some((m) => m.groupId === groupFilter)) {
+        return false;
+      }
       return true;
     });
-  }, [rows, search, letterFilter]);
+  }, [rows, search, letterFilter, groupFilter]);
 
-  const filtering = search.trim() !== '' || letterFilter.size > 0;
+  const filtering = search.trim() !== '' || letterFilter.size > 0 || groupFilter !== null;
 
   function toggleLetter(l: string): void {
     setLetterFilter((cur) => {
@@ -191,6 +225,14 @@ export function TeacherGradebookPage(): JSX.Element {
                     className="h-9 w-72 max-w-full bg-background pl-8"
                   />
                 </div>
+                {groupSections.length > 0 ? (
+                  <GroupFilterMenu
+                    sections={groupSections}
+                    value={groupFilter}
+                    onChange={setGroupFilter}
+                    showSectionHeaders={groupSections.length > 1}
+                  />
+                ) : null}
                 {filtering ? (
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {t('grading.filterShowing', {
@@ -228,6 +270,7 @@ export function TeacherGradebookPage(): JSX.Element {
                     onClick={() => {
                       setSearch('');
                       setLetterFilter(new Set());
+                      setGroupFilter(null);
                     }}
                     className="text-xs text-muted-foreground underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
                   >
@@ -280,13 +323,13 @@ export function TeacherGradebookPage(): JSX.Element {
                         >
                           {g.studentName ?? '—'}
                         </Link>
-                        {g.groupNames?.map((name) => (
+                        {g.groupMemberships?.map((m) => (
                           <span
-                            key={name}
+                            key={m.groupId}
                             className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
                           >
                             <Users className="h-3 w-3" aria-hidden />
-                            {name}
+                            {m.groupName}
                           </span>
                         ))}
                       </div>

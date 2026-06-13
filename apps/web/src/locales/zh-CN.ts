@@ -1756,6 +1756,8 @@ export const zhCN = {
       searchStudents: '按姓名或学号搜索',
       filterShowing: '显示 {{shown}} / {{total}} 名学生',
       filterClear: '清除',
+      filterByGroup: '按组筛选',
+      filterAllGroups: '所有组',
       filterNoMatch: '没有符合筛选条件的学生。',
       gradebookEmpty: '尚未计算最终成绩。',
       gradebookEmptyHint: '最终成绩会随评分自动更新。',
