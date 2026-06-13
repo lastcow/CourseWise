@@ -168,8 +168,15 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
   const ad = assignment.data;
   const penaltyConfigured =
     ad?.latePenaltyPercentPerPeriod != null && ad?.latePenaltyPeriodHours != null;
-  const detailIsLate = detailSub?.status === 'late';
   const effectiveDeadline = ad ? (ad.dueDate ?? ad.endDate ?? ad.untilDate) : null;
+  // Grading overwrites a submission's 'late' status with 'graded', so checking
+  // status alone makes an already-graded late submission read as on time.
+  // Derive lateness from submittedAt vs the effective deadline — the same
+  // comparison the backend uses to stamp a submission 'late' in the first place.
+  const detailIsLate =
+    detailSub?.submittedAt != null &&
+    effectiveDeadline != null &&
+    new Date(detailSub.submittedAt).getTime() > new Date(effectiveDeadline).getTime();
   const livePenaltyPct =
     detailIsLate && penaltyConfigured && !waiveLate
       ? computeLatePenaltyPercent({
