@@ -6,8 +6,30 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Pagination, usePageSlice } from '@/components/ui/pagination';
 import { useQuizAttempts } from '@/lib/queries';
+import { StatusFilterChips } from './StatusFilterChips';
+import { statusChips, type StatusDef } from './statusFilter';
 
 const PAGE_SIZE = 10;
+
+// Collapse an attempt to the same review-state vocabulary the row badge uses,
+// so the filter chips line up with what's shown per row.
+function quizStatusKey(a: {
+  submittedAt: string | null;
+  teacherReviewed: boolean;
+  status: string;
+}): string {
+  if (a.submittedAt != null && !a.teacherReviewed) return 'pending';
+  if (a.teacherReviewed) return 'reviewed';
+  return a.status;
+}
+
+const QUIZ_STATUS_DEFS: readonly StatusDef[] = [
+  { key: 'pending', tone: 'amber' },
+  { key: 'reviewed', tone: 'emerald' },
+  { key: 'in_progress', tone: 'slate' },
+  { key: 'submitted', tone: 'slate' },
+  { key: 'expired', tone: 'slate' },
+];
 
 const Muted = ({ text }: { text: string }): JSX.Element => (
   <p className="px-1 py-3 text-sm text-muted-foreground">{text}</p>
@@ -29,19 +51,45 @@ export function QuizAttemptsSubsection({
   const { t } = useTranslation();
   const attempts = useQuizAttempts(quizId);
   const [search, setSearch] = useState('');
+  const [statuses, setStatuses] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
 
   const rows = useMemo(() => attempts.data ?? [], [attempts.data]);
+  const chips = useMemo(
+    () =>
+      statusChips(rows, quizStatusKey, QUIZ_STATUS_DEFS, (k) =>
+        k === 'pending'
+          ? t('quizzes.pendingReview')
+          : k === 'reviewed'
+            ? t('quizzes.reviewed')
+            : t(`quizzes.attemptStatus.${k}`),
+      ),
+    [rows, t],
+  );
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter(
-      (a) =>
-        a.student.name.toLowerCase().includes(term) ||
-        a.student.email.toLowerCase().includes(term),
-    );
-  }, [rows, search]);
+    return rows.filter((a) => {
+      if (statuses.size > 0 && !statuses.has(quizStatusKey(a))) return false;
+      if (
+        term &&
+        !a.student.name.toLowerCase().includes(term) &&
+        !a.student.email.toLowerCase().includes(term)
+      )
+        return false;
+      return true;
+    });
+  }, [rows, search, statuses]);
   const { slice } = usePageSlice(filtered, page, PAGE_SIZE);
+
+  const onToggleStatus = (key: string): void => {
+    setStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    setPage(1);
+  };
 
   if (attempts.isLoading) {
     return (
@@ -59,21 +107,24 @@ export function QuizAttemptsSubsection({
 
   return (
     <div className="space-y-2">
-      <div className="relative max-w-xs">
-        <Search
-          className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-        <Input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          placeholder={t('quizzes.attemptsSearchPlaceholder')}
-          aria-label={t('quizzes.attemptsSearchPlaceholder')}
-          className="h-9 w-full bg-background pl-8"
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative max-w-xs">
+          <Search
+            className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder={t('quizzes.attemptsSearchPlaceholder')}
+            aria-label={t('quizzes.attemptsSearchPlaceholder')}
+            className="h-9 w-full bg-background pl-8"
+          />
+        </div>
+        <StatusFilterChips chips={chips} selected={statuses} onToggle={onToggleStatus} />
       </div>
       {filtered.length === 0 ? (
         <Muted text={t('quizzes.attemptsNoMatch')} />
