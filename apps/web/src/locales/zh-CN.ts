@@ -1758,6 +1758,8 @@ export const zhCN = {
       filterClear: '清除',
       filterByGroup: '按组筛选',
       filterAllGroups: '所有组',
+      filterGroupSearch: '搜索组',
+      filterGroupNoMatch: '没有匹配的组',
       filterNoMatch: '没有符合筛选条件的学生。',
       gradebookEmpty: '尚未计算最终成绩。',
       gradebookEmptyHint: '最终成绩会随评分自动更新。',
