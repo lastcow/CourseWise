@@ -1825,6 +1825,8 @@ export const en = {
       filterClear: 'Clear',
       filterByGroup: 'Filter by group',
       filterAllGroups: 'All groups',
+      filterGroupSearch: 'Search groups',
+      filterGroupNoMatch: 'No matching groups',
       filterNoMatch: 'No students match the current filters.',
       gradebookEmpty: 'No final grades calculated yet.',
       gradebookEmptyHint: 'Final grades update automatically as you grade.',

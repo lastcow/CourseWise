@@ -1850,6 +1850,8 @@ export const fr = {
       filterClear: 'Effacer',
       filterByGroup: 'Filtrer par groupe',
       filterAllGroups: 'Tous les groupes',
+      filterGroupSearch: 'Rechercher un groupe',
+      filterGroupNoMatch: 'Aucun groupe correspondant',
       filterNoMatch: 'Aucun étudiant ne correspond aux filtres.',
       gradebookEmpty: 'Aucune note finale calculée pour le moment.',
       gradebookEmptyHint:
