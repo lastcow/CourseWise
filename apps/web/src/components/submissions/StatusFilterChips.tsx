@@ -33,33 +33,33 @@ const TONE: Record<ChipTone, { idle: string; active: string }> = {
 };
 
 /**
- * A flat row of toggleable status chips for a submissions/attempts roster. Each
- * chip is outlined in its status color and shows a count; multiple may be
- * selected (empty selection = show all). Renders nothing when there are no
- * statuses to offer.
+ * A flat row of rectangular status chips for a submissions/attempts roster.
+ * Each chip is outlined in its status color and shows a count; this is a
+ * single-select control (one status at a time, or none = show all) — clicking
+ * the active chip clears it. Renders nothing when there are no statuses.
  */
 export function StatusFilterChips({
   chips,
-  selected,
-  onToggle,
+  value,
+  onChange,
 }: {
   chips: StatusChip[];
-  selected: ReadonlySet<string>;
-  onToggle: (key: string) => void;
+  value: string | null;
+  onChange: (key: string | null) => void;
 }): JSX.Element | null {
   if (chips.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {chips.map((c) => {
-        const active = selected.has(c.key);
+        const active = value === c.key;
         return (
           <button
             key={c.key}
             type="button"
             aria-pressed={active}
-            onClick={() => onToggle(c.key)}
+            onClick={() => onChange(active ? null : c.key)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border bg-transparent px-2.5 py-0.5 text-xs font-medium transition-colors',
+              'inline-flex items-center gap-1.5 rounded-md border bg-transparent px-2.5 py-0.5 text-xs font-medium transition-colors',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               active ? TONE[c.tone].active : TONE[c.tone].idle,
             )}

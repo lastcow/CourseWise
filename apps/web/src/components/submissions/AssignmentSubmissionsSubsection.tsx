@@ -120,7 +120,7 @@ function IndividualSubmissionsList({ assignment }: { assignment: AssignmentSumma
   const subs = useAssignmentSubmissions(assignment.id);
   const grade = useGradeSubmission(assignment.id);
   const [search, setSearch] = useState('');
-  const [statuses, setStatuses] = useState<Set<string>>(new Set());
+  const [status, setStatus] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   const rows = useMemo(() => subs.data ?? [], [subs.data]);
@@ -134,7 +134,7 @@ function IndividualSubmissionsList({ assignment }: { assignment: AssignmentSumma
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((s) => {
-      if (statuses.size > 0 && !statuses.has(s.status)) return false;
+      if (status !== null && s.status !== status) return false;
       if (
         term &&
         !s.student.name.toLowerCase().includes(term) &&
@@ -143,16 +143,11 @@ function IndividualSubmissionsList({ assignment }: { assignment: AssignmentSumma
         return false;
       return true;
     });
-  }, [rows, search, statuses]);
+  }, [rows, search, status]);
   const { slice } = usePageSlice(filtered, page, PAGE_SIZE);
 
-  const onToggleStatus = (key: string): void => {
-    setStatuses((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const onChangeStatus = (key: string | null): void => {
+    setStatus(key);
     setPage(1);
   };
 
@@ -180,7 +175,7 @@ function IndividualSubmissionsList({ assignment }: { assignment: AssignmentSumma
           }}
           placeholder={t('submissions.rosterSearchStudents')}
         />
-        <StatusFilterChips chips={chips} selected={statuses} onToggle={onToggleStatus} />
+        <StatusFilterChips chips={chips} value={status} onChange={onChangeStatus} />
       </div>
       {filtered.length === 0 ? (
         <Muted text={t('submissions.rosterNoMatch')} />
@@ -230,7 +225,7 @@ function GroupSubmissionsList({ assignment }: { assignment: AssignmentSummary })
   const grouped = useAssignmentSubmissionsByGroup(assignment.id);
   const grade = useGradeSubmission(assignment.id);
   const [search, setSearch] = useState('');
-  const [statuses, setStatuses] = useState<Set<string>>(new Set());
+  const [status, setStatus] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
@@ -250,7 +245,7 @@ function GroupSubmissionsList({ assignment }: { assignment: AssignmentSummary })
   );
   const filteredGroups = useMemo(() => {
     return groups.filter((g) => {
-      if (statuses.size > 0 && !statuses.has(groupRepresentative(g)?.status ?? 'draft')) {
+      if (status !== null && (groupRepresentative(g)?.status ?? 'draft') !== status) {
         return false;
       }
       if (
@@ -265,25 +260,20 @@ function GroupSubmissionsList({ assignment }: { assignment: AssignmentSummary })
         return false;
       return true;
     });
-  }, [groups, term, statuses]);
+  }, [groups, term, status]);
   // The "no submission yet" bucket carries no submission status, so any active
   // status filter hides it.
   const filteredUngrouped = useMemo(() => {
-    if (statuses.size > 0) return [];
+    if (status !== null) return [];
     if (!term) return ungrouped;
     return ungrouped.filter(
       (s) => s.name.toLowerCase().includes(term) || s.email.toLowerCase().includes(term),
     );
-  }, [ungrouped, term, statuses]);
+  }, [ungrouped, term, status]);
   const { slice } = usePageSlice(filteredGroups, page, PAGE_SIZE);
 
-  const onToggleStatus = (key: string): void => {
-    setStatuses((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const onChangeStatus = (key: string | null): void => {
+    setStatus(key);
     setPage(1);
   };
 
@@ -322,7 +312,7 @@ function GroupSubmissionsList({ assignment }: { assignment: AssignmentSummary })
           }}
           placeholder={t('submissions.rosterSearchGroups')}
         />
-        <StatusFilterChips chips={chips} selected={statuses} onToggle={onToggleStatus} />
+        <StatusFilterChips chips={chips} value={status} onChange={onChangeStatus} />
       </div>
       {nothingMatches ? <Muted text={t('submissions.rosterNoMatch')} /> : null}
       {filteredGroups.length > 0 ? (

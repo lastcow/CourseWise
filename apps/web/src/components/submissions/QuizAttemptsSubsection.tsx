@@ -51,7 +51,7 @@ export function QuizAttemptsSubsection({
   const { t } = useTranslation();
   const attempts = useQuizAttempts(quizId);
   const [search, setSearch] = useState('');
-  const [statuses, setStatuses] = useState<Set<string>>(new Set());
+  const [status, setStatus] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   const rows = useMemo(() => attempts.data ?? [], [attempts.data]);
@@ -69,7 +69,7 @@ export function QuizAttemptsSubsection({
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((a) => {
-      if (statuses.size > 0 && !statuses.has(quizStatusKey(a))) return false;
+      if (status !== null && quizStatusKey(a) !== status) return false;
       if (
         term &&
         !a.student.name.toLowerCase().includes(term) &&
@@ -78,16 +78,11 @@ export function QuizAttemptsSubsection({
         return false;
       return true;
     });
-  }, [rows, search, statuses]);
+  }, [rows, search, status]);
   const { slice } = usePageSlice(filtered, page, PAGE_SIZE);
 
-  const onToggleStatus = (key: string): void => {
-    setStatuses((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const onChangeStatus = (key: string | null): void => {
+    setStatus(key);
     setPage(1);
   };
 
@@ -124,7 +119,7 @@ export function QuizAttemptsSubsection({
             className="h-9 w-full bg-background pl-8"
           />
         </div>
-        <StatusFilterChips chips={chips} selected={statuses} onToggle={onToggleStatus} />
+        <StatusFilterChips chips={chips} value={status} onChange={onChangeStatus} />
       </div>
       {filtered.length === 0 ? (
         <Muted text={t('quizzes.attemptsNoMatch')} />
