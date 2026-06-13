@@ -18,8 +18,19 @@ import {
 } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 import { InlineScoreField } from '@/components/grading/InlineScoreField';
+import { StatusFilterChips } from './StatusFilterChips';
+import { statusChips, type StatusDef } from './statusFilter';
 
 const PAGE_SIZE = 10;
+
+// Filter chips, in canonical order; tones mirror the row status badges.
+const ASSIGN_STATUS_DEFS: readonly StatusDef[] = [
+  { key: 'submitted', tone: 'amber' },
+  { key: 'late', tone: 'amber' },
+  { key: 'returned', tone: 'sky' },
+  { key: 'graded', tone: 'emerald' },
+  { key: 'draft', tone: 'slate' },
+];
 
 function statusVariant(s: SubmissionStatus): 'success' | 'warning' | 'info' | 'secondary' {
   if (s === 'graded') return 'success';
@@ -109,19 +120,41 @@ function IndividualSubmissionsList({ assignment }: { assignment: AssignmentSumma
   const subs = useAssignmentSubmissions(assignment.id);
   const grade = useGradeSubmission(assignment.id);
   const [search, setSearch] = useState('');
+  const [statuses, setStatuses] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
 
   const rows = useMemo(() => subs.data ?? [], [subs.data]);
+  const chips = useMemo(
+    () =>
+      statusChips(rows, (s) => s.status, ASSIGN_STATUS_DEFS, (k) =>
+        statusLabel(t, k as SubmissionStatus),
+      ),
+    [rows, t],
+  );
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter(
-      (s) =>
-        s.student.name.toLowerCase().includes(term) ||
-        s.student.email.toLowerCase().includes(term),
-    );
-  }, [rows, search]);
+    return rows.filter((s) => {
+      if (statuses.size > 0 && !statuses.has(s.status)) return false;
+      if (
+        term &&
+        !s.student.name.toLowerCase().includes(term) &&
+        !s.student.email.toLowerCase().includes(term)
+      )
+        return false;
+      return true;
+    });
+  }, [rows, search, statuses]);
   const { slice } = usePageSlice(filtered, page, PAGE_SIZE);
+
+  const onToggleStatus = (key: string): void => {
+    setStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    setPage(1);
+  };
 
   const onGrade = async (
     submissionId: string,
@@ -138,14 +171,17 @@ function IndividualSubmissionsList({ assignment }: { assignment: AssignmentSumma
 
   return (
     <div className="space-y-2">
-      <RosterSearch
-        value={search}
-        onChange={(v) => {
-          setSearch(v);
-          setPage(1);
-        }}
-        placeholder={t('submissions.rosterSearchStudents')}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <RosterSearch
+          value={search}
+          onChange={(v) => {
+            setSearch(v);
+            setPage(1);
+          }}
+          placeholder={t('submissions.rosterSearchStudents')}
+        />
+        <StatusFilterChips chips={chips} selected={statuses} onToggle={onToggleStatus} />
+      </div>
       {filtered.length === 0 ? (
         <Muted text={t('submissions.rosterNoMatch')} />
       ) : (
@@ -194,6 +230,7 @@ function GroupSubmissionsList({ assignment }: { assignment: AssignmentSummary })
   const grouped = useAssignmentSubmissionsByGroup(assignment.id);
   const grade = useGradeSubmission(assignment.id);
   const [search, setSearch] = useState('');
+  const [statuses, setStatuses] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
@@ -201,25 +238,54 @@ function GroupSubmissionsList({ assignment }: { assignment: AssignmentSummary })
   const ungrouped = useMemo(() => grouped.data?.ungroupedStudents ?? [], [grouped.data]);
   const term = search.trim().toLowerCase();
 
+  const chips = useMemo(
+    () =>
+      statusChips(
+        groups,
+        (g) => groupRepresentative(g)?.status ?? 'draft',
+        ASSIGN_STATUS_DEFS,
+        (k) => statusLabel(t, k as SubmissionStatus),
+      ),
+    [groups, t],
+  );
   const filteredGroups = useMemo(() => {
-    if (!term) return groups;
-    return groups.filter(
-      (g) =>
-        g.groupName.toLowerCase().includes(term) ||
-        g.members.some(
+    return groups.filter((g) => {
+      if (statuses.size > 0 && !statuses.has(groupRepresentative(g)?.status ?? 'draft')) {
+        return false;
+      }
+      if (
+        term &&
+        !g.groupName.toLowerCase().includes(term) &&
+        !g.members.some(
           (m) =>
             m.student.name.toLowerCase().includes(term) ||
             m.student.email.toLowerCase().includes(term),
-        ),
-    );
-  }, [groups, term]);
+        )
+      )
+        return false;
+      return true;
+    });
+  }, [groups, term, statuses]);
+  // The "no submission yet" bucket carries no submission status, so any active
+  // status filter hides it.
   const filteredUngrouped = useMemo(() => {
+    if (statuses.size > 0) return [];
     if (!term) return ungrouped;
     return ungrouped.filter(
       (s) => s.name.toLowerCase().includes(term) || s.email.toLowerCase().includes(term),
     );
-  }, [ungrouped, term]);
+  }, [ungrouped, term, statuses]);
   const { slice } = usePageSlice(filteredGroups, page, PAGE_SIZE);
+
+  const onToggleStatus = (key: string): void => {
+    setStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    setPage(1);
+  };
 
   const toggleGroup = (id: string): void =>
     setOpenGroups((cur) => {
@@ -247,14 +313,17 @@ function GroupSubmissionsList({ assignment }: { assignment: AssignmentSummary })
 
   return (
     <div className="space-y-2">
-      <RosterSearch
-        value={search}
-        onChange={(v) => {
-          setSearch(v);
-          setPage(1);
-        }}
-        placeholder={t('submissions.rosterSearchGroups')}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <RosterSearch
+          value={search}
+          onChange={(v) => {
+            setSearch(v);
+            setPage(1);
+          }}
+          placeholder={t('submissions.rosterSearchGroups')}
+        />
+        <StatusFilterChips chips={chips} selected={statuses} onToggle={onToggleStatus} />
+      </div>
       {nothingMatches ? <Muted text={t('submissions.rosterNoMatch')} /> : null}
       {filteredGroups.length > 0 ? (
         <div className="overflow-hidden rounded-md border bg-card">
