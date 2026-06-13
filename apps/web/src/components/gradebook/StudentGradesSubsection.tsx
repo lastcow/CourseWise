@@ -200,8 +200,12 @@ function ItemRow({
             />
           ) : null}
         </div>
-        {badges ? <div className="mt-1 flex flex-wrap items-center gap-1.5">{badges}</div> : null}
-        {action ? <div className="mt-1.5">{action}</div> : null}
+        {badges || action ? (
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {badges ? <div className="flex flex-wrap items-center gap-1.5">{badges}</div> : null}
+            {action}
+          </div>
+        ) : null}
       </div>
       <div className="shrink-0 pt-0.5">{right}</div>
     </div>
