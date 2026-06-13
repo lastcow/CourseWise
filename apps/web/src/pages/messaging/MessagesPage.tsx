@@ -60,7 +60,7 @@ function AttachmentCard({ attachment }: { attachment: MessageAttachment }): JSX.
       onClick={() => void onDownload()}
       disabled={busy}
       className="mt-2 flex w-full items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-2 text-left transition-colors hover:bg-muted"
-      title={t('common.download')}
+      title={t('common.open')}
     >
       <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       <span className="min-w-0 flex-1">
