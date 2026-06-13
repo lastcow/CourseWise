@@ -4,6 +4,7 @@ import {
   overrideFinalGradeSchema,
   updateGradingPolicySchema,
   type FinalGradeSummary,
+  type GradebookGroupMembership,
   type GradingPolicySummary,
   type OverrideFinalGradeInput,
   type RecalculateFinalGradesResult,
@@ -142,19 +143,31 @@ r.get(
     const overrideBySid = new Map(
       (overrideRows.rows as Array<{ sid: string; n: number }>).map((r) => [r.sid, Number(r.n)]),
     );
-    // Each student's team/group name(s) across this course's group sets, for
-    // the roster's student column. A student has at most one group per set.
+    // Each student's group memberships across this course's group sets, for the
+    // roster's group chips and the group filter. A student has at most one group
+    // per set; ordered by set then group so chips and filter sections are stable.
     const groupRows = await db
-      .select({ sid: groupMemberships.studentId, name: groups.name })
+      .select({
+        sid: groupMemberships.studentId,
+        groupSetId: groupSets.id,
+        groupSetName: groupSets.name,
+        groupId: groups.id,
+        groupName: groups.name,
+      })
       .from(groupMemberships)
       .innerJoin(groups, eq(groups.id, groupMemberships.groupId))
       .innerJoin(groupSets, eq(groupSets.id, groupMemberships.groupSetId))
       .where(eq(groupSets.courseId, courseId))
-      .orderBy(asc(groups.name));
-    const groupsBySid = new Map<string, string[]>();
+      .orderBy(asc(groupSets.name), asc(groups.position), asc(groups.name));
+    const groupsBySid = new Map<string, GradebookGroupMembership[]>();
     for (const row of groupRows) {
       const list = groupsBySid.get(row.sid) ?? [];
-      list.push(row.name);
+      list.push({
+        groupSetId: row.groupSetId,
+        groupSetName: row.groupSetName,
+        groupId: row.groupId,
+        groupName: row.groupName,
+      });
       groupsBySid.set(row.sid, list);
     }
     // Per-student count of work handed in but still awaiting a grade: assignment
@@ -176,7 +189,7 @@ r.get(
         studentEmail: email,
         studentNumber,
         overrideCount: overrideBySid.get(g.studentId) ?? 0,
-        groupNames: groupsBySid.get(g.studentId) ?? [],
+        groupMemberships: groupsBySid.get(g.studentId) ?? [],
         ungradedCount: ungradedBySid.get(g.studentId) ?? 0,
       }),
     );
