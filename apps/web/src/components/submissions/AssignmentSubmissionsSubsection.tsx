@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { ChevronRight, Search, Users } from 'lucide-react';
+import { ChevronRight, Eye, Search, Users } from 'lucide-react';
 import type {
   AssignmentSummary,
   GroupSubmissionWithMembers,
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { InlineScoreField } from '@/components/grading/InlineScoreField';
 import { StatusFilterChips } from './StatusFilterChips';
 import { statusChips, type StatusDef } from './statusFilter';
+import { ItemDetailDialog, type GradebookItemTarget } from '@/components/gradebook/ItemDetailDialog';
 
 const PAGE_SIZE = 10;
 
@@ -96,6 +97,22 @@ const Muted = ({ text }: { text: string }): JSX.Element => (
   <p className="px-1 py-3 text-sm text-muted-foreground">{text}</p>
 );
 
+// Icon-only affordance that opens the read-only submission dialog for a row.
+function ViewSubmissionButton({ onClick }: { onClick: () => void }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={t('grading.openSubmission')}
+      aria-label={t('grading.openSubmission')}
+      className="shrink-0 text-muted-foreground transition-colors hover:text-sky-600 focus:outline-none focus-visible:text-sky-600 dark:hover:text-sky-400"
+    >
+      <Eye className="h-3.5 w-3.5" aria-hidden />
+    </button>
+  );
+}
+
 /**
  * Submissions roster shown when an assignment row is expanded. Individual-mode
  * assignments list one row per student; group-mode assignments list one row per
@@ -122,6 +139,7 @@ function IndividualSubmissionsList({ assignment }: { assignment: AssignmentSumma
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [target, setTarget] = useState<GradebookItemTarget | null>(null);
 
   const rows = useMemo(() => subs.data ?? [], [subs.data]);
   const chips = useMemo(
@@ -185,7 +203,19 @@ function IndividualSubmissionsList({ assignment }: { assignment: AssignmentSumma
             {slice.map((s) => (
               <li key={s.id} className="flex items-center justify-between gap-3 px-3 py-2">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{s.student.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium">{s.student.name}</span>
+                    <ViewSubmissionButton
+                      onClick={() =>
+                        setTarget({
+                          kind: 'assignment',
+                          title: assignment.title,
+                          submissionId: s.id,
+                          maxScore: assignment.maxScore ?? 0,
+                        })
+                      }
+                    />
+                  </div>
                   <div className="truncate text-xs text-muted-foreground">{s.student.email}</div>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
@@ -215,6 +245,7 @@ function IndividualSubmissionsList({ assignment }: { assignment: AssignmentSumma
           ) : null}
         </div>
       )}
+      {target ? <ItemDetailDialog target={target} onClose={() => setTarget(null)} /> : null}
     </div>
   );
 }
@@ -227,6 +258,7 @@ function GroupSubmissionsList({ assignment }: { assignment: AssignmentSummary })
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [target, setTarget] = useState<GradebookItemTarget | null>(null);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   const groups = useMemo(() => grouped.data?.groups ?? [], [grouped.data]);
@@ -326,6 +358,14 @@ function GroupSubmissionsList({ assignment }: { assignment: AssignmentSummary })
                 open={openGroups.has(g.groupSubmissionId)}
                 onToggle={() => toggleGroup(g.groupSubmissionId)}
                 onGrade={onGradeGroup}
+                onView={(submissionId) =>
+                  setTarget({
+                    kind: 'assignment',
+                    title: assignment.title,
+                    submissionId,
+                    maxScore: assignment.maxScore ?? 0,
+                  })
+                }
               />
             ))}
           </ul>
@@ -362,6 +402,7 @@ function GroupSubmissionsList({ assignment }: { assignment: AssignmentSummary })
           </ul>
         </div>
       ) : null}
+      {target ? <ItemDetailDialog target={target} onClose={() => setTarget(null)} /> : null}
     </div>
   );
 }
@@ -372,12 +413,14 @@ function GroupRow({
   open,
   onToggle,
   onGrade,
+  onView,
 }: {
   group: GroupSubmissionWithMembers;
   maxScore: number | null;
   open: boolean;
   onToggle: () => void;
   onGrade: (repId: string, score: number, feedback: string | null) => Promise<void>;
+  onView: (submissionId: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const rep = groupRepresentative(group);
@@ -426,9 +469,12 @@ function GroupRow({
           <ul className="space-y-1">
             {group.members.map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-sm">
-                  {m.student.name}
-                  <span className="text-xs text-muted-foreground"> · {m.student.email}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="min-w-0 truncate text-sm">
+                    {m.student.name}
+                    <span className="text-xs text-muted-foreground"> · {m.student.email}</span>
+                  </span>
+                  <ViewSubmissionButton onClick={() => onView(m.id)} />
                 </span>
                 <Badge variant={statusVariant(m.status)}>{statusLabel(t, m.status)}</Badge>
               </li>
