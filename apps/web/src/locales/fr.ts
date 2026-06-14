@@ -127,6 +127,7 @@ export const fr = {
       drag: 'Glisser pour réorganiser',
       download: 'Télécharger',
       open: 'Ouvrir',
+      remove: 'Retirer',
       reply: 'Répondre',
       close: 'Fermer',
       publish: 'Publier',

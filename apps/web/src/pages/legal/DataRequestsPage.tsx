@@ -25,28 +25,28 @@ const ALL_RECORD_CATEGORIES: RecordCategory[] = [
 ];
 
 // Each enum value maps to a dotted i18n key under
-// public.legal.dataRequestsForm.{requester|category|action}; resolved at
+// public.dataRequestsForm.{requester|category|action}; resolved at
 // render via the existing useTranslation hook.
 const REQUESTER_LABEL_KEY: Record<RequesterType, string> = {
-  parent: 'public.legal.dataRequestsForm.requester.parent',
-  eligible_student: 'public.legal.dataRequestsForm.requester.eligibleStudent',
-  records_officer: 'public.legal.dataRequestsForm.requester.recordsOfficer',
-  other: 'public.legal.dataRequestsForm.requester.other',
+  parent: 'public.dataRequestsForm.requester.parent',
+  eligible_student: 'public.dataRequestsForm.requester.eligibleStudent',
+  records_officer: 'public.dataRequestsForm.requester.recordsOfficer',
+  other: 'public.dataRequestsForm.requester.other',
 };
 
 const CATEGORY_LABEL_KEY: Record<RecordCategory, string> = {
-  education_records: 'public.legal.dataRequestsForm.category.educationRecords',
+  education_records: 'public.dataRequestsForm.category.educationRecords',
   ai_generation_history:
-    'public.legal.dataRequestsForm.category.aiGenerationHistory',
-  account: 'public.legal.dataRequestsForm.category.account',
-  discussion_posts: 'public.legal.dataRequestsForm.category.discussionPosts',
-  other: 'public.legal.dataRequestsForm.category.other',
+    'public.dataRequestsForm.category.aiGenerationHistory',
+  account: 'public.dataRequestsForm.category.account',
+  discussion_posts: 'public.dataRequestsForm.category.discussionPosts',
+  other: 'public.dataRequestsForm.category.other',
 };
 
 const ACTION_LABEL_KEY: Record<ActionRequested, string> = {
-  inspect: 'public.legal.dataRequestsForm.action.inspect',
-  amend: 'public.legal.dataRequestsForm.action.amend',
-  delete: 'public.legal.dataRequestsForm.action.delete',
+  inspect: 'public.dataRequestsForm.action.inspect',
+  amend: 'public.dataRequestsForm.action.amend',
+  delete: 'public.dataRequestsForm.action.delete',
 };
 
 export function DataRequestsPage(): JSX.Element {
@@ -82,28 +82,28 @@ export function DataRequestsPage(): JSX.Element {
 
     if (!firstName || !lastName || !email) {
       toast.push({
-        title: t('public.legal.dataRequestsForm.nameEmailRequired'),
+        title: t('public.dataRequestsForm.nameEmailRequired'),
         tone: 'error',
       });
       return;
     }
     if (categories.size === 0) {
       toast.push({
-        title: t('public.legal.dataRequestsForm.categoryRequired'),
+        title: t('public.dataRequestsForm.categoryRequired'),
         tone: 'error',
       });
       return;
     }
     if (description.length < 10) {
       toast.push({
-        title: t('public.legal.dataRequestsForm.descriptionMinLength'),
+        title: t('public.dataRequestsForm.descriptionMinLength'),
         tone: 'error',
       });
       return;
     }
     if (description.length > 4000) {
       toast.push({
-        title: t('public.legal.dataRequestsForm.descriptionMaxLength'),
+        title: t('public.dataRequestsForm.descriptionMaxLength'),
         tone: 'error',
       });
       return;
@@ -152,7 +152,7 @@ export function DataRequestsPage(): JSX.Element {
       setDone(true);
     } catch {
       toast.push({
-        title: t('public.legal.dataRequestsForm.submitFailed'),
+        title: t('public.dataRequestsForm.submitFailed'),
         tone: 'error',
       });
     } finally {
@@ -239,40 +239,40 @@ export function DataRequestsPage(): JSX.Element {
         {done ? (
           <div className="text-center py-6">
             <h3 className="text-lg font-semibold">
-              {t('public.legal.dataRequestsForm.doneTitle')}
+              {t('public.dataRequestsForm.doneTitle')}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {t('public.legal.dataRequestsForm.doneBody')}
+              {t('public.dataRequestsForm.doneBody')}
             </p>
           </div>
         ) : (
           <form onSubmit={onSubmit} className="space-y-6">
             <div>
               <div className="text-sm font-semibold">
-                {t('public.legal.dataRequestsForm.contactInformation')}
+                {t('public.dataRequestsForm.contactInformation')}
               </div>
               <div className="mt-3 grid gap-4 md:grid-cols-2">
                 <div>
                   <Label htmlFor="dr-first">
-                    {t('public.legal.dataRequestsForm.firstNameLabel')}
+                    {t('public.dataRequestsForm.firstNameLabel')}
                   </Label>
                   <Input id="dr-first" name="firstName" required maxLength={120} />
                 </div>
                 <div>
                   <Label htmlFor="dr-last">
-                    {t('public.legal.dataRequestsForm.lastNameLabel')}
+                    {t('public.dataRequestsForm.lastNameLabel')}
                   </Label>
                   <Input id="dr-last" name="lastName" required maxLength={120} />
                 </div>
                 <div>
                   <Label htmlFor="dr-email">
-                    {t('public.legal.dataRequestsForm.emailLabel')}
+                    {t('public.dataRequestsForm.emailLabel')}
                   </Label>
                   <Input id="dr-email" name="email" type="email" required maxLength={200} />
                 </div>
                 <div>
                   <Label htmlFor="dr-institution">
-                    {t('public.legal.dataRequestsForm.institutionLabel')}
+                    {t('public.dataRequestsForm.institutionLabel')}
                   </Label>
                   <Input id="dr-institution" name="institution" maxLength={200} />
                 </div>
@@ -281,7 +281,7 @@ export function DataRequestsPage(): JSX.Element {
 
             <fieldset>
               <legend className="text-sm font-semibold">
-                {t('public.legal.dataRequestsForm.requesterTypeLegend')}
+                {t('public.dataRequestsForm.requesterTypeLegend')}
               </legend>
               <div className="mt-3 space-y-2">
                 {(Object.keys(REQUESTER_LABEL_KEY) as RequesterType[]).map((value) => (
@@ -302,13 +302,13 @@ export function DataRequestsPage(): JSX.Element {
 
             <div>
               <Label htmlFor="dr-relationship">
-                {t('public.legal.dataRequestsForm.relationshipLabel')}
+                {t('public.dataRequestsForm.relationshipLabel')}
               </Label>
               <Input
                 id="dr-relationship"
                 name="relationship"
                 placeholder={t(
-                  'public.legal.dataRequestsForm.relationshipPlaceholder',
+                  'public.dataRequestsForm.relationshipPlaceholder',
                 )}
                 maxLength={300}
               />
@@ -316,7 +316,7 @@ export function DataRequestsPage(): JSX.Element {
 
             <fieldset>
               <legend className="text-sm font-semibold">
-                {t('public.legal.dataRequestsForm.recordCategoryLegend')}
+                {t('public.dataRequestsForm.recordCategoryLegend')}
               </legend>
               <div className="mt-3 space-y-2">
                 {ALL_RECORD_CATEGORIES.map((c) => (
@@ -335,7 +335,7 @@ export function DataRequestsPage(): JSX.Element {
 
             <fieldset>
               <legend className="text-sm font-semibold">
-                {t('public.legal.dataRequestsForm.actionRequestedLegend')}
+                {t('public.dataRequestsForm.actionRequestedLegend')}
               </legend>
               <div className="mt-3 space-y-2">
                 {(Object.keys(ACTION_LABEL_KEY) as ActionRequested[]).map((value) => (
@@ -356,7 +356,7 @@ export function DataRequestsPage(): JSX.Element {
 
             <div>
               <Label htmlFor="dr-description">
-                {t('public.legal.dataRequestsForm.descriptionLabel')}
+                {t('public.dataRequestsForm.descriptionLabel')}
               </Label>
               <Textarea
                 id="dr-description"
@@ -366,21 +366,21 @@ export function DataRequestsPage(): JSX.Element {
                 minLength={10}
                 maxLength={4000}
                 placeholder={t(
-                  'public.legal.dataRequestsForm.descriptionPlaceholder',
+                  'public.dataRequestsForm.descriptionPlaceholder',
                 )}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                {t('public.legal.dataRequestsForm.descriptionHint')}
+                {t('public.dataRequestsForm.descriptionHint')}
               </p>
             </div>
 
             <Button type="submit" disabled={pending} className="w-full">
               {pending
-                ? t('public.legal.dataRequestsForm.submitting')
-                : t('public.legal.dataRequestsForm.submitCta')}
+                ? t('public.dataRequestsForm.submitting')
+                : t('public.dataRequestsForm.submitCta')}
             </Button>
             <p className="text-xs text-muted-foreground">
-              {t('public.legal.dataRequestsForm.submitDisclaimer')}
+              {t('public.dataRequestsForm.submitDisclaimer')}
             </p>
           </form>
         )}
