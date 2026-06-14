@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 export interface DialogProps {
@@ -31,6 +32,7 @@ export function Dialog({
   dismissOnBackdropClick = true,
   hideCloseButton = false,
 }: DialogProps): JSX.Element | null {
+  const { t } = useTranslation();
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -53,7 +55,7 @@ export function Dialog({
             type="button"
             onClick={onClose}
             className="absolute right-4 top-4 rounded-full p-1 text-muted-foreground hover:bg-accent"
-            aria-label="Close"
+            aria-label={t('common.close')}
           >
             ×
           </button>

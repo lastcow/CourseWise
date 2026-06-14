@@ -126,6 +126,7 @@ export const en = {
       drag: 'Drag to reorder',
       download: 'Download',
       open: 'Open',
+      remove: 'Remove',
       reply: 'Reply',
       close: 'Close',
       publish: 'Publish',

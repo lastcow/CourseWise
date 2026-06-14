@@ -124,6 +124,7 @@ export const zhCN = {
       drag: '拖动以排序',
       download: '下载',
       open: '打开',
+      remove: '移除',
       reply: '回复',
       close: '关闭',
       publish: '发布',
