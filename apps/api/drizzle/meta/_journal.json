@@ -295,6 +295,13 @@
       "when": 1784073600000,
       "tag": "0041_message_threads_dedup",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1784160000000,
+      "tag": "0042_course_submission_lock",
+      "breakpoints": true
     }
   ]
 }

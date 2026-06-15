@@ -93,10 +93,7 @@ export const groupSetSignupModeEnum = pgEnum('group_set_signup_mode', [
   'teacher_assigned',
   'mixed',
 ]);
-export const groupSetSignupStatusEnum = pgEnum('group_set_signup_status', [
-  'open',
-  'locked',
-]);
+export const groupSetSignupStatusEnum = pgEnum('group_set_signup_status', ['open', 'locked']);
 export const submissionModeEnum = pgEnum('submission_mode', ['individual', 'group']);
 export const alertTypeEnum = pgEnum('alert_type', [
   'attendance_low',
@@ -295,6 +292,10 @@ export const courses = pgTable(
     // with no dates simply shows no progress bar.
     startDate: timestamp('start_date', { withTimezone: true, mode: 'string' }),
     endDate: timestamp('end_date', { withTimezone: true, mode: 'string' }),
+    // When true, once the course end date has passed the course stops accepting
+    // student submissions (assignment submits, quiz attempts, discussion posts).
+    // Opt-in per course; ignored when endDate is null.
+    disableSubmissionsAfterEnd: boolean('disable_submissions_after_end').notNull().default(false),
     // Weekly meeting slots ("every Mon 1-2PM"): array of
     // { day: 0-6 (Sun-Sat), start: 'HH:MM', end: 'HH:MM' }.
     meetingSlotsJson: jsonb('meeting_slots_json'),
@@ -307,9 +308,12 @@ export const courses = pgTable(
       onDelete: 'set null',
     }),
     syllabusMd: text('syllabus_md'),
-    syllabusFileAssetId: uuid('syllabus_file_asset_id').references((): AnyPgColumn => fileAssets.id, {
-      onDelete: 'set null',
-    }),
+    syllabusFileAssetId: uuid('syllabus_file_asset_id').references(
+      (): AnyPgColumn => fileAssets.id,
+      {
+        onDelete: 'set null',
+      },
+    ),
     ...timestamps,
   },
   (t) => ({
@@ -485,11 +489,7 @@ export const slides = pgTable(
   }),
 );
 
-export const gammaJobStatusEnum = pgEnum('gamma_job_status', [
-  'pending',
-  'completed',
-  'failed',
-]);
+export const gammaJobStatusEnum = pgEnum('gamma_job_status', ['pending', 'completed', 'failed']);
 
 export const gammaGenerationJobs = pgTable(
   'gamma_generation_jobs',
@@ -578,7 +578,11 @@ export type AssignmentGroupRow = typeof assignmentGroups.$inferSelect;
 
 // Roll-up rule for an assignment set: how its member assignments collapse to a
 // single score that then counts as one item inside a weighted category.
-export const assignmentSetRuleEnum = pgEnum('assignment_set_rule', ['average', 'highest', 'weighted']);
+export const assignmentSetRuleEnum = pgEnum('assignment_set_rule', [
+  'average',
+  'highest',
+  'weighted',
+]);
 
 // Assignment set: a bundle of selected assignments whose members are graded
 // individually but contribute ONE rolled-up score (average / best-of) to the
@@ -1110,12 +1114,13 @@ export const groupMemberships = pgTable(
     studentId: uuid('student_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    joinedAt: timestamp('joined_at', { withTimezone: true, mode: 'string' })
-      .defaultNow()
-      .notNull(),
+    joinedAt: timestamp('joined_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
   },
   (t) => ({
-    setStudentUnique: uniqueIndex('group_memberships_set_student_idx').on(t.groupSetId, t.studentId),
+    setStudentUnique: uniqueIndex('group_memberships_set_student_idx').on(
+      t.groupSetId,
+      t.studentId,
+    ),
     groupIdx: index('group_memberships_group_idx').on(t.groupId),
     studentIdx: index('group_memberships_student_idx').on(t.studentId),
   }),
@@ -1527,7 +1532,9 @@ export const r2CleanupJobs = pgTable(
     status: r2CleanupJobStatusEnum('status').notNull().default('pending'),
     attempts: integer('attempts').notNull().default(0),
     lastError: text('last_error'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
     completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
   },
   (t) => ({
@@ -1623,10 +1630,7 @@ export const ferpaAcknowledgments = pgTable(
     userAgent: text('user_agent'),
   },
   (t) => ({
-    userYearUnique: uniqueIndex('ferpa_acknowledgments_user_year_idx').on(
-      t.userId,
-      t.academicYear,
-    ),
+    userYearUnique: uniqueIndex('ferpa_acknowledgments_user_year_idx').on(t.userId, t.academicYear),
   }),
 );
 

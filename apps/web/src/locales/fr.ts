@@ -417,6 +417,13 @@ export const fr = {
       term: 'Session',
       startDate: 'Date de début',
       endDate: 'Date de fin',
+      submissionLockLabel: 'Fermer les soumissions après la date de fin',
+      submissionLockHelp:
+        'Une fois la date de fin passée, les étudiants ne peuvent plus rendre de devoirs, démarrer de quiz ni publier dans les discussions.',
+      submissionLockNeedsEndDate: 'Définissez une date de fin pour utiliser cette option.',
+      endedTitle: 'Ce cours est terminé',
+      endedBody: 'Les soumissions ne sont plus acceptées (terminé le {{date}}).',
+      endedTooltip: 'Soumissions fermées — le cours est terminé.',
       scheduleSection: 'Planning',
       moduleCadenceLabel: 'Cadence des modules',
       cadence: {
@@ -636,7 +643,8 @@ export const fr = {
       fieldStatus: 'Statut',
       fieldLanguage: 'Langue de l’interface',
       role: { admin: 'Administrateur', teacher: 'Enseignant', student: 'Étudiant' },
-      usageHint: 'Les fonctions IA sont gratuites pendant la bêta. Les neurones sont l’unité d’usage Workers AI ; valeurs estimées.',
+      usageHint:
+        'Les fonctions IA sont gratuites pendant la bêta. Les neurones sont l’unité d’usage Workers AI ; valeurs estimées.',
       statNeurons: 'Neurones',
       statRequests: 'Requêtes',
       statTokensIn: 'Jetons entrants',
@@ -661,7 +669,8 @@ export const fr = {
         'Bonjour ! Je suis votre tuteur IA pour cette lecture. Posez-moi vos questions — je peux expliquer, résumer ou vous faire réviser. Je ne réponds pas aux devoirs ni aux quiz, et je suis gratuit pendant la bêta !',
       inputPlaceholder: 'Posez une question sur cette lecture…',
       thinking: 'Réflexion…',
-      disclaimer: 'Les réponses de l’IA peuvent contenir des erreurs — vérifiez avec le document. Pas pour les devoirs ni les quiz.',
+      disclaimer:
+        'Les réponses de l’IA peuvent contenir des erreurs — vérifiez avec le document. Pas pour les devoirs ni les quiz.',
       truncatedNote: 'Remarque : ce document est long, je n’en vois que le début.',
     },
     messages: {
@@ -2102,6 +2111,7 @@ export const fr = {
       notInGroup: 'Vous devez être dans un groupe pour soumettre ce devoir.',
       assignmentWindowClosed:
         "La date limite est passée — ce devoir n'accepte plus de soumissions.",
+      courseEnded: "Ce cours est terminé et n'accepte plus de soumissions.",
       rateLimited: 'Trop de requêtes. Réessayez sous peu.',
       accountLocked: 'Votre compte est temporairement verrouillé.',
       accountInactive: "Votre compte n'est pas actif.",

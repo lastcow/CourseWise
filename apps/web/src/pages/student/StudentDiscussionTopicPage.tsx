@@ -11,7 +11,9 @@ import { Markdown, stripMarkdown } from '@/components/ui/markdown';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm';
 import type { DiscussionPostSummary } from '@coursewise/shared';
+import { courseSubmissionsClosed } from '@coursewise/shared';
 import {
+  useCourse,
   useCreateDiscussionPost,
   useDiscussionThread,
   useDiscussionTopic,
@@ -21,6 +23,7 @@ import {
 } from '@/lib/queries';
 import { useAuth } from '@/lib/authContext';
 import { ApiClientError } from '@/lib/api';
+import { CourseEndedNotice } from '@/components/course/CourseEndedNotice';
 
 interface ThreadNode {
   post: DiscussionPostSummary;
@@ -52,6 +55,7 @@ export function StudentDiscussionTopicPage(): JSX.Element {
   const { courseId, topicId } = useParams();
   const cId = courseId ?? '';
   const tId = topicId ?? '';
+  const course = useCourse(cId || null);
   const topic = useDiscussionTopic(tId);
   const posts = useDiscussionThread(tId);
   const createPost = useCreateDiscussionPost(tId);
@@ -72,6 +76,9 @@ export function StudentDiscussionTopicPage(): JSX.Element {
   const allPosts = posts.data ? posts.data.pages.flatMap((pg) => pg.posts) : [];
   const tree = nest(allPosts);
   const rootTotal = posts.data?.pages[0]?.total ?? 0;
+  // Once the course ends (lock on) students can't post or reply; the server
+  // enforces it, this just hides the affordances and shows the banner.
+  const courseClosed = !!course.data && courseSubmissionsClosed(course.data);
 
   const onPost = async () => {
     if (!draft.trim()) return;
@@ -115,11 +122,7 @@ export function StudentDiscussionTopicPage(): JSX.Element {
             <p className="text-sm italic text-muted-foreground">{t('discussion.deletedPost')}</p>
           ) : isEditing ? (
             <div className="space-y-2">
-              <Textarea
-                rows={3}
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-              />
+              <Textarea rows={3} value={editText} onChange={(e) => setEditText(e.target.value)} />
               <div className="flex gap-2">
                 <Button size="sm" onClick={onEditSubmit}>
                   {t('common.save')}
@@ -135,7 +138,7 @@ export function StudentDiscussionTopicPage(): JSX.Element {
         </div>
         {!node.post.isDeleted && !isEditing ? (
           <div className="mt-2 flex items-center gap-1.5">
-            {topic.data?.status === 'published' ? (
+            {topic.data?.status === 'published' && !courseClosed ? (
               <ActionIconButton
                 size="sm"
                 icon={Reply}
@@ -193,13 +196,18 @@ export function StudentDiscussionTopicPage(): JSX.Element {
     <div className="space-y-4">
       <header>
         <h2 className="text-xl font-semibold">
-          <Link to={`/student/courses/${cId}/discussion`} className="text-muted-foreground hover:underline">
+          <Link
+            to={`/student/courses/${cId}/discussion`}
+            className="text-muted-foreground hover:underline"
+          >
             {t('discussion.title')}
           </Link>
           {' › '}
           {topic.data?.title ?? t('common.loading')}
         </h2>
       </header>
+
+      <CourseEndedNotice course={course.data} />
 
       {topic.data?.description ? (
         <Card>
@@ -242,7 +250,10 @@ export function StudentDiscussionTopicPage(): JSX.Element {
               <Button variant="outline" onClick={() => setReplyTo(null)}>
                 {t('common.cancel')}
               </Button>
-              <Button onClick={onReplySubmit} disabled={reply.isPending || !replyText.trim()}>
+              <Button
+                onClick={onReplySubmit}
+                disabled={reply.isPending || !replyText.trim() || courseClosed}
+              >
                 {t('discussion.reply')}
               </Button>
             </div>
@@ -250,7 +261,7 @@ export function StudentDiscussionTopicPage(): JSX.Element {
         </Card>
       ) : null}
 
-      {topic.data?.status === 'published' ? (
+      {topic.data?.status === 'published' && !courseClosed ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">{t('discussion.newPostTitle')}</CardTitle>

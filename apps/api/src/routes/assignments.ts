@@ -43,6 +43,7 @@ import { requireAuth, requireCourseAccess, requireTokenCourseAccess } from '../m
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
 import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/courseAccess';
+import { assertCourseAcceptsSubmissions } from '../services/courseSubmissions';
 import {
   ensureGroupSubmissionFannedOut,
   findStudentGroupForAssignment,
@@ -447,8 +448,9 @@ r.post(
           input.allowLateSubmission && input.latePenaltyPercentPerPeriod != null
             ? input.latePenaltyPercentPerPeriod.toString()
             : null,
-        latePenaltyPeriodHours:
-          input.allowLateSubmission ? (input.latePenaltyPeriodHours ?? null) : null,
+        latePenaltyPeriodHours: input.allowLateSubmission
+          ? (input.latePenaltyPeriodHours ?? null)
+          : null,
         latePenaltyMaxPercent:
           input.allowLateSubmission && input.latePenaltyMaxPercent != null
             ? input.latePenaltyMaxPercent.toString()
@@ -1324,6 +1326,9 @@ r.post('/submissions/:submissionId/submit', requireScopeGroup('submissionsWrite'
   if (assignment.status === 'archived') {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is archived');
   }
+  // A course that has ended (with the lock enabled) refuses all submissions,
+  // regardless of the assignment's own window.
+  await assertCourseAcceptsSubmissions(db, assignment.courseId);
   // Scheduling gate (mirrors the POST /submissions check): refuse submit
   // before start_date. After end_date / until_date the window is a hard stop
   // UNLESS late submission is allowed, in which case the student may submit
@@ -1337,14 +1342,22 @@ r.post('/submissions/:submissionId/submit', requireScopeGroup('submissionsWrite'
     Date.parse(assignment.endDate) < submittedAtMs &&
     !assignment.allowLateSubmission
   ) {
-    throw new ApiException(409, ERROR_CODES.ASSIGNMENT_WINDOW_CLOSED, 'Assignment window has closed');
+    throw new ApiException(
+      409,
+      ERROR_CODES.ASSIGNMENT_WINDOW_CLOSED,
+      'Assignment window has closed',
+    );
   }
   if (
     assignment.untilDate &&
     Date.parse(assignment.untilDate) < submittedAtMs &&
     !assignment.allowLateSubmission
   ) {
-    throw new ApiException(409, ERROR_CODES.ASSIGNMENT_WINDOW_CLOSED, 'Assignment deadline has passed');
+    throw new ApiException(
+      409,
+      ERROR_CODES.ASSIGNMENT_WINDOW_CLOSED,
+      'Assignment deadline has passed',
+    );
   }
   const submittedAt = new Date(submittedAtMs).toISOString();
   // Flag as 'late' when past the effective deadline (the due date, falling
@@ -1485,7 +1498,11 @@ r.post('/submissions/:submissionId/unsubmit', requireScopeGroup('submissionsWrit
   if (assignment.status === 'archived') {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment is archived');
   }
-  if (assignment.endDate && Date.parse(assignment.endDate) < now && !assignment.allowLateSubmission) {
+  if (
+    assignment.endDate &&
+    Date.parse(assignment.endDate) < now &&
+    !assignment.allowLateSubmission
+  ) {
     throw new ApiException(409, ERROR_CODES.CONFLICT, 'Assignment window has closed');
   }
   if (
@@ -1791,7 +1808,11 @@ r.post(
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
     }
     if (!(await isCourseEnrolled(db, assignment.courseId, studentId))) {
-      throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'Student is not enrolled in this course');
+      throw new ApiException(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        'Student is not enrolled in this course',
+      );
     }
     const input = c.get('validated') as GradeSubmissionInput;
 

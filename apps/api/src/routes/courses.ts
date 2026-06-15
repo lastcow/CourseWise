@@ -57,6 +57,7 @@ function toCourseSummary(
     termLabel: row.termLabel ?? null,
     startDate: row.startDate ?? null,
     endDate: row.endDate ?? null,
+    disableSubmissionsAfterEnd: row.disableSubmissionsAfterEnd,
     meetingSlots: (row.meetingSlotsJson as CourseSummary['meetingSlots']) ?? null,
     moduleCadence: row.moduleCadence ?? null,
     status: row.status,
@@ -130,10 +131,8 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
         ? sql`c.id IN (SELECT course_id FROM course_teachers WHERE teacher_id = ${auth.user.id})`
         : sql`c.id IN (SELECT course_id FROM enrollments WHERE student_id = ${auth.user.id} AND status = 'enrolled')`;
 
-  const assignmentFilter =
-    auth.user.role === 'student' ? sql`AND a.status = 'published'` : sql``;
-  const presentationFilter =
-    auth.user.role === 'student' ? sql`AND p.status = 'published'` : sql``;
+  const assignmentFilter = auth.user.role === 'student' ? sql`AND a.status = 'published'` : sql``;
+  const presentationFilter = auth.user.role === 'student' ? sql`AND p.status = 'published'` : sql``;
   const moduleFilter = auth.user.role === 'student' ? sql`AND m.status = 'published'` : sql``;
 
   const result = await db.execute(sql`
@@ -145,6 +144,7 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       c.term_label AS "termLabel",
       c.start_date AS "startDate",
       c.end_date AS "endDate",
+      c.disable_submissions_after_end AS "disableSubmissionsAfterEnd",
       c.meeting_slots_json AS "meetingSlotsJson",
       c.module_cadence AS "moduleCadence",
       c.status,
@@ -183,11 +183,12 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       termLabel: (row.termLabel ?? null) as string | null,
       startDate: (row.startDate ?? null) as string | null,
       endDate: (row.endDate ?? null) as string | null,
+      disableSubmissionsAfterEnd: Boolean(row.disableSubmissionsAfterEnd),
       meetingSlots: (row.meetingSlotsJson ?? null) as CourseSummary['meetingSlots'],
       moduleCadence: (row.moduleCadence ?? null) as CourseSummary['moduleCadence'],
       status: row.status as CourseSummary['status'],
-      gradingPolicy:
-        ((row.gradingPolicyJson as GradingPolicy | null) ?? null) as CourseSummary['gradingPolicy'],
+      gradingPolicy: ((row.gradingPolicyJson as GradingPolicy | null) ??
+        null) as CourseSummary['gradingPolicy'],
       archivedAt: (row.archivedAt ?? null) as string | null,
       createdAt: row.createdAt as string,
       updatedAt: row.updatedAt as string,
@@ -208,107 +209,122 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
 });
 
 // Create a course. Admin or teacher.
-r.post('/courses', requireScopeGroup('coursesWrite'), validateJson(createCourseSchema), async (c) => {
-  const auth = c.get('auth');
-  if (auth.user.role === 'student') {
-    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot create courses');
-  }
-  const input = c.get('validated') as CreateCourseInput;
-  const db = c.get('db');
-
-  // Conflict check on code (case-insensitive via citext-like compare; the
-  // unique index is on plain code, so we treat case-insensitive via uppercase).
-  const existing = await db.select().from(courses).where(eq(courses.code, input.code)).limit(1);
-  if (existing.length > 0) {
-    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Course code already in use');
-  }
-
-  const policy = (input.gradingPolicy ?? DEFAULT_GRADING_POLICY) as GradingPolicy;
-
-  const inserted = await db
-    .insert(courses)
-    .values({
-      code: input.code,
-      title: input.title,
-      description: input.description ?? null,
-      termLabel: input.termLabel ?? null,
-      startDate: input.startDate ?? null,
-      endDate: input.endDate ?? null,
-      meetingSlotsJson: input.meetingSlots ?? null,
-      moduleCadence: input.moduleCadence ?? null,
-      status: input.status ?? 'active',
-      gradingPolicyJson: policy,
-    })
-    .returning();
-  const created = inserted[0];
-  if (!created) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create course');
-
-  let teacherId = auth.user.role === 'teacher' ? auth.user.id : null;
-  if (auth.user.role === 'admin' && input.teacherId) {
-    const teacherRow = await db
-      .select({ id: users.id, role: users.role })
-      .from(users)
-      .where(eq(users.id, input.teacherId))
-      .limit(1);
-    if (teacherRow.length === 0 || teacherRow[0]?.role !== 'teacher') {
-      throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'teacherId must be an existing teacher');
+r.post(
+  '/courses',
+  requireScopeGroup('coursesWrite'),
+  validateJson(createCourseSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    if (auth.user.role === 'student') {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot create courses');
     }
-    teacherId = input.teacherId;
-  }
-  if (teacherId) {
-    await db.insert(courseTeachers).values({
-      courseId: created.id,
-      teacherId,
-      role: 'primary',
+    const input = c.get('validated') as CreateCourseInput;
+    const db = c.get('db');
+
+    // Conflict check on code (case-insensitive via citext-like compare; the
+    // unique index is on plain code, so we treat case-insensitive via uppercase).
+    const existing = await db.select().from(courses).where(eq(courses.code, input.code)).limit(1);
+    if (existing.length > 0) {
+      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Course code already in use');
+    }
+
+    const policy = (input.gradingPolicy ?? DEFAULT_GRADING_POLICY) as GradingPolicy;
+
+    const inserted = await db
+      .insert(courses)
+      .values({
+        code: input.code,
+        title: input.title,
+        description: input.description ?? null,
+        termLabel: input.termLabel ?? null,
+        startDate: input.startDate ?? null,
+        endDate: input.endDate ?? null,
+        disableSubmissionsAfterEnd: input.disableSubmissionsAfterEnd ?? false,
+        meetingSlotsJson: input.meetingSlots ?? null,
+        moduleCadence: input.moduleCadence ?? null,
+        status: input.status ?? 'active',
+        gradingPolicyJson: policy,
+      })
+      .returning();
+    const created = inserted[0];
+    if (!created)
+      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create course');
+
+    let teacherId = auth.user.role === 'teacher' ? auth.user.id : null;
+    if (auth.user.role === 'admin' && input.teacherId) {
+      const teacherRow = await db
+        .select({ id: users.id, role: users.role })
+        .from(users)
+        .where(eq(users.id, input.teacherId))
+        .limit(1);
+      if (teacherRow.length === 0 || teacherRow[0]?.role !== 'teacher') {
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'teacherId must be an existing teacher',
+        );
+      }
+      teacherId = input.teacherId;
+    }
+    if (teacherId) {
+      await db.insert(courseTeachers).values({
+        courseId: created.id,
+        teacherId,
+        role: 'primary',
+      });
+    }
+
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'course.create',
+      target: created.id,
+      metadata: { code: created.code, teacherId },
     });
-  }
 
-  await recordAudit(db, {
-    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
-    actorUserId: auth.user.id,
-    actorTokenId: auth.tokenId ?? null,
-    action: 'course.create',
-    target: created.id,
-    metadata: { code: created.code, teacherId },
-  });
-
-  return success(c, toCourseSummary(created), 201);
-});
+    return success(c, toCourseSummary(created), 201);
+  },
+);
 
 // Read a single course (with teachers + enrollment count).
-r.get('/courses/:courseId', requireScopeGroup('coursesRead'), requireCourseAccess(), requireTokenCourseAccess(), async (c) => {
-  const auth = c.get('auth');
-  const db = c.get('db');
-  const env = c.env;
-  const courseId = requireParam(c, 'courseId');
-  const row = (await db.select().from(courses).where(eq(courses.id, courseId)).limit(1))[0];
-  if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+r.get(
+  '/courses/:courseId',
+  requireScopeGroup('coursesRead'),
+  requireCourseAccess(),
+  requireTokenCourseAccess(),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const env = c.env;
+    const courseId = requireParam(c, 'courseId');
+    const row = (await db.select().from(courses).where(eq(courses.id, courseId)).limit(1))[0];
+    if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
 
-  const teacherRows = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: courseTeachers.role,
-    })
-    .from(courseTeachers)
-    .innerJoin(users, eq(courseTeachers.teacherId, users.id))
-    .where(eq(courseTeachers.courseId, courseId));
+    const teacherRows = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: courseTeachers.role,
+      })
+      .from(courseTeachers)
+      .innerJoin(users, eq(courseTeachers.teacherId, users.id))
+      .where(eq(courseTeachers.courseId, courseId));
 
-  const enrolledRows = await db
-    .select({ id: enrollments.id })
-    .from(enrollments)
-    .where(and(eq(enrollments.courseId, courseId), eq(enrollments.status, 'enrolled')));
+    const enrolledRows = await db
+      .select({ id: enrollments.id })
+      .from(enrollments)
+      .where(and(eq(enrollments.courseId, courseId), eq(enrollments.status, 'enrolled')));
 
-  // Counts + banner asset — same shape as the list endpoint so the detail
-  // view can hydrate cards without a second fetch.
-  const assignmentFilter =
-    auth.user.role === 'student' ? sql`AND a.status = 'published'` : sql``;
-  const presentationFilter =
-    auth.user.role === 'student' ? sql`AND p.status = 'published'` : sql``;
-  const moduleFilter = auth.user.role === 'student' ? sql`AND m.status = 'published'` : sql``;
+    // Counts + banner asset — same shape as the list endpoint so the detail
+    // view can hydrate cards without a second fetch.
+    const assignmentFilter = auth.user.role === 'student' ? sql`AND a.status = 'published'` : sql``;
+    const presentationFilter =
+      auth.user.role === 'student' ? sql`AND p.status = 'published'` : sql``;
+    const moduleFilter = auth.user.role === 'student' ? sql`AND m.status = 'published'` : sql``;
 
-  const aggResult = await db.execute(sql`
+    const aggResult = await db.execute(sql`
     SELECT
       fa.bucket AS "banner_bucket",
       fa.object_key AS "banner_object_key",
@@ -320,46 +336,47 @@ r.get('/courses/:courseId', requireScopeGroup('coursesRead'), requireCourseAcces
     LEFT JOIN file_assets fa ON fa.id = c.banner_file_asset_id
     WHERE c.id = ${courseId}
   `);
-  const agg = (aggResult.rows[0] ?? {}) as Record<string, unknown>;
-  const counts = {
-    modules: Number(agg.modules_count ?? 0),
-    assignments: Number(agg.assignments_count ?? 0),
-    presentations: Number(agg.presentations_count ?? 0),
-    students: Number(agg.students_count ?? 0),
-  };
-  const signer = tryBannerSignerConfig(env);
-  const bannerUrl = await signBannerUrl(
-    signer,
-    (agg.banner_bucket as string | null) ?? null,
-    (agg.banner_object_key as string | null) ?? null,
-  );
-
-  let syllabusFileUrl: string | null = null;
-  if (row.syllabusFileAssetId) {
-    const [asset] = await db
-      .select({ bucket: fileAssets.bucket, objectKey: fileAssets.objectKey })
-      .from(fileAssets)
-      .where(eq(fileAssets.id, row.syllabusFileAssetId))
-      .limit(1);
-    syllabusFileUrl = await signBannerUrl(
+    const agg = (aggResult.rows[0] ?? {}) as Record<string, unknown>;
+    const counts = {
+      modules: Number(agg.modules_count ?? 0),
+      assignments: Number(agg.assignments_count ?? 0),
+      presentations: Number(agg.presentations_count ?? 0),
+      students: Number(agg.students_count ?? 0),
+    };
+    const signer = tryBannerSignerConfig(env);
+    const bannerUrl = await signBannerUrl(
       signer,
-      asset?.bucket ?? null,
-      asset?.objectKey ?? null,
+      (agg.banner_bucket as string | null) ?? null,
+      (agg.banner_object_key as string | null) ?? null,
     );
-  }
 
-  const detail: CourseDetail = {
-    ...toCourseSummary(row, bannerUrl, counts, syllabusFileUrl),
-    teachers: teacherRows.map((t) => ({
-      id: t.id,
-      name: t.name,
-      email: t.email,
-      role: t.role ?? 'primary',
-    })),
-    enrollmentCount: enrolledRows.length,
-  };
-  return success(c, detail);
-});
+    let syllabusFileUrl: string | null = null;
+    if (row.syllabusFileAssetId) {
+      const [asset] = await db
+        .select({ bucket: fileAssets.bucket, objectKey: fileAssets.objectKey })
+        .from(fileAssets)
+        .where(eq(fileAssets.id, row.syllabusFileAssetId))
+        .limit(1);
+      syllabusFileUrl = await signBannerUrl(
+        signer,
+        asset?.bucket ?? null,
+        asset?.objectKey ?? null,
+      );
+    }
+
+    const detail: CourseDetail = {
+      ...toCourseSummary(row, bannerUrl, counts, syllabusFileUrl),
+      teachers: teacherRows.map((t) => ({
+        id: t.id,
+        name: t.name,
+        email: t.email,
+        role: t.role ?? 'primary',
+      })),
+      enrollmentCount: enrolledRows.length,
+    };
+    return success(c, detail);
+  },
+);
 
 // Update a course.
 r.patch(
@@ -383,6 +400,8 @@ r.patch(
     if (input.termLabel !== undefined) patch.termLabel = input.termLabel;
     if (input.startDate !== undefined) patch.startDate = input.startDate;
     if (input.endDate !== undefined) patch.endDate = input.endDate;
+    if (input.disableSubmissionsAfterEnd !== undefined)
+      patch.disableSubmissionsAfterEnd = input.disableSubmissionsAfterEnd;
     if (input.meetingSlots !== undefined) patch.meetingSlotsJson = input.meetingSlots;
     if (input.moduleCadence !== undefined) patch.moduleCadence = input.moduleCadence;
     if (input.status !== undefined) {
@@ -517,40 +536,48 @@ r.get(
 // cleanup for ctx.waitUntil execution, and writes a metadata-only audit row
 // to course_deletion_log. The user must type the course code into the request
 // body's `confirmCode` field, matching course.code exactly.
-r.delete('/courses/:courseId', requireScopeGroup('coursesWrite'), requireTokenCourseAccess(), async (c) => {
-  const auth = c.get('auth');
-  const db = c.get('db');
-  const courseId = requireParam(c, 'courseId');
+r.delete(
+  '/courses/:courseId',
+  requireScopeGroup('coursesWrite'),
+  requireTokenCourseAccess(),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
 
-  if (!(await canDeleteCourse(db, auth.user, courseId))) {
-    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No delete access to this course');
-  }
+    if (!(await canDeleteCourse(db, auth.user, courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No delete access to this course');
+    }
 
-  const body = await c.req.json().catch(() => ({}));
-  const parsed = courseDeleteBodySchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'confirmCode required');
-  }
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = courseDeleteBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'confirmCode required');
+    }
 
-  const [course] = await db
-    .select({ id: courses.id, code: courses.code, title: courses.title })
-    .from(courses)
-    .where(eq(courses.id, courseId))
-    .limit(1);
-  if (!course) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
-  if (parsed.data.confirmCode !== course.code) {
-    throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'Confirmation code does not match course code');
-  }
+    const [course] = await db
+      .select({ id: courses.id, code: courses.code, title: courses.title })
+      .from(courses)
+      .where(eq(courses.id, courseId))
+      .limit(1);
+    if (!course) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+    if (parsed.data.confirmCode !== course.code) {
+      throw new ApiException(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        'Confirmation code does not match course code',
+      );
+    }
 
-  const counts = await courseChildCounts(db, courseId);
-  const jobId = crypto.randomUUID();
+    const counts = await courseChildCounts(db, courseId);
+    const jobId = crypto.randomUUID();
 
-  // Single atomic statement: delete the course (FK cascades wipe all 23+ child
-  // tables), insert the FERPA audit row and the R2 cleanup job both gated on
-  // the delete returning a row. Postgres evaluates all CTE INSERT/DELETE in
-  // one snapshot, so the three writes are atomic at the server. Drizzle's
-  // db.transaction() is unavailable on the neon-http driver.
-  const result = await db.execute(sql`
+    // Single atomic statement: delete the course (FK cascades wipe all 23+ child
+    // tables), insert the FERPA audit row and the R2 cleanup job both gated on
+    // the delete returning a row. Postgres evaluates all CTE INSERT/DELETE in
+    // one snapshot, so the three writes are atomic at the server. Drizzle's
+    // db.transaction() is unavailable on the neon-http driver.
+    const result = await db.execute(sql`
     WITH deleted AS (
       DELETE FROM courses WHERE id = ${courseId} RETURNING id, code, title
     ),
@@ -568,24 +595,25 @@ r.delete('/courses/:courseId', requireScopeGroup('coursesWrite'), requireTokenCo
     )
     SELECT (SELECT id FROM deleted) AS course_id
   `);
-  if (!result.rows[0]?.course_id) {
-    throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
-  }
+    if (!result.rows[0]?.course_id) {
+      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Course not found');
+    }
 
-  await recordAudit(db, {
-    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
-    actorUserId: auth.user.id,
-    actorTokenId: auth.tokenId ?? null,
-    action: 'course.delete',
-    target: courseId,
-  });
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'course.delete',
+      target: courseId,
+    });
 
-  if (c.env.COURSE_FILES) {
-    c.executionCtx.waitUntil(runR2Cleanup(db, c.env.COURSE_FILES, jobId, courseId));
-  }
+    if (c.env.COURSE_FILES) {
+      c.executionCtx.waitUntil(runR2Cleanup(db, c.env.COURSE_FILES, jobId, courseId));
+    }
 
-  return success(c, { id: courseId });
-});
+    return success(c, { id: courseId });
+  },
+);
 
 async function setCourseStatus(c: Context<AppEnv>, status: 'archived' | 'active') {
   const auth = c.get('auth');
@@ -615,11 +643,17 @@ async function setCourseStatus(c: Context<AppEnv>, status: 'archived' | 'active'
   return success(c, toCourseSummary(updated));
 }
 
-r.post('/courses/:courseId/archive', requireScopeGroup('coursesWrite'), requireTokenCourseAccess(), (c) =>
-  setCourseStatus(c, 'archived'),
+r.post(
+  '/courses/:courseId/archive',
+  requireScopeGroup('coursesWrite'),
+  requireTokenCourseAccess(),
+  (c) => setCourseStatus(c, 'archived'),
 );
-r.post('/courses/:courseId/activate', requireScopeGroup('coursesWrite'), requireTokenCourseAccess(), (c) =>
-  setCourseStatus(c, 'active'),
+r.post(
+  '/courses/:courseId/activate',
+  requireScopeGroup('coursesWrite'),
+  requireTokenCourseAccess(),
+  (c) => setCourseStatus(c, 'active'),
 );
 
 // Enrollments
@@ -757,7 +791,8 @@ r.delete(
       .delete(enrollments)
       .where(and(eq(enrollments.courseId, courseId), eq(enrollments.studentId, studentId)))
       .returning({ id: enrollments.id });
-    if (result.length === 0) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Enrollment not found');
+    if (result.length === 0)
+      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Enrollment not found');
 
     await recordAudit(db, {
       actorType: auth.method === 'jwt' ? 'user' : 'api_token',

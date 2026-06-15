@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
+import { Switch } from '@/components/ui/switch';
 import {
   downloadCourseExport,
   uploadFile,
@@ -41,6 +42,7 @@ export function TeacherCourseSettings(): JSX.Element {
   const [termLabel, setTermLabel] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [disableSubmissionsAfterEnd, setDisableSubmissionsAfterEnd] = useState(false);
   const [moduleCadence, setModuleCadence] = useState<'' | ModuleCadence>('');
   const [slots, setSlots] = useState<MeetingSlot[]>([]);
   const [description, setDescription] = useState('');
@@ -61,6 +63,7 @@ export function TeacherCourseSettings(): JSX.Element {
       // <input type="date"> wants YYYY-MM-DD; the API stores full ISO timestamps.
       setStartDate(course.data.startDate ? course.data.startDate.slice(0, 10) : '');
       setEndDate(course.data.endDate ? course.data.endDate.slice(0, 10) : '');
+      setDisableSubmissionsAfterEnd(course.data.disableSubmissionsAfterEnd);
       setModuleCadence(course.data.moduleCadence ?? '');
       setSlots(course.data.meetingSlots ?? []);
       setDescription(course.data.description ?? '');
@@ -82,6 +85,7 @@ export function TeacherCourseSettings(): JSX.Element {
           // the field sends null.
           startDate: startDate ? `${startDate}T00:00:00.000Z` : null,
           endDate: endDate ? `${endDate}T00:00:00.000Z` : null,
+          disableSubmissionsAfterEnd,
           moduleCadence: moduleCadence || null,
           meetingSlots: slots.length > 0 ? slots : null,
           description: description || null,
@@ -98,7 +102,10 @@ export function TeacherCourseSettings(): JSX.Element {
     const activate = course.data?.status !== 'active';
     try {
       await archive.mutateAsync({ id, activate });
-      toast.push({ title: activate ? t('courses.activated') : t('courses.archived'), tone: 'success' });
+      toast.push({
+        title: activate ? t('courses.activated') : t('courses.archived'),
+        tone: 'success',
+      });
     } catch (err) {
       const i18n = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
       toast.push({ title: t(i18n), tone: 'error' });
@@ -122,11 +129,7 @@ export function TeacherCourseSettings(): JSX.Element {
       const i18n = err instanceof ApiClientError ? err.error.i18nKey : null;
       toast.push({
         title: t('courses.banner.uploadFailed'),
-        description: i18n
-          ? t(i18n)
-          : err instanceof Error
-            ? err.message
-            : String(err),
+        description: i18n ? t(i18n) : err instanceof Error ? err.message : String(err),
         tone: 'error',
       });
     } finally {
@@ -200,7 +203,12 @@ export function TeacherCourseSettings(): JSX.Element {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="title">{t('courses.name')}</Label>
-                <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Input
+                  id="title"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="code">{t('courses.code')}</Label>
@@ -232,6 +240,27 @@ export function TeacherCourseSettings(): JSX.Element {
                   onChange={(e) => setEndDate(e.target.value)}
                 />
               </div>
+            </div>
+            {/* Lock submissions once the course end date passes. Requires an end
+                date — disabled and explained otherwise. */}
+            <div className="flex items-start justify-between gap-4 rounded-md border bg-muted/20 p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="lockSubmissions" className="cursor-pointer">
+                  {t('courses.submissionLockLabel')}
+                </Label>
+                <p id="lockSubmissions-help" className="text-xs text-muted-foreground">
+                  {endDate
+                    ? t('courses.submissionLockHelp')
+                    : t('courses.submissionLockNeedsEndDate')}
+                </p>
+              </div>
+              <Switch
+                id="lockSubmissions"
+                checked={disableSubmissionsAfterEnd}
+                onCheckedChange={setDisableSubmissionsAfterEnd}
+                disabled={!endDate}
+                aria-describedby="lockSubmissions-help"
+              />
             </div>
             {/* Schedule: how often the class meets and how modules chunk. */}
             <div className="space-y-3 rounded-md border bg-muted/20 p-3">
@@ -322,7 +351,12 @@ export function TeacherCourseSettings(): JSX.Element {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button type="button" variant="outline" onClick={onToggleArchive} disabled={archive.isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onToggleArchive}
+              disabled={archive.isPending}
+            >
               {course.data.status === 'active' ? t('courses.archive') : t('courses.activate')}
             </Button>
             <Button type="submit" disabled={update.isPending}>
@@ -422,7 +456,9 @@ function CourseExportSection({ courseId }: { courseId: string }): JSX.Element {
                   key={j.id}
                   className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"
                 >
-                  <Badge variant={statusVariant(j.status)}>{t(`course.export.status.${j.status}`)}</Badge>
+                  <Badge variant={statusVariant(j.status)}>
+                    {t(`course.export.status.${j.status}`)}
+                  </Badge>
                   <span className="text-muted-foreground">
                     {new Date(j.createdAt).toLocaleString()}
                   </span>
