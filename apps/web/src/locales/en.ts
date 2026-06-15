@@ -413,6 +413,13 @@ export const en = {
       term: 'Term',
       startDate: 'Start date',
       endDate: 'End date',
+      submissionLockLabel: 'Close submissions after the end date',
+      submissionLockHelp:
+        'Once the end date passes, students can no longer submit assignments, start quizzes, or post in discussions.',
+      submissionLockNeedsEndDate: 'Set an end date to use this option.',
+      endedTitle: 'This course has ended',
+      endedBody: 'Submissions are no longer accepted (ended {{date}}).',
+      endedTooltip: 'Submissions are closed — the course has ended.',
       scheduleSection: 'Schedule',
       moduleCadenceLabel: 'Module cadence',
       cadence: {
@@ -631,7 +638,8 @@ export const en = {
       fieldStatus: 'Status',
       fieldLanguage: 'Interface language',
       role: { admin: 'Administrator', teacher: 'Teacher', student: 'Student' },
-      usageHint: 'AI features are free during the beta. Neurons are the Workers AI usage unit; values are estimates.',
+      usageHint:
+        'AI features are free during the beta. Neurons are the Workers AI usage unit; values are estimates.',
       statNeurons: 'Neurons',
       statRequests: 'Requests',
       statTokensIn: 'Tokens in',
@@ -656,7 +664,8 @@ export const en = {
         "Hi! I'm your AI tutor for this reading. Ask me anything about it — I can explain, summarize, or quiz you for practice. I can't answer assignment or quiz questions, but I'm free to use during the beta!",
       inputPlaceholder: 'Ask about this reading…',
       thinking: 'Thinking…',
-      disclaimer: 'AI answers may contain mistakes — check against the material. Not for assignments or quizzes.',
+      disclaimer:
+        'AI answers may contain mistakes — check against the material. Not for assignments or quizzes.',
       truncatedNote: 'Note: this material is long, so I can only see the beginning of it.',
     },
     messages: {
@@ -2076,6 +2085,7 @@ export const en = {
       notInGroup: 'You must be in a group to submit this assignment.',
       assignmentWindowClosed:
         'The deadline has passed — this assignment no longer accepts submissions.',
+      courseEnded: 'This course has ended and no longer accepts submissions.',
       rateLimited: 'Too many requests. Try again shortly.',
       accountLocked: 'Your account is temporarily locked.',
       accountInactive: 'Your account is not active.',

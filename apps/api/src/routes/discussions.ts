@@ -31,18 +31,11 @@ import {
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
-import {
-  requireAuth,
-  requireCourseAccess,
-  requireTokenCourseAccess,
-} from '../middleware/auth';
+import { requireAuth, requireCourseAccess, requireTokenCourseAccess } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
-import {
-  canWriteCourse,
-  isCourseEnrolled,
-  isCourseTeacher,
-} from '../services/courseAccess';
+import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/courseAccess';
+import { assertCourseAcceptsSubmissions } from '../services/courseSubmissions';
 import { clampScore } from '../services/submissions';
 import { recordAudit } from '../services/audit';
 import type { AppEnv } from '../types';
@@ -168,7 +161,10 @@ r.get(
         .groupBy(discussionPosts.topicId);
       for (const r of rs) counts.set(r.topicId, r.c);
     }
-    return success(c, rows.map((row) => toTopic(row, counts.get(row.id) ?? 0)));
+    return success(
+      c,
+      rows.map((row) => toTopic(row, counts.get(row.id) ?? 0)),
+    );
   },
 );
 
@@ -194,11 +190,19 @@ r.post(
           .limit(1)
       )[0];
       if (!mod || mod.courseId !== courseId) {
-        throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'moduleId must belong to this course');
+        throw new ApiException(
+          400,
+          ERROR_CODES.VALIDATION_ERROR,
+          'moduleId must belong to this course',
+        );
       }
     }
     if (input.isGraded && (input.maxScore == null || input.maxScore <= 0)) {
-      throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'Graded topics require a positive maxScore');
+      throw new ApiException(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        'Graded topics require a positive maxScore',
+      );
     }
     const [created] = await db
       .insert(discussionTopics)
@@ -347,8 +351,12 @@ async function setPin(c: Context<AppEnv>, pinned: boolean) {
   return success(c, toTopic(updated));
 }
 
-r.post('/discussion-topics/:topicId/pin', requireScopeGroup('discussionsWrite'), (c) => setPin(c, true));
-r.post('/discussion-topics/:topicId/unpin', requireScopeGroup('discussionsWrite'), (c) => setPin(c, false));
+r.post('/discussion-topics/:topicId/pin', requireScopeGroup('discussionsWrite'), (c) =>
+  setPin(c, true),
+);
+r.post('/discussion-topics/:topicId/unpin', requireScopeGroup('discussionsWrite'), (c) =>
+  setPin(c, false),
+);
 
 // -------- Posts --------
 
@@ -501,6 +509,12 @@ async function insertPost(
   const topic = await loadTopic(c, topicId);
   await canPostOnTopic(c, topic);
 
+  // After the course ends (with the lock enabled) students can no longer post;
+  // teachers/admins keep posting so they can still moderate and wrap up.
+  if (auth.user.role === 'student') {
+    await assertCourseAcceptsSubmissions(db, topic.courseId);
+  }
+
   if (parentPostId) {
     const [parent] = await db
       .select()
@@ -508,7 +522,11 @@ async function insertPost(
       .where(eq(discussionPosts.id, parentPostId))
       .limit(1);
     if (!parent || parent.topicId !== topicId) {
-      throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'parentPostId must belong to this topic');
+      throw new ApiException(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        'parentPostId must belong to this topic',
+      );
     }
   }
 
@@ -525,9 +543,7 @@ async function insertPost(
   if (!created) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create post');
 
   const author = { id: auth.user.id, name: auth.user.name, role: auth.user.role };
-  return created
-    ? toPost(created, author)
-    : (null as never);
+  return created ? toPost(created, author) : (null as never);
 }
 
 r.post(
@@ -581,7 +597,11 @@ r.patch(
       auth.user.role === 'admin' ||
       (auth.user.role === 'teacher' && (await isCourseTeacher(db, topic.courseId, auth.user.id)));
     if (!isAuthor && !isCourseStaff) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the author or course staff can edit');
+      throw new ApiException(
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'Only the author or course staff can edit',
+      );
     }
     const input = c.get('validated') as UpdateDiscussionPostInput;
     const [updated] = await db
@@ -595,7 +615,10 @@ r.patch(
       .from(users)
       .where(eq(users.id, updated.authorId))
       .limit(1);
-    return success(c, toPost(updated, author ?? { id: updated.authorId, name: '', role: 'student' }));
+    return success(
+      c,
+      toPost(updated, author ?? { id: updated.authorId, name: '', role: 'student' }),
+    );
   },
 );
 
@@ -611,7 +634,11 @@ r.delete('/discussion-posts/:postId', requireScopeGroup('discussionsWrite'), asy
     auth.user.role === 'admin' ||
     (auth.user.role === 'teacher' && (await isCourseTeacher(db, topic.courseId, auth.user.id)));
   if (!isAuthor && !isCourseStaff) {
-    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only the author or course staff can delete');
+    throw new ApiException(
+      403,
+      ERROR_CODES.FORBIDDEN,
+      'Only the author or course staff can delete',
+    );
   }
   const now = new Date().toISOString();
   await db
@@ -649,59 +676,52 @@ r.post(
 
 // -------- Grades --------
 
-r.get(
-  '/discussion-topics/:topicId/grades',
-  requireScopeGroup('gradesRead'),
-  async (c) => {
-    const auth = c.get('auth');
-    const db = c.get('db');
-    const id = requireParam(c, 'topicId');
-    const topic = await loadTopic(c, id);
-    if (auth.user.role === 'student') {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot list discussion grades');
-    }
-    if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, topic.courseId, auth.user.id))) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
-    }
-    const enrolled = await db
-      .select({
-        studentId: users.id,
-        studentName: users.name,
-        studentEmail: users.email,
-      })
-      .from(enrollments)
-      .innerJoin(users, eq(enrollments.studentId, users.id))
-      .where(and(eq(enrollments.courseId, topic.courseId), eq(enrollments.status, 'enrolled')))
-      .orderBy(asc(users.name));
+r.get('/discussion-topics/:topicId/grades', requireScopeGroup('gradesRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'topicId');
+  const topic = await loadTopic(c, id);
+  if (auth.user.role === 'student') {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot list discussion grades');
+  }
+  if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, topic.courseId, auth.user.id))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
+  }
+  const enrolled = await db
+    .select({
+      studentId: users.id,
+      studentName: users.name,
+      studentEmail: users.email,
+    })
+    .from(enrollments)
+    .innerJoin(users, eq(enrollments.studentId, users.id))
+    .where(and(eq(enrollments.courseId, topic.courseId), eq(enrollments.status, 'enrolled')))
+    .orderBy(asc(users.name));
 
-    const grades = await db
-      .select()
-      .from(discussionGrades)
-      .where(eq(discussionGrades.topicId, id));
-    const gradeMap = new Map(grades.map((g) => [g.studentId, g]));
+  const grades = await db.select().from(discussionGrades).where(eq(discussionGrades.topicId, id));
+  const gradeMap = new Map(grades.map((g) => [g.studentId, g]));
 
-    const postCounts = await db
-      .select({ studentId: discussionPosts.authorId, c: sql<number>`count(*)::int` })
-      .from(discussionPosts)
-      .where(and(eq(discussionPosts.topicId, id), eq(discussionPosts.isDeleted, false)))
-      .groupBy(discussionPosts.authorId);
-    const postMap = new Map(postCounts.map((p) => [p.studentId, p.c]));
+  const postCounts = await db
+    .select({ studentId: discussionPosts.authorId, c: sql<number>`count(*)::int` })
+    .from(discussionPosts)
+    .where(and(eq(discussionPosts.topicId, id), eq(discussionPosts.isDeleted, false)))
+    .groupBy(discussionPosts.authorId);
+  const postMap = new Map(postCounts.map((p) => [p.studentId, p.c]));
 
-    const out: DiscussionGradeRow[] = enrolled.map((e) => {
-      const g = gradeMap.get(e.studentId);
-      return {
-        studentId: e.studentId,
-        studentName: e.studentName,
-        studentEmail: e.studentEmail,
-        postCount: postMap.get(e.studentId) ?? 0,
-        score: g ? num(g.score) : null,
-        feedback: g?.feedback ?? null,
-        gradedAt: g?.gradedAt ?? null,
-      };
-    });
-    return success(c, out);
-  },
-);
+  const out: DiscussionGradeRow[] = enrolled.map((e) => {
+    const g = gradeMap.get(e.studentId);
+    return {
+      studentId: e.studentId,
+      studentName: e.studentName,
+      studentEmail: e.studentEmail,
+      postCount: postMap.get(e.studentId) ?? 0,
+      score: g ? num(g.score) : null,
+      feedback: g?.feedback ?? null,
+      gradedAt: g?.gradedAt ?? null,
+    };
+  });
+  return success(c, out);
+});
 
 r.patch(
   '/discussion-topics/:topicId/grades/:studentId',
@@ -716,7 +736,10 @@ r.patch(
     if (auth.user.role === 'student') {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot grade discussions');
     }
-    if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, topic.courseId, auth.user.id))) {
+    if (
+      auth.user.role === 'teacher' &&
+      !(await isCourseTeacher(db, topic.courseId, auth.user.id))
+    ) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
     }
     if (!topic.isGraded) {
@@ -734,9 +757,7 @@ r.patch(
       await db
         .select()
         .from(discussionGrades)
-        .where(
-          and(eq(discussionGrades.topicId, id), eq(discussionGrades.studentId, studentId)),
-        )
+        .where(and(eq(discussionGrades.topicId, id), eq(discussionGrades.studentId, studentId)))
         .limit(1)
     )[0];
     let result;

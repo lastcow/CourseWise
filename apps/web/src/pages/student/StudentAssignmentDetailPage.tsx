@@ -27,6 +27,7 @@ import {
   uploadFile,
   useAddSubmissionAttachment,
   useAssignment,
+  useCourse,
   useMySubmission,
   useRemoveSubmissionAttachment,
   useSubmitSubmission,
@@ -35,12 +36,14 @@ import {
 } from '@/lib/queries';
 import { ApiClientError } from '@/lib/api';
 import { useNow } from '@/lib/useNow';
+import { CourseEndedNotice } from '@/components/course/CourseEndedNotice';
 import {
   UPLOAD_ACCEPT,
   isAllowedUploadFile,
   MAX_SUBMISSION_FILES,
   MAX_UPLOAD_BYTES,
   computeLatePenaltyPercent,
+  courseSubmissionsClosed,
   type AssignmentSummary,
   type SubmissionStatus,
 } from '@coursewise/shared';
@@ -294,6 +297,7 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   const cId = courseId ?? '';
   const aId = assignmentId ?? '';
   const assignment = useAssignment(aId);
+  const course = useCourse(cId || null);
   const submission = useMySubmission(aId);
   const update = useUpdateSubmission(aId);
   const submit = useSubmitSubmission(aId);
@@ -347,7 +351,12 @@ export function StudentAssignmentDetailPage(): JSX.Element {
   const dueMs = assignment.data?.dueDate ? Date.parse(assignment.data.dueDate) : null;
   const endMs = assignment.data?.endDate ? Date.parse(assignment.data.endDate) : null;
   const untilMs = assignment.data?.untilDate ? Date.parse(assignment.data.untilDate) : null;
+  // A course past its end date (with the lock on) is read-only for students: it
+  // overrides the per-assignment late-submission allowance, so it folds into
+  // windowClosed alongside the assignment's own window.
+  const courseClosed = !!course.data && courseSubmissionsClosed(course.data, now);
   const windowClosed =
+    courseClosed ||
     assignment.data?.status === 'archived' ||
     (!allowLate && ((endMs !== null && now >= endMs) || (untilMs !== null && now >= untilMs)));
   const canUnsubmit = (mySub?.status === 'submitted' || mySub?.status === 'late') && !windowClosed;
@@ -486,6 +495,8 @@ export function StudentAssignmentDetailPage(): JSX.Element {
           {assignment.data?.title ?? t('common.loading')}
         </h2>
       </header>
+
+      <CourseEndedNotice course={course.data} />
 
       {assignment.data && !notYetOpen ? (
         <Card>

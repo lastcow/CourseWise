@@ -121,6 +121,8 @@ export interface CourseSummary {
   // Schedule window (ISO timestamps). Drive the course-home progress bar.
   startDate: string | null;
   endDate: string | null;
+  /** When true, the course stops accepting submissions once endDate passes. */
+  disableSubmissionsAfterEnd: boolean;
   /** Weekly meeting slots ("every Mon 1-2PM"). */
   meetingSlots: MeetingSlot[] | null;
   /** Teacher-chosen module chunking; null = modules are not schedule-driven. */

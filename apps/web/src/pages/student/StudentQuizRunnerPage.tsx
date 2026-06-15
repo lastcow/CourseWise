@@ -26,6 +26,7 @@ import type {
   QuizQuestionTeacherView,
   QuizSummary,
 } from '@coursewise/shared';
+import { courseSubmissionsClosed } from '@coursewise/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,7 @@ import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm';
 import {
+  useCourse,
   useMyQuizAttempts,
   useQuiz,
   useQuizAttempt,
@@ -44,6 +46,7 @@ import {
 import { apiCall, pickI18nKey } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useNow } from '@/lib/useNow';
+import { CourseEndedNotice } from '@/components/course/CourseEndedNotice';
 
 type Question = QuizQuestionStudentView | QuizQuestionTeacherView;
 
@@ -87,12 +90,14 @@ function QuizPreStartCard({
   gate,
   onStart,
   starting,
+  courseClosed,
 }: {
   quiz: QuizSummary | undefined;
   now: number;
   gate: { disabled: boolean; reason: string };
   onStart: () => void;
   starting: boolean;
+  courseClosed: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
 
@@ -114,7 +119,8 @@ function QuizPreStartCard({
   const untilMs = effUntil ? Date.parse(effUntil) : null;
 
   const notYetOpen = startMs !== null && now < startMs;
-  const windowClosed = endMs !== null && now >= endMs;
+  // A course past its end date (lock on) closes the quiz like a passed window.
+  const windowClosed = courseClosed || (endMs !== null && now >= endMs);
 
   // Mutually-exclusive presentation state. Reserve `unavailable` for an
   // unpublished draft; `blocked` for a gated quiz the student isn't scheduled
@@ -474,8 +480,7 @@ function QuizResultCard({
 
   const score = detail.score;
   const maxScore = detail.maxScore ?? quiz?.maxScore ?? null;
-  const pct =
-    score !== null && maxScore !== null && maxScore > 0 ? (score / maxScore) * 100 : null;
+  const pct = score !== null && maxScore !== null && maxScore > 0 ? (score / maxScore) * 100 : null;
   const passing = quiz?.passingScore ?? null;
   const pending = detail.pendingReviewCount > 0;
   const passed = !pending && passing !== null && score !== null && score >= passing;
@@ -517,7 +522,8 @@ function QuizResultCard({
     {
       icon: ListChecks,
       label: t('quizzes.metaQuestions'),
-      value: quiz?.questionCount != null ? String(quiz.questionCount) : String(detail.questions.length),
+      value:
+        quiz?.questionCount != null ? String(quiz.questionCount) : String(detail.questions.length),
     },
     {
       icon: Repeat,
@@ -724,6 +730,7 @@ export function StudentQuizRunnerPage(): JSX.Element {
   const cid = courseId ?? '';
   const id = quizId ?? '';
   const quiz = useQuiz(id);
+  const course = useCourse(cid || null);
   const attemptsList = useMyQuizAttempts(id);
   const start = useStartQuizAttempt(id);
   const toast = useToast();
@@ -887,9 +894,13 @@ export function StudentQuizRunnerPage(): JSX.Element {
   // Mirrors the gating in StudentQuizzesPage's StartQuizBadge so the rules
   // match between the list (where users see the row action) and the detail
   // page (where they click "Start quiz" after reading the description).
+  const courseClosed = !!course.data && courseSubmissionsClosed(course.data, now);
   const startGate = useMemo(() => {
     const q = quiz.data;
     if (!q) return { disabled: true, reason: '' } as const;
+    if (courseClosed) {
+      return { disabled: true, reason: t('courses.endedTooltip') } as const;
+    }
     if (q.status !== 'published') {
       return { disabled: true, reason: t('quizzes.notAvailable') } as const;
     }
@@ -913,7 +924,7 @@ export function StudentQuizRunnerPage(): JSX.Element {
       } as const;
     }
     return { disabled: false, reason: '' } as const;
-  }, [quiz.data, t, now]);
+  }, [quiz.data, t, now, courseClosed]);
 
   return (
     <div className="space-y-4">
@@ -924,6 +935,8 @@ export function StudentQuizRunnerPage(): JSX.Element {
         </Button>
       </header>
 
+      <CourseEndedNotice course={course.data} />
+
       {showBriefing ? (
         <QuizPreStartCard
           quiz={quiz.data}
@@ -931,6 +944,7 @@ export function StudentQuizRunnerPage(): JSX.Element {
           gate={startGate}
           onStart={handleStart}
           starting={start.isPending}
+          courseClosed={courseClosed}
         />
       ) : null}
 

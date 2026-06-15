@@ -39,18 +39,11 @@ import {
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
-import {
-  requireAuth,
-  requireCourseAccess,
-  requireTokenCourseAccess,
-} from '../middleware/auth';
+import { requireAuth, requireCourseAccess, requireTokenCourseAccess } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
-import {
-  canWriteCourse,
-  isCourseEnrolled,
-  isCourseTeacher,
-} from '../services/courseAccess';
+import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/courseAccess';
+import { assertCourseAcceptsSubmissions } from '../services/courseSubmissions';
 import { recordAudit } from '../services/audit';
 import {
   autoGradeAnswer,
@@ -435,22 +428,13 @@ r.patch(
       patch.passingScore = input.passingScore === null ? null : input.passingScore.toString();
     }
 
-    const newStart =
-      input.startTime !== undefined ? input.startTime : row.startTime;
+    const newStart = input.startTime !== undefined ? input.startTime : row.startTime;
     const newEnd = input.endTime !== undefined ? input.endTime : row.endTime;
     if (newStart && newEnd && new Date(newEnd).getTime() <= new Date(newStart).getTime()) {
-      throw new ApiException(
-        400,
-        ERROR_CODES.VALIDATION_ERROR,
-        'endTime must be after startTime',
-      );
+      throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'endTime must be after startTime');
     }
 
-    const [updated] = await db
-      .update(quizzes)
-      .set(patch)
-      .where(eq(quizzes.id, id))
-      .returning();
+    const [updated] = await db.update(quizzes).set(patch).where(eq(quizzes.id, id)).returning();
     if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Quiz not found');
 
     // Group / set membership changes the rolled-up grade contribution, so flag
@@ -484,10 +468,7 @@ r.delete('/quizzes/:quizId', requireScopeGroup('quizzesWrite'), async (c) => {
   return success(c, { id });
 });
 
-async function transitionQuiz(
-  c: Context<AppEnv>,
-  next: 'published' | 'closed' | 'archived',
-) {
+async function transitionQuiz(c: Context<AppEnv>, next: 'published' | 'closed' | 'archived') {
   const auth = c.get('auth');
   const db = c.get('db');
   const id = requireParam(c, 'quizId');
@@ -637,10 +618,7 @@ async function refreshQuizMaxScore(db: Db, quizId: string) {
     .select({ total: sql<number>`COALESCE(SUM(${quizQuestions.points}), 0)::numeric` })
     .from(quizQuestions)
     .where(eq(quizQuestions.quizId, quizId));
-  await db
-    .update(quizzes)
-    .set({ maxScore: total.toString() })
-    .where(eq(quizzes.id, quizId));
+  await db.update(quizzes).set({ maxScore: total.toString() }).where(eq(quizzes.id, quizId));
 }
 
 r.get('/quiz-questions/:questionId', requireScopeGroup('quizzesRead'), async (c) => {
@@ -682,8 +660,7 @@ r.patch(
       .set(patch)
       .where(eq(quizQuestions.id, id))
       .returning();
-    if (!updated)
-      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Question not found');
+    if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Question not found');
     if (input.points !== undefined) {
       await refreshQuizMaxScore(db, row.quizId);
     }
@@ -743,12 +720,7 @@ r.post(
         position: sql`CASE ${caseExpr} ELSE ${quizQuestions.position} END`,
         updatedAt: sql`now()`,
       })
-      .where(
-        and(
-          eq(quizQuestions.quizId, id),
-          inArray(quizQuestions.id, input.ids),
-        ),
-      );
+      .where(and(eq(quizQuestions.quizId, id), inArray(quizQuestions.id, input.ids)));
     const rows = await db
       .select()
       .from(quizQuestions)
@@ -787,121 +759,111 @@ async function loadAttemptDetail(
     .orderBy(asc(quizQuestions.position), asc(quizQuestions.createdAt));
   const answers = await listAttemptAnswers(c, attempt.id);
   const pendingReviewCount = answers.filter((a) => a.pointsAwarded === null).length;
-  const includeCorrect =
-    auth.user.role !== 'student' || attempt.status !== 'in_progress';
+  const includeCorrect = auth.user.role !== 'student' || attempt.status !== 'in_progress';
   return {
     ...toAttemptSummary(attempt),
     quiz: toQuizSummary(quiz, questions.length),
-    questions: includeCorrect
-      ? questions.map(toTeacherQuestion)
-      : questions.map(toStudentQuestion),
+    questions: includeCorrect ? questions.map(toTeacherQuestion) : questions.map(toStudentQuestion),
     answers,
     pendingReviewCount,
   };
 }
 
-r.post(
-  '/quizzes/:quizId/attempts',
-  requireScopeGroup('quizAttemptsWrite'),
-  async (c) => {
-    const auth = c.get('auth');
-    const db = c.get('db');
-    const id = requireParam(c, 'quizId');
-    const quiz = await loadQuiz(c, id);
-    if (auth.user.role !== 'student') {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only students can start attempts');
+r.post('/quizzes/:quizId/attempts', requireScopeGroup('quizAttemptsWrite'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'quizId');
+  const quiz = await loadQuiz(c, id);
+  if (auth.user.role !== 'student') {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only students can start attempts');
+  }
+  if (quiz.status !== 'published') {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Quiz is not open for attempts');
+  }
+  if (!(await isCourseEnrolled(db, quiz.courseId, auth.user.id))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
+  }
+  // A course that has ended (with the lock enabled) refuses new attempts.
+  // In-progress attempts can still be submitted so a student mid-quiz when
+  // the course ends doesn't lose their work.
+  await assertCourseAcceptsSubmissions(db, quiz.courseId);
+  const now = new Date();
+  // Resolve this student's effective window. When the quiz has tester
+  // schedules, access is gated: a student in no wave is blocked; otherwise
+  // their wave's window (merged over the quiz defaults) governs the attempt.
+  const resolution = await resolveQuizScheduleForStudent(db, quiz, auth.user.id);
+  if (resolution.blocked) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'You are not scheduled for this quiz');
+  }
+  const effective = resolution.window;
+  if (effective.startTime && now.getTime() < new Date(effective.startTime).getTime()) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Quiz has not started yet');
+  }
+  if (effective.endTime && now.getTime() >= new Date(effective.endTime).getTime()) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Quiz window has closed');
+  }
+  // resume an active attempt for this student if one exists.
+  const [active] = await db
+    .select()
+    .from(quizAttempts)
+    .where(
+      and(
+        eq(quizAttempts.quizId, id),
+        eq(quizAttempts.studentId, auth.user.id),
+        eq(quizAttempts.status, 'in_progress'),
+      ),
+    )
+    .limit(1);
+  if (active) {
+    if (quizAttemptIsExpired(active.expiresAt ?? null, now)) {
+      // Auto-submit (with no new answers) before returning.
+      await finalizeAttempt(c, active, [], { expired: true });
+      const refreshed = await loadAttempt(c, active.id);
+      return success(c, await loadAttemptDetail(c, refreshed));
     }
-    if (quiz.status !== 'published') {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Quiz is not open for attempts');
-    }
-    if (!(await isCourseEnrolled(db, quiz.courseId, auth.user.id))) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not enrolled in this course');
-    }
-    const now = new Date();
-    // Resolve this student's effective window. When the quiz has tester
-    // schedules, access is gated: a student in no wave is blocked; otherwise
-    // their wave's window (merged over the quiz defaults) governs the attempt.
-    const resolution = await resolveQuizScheduleForStudent(db, quiz, auth.user.id);
-    if (resolution.blocked) {
-      throw new ApiException(
-        403,
-        ERROR_CODES.FORBIDDEN,
-        'You are not scheduled for this quiz',
-      );
-    }
-    const effective = resolution.window;
-    if (effective.startTime && now.getTime() < new Date(effective.startTime).getTime()) {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Quiz has not started yet');
-    }
-    if (effective.endTime && now.getTime() >= new Date(effective.endTime).getTime()) {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Quiz window has closed');
-    }
-    // resume an active attempt for this student if one exists.
-    const [active] = await db
-      .select()
-      .from(quizAttempts)
-      .where(
-        and(
-          eq(quizAttempts.quizId, id),
-          eq(quizAttempts.studentId, auth.user.id),
-          eq(quizAttempts.status, 'in_progress'),
-        ),
-      )
-      .limit(1);
-    if (active) {
-      if (quizAttemptIsExpired(active.expiresAt ?? null, now)) {
-        // Auto-submit (with no new answers) before returning.
-        await finalizeAttempt(c, active, [], { expired: true });
-        const refreshed = await loadAttempt(c, active.id);
-        return success(c, await loadAttemptDetail(c, refreshed));
-      }
-      return success(c, await loadAttemptDetail(c, active));
-    }
-    // attempt count check.
-    const [{ used } = { used: 0 }] = await db
-      .select({ used: sql<number>`count(*)::int` })
-      .from(quizAttempts)
-      .where(
-        and(eq(quizAttempts.quizId, id), eq(quizAttempts.studentId, auth.user.id)),
-      );
-    if (used >= effective.maxAttempts) {
-      throw new ApiException(409, ERROR_CODES.CONFLICT, 'Maximum attempts reached');
-    }
-    const [{ total } = { total: 0 }] = await db
-      .select({ total: sql<number>`COALESCE(SUM(${quizQuestions.points}), 0)::numeric` })
-      .from(quizQuestions)
-      .where(eq(quizQuestions.quizId, id));
-    const expiry = computeAttemptExpiry({
-      startedAt: now,
-      timeLimitMinutes: effective.timeLimitMinutes,
-      endTime: effective.endTime,
-      untilDate: effective.untilDate,
-    });
-    const [created] = await db
-      .insert(quizAttempts)
-      .values({
-        quizId: id,
-        studentId: auth.user.id,
-        status: 'in_progress',
-        startedAt: now.toISOString(),
-        expiresAt: expiry ? expiry.toISOString() : null,
-        maxScore: total.toString(),
-        scheduleId: effective.scheduleId,
-      })
-      .returning();
-    if (!created)
-      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to start attempt');
-    await recordAudit(db, {
-      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
-      actorUserId: auth.user.id,
-      actorTokenId: auth.tokenId ?? null,
-      action: 'quiz_attempt.start',
-      target: created.id,
-      metadata: { quizId: id, scheduleId: effective.scheduleId },
-    });
-    return success(c, await loadAttemptDetail(c, created), 201);
-  },
-);
+    return success(c, await loadAttemptDetail(c, active));
+  }
+  // attempt count check.
+  const [{ used } = { used: 0 }] = await db
+    .select({ used: sql<number>`count(*)::int` })
+    .from(quizAttempts)
+    .where(and(eq(quizAttempts.quizId, id), eq(quizAttempts.studentId, auth.user.id)));
+  if (used >= effective.maxAttempts) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Maximum attempts reached');
+  }
+  const [{ total } = { total: 0 }] = await db
+    .select({ total: sql<number>`COALESCE(SUM(${quizQuestions.points}), 0)::numeric` })
+    .from(quizQuestions)
+    .where(eq(quizQuestions.quizId, id));
+  const expiry = computeAttemptExpiry({
+    startedAt: now,
+    timeLimitMinutes: effective.timeLimitMinutes,
+    endTime: effective.endTime,
+    untilDate: effective.untilDate,
+  });
+  const [created] = await db
+    .insert(quizAttempts)
+    .values({
+      quizId: id,
+      studentId: auth.user.id,
+      status: 'in_progress',
+      startedAt: now.toISOString(),
+      expiresAt: expiry ? expiry.toISOString() : null,
+      maxScore: total.toString(),
+      scheduleId: effective.scheduleId,
+    })
+    .returning();
+  if (!created) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to start attempt');
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'quiz_attempt.start',
+    target: created.id,
+    metadata: { quizId: id, scheduleId: effective.scheduleId },
+  });
+  return success(c, await loadAttemptDetail(c, created), 201);
+});
 
 r.get('/quiz-attempts/:attemptId', requireScopeGroup('quizAttemptsRead'), async (c) => {
   const auth = c.get('auth');
@@ -919,10 +881,7 @@ r.get('/quiz-attempts/:attemptId', requireScopeGroup('quizAttemptsRead'), async 
     }
   }
   // Lazy expire if needed.
-  if (
-    attempt.status === 'in_progress' &&
-    quizAttemptIsExpired(attempt.expiresAt ?? null)
-  ) {
+  if (attempt.status === 'in_progress' && quizAttemptIsExpired(attempt.expiresAt ?? null)) {
     await finalizeAttempt(c, attempt, [], { expired: true });
     const refreshed = await loadAttempt(c, attempt.id);
     return success(c, await loadAttemptDetail(c, refreshed));
@@ -942,12 +901,7 @@ async function upsertAnswers(
   const questions = await db
     .select()
     .from(quizQuestions)
-    .where(
-      and(
-        eq(quizQuestions.quizId, attempt.quizId),
-        inArray(quizQuestions.id, questionIds),
-      ),
-    );
+    .where(and(eq(quizQuestions.quizId, attempt.quizId), inArray(quizQuestions.id, questionIds)));
   const qMap = new Map(questions.map((q) => [q.id, q]));
   for (const { questionId, answer } of inputs) {
     const q = qMap.get(questionId);
@@ -966,7 +920,11 @@ async function upsertAnswers(
           studentAnswer: answer,
           points,
         })
-      : { isCorrect: null as boolean | null, pointsAwarded: null as number | null, needsReview: !isAutoGradedType(q.type as QuizQuestionType) };
+      : {
+          isCorrect: null as boolean | null,
+          pointsAwarded: null as number | null,
+          needsReview: !isAutoGradedType(q.type as QuizQuestionType),
+        };
     await db
       .insert(quizAnswers)
       .values({
@@ -974,16 +932,14 @@ async function upsertAnswers(
         questionId,
         answer: (answer as never) ?? null,
         isCorrect: graded.isCorrect,
-        pointsAwarded:
-          graded.pointsAwarded !== null ? graded.pointsAwarded.toString() : null,
+        pointsAwarded: graded.pointsAwarded !== null ? graded.pointsAwarded.toString() : null,
       })
       .onConflictDoUpdate({
         target: [quizAnswers.attemptId, quizAnswers.questionId],
         set: {
           answer: (answer as never) ?? null,
           isCorrect: graded.isCorrect,
-          pointsAwarded:
-            graded.pointsAwarded !== null ? graded.pointsAwarded.toString() : null,
+          pointsAwarded: graded.pointsAwarded !== null ? graded.pointsAwarded.toString() : null,
           updatedAt: new Date().toISOString(),
         },
       });
@@ -1106,39 +1062,32 @@ r.post(
   },
 );
 
-r.get(
-  '/quizzes/:quizId/attempts',
-  requireScopeGroup('quizAttemptsRead'),
-  async (c) => {
-    const auth = c.get('auth');
-    const db = c.get('db');
-    const id = requireParam(c, 'quizId');
-    const quiz = await loadQuiz(c, id);
-    if (auth.user.role === 'student') {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot list all attempts');
-    }
-    if (
-      auth.user.role === 'teacher' &&
-      !(await isCourseTeacher(db, quiz.courseId, auth.user.id))
-    ) {
-      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
-    }
-    const rows = await db
-      .select({
-        a: quizAttempts,
-        student: { id: users.id, name: users.name, email: users.email },
-      })
-      .from(quizAttempts)
-      .innerJoin(users, eq(quizAttempts.studentId, users.id))
-      .where(eq(quizAttempts.quizId, id))
-      .orderBy(desc(quizAttempts.startedAt));
-    const out: QuizAttemptWithStudent[] = rows.map(({ a, student }) => ({
-      ...toAttemptSummary(a),
-      student,
-    }));
-    return success(c, out);
-  },
-);
+r.get('/quizzes/:quizId/attempts', requireScopeGroup('quizAttemptsRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'quizId');
+  const quiz = await loadQuiz(c, id);
+  if (auth.user.role === 'student') {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Students cannot list all attempts');
+  }
+  if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, quiz.courseId, auth.user.id))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
+  }
+  const rows = await db
+    .select({
+      a: quizAttempts,
+      student: { id: users.id, name: users.name, email: users.email },
+    })
+    .from(quizAttempts)
+    .innerJoin(users, eq(quizAttempts.studentId, users.id))
+    .where(eq(quizAttempts.quizId, id))
+    .orderBy(desc(quizAttempts.startedAt));
+  const out: QuizAttemptWithStudent[] = rows.map(({ a, student }) => ({
+    ...toAttemptSummary(a),
+    student,
+  }));
+  return success(c, out);
+});
 
 r.get('/me/quizzes/:quizId/attempts', requireScopeGroup('quizAttemptsRead'), async (c) => {
   const auth = c.get('auth');
@@ -1152,9 +1101,7 @@ r.get('/me/quizzes/:quizId/attempts', requireScopeGroup('quizAttemptsRead'), asy
   const rows = await db
     .select()
     .from(quizAttempts)
-    .where(
-      and(eq(quizAttempts.quizId, id), eq(quizAttempts.studentId, auth.user.id)),
-    )
+    .where(and(eq(quizAttempts.quizId, id), eq(quizAttempts.studentId, auth.user.id)))
     .orderBy(desc(quizAttempts.startedAt));
   return success(c, rows.map(toAttemptSummary));
 });
@@ -1175,10 +1122,7 @@ r.patch(
     if (auth.user.role === 'student') {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Only a teacher can grade');
     }
-    if (
-      auth.user.role === 'teacher' &&
-      !(await isCourseTeacher(db, quiz.courseId, auth.user.id))
-    ) {
+    if (auth.user.role === 'teacher' && !(await isCourseTeacher(db, quiz.courseId, auth.user.id))) {
       throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a teacher of this course');
     }
     const input = c.get('validated') as GradeQuizAnswerInput;
@@ -1205,8 +1149,7 @@ r.patch(
       })
       .where(eq(quizAnswers.id, id))
       .returning();
-    if (!updated)
-      throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Answer not found');
+    if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Answer not found');
     // Recompute total + teacherReviewed flag.
     const answers = await db
       .select()

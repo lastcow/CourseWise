@@ -166,6 +166,7 @@ export const createCourseSchema = z
     status: z.enum(COURSE_STATUSES).optional(),
     teacherId: z.string().uuid().optional(),
     gradingPolicy: gradingPolicySchema.optional(),
+    disableSubmissionsAfterEnd: z.boolean().optional(),
   })
   .refine(courseDatesOrderOk, {
     message: 'startDate must be on or before endDate',
@@ -188,6 +189,7 @@ export const updateCourseSchema = z
     bannerFileAssetId: z.string().uuid().nullable().optional(),
     syllabusMd: z.string().max(50_000).nullable().optional(),
     syllabusFileAssetId: z.string().uuid().nullable().optional(),
+    disableSubmissionsAfterEnd: z.boolean().optional(),
   })
   .refine(courseDatesOrderOk, {
     message: 'startDate must be on or before endDate',
@@ -836,9 +838,9 @@ export type SetScheduleMembersInput = z.infer<typeof setScheduleMembersSchema>;
 // week-long window; nullable to allow "no cut-off" sessions.
 const thresholdMinutes = z.number().int().min(0).max(1440).nullable().optional();
 
-function refineThresholdOrder<T extends { lateAfterMinutes?: number | null; absentAfterMinutes?: number | null }>(
-  schema: z.ZodType<T>,
-): z.ZodEffects<z.ZodType<T>, T, T> {
+function refineThresholdOrder<
+  T extends { lateAfterMinutes?: number | null; absentAfterMinutes?: number | null },
+>(schema: z.ZodType<T>): z.ZodEffects<z.ZodType<T>, T, T> {
   return schema.refine(
     (v) =>
       v.lateAfterMinutes == null ||
@@ -1275,24 +1277,14 @@ export type CreateGroupSetInput = z.infer<typeof createGroupSetSchema>;
 export const updateGroupSetSchema = z
   .object({
     name: groupSetNameSchema.optional(),
-    maxMembersPerGroup: z
-      .number()
-      .int()
-      .min(1)
-      .max(GROUP_SET_MAX_MEMBERS_PER_GROUP)
-      .optional(),
+    maxMembersPerGroup: z.number().int().min(1).max(GROUP_SET_MAX_MEMBERS_PER_GROUP).optional(),
     /**
      * Resize the set in place. Growing the value inserts new auto-named
      * groups at trailing positions. Shrinking it deletes ONLY empty
      * trailing groups — populated groups beyond the new count are
      * preserved (grandfathered).
      */
-    numberOfGroups: z
-      .number()
-      .int()
-      .min(1)
-      .max(GROUP_SET_MAX_GROUPS)
-      .optional(),
+    numberOfGroups: z.number().int().min(1).max(GROUP_SET_MAX_GROUPS).optional(),
     signupMode: z.enum(GROUP_SET_SIGNUP_MODES).optional(),
     signupStatus: z.enum(GROUP_SET_SIGNUP_STATUSES).optional(),
   })
@@ -1319,7 +1311,6 @@ export const assignGroupMemberSchema = z.object({
   force: z.boolean().optional(),
 });
 export type AssignGroupMemberInput = z.infer<typeof assignGroupMemberSchema>;
-
 
 // ---------------------------------------------------------------------------
 // AI chat (generic protocol shared by every AI chat endpoint — the material

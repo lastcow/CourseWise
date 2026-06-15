@@ -14,6 +14,7 @@ const base: CourseSummary = {
   termLabel: 'Spring 2026',
   startDate: null,
   endDate: null,
+  disableSubmissionsAfterEnd: false,
   meetingSlots: null,
   moduleCadence: null,
   status: 'active',
