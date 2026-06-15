@@ -107,6 +107,11 @@ describe.skipIf(!hasDb)('auth integration (requires DATABASE_URL)', () => {
     const refreshed = (await refresh1.json()) as LoginBody;
     expect(refreshed.data?.refreshToken).toBeTruthy();
     expect(refreshed.data?.refreshToken).not.toBe(refreshToken);
+    // The refresh response must carry the user; a missing user here previously
+    // wiped the client's stored profile, blanking the SPA and bouncing it to
+    // /login on reload.
+    expect(refreshed.data?.user.role).toBe('teacher');
+    expect(refreshed.data?.user.email).toBe('teacher@example.com');
 
     // Reusing the original should fail and revoke the family.
     const refresh2 = await postJson('/api/auth/refresh', { refreshToken });

@@ -480,11 +480,24 @@ auth.post('/refresh', validateJson(refreshSchema), async (c) => {
     userAgent: meta.userAgent,
   });
 
-  return success(c, {
+  // Return the user alongside the rotated tokens (same shape as login). The
+  // client persists this profile; omitting it left the stored `user` undefined
+  // on a "stay signed in" refresh, which blanked the SPA and then bounced to
+  // /login on reload. Typed as LoginResponse so the field stays compiler-enforced.
+  const body: LoginResponse = {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
-  });
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      status: user.status,
+      preferredLanguage: user.preferredLanguage,
+    },
+  };
+  return success(c, body);
 });
 
 auth.post('/logout', requireAuth, validateJson(refreshSchema), async (c) => {
