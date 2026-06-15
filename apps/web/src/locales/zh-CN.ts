@@ -46,6 +46,7 @@ export const zhCN = {
       invitationInvalid: '此邀请码无效。',
       invitationOk: '邀请码有效 — 你将加入「{{course}}」',
       forgotPasswordLink: '忘记密码?',
+      rememberMe: '记住我',
     },
     passwordReset: {
       requestTitle: '重置密码',

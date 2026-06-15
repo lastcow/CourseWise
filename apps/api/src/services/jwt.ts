@@ -3,6 +3,14 @@ import type { UserRole } from '@coursewise/shared';
 
 export const ACCESS_TOKEN_TTL_SECONDS = 12 * 60 * 60;
 export const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+// "Remember me" extends the refresh-token lifetime so the session survives for
+// longer across browser restarts.
+export const REMEMBER_ME_REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+/** Refresh-token lifetime in seconds, longer when the user opted into "remember me". */
+export function refreshTokenTtlSeconds(rememberMe: boolean): number {
+  return rememberMe ? REMEMBER_ME_REFRESH_TOKEN_TTL_SECONDS : REFRESH_TOKEN_TTL_SECONDS;
+}
 
 export interface AccessTokenPayload {
   sub: string;
@@ -16,6 +24,9 @@ export interface RefreshTokenPayload {
   fid: string;
   jti: string;
   typ: 'refresh';
+  // "Remember me" flag, carried in the token so it survives rotation. Optional
+  // for backwards-compatibility with tokens issued before this existed.
+  rmb?: boolean;
 }
 
 export interface JwtConfig {
@@ -51,7 +62,7 @@ export async function signRefreshToken(
     .setIssuer(config.issuer)
     .setAudience(config.audience)
     .setIssuedAt()
-    .setExpirationTime(`${REFRESH_TOKEN_TTL_SECONDS}s`)
+    .setExpirationTime(`${refreshTokenTtlSeconds(payload.rmb === true)}s`)
     .sign(secretBytes(config.refreshSecret));
 }
 

@@ -49,6 +49,22 @@ describe('loginSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('defaults rememberMe to false when omitted', () => {
+    const result = loginSchema.safeParse({ email: 'a@example.com', password: 'pw' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.rememberMe).toBe(false);
+  });
+
+  it('accepts rememberMe true', () => {
+    const result = loginSchema.safeParse({
+      email: 'a@example.com',
+      password: 'pw',
+      rememberMe: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.rememberMe).toBe(true);
+  });
 });
 
 describe('M4 quiz validators', () => {

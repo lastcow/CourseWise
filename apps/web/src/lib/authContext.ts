@@ -3,7 +3,7 @@ import type { StoredAuth } from './api';
 
 export interface AuthContextValue {
   auth: StoredAuth | null;
-  login: (email: string, password: string) => Promise<StoredAuth>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<StoredAuth>;
   register: (input: {
     email: string;
     password: string;

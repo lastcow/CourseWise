@@ -74,13 +74,14 @@ async function issueTokensForContext(
   c: Context<AppEnv>,
   user: { id: string; email: string; role: 'admin' | 'teacher' | 'student' },
   meta: { ip: string | null; userAgent: string | null },
-  familyId?: string,
+  opts: { familyId?: string; rememberMe?: boolean } = {},
 ): Promise<{ accessToken: string; refreshToken: string }> {
   return issueTokens({
     db: c.get('db'),
     user,
     meta,
-    familyId,
+    familyId: opts.familyId,
+    rememberMe: opts.rememberMe,
     config: jwtConfig(c),
   });
 }
@@ -299,7 +300,7 @@ auth.post('/login', validateJson(loginSchema), async (c) => {
     })
     .where(eq(users.id, user.id));
 
-  const tokens = await issueTokensForContext(c, user, meta);
+  const tokens = await issueTokensForContext(c, user, meta, { rememberMe: input.rememberMe });
 
   await recordAudit(db, {
     actorType: 'user',
@@ -465,7 +466,12 @@ auth.post('/refresh', validateJson(refreshSchema), async (c) => {
     throw new ApiException(401, ERROR_CODES.UNAUTHORIZED, 'User unavailable');
   }
 
-  const tokens = await issueTokensForContext(c, user, meta, stored.familyId);
+  // Preserve the "remember me" lifetime across rotation — without this the
+  // session would silently downgrade to the default TTL on the first refresh.
+  const tokens = await issueTokensForContext(c, user, meta, {
+    familyId: stored.familyId,
+    rememberMe: payload.rmb === true,
+  });
 
   await db
     .update(refreshTokens)

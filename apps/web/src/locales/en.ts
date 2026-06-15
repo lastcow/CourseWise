@@ -46,6 +46,7 @@ export const en = {
       invitationInvalid: 'This invitation code is not valid.',
       invitationOk: 'Code accepted — you will join {{course}}',
       forgotPasswordLink: 'Forgot password?',
+      rememberMe: 'Remember me',
     },
     passwordReset: {
       requestTitle: 'Reset your password',

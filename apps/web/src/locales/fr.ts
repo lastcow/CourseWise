@@ -46,6 +46,7 @@ export const fr = {
       invitationInvalid: "Ce code d'invitation n'est pas valide.",
       invitationOk: 'Code accepté — vous rejoindrez {{course}}',
       forgotPasswordLink: 'Mot de passe oublié ?',
+      rememberMe: 'Se souvenir de moi',
     },
     passwordReset: {
       requestTitle: 'Réinitialiser votre mot de passe',
