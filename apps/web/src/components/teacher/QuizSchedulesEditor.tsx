@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { QuizScheduleWithMembers, QuizSummary } from '@coursewise/shared';
-import { Trash2, X } from 'lucide-react';
+import { Trash2, UserPlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
 import { Input, Label } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm';
@@ -57,7 +58,7 @@ function WaveRow({
   quizId: string;
   wave: QuizScheduleWithMembers;
   quiz: QuizSummary | null | undefined;
-  enrolled: { studentId: string; studentName: string }[];
+  enrolled: { studentId: string; studentName: string; studentEmail: string }[];
 }): JSX.Element {
   const { t } = useTranslation();
   const toast = useToast();
@@ -241,21 +242,21 @@ function WaveRow({
               </span>
             ) : null}
           </div>
-          <select
-            className="h-9 w-full max-w-sm rounded-md border border-input bg-background px-3 text-sm"
-            value=""
+          <Combobox
+            className="max-w-sm"
+            icon={UserPlus}
+            options={addable.map((s) => ({
+              value: s.studentId,
+              label: s.studentName,
+              description: s.studentEmail,
+            }))}
+            placeholder={t('quizzes.schedules.addStudent')}
+            searchPlaceholder={t('quizzes.schedules.searchStudents')}
+            emptyText={t('quizzes.schedules.noStudentMatch')}
+            ariaLabel={t('quizzes.schedules.addStudent')}
             disabled={setMembers.isPending || addable.length === 0}
-            onChange={(ev) => {
-              if (ev.target.value) setList([...memberIds, ev.target.value]);
-            }}
-          >
-            <option value="">{t('quizzes.schedules.addStudent')}</option>
-            {addable.map((s) => (
-              <option key={s.studentId} value={s.studentId}>
-                {s.studentName}
-              </option>
-            ))}
-          </select>
+            onSelect={(studentId) => setList([...memberIds, studentId])}
+          />
         </div>
       )}
     </div>
@@ -282,7 +283,11 @@ export function QuizSchedulesEditor({
   const remainderCount = schedules.data?.remainderPreview.count ?? 0;
   const enrolled = (roster.data ?? [])
     .filter((s) => s.status === 'enrolled')
-    .map((s) => ({ studentId: s.studentId, studentName: s.studentName }));
+    .map((s) => ({
+      studentId: s.studentId,
+      studentName: s.studentName,
+      studentEmail: s.studentEmail,
+    }));
 
   async function addWave(isRemainder: boolean) {
     try {

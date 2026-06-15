@@ -1668,6 +1668,8 @@ export const fr = {
         members: 'Testeurs',
         noMembers: 'Aucun testeur pour le moment',
         addStudent: 'Ajouter un étudiant…',
+        searchStudents: 'Rechercher des étudiants…',
+        noStudentMatch: 'Aucun étudiant trouvé',
         inheritsQuizValue: 'Hérite de la valeur du quiz',
         maxAttemptsLabel: 'Tentatives',
         deleteWaveTitle: 'Supprimer cette vague ?',
