@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FileText, GraduationCap, Loader2, SquarePen, Trash2 } from 'lucide-react';
@@ -107,6 +107,22 @@ export function MessagesPage(): JSX.Element {
   const detailQ = useMessageThread(cId || undefined, activeThreadId);
   const send = useSendMessage(cId);
   const del = useDeleteMessageThread(cId);
+
+  // Pin the message history to the latest message when a thread opens or a new
+  // message arrives. useLayoutEffect (not useEffect) sets scrollTop before paint
+  // so the thread never flashes scrolled-to-top first. Keyed on the last message
+  // id — stable across the 15s poll — so an unchanged refetch won't yank a
+  // reader who scrolled up to read history.
+  const messagesScrollRef = useRef<HTMLDivElement | null>(null);
+  const threadMessages = detailQ.data?.messages;
+  const lastMessageId =
+    threadMessages && threadMessages.length > 0
+      ? threadMessages[threadMessages.length - 1]!.id
+      : null;
+  useLayoutEffect(() => {
+    const el = messagesScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [activeThreadId, lastMessageId]);
 
   const [reply, setReply] = useState('');
   const [replyPriority, setReplyPriority] = useState<MessagePriority>('normal');
@@ -318,7 +334,7 @@ export function MessagesPage(): JSX.Element {
                   </div>
                 </div>
               </header>
-              <div className="flex-1 overflow-y-auto p-3">
+              <div ref={messagesScrollRef} className="flex-1 overflow-y-auto p-3">
                 <ul className="space-y-3">
                   {detailQ.data.messages.map((m) => {
                     const mine = m.senderId === myUserId;
