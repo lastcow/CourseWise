@@ -2595,6 +2595,12 @@ export function useCourseAiJob(courseId: string | null, jobId: string | null) {
 
 // ---------- Messaging ----------
 
+// Shared poll cadence for the messages page (thread list + open thread) AND the
+// top-nav unread badge, so the badge count stays in sync with what the page
+// shows instead of lagging on a slower timer. Reads still invalidate the count
+// for an instant update; this keeps incoming messages in sync too.
+const MESSAGES_POLL_INTERVAL_MS = 15_000;
+
 export function useMessageThreads(courseId: string | null | undefined) {
   return useQuery({
     queryKey: ['messages', 'threads', courseId],
@@ -2605,7 +2611,7 @@ export function useMessageThreads(courseId: string | null | undefined) {
       );
       return res.threads;
     },
-    refetchInterval: 15_000,
+    refetchInterval: MESSAGES_POLL_INTERVAL_MS,
   });
 }
 
@@ -2624,7 +2630,7 @@ export function useMessageThread(courseId: string | null | undefined, threadId: 
       void qc.invalidateQueries({ queryKey: ['messages', 'unread-count'] });
       return detail;
     },
-    refetchInterval: 15_000,
+    refetchInterval: MESSAGES_POLL_INTERVAL_MS,
   });
 }
 
@@ -2662,7 +2668,7 @@ export function useMessageUnreadCount(enabled: boolean) {
     queryKey: ['messages', 'unread-count'],
     enabled,
     queryFn: () => apiCall<UnreadCountResponse>('/api/messages/unread-count'),
-    refetchInterval: 60_000,
+    refetchInterval: MESSAGES_POLL_INTERVAL_MS,
   });
 }
 
