@@ -175,22 +175,45 @@ r.post('/courses/:cid/messages', validateJson(sendMessageSchema), async (c) => {
     threadId = thread.id;
   } else {
     const { a, b } = orderParticipants(auth.user.id, input.recipientId);
-    const [created] = await db
-      .insert(messageThreads)
-      .values({
-        courseId: cid,
-        participantAId: a,
-        participantBId: b,
-        subject: deriveSubject(input),
-        lastMessageAt: new Date().toISOString(),
-        lastMessageSenderId: auth.user.id,
-      })
-      .returning();
-    if (!created) {
+    // One conversation per participant pair per course: reuse the existing
+    // thread if these two already have one. Without this, every "new message"
+    // compose (which carries no threadId) spawned a parallel thread between the
+    // same two people, so their conversation fanned out instead of grouping.
+    const pairWhere = and(
+      eq(messageThreads.courseId, cid),
+      eq(messageThreads.participantAId, a),
+      eq(messageThreads.participantBId, b),
+    );
+    [thread] = await db.select().from(messageThreads).where(pairWhere).limit(1);
+    if (!thread) {
+      // The Neon HTTP driver has no transactions, so a concurrent first message
+      // could race us between the SELECT and INSERT. The unique index on
+      // (course, a, b) turns the loser's insert into a no-op; we then re-read
+      // the winner's row.
+      const [created] = await db
+        .insert(messageThreads)
+        .values({
+          courseId: cid,
+          participantAId: a,
+          participantBId: b,
+          subject: deriveSubject(input),
+          lastMessageAt: new Date().toISOString(),
+          lastMessageSenderId: auth.user.id,
+        })
+        .onConflictDoNothing({
+          target: [
+            messageThreads.courseId,
+            messageThreads.participantAId,
+            messageThreads.participantBId,
+          ],
+        })
+        .returning();
+      thread = created ?? (await db.select().from(messageThreads).where(pairWhere).limit(1))[0];
+    }
+    if (!thread) {
       throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create thread');
     }
-    thread = created;
-    threadId = created.id;
+    threadId = thread.id;
   }
 
   // Validate the attachment before sending: must be the sender's own ready
