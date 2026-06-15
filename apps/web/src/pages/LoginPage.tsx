@@ -28,13 +28,14 @@ export function LoginPage(): JSX.Element {
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorKey(null);
     try {
-      const next = await login(email, password);
+      const next = await login(email, password, rememberMe);
       toast.push({ title: t('auth.welcomeBack'), description: next.user.email, tone: 'success' });
       const redirectTo = isSafeRedirect(searchParams.get('redirectTo'));
       const home =
@@ -86,6 +87,18 @@ export function LoginPage(): JSX.Element {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            id="rememberMe"
+            type="checkbox"
+            className="h-4 w-4 cursor-pointer rounded border-input accent-evergreen focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evergreen focus-visible:ring-offset-2"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+          />
+          <Label htmlFor="rememberMe" className="cursor-pointer font-normal text-ink-400">
+            {t('auth.rememberMe')}
+          </Label>
         </div>
         {errorKey ? (
           <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">

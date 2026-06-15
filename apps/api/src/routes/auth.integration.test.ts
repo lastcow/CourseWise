@@ -36,6 +36,16 @@ async function postJson(path: string, body: unknown) {
   );
 }
 
+// Whole days between a refresh token's `iat` and `exp` claims (no verification).
+function refreshTokenTtlDays(token: string): number {
+  const b64 = token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/');
+  const payload = JSON.parse(atob(b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '='))) as {
+    exp: number;
+    iat: number;
+  };
+  return Math.round((payload.exp - payload.iat) / 86400);
+}
+
 describe.skipIf(!hasDb)('auth integration (requires DATABASE_URL)', () => {
   it('logs in the seeded admin', async () => {
     const res = await postJson('/api/auth/login', {
@@ -122,6 +132,36 @@ describe.skipIf(!hasDb)('auth integration (requires DATABASE_URL)', () => {
       refreshToken: refreshed.data?.refreshToken,
     });
     expect(refresh3.status).toBe(401);
+  });
+
+  it('issues a 7-day refresh token by default', async () => {
+    const res = await postJson('/api/auth/login', {
+      email: 'teacher@example.com',
+      password: 'Teacher123!',
+    });
+    const login = (await res.json()) as LoginBody;
+    const token = login.data?.refreshToken ?? '';
+    expect(token).not.toBe('');
+    expect(refreshTokenTtlDays(token)).toBe(7);
+  });
+
+  it('remember me issues a 30-day refresh token that survives rotation', async () => {
+    const res = await postJson('/api/auth/login', {
+      email: 'teacher@example.com',
+      password: 'Teacher123!',
+      rememberMe: true,
+    });
+    const login = (await res.json()) as LoginBody;
+    const token = login.data?.refreshToken ?? '';
+    expect(token).not.toBe('');
+    expect(refreshTokenTtlDays(token)).toBe(30);
+
+    // The extended lifetime must persist across rotation, not silently drop to 7 days.
+    const refreshRes = await postJson('/api/auth/refresh', { refreshToken: token });
+    expect(refreshRes.status).toBe(200);
+    const refreshed = (await refreshRes.json()) as LoginBody;
+    const rotated = refreshed.data?.refreshToken ?? '';
+    expect(refreshTokenTtlDays(rotated)).toBe(30);
   });
 
   it('register requires a valid invitation code', async () => {

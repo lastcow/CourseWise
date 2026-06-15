@@ -45,6 +45,9 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1).max(128),
+  // When true, the issued refresh token gets an extended (30-day) lifetime so
+  // the session survives browser restarts for longer. Defaults to false.
+  rememberMe: z.boolean().optional().default(false),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 

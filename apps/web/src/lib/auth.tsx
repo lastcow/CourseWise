@@ -17,12 +17,12 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     });
   }, [accessToken]);
 
-  const login = useCallback<AuthContextValue['login']>(async (email, password) => {
+  const login = useCallback<AuthContextValue['login']>(async (email, password, rememberMe = false) => {
     setIsLoading(true);
     try {
       const data = await apiCall<StoredAuth & { expiresIn: number }>('/api/auth/login', {
         method: 'POST',
-        body: { email, password },
+        body: { email, password, rememberMe },
         auth: false,
       });
       const stored: StoredAuth = {

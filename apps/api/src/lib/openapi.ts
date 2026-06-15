@@ -1067,6 +1067,7 @@ const SCHEMAS: Record<string, unknown> = {
     properties: {
       email: { type: 'string', format: 'email' },
       password: { type: 'string', minLength: 1, maxLength: 128 },
+      rememberMe: { type: 'boolean', default: false },
     },
   },
   RefreshInput: {
