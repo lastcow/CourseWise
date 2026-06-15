@@ -1678,6 +1678,15 @@ export const messageThreads = pgTable(
       t.participantBId,
       t.lastMessageAt,
     ),
+    // One conversation per participant pair per course. The pair is
+    // canonicalized (participant_a_id < participant_b_id) so this also blocks
+    // the mirror (B,A) duplicate. The send path looks this row up before
+    // inserting so all messages between the same two people stay grouped.
+    coursePairUniq: uniqueIndex('message_threads_course_pair_uniq').on(
+      t.courseId,
+      t.participantAId,
+      t.participantBId,
+    ),
   }),
 );
 
