@@ -114,6 +114,16 @@ export function StudentModulesPage(): JSX.Element {
   const qzByModule = useMemo(() => bucket(quizzesQ.data ?? []), [quizzesQ.data]);
   const dscByModule = useMemo(() => bucket(discussionsQ.data ?? []), [discussionsQ.data]);
 
+  // Available modules stay on top; expired ones (past their end time, or closed
+  // by the teacher) sink to the bottom so students always see what's open
+  // first. The API returns modules in position order and Array.sort is stable,
+  // so the teacher's ordering is preserved within each group.
+  const orderedModules = useMemo(
+    () =>
+      [...(modulesQ.data ?? [])].sort((a, b) => Number(moduleClosed(a)) - Number(moduleClosed(b))),
+    [modulesQ.data],
+  );
+
   const renderMaterial = (mat: MaterialSummary): JSX.Element => (
     <li key={mat.id} className="flex items-center gap-2">
       <div className="min-w-0 flex-1">
@@ -166,9 +176,7 @@ export function StudentModulesPage(): JSX.Element {
           <ExternalLink className="h-4 w-4" aria-hidden />
         </a>
       ) : null}
-      {p.fileAssetId ? (
-        <DownloadPresentationButton fileAssetId={p.fileAssetId} iconOnly />
-      ) : null}
+      {p.fileAssetId ? <DownloadPresentationButton fileAssetId={p.fileAssetId} iconOnly /> : null}
     </li>
   );
 
@@ -254,93 +262,92 @@ export function StudentModulesPage(): JSX.Element {
       {course.data ? <CourseHeader course={course.data} role="student" /> : null}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">
-
-      {modulesQ.isLoading ? (
-        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
-      ) : !modulesQ.data || modulesQ.data.length === 0 ? (
-        <p className="rounded-md border bg-background p-8 text-center text-sm text-muted-foreground">
-          {t('modules.empty')}
-        </p>
-      ) : (
-        <Accordion single className="space-y-3">
-          {modulesQ.data.map((m) => {
-            const mats = matsByModule.get(m.id) ?? [];
-            const pres = presByModule.get(m.id) ?? [];
-            const asgs = asgByModule.get(m.id) ?? [];
-            const qzs = qzByModule.get(m.id) ?? [];
-            const dscs = dscByModule.get(m.id) ?? [];
-            const total = mats.length + pres.length + asgs.length + qzs.length + dscs.length;
-            const closed = moduleClosed(m);
-            const windowLabel = formatModuleWindow(m);
-            return (
-              <AccordionItem
-                key={m.id}
-                value={m.id}
-                // Past its window or closed by the teacher: gray out, but the
-                // module stays fully usable.
-                className={cn(closed && 'opacity-60 grayscale')}
-              >
-                <AccordionTrigger>
-                  <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="font-medium">{m.title}</span>
-                      {closed ? (
-                        <Badge variant="secondary" className="shrink-0">
-                          {t('modules.endedBadge')}
-                        </Badge>
-                      ) : null}
-                      {windowLabel ? (
-                        <span className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
-                          <CalendarRange className="h-3.5 w-3.5" aria-hidden />
-                          {windowLabel}
+          {modulesQ.isLoading ? (
+            <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+          ) : !modulesQ.data || modulesQ.data.length === 0 ? (
+            <p className="rounded-md border bg-background p-8 text-center text-sm text-muted-foreground">
+              {t('modules.empty')}
+            </p>
+          ) : (
+            <Accordion single className="space-y-3">
+              {orderedModules.map((m) => {
+                const mats = matsByModule.get(m.id) ?? [];
+                const pres = presByModule.get(m.id) ?? [];
+                const asgs = asgByModule.get(m.id) ?? [];
+                const qzs = qzByModule.get(m.id) ?? [];
+                const dscs = dscByModule.get(m.id) ?? [];
+                const total = mats.length + pres.length + asgs.length + qzs.length + dscs.length;
+                const closed = moduleClosed(m);
+                const windowLabel = formatModuleWindow(m);
+                return (
+                  <AccordionItem
+                    key={m.id}
+                    value={m.id}
+                    // Past its window or closed by the teacher: gray out, but the
+                    // module stays fully usable.
+                    className={cn(closed && 'opacity-60 grayscale')}
+                  >
+                    <AccordionTrigger>
+                      <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="font-medium">{m.title}</span>
+                          {closed ? (
+                            <Badge variant="secondary" className="shrink-0">
+                              {t('modules.endedBadge')}
+                            </Badge>
+                          ) : null}
+                          {windowLabel ? (
+                            <span className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
+                              <CalendarRange className="h-3.5 w-3.5" aria-hidden />
+                              {windowLabel}
+                            </span>
+                          ) : null}
                         </span>
+                        <ModuleContentSummary
+                          counts={{
+                            materials: mats.length,
+                            presentations: pres.length,
+                            assignments: asgs.length,
+                            quizzes: qzs.length,
+                            discussions: dscs.length,
+                          }}
+                        />
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-4">
+                      {m.description ? (
+                        <p className="text-sm text-muted-foreground">{m.description}</p>
                       ) : null}
-                    </span>
-                    <ModuleContentSummary
-                      counts={{
-                        materials: mats.length,
-                        presentations: pres.length,
-                        assignments: asgs.length,
-                        quizzes: qzs.length,
-                        discussions: dscs.length,
-                      }}
-                    />
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="space-y-4">
-                  {m.description ? (
-                    <p className="text-sm text-muted-foreground">{m.description}</p>
-                  ) : null}
 
-                  {mats.length > 0 ? (
-                    <Section titleKey="materials.title">{mats.map(renderMaterial)}</Section>
-                  ) : null}
-                  {pres.length > 0 ? (
-                    <Section titleKey="presentations.title">
-                      {pres.map(renderPresentation)}
-                    </Section>
-                  ) : null}
-                  {asgs.length > 0 ? (
-                    <Section titleKey="assignments.title">{asgs.map(renderAssignment)}</Section>
-                  ) : null}
-                  {qzs.length > 0 ? (
-                    <Section titleKey="quizzes.title">{qzs.map(renderQuiz)}</Section>
-                  ) : null}
-                  {dscs.length > 0 ? (
-                    <Section titleKey="discussion.title">{dscs.map(renderDiscussion)}</Section>
-                  ) : null}
+                      {mats.length > 0 ? (
+                        <Section titleKey="materials.title">{mats.map(renderMaterial)}</Section>
+                      ) : null}
+                      {pres.length > 0 ? (
+                        <Section titleKey="presentations.title">
+                          {pres.map(renderPresentation)}
+                        </Section>
+                      ) : null}
+                      {asgs.length > 0 ? (
+                        <Section titleKey="assignments.title">{asgs.map(renderAssignment)}</Section>
+                      ) : null}
+                      {qzs.length > 0 ? (
+                        <Section titleKey="quizzes.title">{qzs.map(renderQuiz)}</Section>
+                      ) : null}
+                      {dscs.length > 0 ? (
+                        <Section titleKey="discussion.title">{dscs.map(renderDiscussion)}</Section>
+                      ) : null}
 
-                  {total === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {t('studentModules.emptyModule')}
-                    </p>
-                  ) : null}
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
-      )}
+                      {total === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          {t('studentModules.emptyModule')}
+                        </p>
+                      ) : null}
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          )}
         </div>
 
         <StudentTasksPanel
