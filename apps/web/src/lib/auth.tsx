@@ -96,7 +96,11 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     const next: StoredAuth = {
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
-      user: data.user,
+      // Prefer the freshly-returned profile, but fall back to the current one so
+      // a response missing `user` can never wipe the stored profile — which
+      // would blank the app and bounce to /login on reload. Mirrors the
+      // single-flight refresh path in api.ts.
+      user: data.user ?? current.user,
     };
     storeAuth(next);
     setAuth(next);
