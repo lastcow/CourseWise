@@ -1648,6 +1648,8 @@ export const en = {
         members: 'Testers',
         noMembers: 'No testers yet',
         addStudent: 'Add a student…',
+        searchStudents: 'Search students…',
+        noStudentMatch: 'No students found',
         inheritsQuizValue: 'Inherits quiz value',
         maxAttemptsLabel: 'Attempts',
         deleteWaveTitle: 'Delete this wave?',

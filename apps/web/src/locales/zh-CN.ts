@@ -1588,6 +1588,8 @@ export const zhCN = {
         members: '测试者',
         noMembers: '暂无测试者',
         addStudent: '添加学生…',
+        searchStudents: '搜索学生…',
+        noStudentMatch: '未找到学生',
         inheritsQuizValue: '沿用测验设置',
         maxAttemptsLabel: '尝试次数',
         deleteWaveTitle: '删除该波次?',
