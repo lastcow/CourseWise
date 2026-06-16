@@ -1767,6 +1767,12 @@ export const en = {
       filterBy: 'Filter by {{status}}',
       clearFilter: 'Clear filter',
       noMatchingStudents: 'No students match this filter.',
+      searchPlaceholder: 'Search students by name or email…',
+      searchSessions: 'Search sessions…',
+      filterAll: 'All',
+      showing: '{{shown}} of {{total}}',
+      noSessionsMatch: 'No sessions match your search.',
+      pickSessionHint: 'Choose a session from the list to take attendance.',
       session: {
         open: 'Open',
         closed: 'Closed',

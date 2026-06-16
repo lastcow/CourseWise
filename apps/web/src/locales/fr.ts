@@ -1790,6 +1790,12 @@ export const fr = {
       filterBy: 'Filtrer par {{status}}',
       clearFilter: 'Effacer le filtre',
       noMatchingStudents: 'Aucun étudiant ne correspond à ce filtre.',
+      searchPlaceholder: 'Rechercher un étudiant par nom ou e-mail…',
+      searchSessions: 'Rechercher une séance…',
+      filterAll: 'Tous',
+      showing: '{{shown}} sur {{total}}',
+      noSessionsMatch: 'Aucune séance ne correspond à votre recherche.',
+      pickSessionHint: 'Choisissez une séance dans la liste pour faire l’appel.',
       session: {
         open: 'Ouverte',
         closed: 'Fermée',

@@ -1,7 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CircleCheck, Save, SquarePen, Trash2 } from 'lucide-react';
+import {
+  Calendar,
+  CalendarClock,
+  CalendarDays,
+  CircleCheck,
+  Save,
+  Search,
+  SquarePen,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import type { AttendanceSessionSummary, AttendanceStatus } from '@coursewise/shared';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
@@ -57,6 +67,24 @@ function formatDate(iso: string | null): string {
   if (!iso) return '—';
   try {
     return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
+// Compact, human-friendly date for the session cards + roster subtitle, e.g.
+// "Mon, Jun 16 · 2:30 PM" — denser than toLocaleString() so it fits a
+// narrow sidebar without wrapping.
+function formatSessionDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   } catch {
     return iso;
   }
@@ -228,47 +256,17 @@ export function TeacherAttendancePage(): JSX.Element {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('attendance.sessionsListTitle')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sessions.isLoading ? (
-              <p>{t('common.loading')}</p>
-            ) : !sessions.data || sessions.data.length === 0 ? (
-              <EmptyState title={t('attendance.empty')} />
-            ) : (
-              <ul className="space-y-1">
-                {sessions.data.map((s) => (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedSession(s.id);
-                        setMarks({});
-                      }}
-                      className={`w-full rounded-md border p-2 text-left text-sm transition hover:bg-accent ${
-                        selectedSession === s.id ? 'border-primary bg-accent' : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{s.title}</span>
-                        <Badge variant={s.status === 'open' ? 'success' : 'secondary'}>
-                          {t(`attendance.session.${s.status}`)}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(s.sessionDate)} ·{' '}
-                        {t('attendance.records', { count: s.recordCount ?? 0 })}
-                      </p>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
+        <SessionsPanel
+          sessions={sessions.data}
+          isLoading={sessions.isLoading}
+          selectedSession={selectedSession}
+          onSelect={(id) => {
+            setSelectedSession(id);
+            setMarks({});
+          }}
+          onCreate={openCreate}
+        />
 
         <RosterCard
           selectedSession={selectedSession}
@@ -383,15 +381,174 @@ export function TeacherAttendancePage(): JSX.Element {
   );
 }
 
+/**
+ * Left-hand session picker. Sticky on desktop with its own search box so a
+ * teacher can jump to a session by title on a course with a long term of
+ * classes. Each card shows a status accent rail (green = open), the date,
+ * and how many students are marked, so the right session is identifiable at
+ * a glance without opening it.
+ */
+function SessionsPanel({
+  sessions,
+  isLoading,
+  selectedSession,
+  onSelect,
+  onCreate,
+}: {
+  sessions: AttendanceSessionSummary[] | undefined;
+  isLoading: boolean;
+  selectedSession: string | null;
+  onSelect: (id: string) => void;
+  onCreate: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+  const all = useMemo(() => sessions ?? [], [sessions]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter((s) => s.title.toLowerCase().includes(q));
+  }, [all, query]);
+
+  return (
+    <Card className="flex flex-col lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]">
+      <CardHeader className="gap-2 space-y-0 pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">{t('attendance.sessionsListTitle')}</CardTitle>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+            {all.length}
+          </span>
+        </div>
+        {all.length > 0 ? (
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('attendance.searchSessions')}
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+        ) : null}
+      </CardHeader>
+      <CardContent className="flex-1 overflow-y-auto p-2 pt-0">
+        {isLoading ? (
+          <p className="px-1 py-3 text-sm text-muted-foreground">{t('common.loading')}</p>
+        ) : all.length === 0 ? (
+          <EmptyState
+            className="border-0 p-6"
+            icon={<CalendarDays className="h-7 w-7" aria-hidden />}
+            title={t('attendance.empty')}
+            action={
+              <Button size="sm" onClick={onCreate}>
+                {t('attendance.newSession')}
+              </Button>
+            }
+          />
+        ) : filtered.length === 0 ? (
+          <p className="px-1 py-6 text-center text-sm text-muted-foreground">
+            {t('attendance.noSessionsMatch')}
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {filtered.map((s) => {
+              const active = selectedSession === s.id;
+              const open = s.status === 'open';
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(s.id)}
+                    aria-current={active ? 'true' : undefined}
+                    className={cn(
+                      'relative w-full overflow-hidden rounded-lg border py-2 pl-3.5 pr-2.5 text-left transition',
+                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      active
+                        ? 'border-primary bg-accent shadow-sm'
+                        : 'border-transparent hover:border-border hover:bg-accent/50',
+                    )}
+                  >
+                    {/* Status accent rail: green = self-sign still open. */}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'absolute inset-y-1.5 left-0 w-1 rounded-full',
+                        open ? 'bg-emerald-500' : 'bg-muted-foreground/30',
+                      )}
+                    />
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="truncate text-sm font-medium leading-tight">{s.title}</span>
+                      <Badge variant={open ? 'success' : 'secondary'} className="shrink-0">
+                        {t(`attendance.session.${s.status}`)}
+                      </Badge>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3 shrink-0" aria-hidden />
+                      <span className="truncate">{formatSessionDate(s.sessionDate)}</span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {t('attendance.records', { count: s.recordCount ?? 0 })}
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 type RosterMarks = Record<string, { status: AttendanceStatus; notes: string }>;
 type BulkRecord = { studentId: string; status: AttendanceStatus; notes: string | null };
 
+/** Clickable count pill that doubles as a status filter (and an "All" reset). */
+function FilterChip({
+  label,
+  count,
+  active,
+  tone,
+  title,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  tone: string;
+  title: string;
+  onClick: () => void;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title={title}
+      className={cn(
+        'inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium tabular-nums transition',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
+        tone,
+        active ? 'ring-2 ring-current/30 brightness-105' : 'opacity-75 hover:opacity-100',
+      )}
+    >
+      <span>{label}</span>
+      <span className="font-semibold">{count}</span>
+    </button>
+  );
+}
+
 /**
- * Polished roster surface for the selected attendance session. The header
- * surfaces a per-status tally (Present / Absent / Late / Excused) so a
- * teacher can scan a 40-student roster without scrolling, and the primary
- * Save CTA lives in the toolbar so it's reachable without skimming to
- * the bottom of the page on long classes.
+ * Polished roster surface for the selected attendance session. The toolbar
+ * carries a name/email search and per-status filter pills (which double as a
+ * live Present / Absent / Late / Excused tally), so a teacher can find a
+ * student or isolate every "absent" on a 40-student roster without
+ * scrolling. The primary Save CTA lives in the header so it's reachable
+ * without skimming to the bottom of the page on long classes.
  */
 function RosterCard({
   selectedSession,
@@ -421,12 +578,15 @@ function RosterCard({
   const { t } = useTranslation();
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Active status filter for the roster table. null = show everyone.
-  // Click a chip to filter to that status; click it again to clear.
+  // Click a pill to filter to that status; click it (or "All") to clear.
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | null>(null);
+  // Free-text search over student name + email.
+  const [search, setSearch] = useState('');
 
-  // Live tallies. Untouched rows default to 'absent' so the LMS
-  // convention "absent unless proven present" holds even before the
-  // teacher clicks Save.
+  // Live tallies over the WHOLE roster (not the filtered view) so the pills
+  // always reflect the true distribution. Untouched rows default to 'absent'
+  // so the LMS convention "absent unless proven present" holds even before
+  // the teacher clicks Save.
   const total = enrollments.length;
   const counts: Record<AttendanceStatus, number> = {
     present: 0,
@@ -438,6 +598,23 @@ function RosterCard({
     const status = marks[e.studentId]?.status ?? 'absent';
     counts[status] += 1;
   }
+
+  // Visible rows = roster narrowed by the status filter AND the search query.
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return enrollments.filter((e) => {
+      const status = marks[e.studentId]?.status ?? 'absent';
+      if (statusFilter && status !== statusFilter) return false;
+      if (
+        q &&
+        !e.studentName.toLowerCase().includes(q) &&
+        !e.studentEmail.toLowerCase().includes(q)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [enrollments, marks, statusFilter, search]);
 
   const setStatus = (studentId: string, status: AttendanceStatus) => {
     setMarks((current) => ({
@@ -464,14 +641,26 @@ function RosterCard({
       };
     });
 
+  const clearFilters = (): void => {
+    setStatusFilter(null);
+    setSearch('');
+  };
+
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <CardTitle>{t('attendance.rosterTitle')}</CardTitle>
-          {selectedSession ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {t('attendance.rosterCount', { count: total })}
+          {selectedSession && session ? (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3 w-3" aria-hidden />
+                {formatSessionDate(session.sessionDate)}
+              </span>
+              <span aria-hidden>·</span>
+              <Badge variant={session.status === 'open' ? 'success' : 'secondary'}>
+                {t(`attendance.session.${session.status}`)}
+              </Badge>
             </p>
           ) : null}
         </div>
@@ -528,152 +717,143 @@ function RosterCard({
           </div>
         ) : null}
       </CardHeader>
-      <CardContent className="pt-0">
-        {!selectedSession ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            {t('attendance.pickSession')}
-          </p>
-        ) : total === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            {t('attendance.noStudents')}
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {/* Per-status tally chips. Untouched rows count as absent. */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {STATUSES.map((s) => {
-                const active = statusFilter === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setStatusFilter((cur) => (cur === s ? null : s))}
-                    aria-pressed={active}
-                    title={
-                      active
-                        ? t('attendance.clearFilter')
-                        : t('attendance.filterBy', { status: t(`attendance.${s}`) })
-                    }
-                    className={cn(
-                      'inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium tabular-nums transition',
-                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      active
-                        ? 'ring-2 ring-current/30 brightness-110 ' + COUNTER_TONE[s]
-                        : COUNTER_TONE[s] + ' opacity-90 hover:opacity-100',
-                    )}
-                  >
-                    <span>{t(`attendance.${s}`)}</span>
-                    <span className="font-semibold">{counts[s]}</span>
-                  </button>
-                );
-              })}
-              {statusFilter ? (
-                <button
-                  type="button"
-                  onClick={() => setStatusFilter(null)}
-                  className="text-xs text-muted-foreground underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
-                >
-                  {t('attendance.clearFilter')}
-                </button>
-              ) : null}
-              <span className="ml-auto text-xs text-muted-foreground">
-                {t('attendance.rosterCount', { count: total })}
-              </span>
-            </div>
 
-            <div className="overflow-hidden rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10 text-right text-xs text-muted-foreground">
-                      #
-                    </TableHead>
-                    <TableHead>{t('attendance.student')}</TableHead>
-                    <TableHead className="w-[150px]">
-                      {t('attendance.status')}
-                    </TableHead>
-                    <TableHead>{t('attendance.notes')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(() => {
-                    const filtered = statusFilter
-                      ? enrollments.filter((e) => {
-                          const s = marks[e.studentId]?.status ?? 'absent';
-                          return s === statusFilter;
-                        })
-                      : enrollments;
-                    if (filtered.length === 0) {
-                      return (
-                        <TableRow>
-                          <TableCell
-                            colSpan={4}
-                            className="py-6 text-center text-sm text-muted-foreground"
-                          >
-                            {t('attendance.noMatchingStudents')}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }
-                    return filtered.map((e, idx) => {
-                    // Default to 'absent' — LMS convention is
-                    // "absent unless proven present." Self-sign /
-                    // manual edits flip the status to present / late /
-                    // excused.
-                    const row =
-                      marks[e.studentId] ?? { status: 'absent' as const, notes: '' };
-                    const tone = STATUS_TONE[row.status];
-                    return (
-                      <TableRow key={e.studentId}>
-                        <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                          {idx + 1}
-                        </TableCell>
-                        <TableCell className="py-2">
-                          <div className="font-medium leading-tight">
-                            {e.studentName}
-                          </div>
-                          <div className="truncate text-xs text-muted-foreground">
-                            {e.studentEmail}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <select
-                            className={cn(
-                              'h-8 w-full rounded-md border bg-background px-2 text-xs font-medium',
-                              tone,
-                            )}
-                            value={row.status}
-                            onChange={(ev) =>
-                              setStatus(
-                                e.studentId,
-                                ev.target.value as AttendanceStatus,
-                              )
-                            }
-                          >
-                            {STATUSES.map((s) => (
-                              <option key={s} value={s}>
-                                {t(`attendance.${s}`)}
-                              </option>
-                            ))}
-                          </select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={row.notes}
-                            onChange={(ev) =>
-                              setNotes(e.studentId, ev.target.value)
-                            }
-                            className="h-8 text-xs"
-                            placeholder={t('attendance.notesPlaceholder')}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  });
-                  })()}
-                </TableBody>
-              </Table>
-            </div>
+      {/* Search + status-filter toolbar. Only meaningful once a session with
+          enrolled students is selected. */}
+      {selectedSession && total > 0 ? (
+        <div className="flex flex-col gap-2.5 border-y bg-muted/30 px-3 py-2.5 lg:flex-row lg:items-center lg:gap-3">
+          <div className="relative lg:w-64 lg:shrink-0">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('attendance.searchPlaceholder')}
+              className="h-8 bg-background pl-8 text-sm"
+              aria-label={t('attendance.searchPlaceholder')}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <FilterChip
+              label={t('attendance.filterAll')}
+              count={total}
+              active={statusFilter === null}
+              tone="border-border bg-background text-foreground"
+              title={t('attendance.clearFilter')}
+              onClick={() => setStatusFilter(null)}
+            />
+            {STATUSES.map((s) => (
+              <FilterChip
+                key={s}
+                label={t(`attendance.${s}`)}
+                count={counts[s]}
+                active={statusFilter === s}
+                tone={COUNTER_TONE[s]}
+                title={
+                  statusFilter === s
+                    ? t('attendance.clearFilter')
+                    : t('attendance.filterBy', { status: t(`attendance.${s}`) })
+                }
+                onClick={() => setStatusFilter((cur) => (cur === s ? null : s))}
+              />
+            ))}
+          </div>
+          <span className="text-xs tabular-nums text-muted-foreground lg:ml-auto lg:shrink-0">
+            {t('attendance.showing', { shown: visible.length, total })}
+          </span>
+        </div>
+      ) : null}
+
+      <CardContent className="pt-4">
+        {!selectedSession ? (
+          <EmptyState
+            className="border-0"
+            icon={<CalendarClock className="h-8 w-8" aria-hidden />}
+            title={t('attendance.pickSession')}
+            description={t('attendance.pickSessionHint')}
+          />
+        ) : total === 0 ? (
+          <EmptyState
+            className="border-0"
+            icon={<Users className="h-8 w-8" aria-hidden />}
+            title={t('attendance.noStudents')}
+          />
+        ) : visible.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center">
+            <Search className="h-6 w-6 text-muted-foreground" aria-hidden />
+            <p className="text-sm text-muted-foreground">
+              {t('attendance.noMatchingStudents')}
+            </p>
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              {t('attendance.clearFilter')}
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="w-10 text-right text-xs text-muted-foreground">
+                    #
+                  </TableHead>
+                  <TableHead>{t('attendance.student')}</TableHead>
+                  <TableHead className="w-[150px]">{t('attendance.status')}</TableHead>
+                  <TableHead>{t('attendance.notes')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visible.map((e, idx) => {
+                  // Default to 'absent' — LMS convention is "absent unless
+                  // proven present." Self-sign / manual edits flip the status
+                  // to present / late / excused.
+                  const row =
+                    marks[e.studentId] ?? { status: 'absent' as const, notes: '' };
+                  const tone = STATUS_TONE[row.status];
+                  return (
+                    <TableRow key={e.studentId}>
+                      <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                        {idx + 1}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <div className="font-medium leading-tight">{e.studentName}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {e.studentEmail}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <select
+                          className={cn(
+                            'h-8 w-full rounded-md border bg-background px-2 text-xs font-medium',
+                            tone,
+                          )}
+                          value={row.status}
+                          onChange={(ev) =>
+                            setStatus(e.studentId, ev.target.value as AttendanceStatus)
+                          }
+                        >
+                          {STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {t(`attendance.${s}`)}
+                            </option>
+                          ))}
+                        </select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={row.notes}
+                          onChange={(ev) => setNotes(e.studentId, ev.target.value)}
+                          className="h-8 text-xs"
+                          placeholder={t('attendance.notesPlaceholder')}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         )}
       </CardContent>
