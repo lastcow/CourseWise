@@ -18,6 +18,12 @@ CourseWise is a web application for schools. Teachers, students, and admins each
 - [CourseWise vs Google Classroom](https://fsuac.com/compare/google-classroom/): A complete teaching platform vs a free Google-Workspace assignment tool.
 - [CourseWise vs Moodle](https://fsuac.com/compare/moodle/): Managed AI-native SaaS vs self-hosted open-source.
 
+## Use cases
+
+- [CourseWise for K-12 schools](https://fsuac.com/use-cases/k12/): FERPA- and COPPA-first, fully managed, governed AI.
+- [CourseWise for higher education](https://fsuac.com/use-cases/higher-ed/): AI-native assessment + audit for departments.
+- [CourseWise for individual educators](https://fsuac.com/use-cases/individual-educators/): Fast AI authoring, BYO API key, no IT.
+
 ## Legal & trust
 
 - [Privacy Policy](https://fsuac.com/legal/privacy/)

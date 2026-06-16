@@ -2249,6 +2249,7 @@ export const en = {
         features: 'Features',
         pricing: 'Pricing',
         compare: 'Compare',
+        useCases: 'Use cases',
         changelog: 'Changelog',
         about: 'About',
         contact: 'Contact',
