@@ -1795,6 +1795,7 @@ export const fr = {
       showing: '{{shown}} sur {{total}}',
       pickSessionHint: 'Choisissez une séance pour faire l’appel.',
       selectSession: 'Sélectionner une séance',
+      loadingBody: 'Chargement des séances et de la liste…',
       session: {
         open: 'Ouverte',
         closed: 'Fermée',

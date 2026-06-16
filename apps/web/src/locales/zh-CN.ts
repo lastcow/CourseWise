@@ -1708,6 +1708,7 @@ export const zhCN = {
       showing: '{{total}} 名中显示 {{shown}} 名',
       pickSessionHint: '选择一个场次开始点名。',
       selectSession: '选择考勤场次',
+      loadingBody: '正在加载场次和名单…',
       session: {
         open: '进行中',
         closed: '已关闭',
