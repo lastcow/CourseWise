@@ -6,22 +6,22 @@ CourseWise is a web application for schools. Teachers, students, and admins each
 
 ## Product
 
-- [Features](https://coursewise.pages.dev/features): What CourseWise does for teachers, students, and admins.
-- [Pricing](https://coursewise.pages.dev/pricing): Plans and pricing.
-- [About](https://coursewise.pages.dev/about): What CourseWise is and who it's for.
-- [Contact](https://coursewise.pages.dev/contact): How to get in touch.
-- [Changelog](https://coursewise.pages.dev/changelog): Recent product updates.
+- [Features](https://fsuac.com/features): What CourseWise does for teachers, students, and admins.
+- [Pricing](https://fsuac.com/pricing): Plans and pricing.
+- [About](https://fsuac.com/about): What CourseWise is and who it's for.
+- [Contact](https://fsuac.com/contact): How to get in touch.
+- [Changelog](https://fsuac.com/changelog): Recent product updates.
 
 ## Legal & trust
 
-- [Privacy Policy](https://coursewise.pages.dev/legal/privacy)
-- [Terms of Service](https://coursewise.pages.dev/legal/terms)
-- [FERPA](https://coursewise.pages.dev/legal/ferpa): How CourseWise handles student education records.
-- [Security](https://coursewise.pages.dev/legal/security)
-- [Subprocessors](https://coursewise.pages.dev/legal/subprocessors)
-- [COPPA](https://coursewise.pages.dev/legal/coppa)
-- [Data Requests](https://coursewise.pages.dev/legal/data-requests)
-- [Data Processing Addendum (DPA)](https://coursewise.pages.dev/legal/dpa)
+- [Privacy Policy](https://fsuac.com/legal/privacy)
+- [Terms of Service](https://fsuac.com/legal/terms)
+- [FERPA](https://fsuac.com/legal/ferpa): How CourseWise handles student education records.
+- [Security](https://fsuac.com/legal/security)
+- [Subprocessors](https://fsuac.com/legal/subprocessors)
+- [COPPA](https://fsuac.com/legal/coppa)
+- [Data Requests](https://fsuac.com/legal/data-requests)
+- [Data Processing Addendum (DPA)](https://fsuac.com/legal/dpa)
 
 ## Notes
 
