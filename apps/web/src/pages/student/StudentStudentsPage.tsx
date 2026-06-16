@@ -10,6 +10,7 @@ import { CourseSectionHeader } from '@/components/course/CourseSectionHeader';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
+import { LoadingDialog } from '@/components/ui/loading-dialog';
 import {
   Table,
   TableBody,
@@ -111,8 +112,16 @@ export function StudentStudentsPage(): JSX.Element {
 
   const fetching = studentsQ.isFetching || groupSetsQ.isFetching || activeSetQ.isFetching;
 
+  // Blocking modal while the roster/group-set data loads (and while the
+  // selected set's detail fetches), mirroring the attendance page.
+  const loading =
+    studentsQ.isLoading ||
+    groupSetsQ.isLoading ||
+    (activeSetId != null && activeSetQ.isLoading);
+
   return (
     <div className="space-y-4">
+      <LoadingDialog open={loading} icon={Users} description={t('students.loadingBody')} />
       <CourseSectionHeader
         title={t('students.title')}
         description={t('students.helpStudent')}
@@ -157,6 +166,9 @@ export function StudentStudentsPage(): JSX.Element {
               >
                 <Users className="h-3 w-3" aria-hidden />
                 {gs.name}
+                <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-current px-1 text-[10px] font-medium leading-none opacity-80">
+                  {gs.groupCount}
+                </span>
               </button>
             ))}
             <div className="mx-1 h-5 w-px bg-border" aria-hidden />

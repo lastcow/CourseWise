@@ -815,6 +815,7 @@ export const en = {
       helpStudent:
         'Browse the groups your teacher created. Join an open group while signup is open; leave to switch.',
       searchPlaceholder: 'Search name or email…',
+      loadingBody: 'Loading roster and groups…',
       filterAll: 'All',
       filterByGroupSet: 'Filter by {{name}}',
       colName: 'Name',

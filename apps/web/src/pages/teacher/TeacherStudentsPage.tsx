@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
 import { Input, Label } from '@/components/ui/input';
+import { LoadingDialog } from '@/components/ui/loading-dialog';
 import {
   Table,
   TableBody,
@@ -386,8 +387,16 @@ export function TeacherStudentsPage(): JSX.Element {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [activeInvite]);
 
+  // Blocking modal while the roster/group-set data loads (and while the
+  // selected set's detail fetches), mirroring the attendance page.
+  const loading =
+    studentsQ.isLoading ||
+    groupSetsQ.isLoading ||
+    (activeSetId != null && activeSetQ.isLoading);
+
   return (
     <div className="space-y-4">
+      <LoadingDialog open={loading} icon={Users} description={t('students.loadingBody')} />
       <CourseSectionHeader
         title={t('students.title')}
         description={t('students.helpTeacher')}
@@ -480,6 +489,9 @@ export function TeacherStudentsPage(): JSX.Element {
               >
                 <Users className="h-3 w-3" aria-hidden />
                 {gs.name}
+                <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-current px-1 text-[10px] font-medium leading-none opacity-80">
+                  {gs.groupCount}
+                </span>
               </button>
             ))}
             <ActionIconButton
