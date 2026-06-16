@@ -1,0 +1,29 @@
+# CourseWise
+
+> CourseWise is a FERPA-first teaching platform that unifies course modules, materials, quizzes, attendance, discussions, messaging, and AI-assisted authoring for teachers, students, and admins under a single shared data model.
+
+CourseWise is a web application for schools. Teachers, students, and admins each get a role-tailored view over one course data model. Core capabilities include course and module organization, reading materials, quizzes (with scheduling "waves" and per-student windows), assignments and a gradebook, attendance, discussions, direct messaging, presentations, and AI authoring tools. Privacy is FERPA-first: student education records live behind authentication and are intentionally excluded from public crawling and indexing.
+
+## Product
+
+- [Features](https://coursewise.pages.dev/features): What CourseWise does for teachers, students, and admins.
+- [Pricing](https://coursewise.pages.dev/pricing): Plans and pricing.
+- [About](https://coursewise.pages.dev/about): What CourseWise is and who it's for.
+- [Contact](https://coursewise.pages.dev/contact): How to get in touch.
+- [Changelog](https://coursewise.pages.dev/changelog): Recent product updates.
+
+## Legal & trust
+
+- [Privacy Policy](https://coursewise.pages.dev/legal/privacy)
+- [Terms of Service](https://coursewise.pages.dev/legal/terms)
+- [FERPA](https://coursewise.pages.dev/legal/ferpa): How CourseWise handles student education records.
+- [Security](https://coursewise.pages.dev/legal/security)
+- [Subprocessors](https://coursewise.pages.dev/legal/subprocessors)
+- [COPPA](https://coursewise.pages.dev/legal/coppa)
+- [Data Requests](https://coursewise.pages.dev/legal/data-requests)
+- [Data Processing Addendum (DPA)](https://coursewise.pages.dev/legal/dpa)
+
+## Notes
+
+- The authenticated application (dashboards, courses, and all student data) is private and FERPA-protected; it is deliberately not indexed.
+- The public site is available in English, French, and Simplified Chinese (language is selected in-app).

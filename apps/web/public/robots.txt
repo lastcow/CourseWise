@@ -1,0 +1,25 @@
+# CourseWise — robots.txt
+#
+# Public marketing & legal pages are open to all crawlers, INCLUDING AI/LLM
+# crawlers (e.g. GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, PerplexityBot,
+# Google-Extended, Applebot-Extended, Bytespider) — we want to be discoverable
+# and citable in AI answers.
+#
+# The authenticated application (dashboards, courses, student records) is
+# FERPA-protected and must never be crawled or indexed. Token-based pages
+# (public presentation links, invites, password reset) carry no SEO value and
+# are excluded too.
+
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /teacher/
+Disallow: /student/
+Disallow: /dashboard
+Disallow: /settings/
+Disallow: /p/
+Disallow: /invite/
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Sitemap: https://coursewise.pages.dev/sitemap.xml
