@@ -1703,6 +1703,12 @@ export const zhCN = {
       filterBy: '按 {{status}} 筛选',
       clearFilter: '清除筛选',
       noMatchingStudents: '没有符合此筛选的学生。',
+      searchPlaceholder: '按姓名或邮箱搜索学生…',
+      searchSessions: '搜索考勤场次…',
+      filterAll: '全部',
+      showing: '{{total}} 名中显示 {{shown}} 名',
+      noSessionsMatch: '没有符合搜索的考勤场次。',
+      pickSessionHint: '从列表中选择一个场次开始点名。',
       session: {
         open: '进行中',
         closed: '已关闭',
