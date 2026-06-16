@@ -7,6 +7,7 @@ import { Reveal } from '@/components/public/Reveal';
 import { MockTeacherOverview } from '@/components/public/MockTeacherOverview';
 import { MockActivityTimeline } from '@/components/public/MockActivityTimeline';
 import { MockPromptEditor } from '@/components/public/MockPromptEditor';
+import { usePageMeta } from '@/lib/usePageMeta';
 
 type Role = 'teachers' | 'students' | 'admins';
 
@@ -61,6 +62,11 @@ const TABS: Record<Role, { label: string; title: string; body: string; checklist
 };
 
 export function FeaturesPage(): JSX.Element {
+  usePageMeta({
+    title: 'Features — CourseWise',
+    description:
+      'One product, three views — teacher, student, and admin — over a single course data model: modules, materials, quizzes, assignments, attendance, discussions, gradebook, and governed AI authoring.',
+  });
   const [active, setActive] = useState<Role>('teachers');
   const tab = TABS[active];
   const Mock = tab.mock;

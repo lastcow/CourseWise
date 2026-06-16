@@ -10,6 +10,7 @@ import { MockTeacherOverview } from '@/components/public/MockTeacherOverview';
 import { MockActivityTimeline } from '@/components/public/MockActivityTimeline';
 import { MockPromptEditor } from '@/components/public/MockPromptEditor';
 import { useAuth } from '@/lib/authContext';
+import { usePageMeta } from '@/lib/usePageMeta';
 
 const CTA = 'bg-evergreen text-paper hover:bg-evergreen-dark';
 
@@ -58,6 +59,11 @@ const SHOWCASE = [
 export function HomePage(): JSX.Element {
   const { t } = useTranslation();
   const { auth } = useAuth();
+  usePageMeta({
+    title: 'CourseWise — FERPA-first teaching platform with AI authoring',
+    description:
+      'CourseWise unifies modules, materials, quizzes, assignments, attendance, discussions, and admin-governed AI authoring for teachers, students, and admins — one data model, FERPA-first.',
+  });
   if (auth) return <Navigate to="/dashboard" replace />;
 
   return (

@@ -10,10 +10,16 @@ import { PageHeader } from '@/components/public/PageHeader';
 import { Reveal } from '@/components/public/Reveal';
 import { useToast } from '@/components/ui/toast';
 import { apiCall } from '@/lib/api';
+import { usePageMeta } from '@/lib/usePageMeta';
 
 export function ContactPage(): JSX.Element {
   const { t } = useTranslation();
   const toast = useToast();
+  usePageMeta({
+    title: 'Contact — CourseWise',
+    description:
+      'Talk to CourseWise about pilots, pricing, DPAs, or a security review. Tell us about your school or department and we’ll get back to you.',
+  });
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
 

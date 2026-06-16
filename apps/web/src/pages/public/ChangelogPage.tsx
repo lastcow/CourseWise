@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/public/PageHeader';
 import { Reveal } from '@/components/public/Reveal';
 import { cn } from '@/lib/utils';
 import { getChangelog, groupByMonth, type ChangelogCategory } from '@/data/changelog';
+import { usePageMeta } from '@/lib/usePageMeta';
 
 const CATEGORY_BADGE: Record<ChangelogCategory, string> = {
   added: 'bg-evergreen-100 text-evergreen',
@@ -22,6 +23,10 @@ const CATEGORY_DOT: Record<ChangelogCategory, string> = {
 
 export function ChangelogPage(): JSX.Element {
   const { t, i18n } = useTranslation();
+  usePageMeta({
+    title: 'Changelog — CourseWise',
+    description: 'What’s new in CourseWise — recent product updates, new features, improvements, and fixes.',
+  });
   const months = useMemo(() => groupByMonth(getChangelog()), []);
   const locale = i18n.language;
 
