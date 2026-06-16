@@ -1,23 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Public, indexable pages only. Authenticated app routes and token-based
-     pages are intentionally excluded (see robots.txt). -->
+     pages are intentionally excluded (see robots.txt). URLs use the trailing-
+     slash form that Cloudflare Pages serves, matching each page's canonical. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://fsuac.com/</loc></url>
-  <url><loc>https://fsuac.com/features</loc></url>
-  <url><loc>https://fsuac.com/pricing</loc></url>
-  <url><loc>https://fsuac.com/about</loc></url>
-  <url><loc>https://fsuac.com/contact</loc></url>
-  <url><loc>https://fsuac.com/changelog</loc></url>
-  <url><loc>https://fsuac.com/legal/privacy</loc></url>
-  <url><loc>https://fsuac.com/legal/terms</loc></url>
-  <url><loc>https://fsuac.com/legal/ferpa</loc></url>
-  <url><loc>https://fsuac.com/legal/coppa</loc></url>
-  <url><loc>https://fsuac.com/legal/security</loc></url>
-  <url><loc>https://fsuac.com/legal/subprocessors</loc></url>
-  <url><loc>https://fsuac.com/legal/data-requests</loc></url>
-  <url><loc>https://fsuac.com/legal/dpa</loc></url>
-  <url><loc>https://fsuac.com/legal/accessibility</loc></url>
-  <url><loc>https://fsuac.com/legal/cookies</loc></url>
-  <url><loc>https://fsuac.com/legal/state-addenda</loc></url>
-  <url><loc>https://fsuac.com/legal/responsible-disclosure</loc></url>
+  <url><loc>https://fsuac.com/features/</loc></url>
+  <url><loc>https://fsuac.com/pricing/</loc></url>
+  <url><loc>https://fsuac.com/about/</loc></url>
+  <url><loc>https://fsuac.com/contact/</loc></url>
+  <url><loc>https://fsuac.com/changelog/</loc></url>
+  <url><loc>https://fsuac.com/legal/privacy/</loc></url>
+  <url><loc>https://fsuac.com/legal/terms/</loc></url>
+  <url><loc>https://fsuac.com/legal/ferpa/</loc></url>
+  <url><loc>https://fsuac.com/legal/coppa/</loc></url>
+  <url><loc>https://fsuac.com/legal/security/</loc></url>
+  <url><loc>https://fsuac.com/legal/subprocessors/</loc></url>
+  <url><loc>https://fsuac.com/legal/data-requests/</loc></url>
+  <url><loc>https://fsuac.com/legal/dpa/</loc></url>
+  <url><loc>https://fsuac.com/legal/accessibility/</loc></url>
+  <url><loc>https://fsuac.com/legal/cookies/</loc></url>
+  <url><loc>https://fsuac.com/legal/state-addenda/</loc></url>
+  <url><loc>https://fsuac.com/legal/responsible-disclosure/</loc></url>
 </urlset>

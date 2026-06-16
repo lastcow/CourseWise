@@ -40,12 +40,14 @@ function upsertCanonical(href: string): void {
  * the static HTML that crawlers receive — giving each public page distinct,
  * accurate metadata for search and AI engines.
  *
- * Canonical/og:url drop any trailing slash (except root) to match sitemap.xml.
+ * Canonical/og:url use the trailing-slash form (except root) — that's what
+ * Cloudflare Pages serves for prerendered dist/<route>/index.html, so canonical
+ * == served URL == sitemap.xml (no canonical-points-to-redirect).
  */
 export function usePageMeta({ title, description }: PageMeta): void {
   const { pathname } = useLocation();
   useEffect(() => {
-    const path = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
+    const path = pathname === '/' ? '/' : pathname.replace(/\/+$/, '') + '/';
     const url = SITE_URL + path;
 
     document.title = title;
