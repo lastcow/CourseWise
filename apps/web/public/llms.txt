@@ -12,6 +12,12 @@ CourseWise is a web application for schools. Teachers, students, and admins each
 - [Contact](https://fsuac.com/contact/): How to get in touch.
 - [Changelog](https://fsuac.com/changelog/): Recent product updates.
 
+## Comparisons
+
+- [CourseWise vs Canvas](https://fsuac.com/compare/canvas/): AI-native, FERPA-first vs a comprehensive enterprise LMS.
+- [CourseWise vs Google Classroom](https://fsuac.com/compare/google-classroom/): A complete teaching platform vs a free Google-Workspace assignment tool.
+- [CourseWise vs Moodle](https://fsuac.com/compare/moodle/): Managed AI-native SaaS vs self-hosted open-source.
+
 ## Legal & trust
 
 - [Privacy Policy](https://fsuac.com/legal/privacy/)

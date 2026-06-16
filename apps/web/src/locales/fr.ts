@@ -2280,6 +2280,7 @@ export const fr = {
       nav: {
         features: 'Fonctionnalités',
         pricing: 'Tarifs',
+        compare: 'Comparatif',
         changelog: 'Nouveautés',
         about: 'À propos',
         contact: 'Contact',

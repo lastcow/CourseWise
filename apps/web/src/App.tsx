@@ -16,6 +16,8 @@ import { TeacherAcceptInvitePage } from '@/pages/TeacherAcceptInvitePage';
 import { FeaturesPage } from '@/pages/public/FeaturesPage';
 import { PricingPage } from '@/pages/public/PricingPage';
 import { ChangelogPage } from '@/pages/public/ChangelogPage';
+import { CompareHubPage } from '@/pages/public/CompareHubPage';
+import { ComparePage } from '@/pages/public/ComparePage';
 import { AboutPage } from '@/pages/public/AboutPage';
 import { ContactPage } from '@/pages/public/ContactPage';
 import { PublicPresentationPage } from '@/pages/public/PublicPresentationPage';
@@ -98,6 +100,8 @@ export default function App(): JSX.Element {
                 <Route path="/features" element={<FeaturesPage />} />
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/changelog" element={<ChangelogPage />} />
+                <Route path="/compare" element={<CompareHubPage />} />
+                <Route path="/compare/:slug" element={<ComparePage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/login" element={<LoginPage />} />

@@ -10,6 +10,7 @@ const COLUMNS: { headingKey: string; links: { to: string; labelKey: string }[] }
     links: [
       { to: '/features', labelKey: 'public.nav.features' },
       { to: '/pricing', labelKey: 'public.nav.pricing' },
+      { to: '/compare', labelKey: 'public.nav.compare' },
       { to: '/changelog', labelKey: 'public.nav.changelog' },
     ],
   },

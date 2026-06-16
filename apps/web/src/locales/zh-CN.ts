@@ -2172,6 +2172,7 @@ export const zhCN = {
       nav: {
         features: '功能',
         pricing: '定价',
+        compare: '对比',
         changelog: '更新日志',
         about: '关于',
         contact: '联系',
