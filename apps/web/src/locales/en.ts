@@ -2248,6 +2248,7 @@ export const en = {
       nav: {
         features: 'Features',
         pricing: 'Pricing',
+        compare: 'Compare',
         changelog: 'Changelog',
         about: 'About',
         contact: 'Contact',
