@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Public, indexable pages only. Authenticated app routes and token-based
+     pages are intentionally excluded (see robots.txt). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://coursewise.pages.dev/</loc></url>
+  <url><loc>https://coursewise.pages.dev/features</loc></url>
+  <url><loc>https://coursewise.pages.dev/pricing</loc></url>
+  <url><loc>https://coursewise.pages.dev/about</loc></url>
+  <url><loc>https://coursewise.pages.dev/contact</loc></url>
+  <url><loc>https://coursewise.pages.dev/changelog</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/privacy</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/terms</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/ferpa</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/coppa</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/security</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/subprocessors</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/data-requests</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/dpa</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/accessibility</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/cookies</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/state-addenda</loc></url>
+  <url><loc>https://coursewise.pages.dev/legal/responsible-disclosure</loc></url>
+</urlset>
