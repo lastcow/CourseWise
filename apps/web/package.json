@@ -7,6 +7,8 @@
     "dev": "vite",
     "changelog": "node scripts/generate-changelog.mjs",
     "build": "node scripts/generate-changelog.mjs && tsc -p tsconfig.json --noEmit && vite build",
+    "prerender": "node scripts/prerender.mjs",
+    "build:static": "pnpm build && pnpm prerender",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
@@ -48,6 +50,7 @@
     "autoprefixer": "^10.4.20",
     "jsdom": "^29.1.1",
     "postcss": "^8.4.47",
+    "puppeteer": "^25.1.0",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",

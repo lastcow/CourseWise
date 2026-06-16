@@ -153,6 +153,15 @@ jobs:
           VITE_DEFAULT_LOCALE: ${{ secrets.VITE_DEFAULT_LOCALE || 'en' }}
         run: pnpm --filter @coursewise/web build
 
+      # Prerender public marketing/legal pages so non-JS crawlers (AI/search
+      # bots) get real HTML. Auto-download is disabled (.puppeteerrc.cjs), so
+      # install Chrome explicitly — only this deploy job needs it.
+      - name: Install Chrome for prerender
+        run: pnpm --filter @coursewise/web exec puppeteer browsers install chrome
+
+      - name: Prerender public pages
+        run: pnpm --filter @coursewise/web prerender
+
       - name: Publish to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
