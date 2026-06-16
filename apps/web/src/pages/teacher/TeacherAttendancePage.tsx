@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Calendar,
   CalendarClock,
-  CalendarDays,
+  Check,
+  ChevronDown,
   CircleCheck,
   Save,
   Search,
@@ -72,9 +74,8 @@ function formatDate(iso: string | null): string {
   }
 }
 
-// Compact, human-friendly date for the session cards + roster subtitle, e.g.
-// "Mon, Jun 16 · 2:30 PM" — denser than toLocaleString() so it fits a
-// narrow sidebar without wrapping.
+// Compact, human-friendly date for the session dropdown, e.g.
+// "Mon, Jun 16 · 2:30 PM" — dense enough to fit the trigger + rows.
 function formatSessionDate(iso: string | null): string {
   if (!iso) return '—';
   try {
@@ -88,6 +89,33 @@ function formatSessionDate(iso: string | null): string {
   } catch {
     return iso;
   }
+}
+
+/**
+ * The session to auto-select when the page (or a course) loads: today's
+ * session (latest if several land today), else the most recent session that
+ * has already started ("last available"), else the soonest upcoming one.
+ * Returns null only when the course has no sessions.
+ */
+function pickDefaultSession(sessions: AttendanceSessionSummary[]): string | null {
+  if (sessions.length === 0) return null;
+  const now = Date.now();
+  const at = (s: AttendanceSessionSummary): number => new Date(s.sessionDate).getTime();
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const start = dayStart.getTime();
+  const end = start + 24 * 60 * 60 * 1000;
+
+  const todays = sessions
+    .filter((s) => at(s) >= start && at(s) < end)
+    .sort((a, b) => at(b) - at(a));
+  if (todays[0]) return todays[0].id;
+
+  const past = sessions.filter((s) => at(s) <= now).sort((a, b) => at(b) - at(a));
+  if (past[0]) return past[0].id;
+
+  const upcoming = [...sessions].sort((a, b) => at(a) - at(b));
+  return upcoming[0]?.id ?? null;
 }
 
 export function TeacherAttendancePage(): JSX.Element {
@@ -111,6 +139,11 @@ export function TeacherAttendancePage(): JSX.Element {
   const [marks, setMarks] = useState<
     Record<string, { status: AttendanceStatus; notes: string }>
   >({});
+
+  const selectSession = useCallback((id: string) => {
+    setSelectedSession(id);
+    setMarks({});
+  }, []);
 
   const [openDialog, setOpenDialog] = useState(false);
   // null = the dialog is in "create" mode; a session id = "edit" mode.
@@ -207,6 +240,22 @@ export function TeacherAttendancePage(): JSX.Element {
     };
   }, [cid]);
 
+  // Keep a valid session selected. On first load (and after a course switch or
+  // a delete leaves the current pick stale) auto-select today's / the last
+  // available session so the roster is immediately useful without a manual
+  // pick. A still-valid selection is left untouched.
+  useEffect(() => {
+    const data = sessions.data;
+    if (!data) return;
+    const stillValid = selectedSession != null && data.some((s) => s.id === selectedSession);
+    if (stillValid) return;
+    const next = pickDefaultSession(data);
+    if (next !== selectedSession) {
+      setSelectedSession(next);
+      setMarks({});
+    }
+  }, [sessions.data, selectedSession]);
+
   // Auto-populate marks from server records once they load for the selected
   // session. Without this, the roster row falls back to 'present' even when
   // the student has already been recorded as absent (e.g. via self-sign
@@ -256,55 +305,46 @@ export function TeacherAttendancePage(): JSX.Element {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
-        <SessionsPanel
-          sessions={sessions.data}
-          isLoading={sessions.isLoading}
-          selectedSession={selectedSession}
-          onSelect={(id) => {
-            setSelectedSession(id);
-            setMarks({});
-          }}
-          onCreate={openCreate}
-        />
-
-        <RosterCard
-          selectedSession={selectedSession}
-          session={sessions.data?.find((s) => s.id === selectedSession) ?? null}
-          enrollments={enrollments}
-          marks={marks}
-          setMarks={setMarks}
-          deleting={delSession.isPending}
-          onSave={async (records) => {
-            if (!selectedSession || records.length === 0) return;
-            try {
-              await bulkMark.mutateAsync({ records });
-              toast.push({ title: t('attendance.saved'), tone: 'success' });
-            } catch (err) {
-              toast.push({
-                title: t(pickI18nKey(err, 'errors.internal')),
-                tone: 'error',
-              });
-            }
-          }}
-          saving={bulkMark.isPending}
-          onEditSession={() => {
-            const s = sessions.data?.find((x) => x.id === selectedSession);
-            if (s) openEdit(s);
-          }}
-          onCloseSession={async () => {
-            if (!selectedSession) return;
-            await closeSession.mutateAsync(selectedSession);
-            toast.push({ title: t('attendance.sessionClosed'), tone: 'success' });
-          }}
-          onDeleteSession={async () => {
-            if (!selectedSession) return;
-            await delSession.mutateAsync(selectedSession);
-            setSelectedSession(null);
-            toast.push({ title: t('attendance.sessionDeleted'), tone: 'success' });
-          }}
-        />
-      </div>
+      <RosterCard
+        sessions={sessions.data ?? []}
+        sessionsLoading={sessions.isLoading}
+        selectedSession={selectedSession}
+        session={sessions.data?.find((s) => s.id === selectedSession) ?? null}
+        onSelectSession={selectSession}
+        onCreate={openCreate}
+        enrollments={enrollments}
+        marks={marks}
+        setMarks={setMarks}
+        deleting={delSession.isPending}
+        onSave={async (records) => {
+          if (!selectedSession || records.length === 0) return;
+          try {
+            await bulkMark.mutateAsync({ records });
+            toast.push({ title: t('attendance.saved'), tone: 'success' });
+          } catch (err) {
+            toast.push({
+              title: t(pickI18nKey(err, 'errors.internal')),
+              tone: 'error',
+            });
+          }
+        }}
+        saving={bulkMark.isPending}
+        onEditSession={() => {
+          const s = sessions.data?.find((x) => x.id === selectedSession);
+          if (s) openEdit(s);
+        }}
+        onCloseSession={async () => {
+          if (!selectedSession) return;
+          await closeSession.mutateAsync(selectedSession);
+          toast.push({ title: t('attendance.sessionClosed'), tone: 'success' });
+        }}
+        onDeleteSession={async () => {
+          if (!selectedSession) return;
+          await delSession.mutateAsync(selectedSession);
+          setSelectedSession(null);
+          toast.push({ title: t('attendance.sessionDeleted'), tone: 'success' });
+        }}
+      />
 
       <Dialog
         open={openDialog}
@@ -382,125 +422,242 @@ export function TeacherAttendancePage(): JSX.Element {
 }
 
 /**
- * Left-hand session picker. Sticky on desktop with its own search box so a
- * teacher can jump to a session by title on a course with a long term of
- * classes. Each card shows a status accent rail (green = open), the date,
- * and how many students are marked, so the right session is identifiable at
- * a glance without opening it.
+ * Rich session picker that lives in the roster nav bar. The trigger shows the
+ * current session (status dot + title + date), and the portaled listbox lists
+ * every session with its full context — status accent rail, status badge,
+ * date, and how many students are marked — so the right one is identifiable
+ * without leaving the roster. Portaled to <body> so it escapes the card's
+ * overflow; outside-click / Esc / ancestor-scroll / resize dismiss, and
+ * Arrow keys + Enter drive it from the keyboard.
  */
-function SessionsPanel({
+function SessionSelect({
   sessions,
-  isLoading,
-  selectedSession,
+  selectedId,
   onSelect,
-  onCreate,
 }: {
-  sessions: AttendanceSessionSummary[] | undefined;
-  isLoading: boolean;
-  selectedSession: string | null;
+  sessions: AttendanceSessionSummary[];
+  selectedId: string | null;
   onSelect: (id: string) => void;
-  onCreate: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const [query, setQuery] = useState('');
-  const all = useMemo(() => sessions ?? [], [sessions]);
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return all;
-    return all.filter((s) => s.title.toLowerCase().includes(q));
-  }, [all, query]);
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    minWidth: number;
+  } | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const selected = sessions.find((s) => s.id === selectedId) ?? null;
+
+  const place = useCallback((): void => {
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const openUp = window.innerHeight - r.bottom < 320 && r.top > window.innerHeight / 2;
+    setCoords({
+      top: openUp ? undefined : Math.round(r.bottom + 4),
+      bottom: openUp ? Math.round(window.innerHeight - r.top + 4) : undefined,
+      left: Math.round(r.left),
+      minWidth: Math.round(r.width),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent): void => {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    // Capture-phase scroll fires for nested scrollers too; a scroll *inside*
+    // the menu must not dismiss, or the list can't be scrolled.
+    const onScroll = (e: Event): void => {
+      const target = e.target as Node | null;
+      if (target && menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onResize = (): void => setOpen(false);
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [open]);
+
+  // Keep the highlighted row scrolled into view as it moves.
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current
+      ?.querySelector<HTMLElement>(`[data-opt="${activeIndex}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, open]);
+
+  const toggle = (): void => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setActiveIndex(Math.max(0, sessions.findIndex((s) => s.id === selectedId)));
+    place();
+    setOpen(true);
+  };
+
+  const pick = (id: string): void => {
+    onSelect(id);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const onTriggerKeyDown = (e: React.KeyboardEvent): void => {
+    if (!open) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggle();
+      }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(sessions.length - 1, i + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(0, i - 1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const s = sessions[activeIndex];
+      if (s) pick(s.id);
+    }
+  };
 
   return (
-    <Card className="flex flex-col lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]">
-      <CardHeader className="gap-2 space-y-0 pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">{t('attendance.sessionsListTitle')}</CardTitle>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
-            {all.length}
-          </span>
-        </div>
-        {all.length > 0 ? (
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
-            <Input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('attendance.searchSessions')}
-              className="h-8 pl-8 text-sm"
-            />
-          </div>
-        ) : null}
-      </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto p-2 pt-0">
-        {isLoading ? (
-          <p className="px-1 py-3 text-sm text-muted-foreground">{t('common.loading')}</p>
-        ) : all.length === 0 ? (
-          <EmptyState
-            className="border-0 p-6"
-            icon={<CalendarDays className="h-7 w-7" aria-hidden />}
-            title={t('attendance.empty')}
-            action={
-              <Button size="sm" onClick={onCreate}>
-                {t('attendance.newSession')}
-              </Button>
-            }
-          />
-        ) : filtered.length === 0 ? (
-          <p className="px-1 py-6 text-center text-sm text-muted-foreground">
-            {t('attendance.noSessionsMatch')}
-          </p>
-        ) : (
-          <ul className="space-y-1">
-            {filtered.map((s) => {
-              const active = selectedSession === s.id;
-              const open = s.status === 'open';
-              return (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelect(s.id)}
-                    aria-current={active ? 'true' : undefined}
-                    className={cn(
-                      'relative w-full overflow-hidden rounded-lg border py-2 pl-3.5 pr-2.5 text-left transition',
-                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      active
-                        ? 'border-primary bg-accent shadow-sm'
-                        : 'border-transparent hover:border-border hover:bg-accent/50',
-                    )}
-                  >
-                    {/* Status accent rail: green = self-sign still open. */}
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'absolute inset-y-1.5 left-0 w-1 rounded-full',
-                        open ? 'bg-emerald-500' : 'bg-muted-foreground/30',
-                      )}
-                    />
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="truncate text-sm font-medium leading-tight">{s.title}</span>
-                      <Badge variant={open ? 'success' : 'secondary'} className="shrink-0">
-                        {t(`attendance.session.${s.status}`)}
-                      </Badge>
-                    </div>
-                    <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3 shrink-0" aria-hidden />
-                      <span className="truncate">{formatSessionDate(s.sessionDate)}</span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {t('attendance.records', { count: s.recordCount ?? 0 })}
-                    </p>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+    <div className="w-full sm:w-[22rem]">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        onKeyDown={onTriggerKeyDown}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={t('attendance.selectSession')}
+        className={cn(
+          'inline-flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-2.5 text-sm transition-colors',
+          'hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         )}
-      </CardContent>
-    </Card>
+      >
+        {selected ? (
+          <>
+            <span
+              aria-hidden
+              className={cn(
+                'h-2 w-2 shrink-0 rounded-full',
+                selected.status === 'open' ? 'bg-emerald-500' : 'bg-muted-foreground/40',
+              )}
+            />
+            <span className="min-w-0 flex-1 truncate text-left font-medium">{selected.title}</span>
+            <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">
+              {formatSessionDate(selected.sessionDate)}
+            </span>
+          </>
+        ) : (
+          <span className="flex-1 truncate text-left text-muted-foreground">
+            {t('attendance.selectSession')}
+          </span>
+        )}
+        <ChevronDown
+          className={cn('h-4 w-4 shrink-0 opacity-60 transition-transform', open && 'rotate-180')}
+          aria-hidden
+        />
+      </button>
+      {open && coords
+        ? createPortal(
+            // bg-card (not bg-popover): the project's Tailwind config has no
+            // popover token, so bg-popover would resolve transparent.
+            <div
+              ref={menuRef}
+              role="listbox"
+              aria-label={t('attendance.sessionsListTitle')}
+              style={{
+                position: 'fixed',
+                top: coords.top,
+                bottom: coords.bottom,
+                left: coords.left,
+                minWidth: coords.minWidth,
+              }}
+              className="z-50 max-h-[22rem] w-max max-w-[28rem] overflow-y-auto rounded-md border bg-card text-card-foreground shadow-lg"
+            >
+              <ul className="py-1">
+                {sessions.map((s, i) => {
+                  const active = i === activeIndex;
+                  const isSelected = s.id === selectedId;
+                  const isOpen = s.status === 'open';
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        data-opt={i}
+                        onClick={() => pick(s.id)}
+                        onMouseMove={() => setActiveIndex(i)}
+                        className={cn(
+                          'relative flex w-full items-start gap-2.5 py-2 pl-4 pr-3 text-left transition-colors',
+                          active ? 'bg-accent' : 'hover:bg-accent/60',
+                        )}
+                      >
+                        {/* Status accent rail: green = self-sign still open. */}
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'absolute inset-y-1.5 left-0 w-1 rounded-full',
+                            isOpen ? 'bg-emerald-500' : 'bg-muted-foreground/30',
+                          )}
+                        />
+                        <Check
+                          className={cn(
+                            'mt-0.5 h-3.5 w-3.5 shrink-0',
+                            isSelected ? 'text-primary opacity-100' : 'opacity-0',
+                          )}
+                          aria-hidden
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center justify-between gap-2">
+                            <span className={cn('truncate text-sm', isSelected && 'font-semibold')}>
+                              {s.title}
+                            </span>
+                            <Badge variant={isOpen ? 'success' : 'secondary'} className="shrink-0">
+                              {t(`attendance.session.${s.status}`)}
+                            </Badge>
+                          </span>
+                          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3 shrink-0" aria-hidden />
+                            <span className="truncate">{formatSessionDate(s.sessionDate)}</span>
+                            <span aria-hidden>·</span>
+                            <span className="shrink-0">
+                              {t('attendance.records', { count: s.recordCount ?? 0 })}
+                            </span>
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
   );
 }
 
@@ -543,16 +700,20 @@ function FilterChip({
 }
 
 /**
- * Polished roster surface for the selected attendance session. The toolbar
- * carries a name/email search and per-status filter pills (which double as a
- * live Present / Absent / Late / Excused tally), so a teacher can find a
- * student or isolate every "absent" on a 40-student roster without
- * scrolling. The primary Save CTA lives in the header so it's reachable
- * without skimming to the bottom of the page on long classes.
+ * Polished roster surface for the selected attendance session. Its nav bar
+ * carries the session dropdown ({@link SessionSelect}) plus the primary Save
+ * CTA and session-management actions; below it a name/email search and
+ * per-status filter pills (which double as a live Present / Absent / Late /
+ * Excused tally) let a teacher find a student or isolate every "absent" on a
+ * 40-student roster without scrolling.
  */
 function RosterCard({
+  sessions,
+  sessionsLoading,
   selectedSession,
   session,
+  onSelectSession,
+  onCreate,
   enrollments,
   marks,
   setMarks,
@@ -563,8 +724,12 @@ function RosterCard({
   onDeleteSession,
   deleting,
 }: {
+  sessions: AttendanceSessionSummary[];
+  sessionsLoading: boolean;
   selectedSession: string | null;
   session: AttendanceSessionSummary | null;
+  onSelectSession: (id: string) => void;
+  onCreate: () => void;
   enrollments: EnrollmentRow[];
   marks: RosterMarks;
   setMarks: React.Dispatch<React.SetStateAction<RosterMarks>>;
@@ -646,23 +811,21 @@ function RosterCard({
     setSearch('');
   };
 
+  const hasSessions = sessions.length > 0;
+
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <CardTitle>{t('attendance.rosterTitle')}</CardTitle>
-          {selectedSession && session ? (
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <Calendar className="h-3 w-3" aria-hidden />
-                {formatSessionDate(session.sessionDate)}
-              </span>
-              <span aria-hidden>·</span>
-              <Badge variant={session.status === 'open' ? 'success' : 'secondary'}>
-                {t(`attendance.session.${session.status}`)}
-              </Badge>
-            </p>
-          ) : null}
+      <CardHeader className="flex flex-col gap-3 pb-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          {hasSessions ? (
+            <SessionSelect
+              sessions={sessions}
+              selectedId={selectedSession}
+              onSelect={onSelectSession}
+            />
+          ) : (
+            <CardTitle>{t('attendance.rosterTitle')}</CardTitle>
+          )}
         </div>
         {selectedSession ? (
           <div className="flex flex-wrap items-center gap-1.5">
@@ -768,7 +931,22 @@ function RosterCard({
       ) : null}
 
       <CardContent className="pt-4">
-        {!selectedSession ? (
+        {!hasSessions ? (
+          sessionsLoading ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">{t('common.loading')}</p>
+          ) : (
+            <EmptyState
+              className="border-0"
+              icon={<CalendarClock className="h-8 w-8" aria-hidden />}
+              title={t('attendance.empty')}
+              action={
+                <Button size="sm" onClick={onCreate}>
+                  {t('attendance.newSession')}
+                </Button>
+              }
+            />
+          )
+        ) : !selectedSession ? (
           <EmptyState
             className="border-0"
             icon={<CalendarClock className="h-8 w-8" aria-hidden />}
@@ -784,9 +962,7 @@ function RosterCard({
         ) : visible.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <Search className="h-6 w-6 text-muted-foreground" aria-hidden />
-            <p className="text-sm text-muted-foreground">
-              {t('attendance.noMatchingStudents')}
-            </p>
+            <p className="text-sm text-muted-foreground">{t('attendance.noMatchingStudents')}</p>
             <Button variant="outline" size="sm" onClick={clearFilters}>
               {t('attendance.clearFilter')}
             </Button>
