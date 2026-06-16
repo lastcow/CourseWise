@@ -1772,6 +1772,7 @@ export const en = {
       showing: '{{shown}} of {{total}}',
       pickSessionHint: 'Choose a session to take attendance.',
       selectSession: 'Select a session',
+      loadingBody: 'Fetching sessions and roster…',
       session: {
         open: 'Open',
         closed: 'Closed',

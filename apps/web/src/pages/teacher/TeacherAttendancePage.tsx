@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   CircleCheck,
+  ClipboardList,
   Save,
   Search,
   SquarePen,
@@ -22,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
+import { LoadingDialog } from '@/components/ui/loading-dialog';
 import { CourseSectionHeader } from '@/components/course/CourseSectionHeader';
 import {
   Table,
@@ -227,14 +229,22 @@ export function TeacherAttendancePage(): JSX.Element {
   };
 
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
+  const [enrollmentsLoading, setEnrollmentsLoading] = useState(true);
   useEffect(() => {
-    if (!cid) return;
+    if (!cid) {
+      setEnrollmentsLoading(false);
+      return;
+    }
     let cancelled = false;
+    setEnrollmentsLoading(true);
     apiCall<EnrollmentRow[]>(`/api/courses/${cid}/students`)
       .then((rows) => {
         if (!cancelled) setEnrollments(rows);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setEnrollmentsLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -278,8 +288,25 @@ export function TeacherAttendancePage(): JSX.Element {
     });
   }, [selectedSession, records.data]);
 
+  // Block the page behind a spinner modal until everything the roster needs is
+  // in: the session list, the enrollment roster, and (once a session is
+  // chosen) its records. The `hasSessions && !selectedSession` clause bridges
+  // the brief gap before the default-session effect runs so the modal doesn't
+  // flicker, and switching to an uncached session re-shows it (records.isLoading).
+  const hasSessions = (sessions.data?.length ?? 0) > 0;
+  const loading =
+    sessions.isLoading ||
+    enrollmentsLoading ||
+    (hasSessions && selectedSession == null) ||
+    (selectedSession != null && records.isLoading);
+
   return (
     <div className="space-y-4">
+      <LoadingDialog
+        open={loading}
+        icon={ClipboardList}
+        description={t('attendance.loadingBody')}
+      />
       <CourseSectionHeader
         title={t('attendance.title')}
         count={sessions.data?.length}
