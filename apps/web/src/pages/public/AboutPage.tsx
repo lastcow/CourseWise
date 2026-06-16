@@ -2,6 +2,7 @@ import { Container } from '@/components/public/Container';
 import { SectionBand } from '@/components/public/SectionBand';
 import { PageHeader } from '@/components/public/PageHeader';
 import { Reveal } from '@/components/public/Reveal';
+import { usePageMeta } from '@/lib/usePageMeta';
 
 const BELIEFS = [
   { title: 'Transparency', body: "Show admins exactly which model is being called, what it cost, and what it wrote. Every prompt template is editable. Every job emits a live activity timeline." },
@@ -10,6 +11,11 @@ const BELIEFS = [
 ];
 
 export function AboutPage(): JSX.Element {
+  usePageMeta({
+    title: 'About — CourseWise',
+    description:
+      'CourseWise is a FERPA-first teaching platform built by people who taught: transparent, admin-governed AI, every role on one data model. The stances that drive the product.',
+  });
   return (
     <>
       <SectionBand>

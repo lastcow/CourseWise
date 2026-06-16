@@ -6,6 +6,8 @@ import { Container } from '@/components/public/Container';
 import { SectionBand } from '@/components/public/SectionBand';
 import { PageHeader } from '@/components/public/PageHeader';
 import { Reveal } from '@/components/public/Reveal';
+import { JsonLd } from '@/components/JsonLd';
+import { usePageMeta } from '@/lib/usePageMeta';
 
 // TODO_SET_PRICING: confirm dollar amounts and routing before launch
 const TIERS = [
@@ -40,18 +42,36 @@ const TIERS = [
   },
 ];
 
-const FAQ: Array<{ q: string; a: ReactNode }> = [
-  { q: 'How is AI usage billed?', a: 'We pass through the model provider cost at the institutional tier. Educators can either supply their own API keys (BYOK) or use a pool with usage caps.' },
-  { q: 'Do you offer a free trial for institutions?', a: 'Yes — typically a 30-day pilot scoped to one or two courses, with a dedicated CSM and a signed pilot DPA.' },
-  { q: 'Can we self-host?', a: 'Not yet. CourseWise runs on Cloudflare Workers + Neon Postgres + R2. Air-gapped deployment is on the roadmap; reach out if it gates your purchase.' },
-  { q: 'What about FERPA?', a: <>See our <Link to="/legal/ferpa" className="font-medium text-evergreen hover:underline">FERPA Statement</Link> and the <Link to="/legal/security" className="font-medium text-evergreen hover:underline">Trust page</Link>.</> },
-  { q: 'How is student data deleted?', a: 'You can submit a deletion request through the data-requests page; we process within 7 calendar days and provide an audit receipt.' },
-  { q: 'Is pricing negotiable?', a: 'Volume and multi-year commitments unlock discounts. Smaller institutions: ask about our reduced-rate program.' },
+// `a` is the rendered answer (may contain links); `text` is the plain-text
+// version used for the FAQPage JSON-LD (schema.org wants string answers).
+const FAQ: Array<{ q: string; a: ReactNode; text: string }> = [
+  { q: 'How is AI usage billed?', a: 'We pass through the model provider cost at the institutional tier. Educators can either supply their own API keys (BYOK) or use a pool with usage caps.', text: 'We pass through the model provider cost at the institutional tier. Educators can either supply their own API keys (BYOK) or use a pool with usage caps.' },
+  { q: 'Do you offer a free trial for institutions?', a: 'Yes — typically a 30-day pilot scoped to one or two courses, with a dedicated CSM and a signed pilot DPA.', text: 'Yes — typically a 30-day pilot scoped to one or two courses, with a dedicated CSM and a signed pilot DPA.' },
+  { q: 'Can we self-host?', a: 'Not yet. CourseWise runs on Cloudflare Workers + Neon Postgres + R2. Air-gapped deployment is on the roadmap; reach out if it gates your purchase.', text: 'Not yet. CourseWise runs on Cloudflare Workers + Neon Postgres + R2. Air-gapped deployment is on the roadmap; reach out if it gates your purchase.' },
+  { q: 'What about FERPA?', a: <>See our <Link to="/legal/ferpa" className="font-medium text-evergreen hover:underline">FERPA Statement</Link> and the <Link to="/legal/security" className="font-medium text-evergreen hover:underline">Trust page</Link>.</>, text: 'See our FERPA Statement (/legal/ferpa) and the Trust page (/legal/security).' },
+  { q: 'How is student data deleted?', a: 'You can submit a deletion request through the data-requests page; we process within 7 calendar days and provide an audit receipt.', text: 'You can submit a deletion request through the data-requests page; we process within 7 calendar days and provide an audit receipt.' },
+  { q: 'Is pricing negotiable?', a: 'Volume and multi-year commitments unlock discounts. Smaller institutions: ask about our reduced-rate program.', text: 'Volume and multi-year commitments unlock discounts. Smaller institutions: ask about our reduced-rate program.' },
 ];
 
+const FAQ_JSONLD = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQ.map((item) => ({
+    '@type': 'Question',
+    name: item.q,
+    acceptedAnswer: { '@type': 'Answer', text: item.text },
+  })),
+};
+
 export function PricingPage(): JSX.Element {
+  usePageMeta({
+    title: 'Pricing — CourseWise',
+    description:
+      'Usage-based pricing for schools and educators: pass-through AI costs (BYO key or pooled credits), institution plans with SSO, SCIM, audit log, and a signed FERPA-aligned DPA. 30-day pilots available.',
+  });
   return (
     <>
+      <JsonLd data={FAQ_JSONLD} />
       <SectionBand>
         <PageHeader
           eyebrow="Pricing"

@@ -1,3 +1,5 @@
+import { usePageMeta } from '@/lib/usePageMeta';
+
 type Props = {
   title: string;
   summary: string;
@@ -6,6 +8,9 @@ type Props = {
 };
 
 export function LegalPageHeader({ title, summary, lastUpdated, version }: Props): JSX.Element {
+  // Every legal page renders this header with its own title + summary, so this
+  // gives all of them distinct per-page metadata from one place.
+  usePageMeta({ title: `${title} — CourseWise`, description: summary });
   return (
     <div className="not-prose border-b border-ink/10 pb-6">
       <h1 className="font-display text-3xl font-semibold tracking-[-0.02em] text-ink md:text-4xl">
