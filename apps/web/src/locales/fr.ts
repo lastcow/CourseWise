@@ -2281,6 +2281,7 @@ export const fr = {
         features: 'Fonctionnalités',
         pricing: 'Tarifs',
         compare: 'Comparatif',
+        useCases: 'Cas d’usage',
         changelog: 'Nouveautés',
         about: 'À propos',
         contact: 'Contact',

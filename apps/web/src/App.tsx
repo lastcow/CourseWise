@@ -18,6 +18,8 @@ import { PricingPage } from '@/pages/public/PricingPage';
 import { ChangelogPage } from '@/pages/public/ChangelogPage';
 import { CompareHubPage } from '@/pages/public/CompareHubPage';
 import { ComparePage } from '@/pages/public/ComparePage';
+import { UseCasesHubPage } from '@/pages/public/UseCasesHubPage';
+import { UseCasePage } from '@/pages/public/UseCasePage';
 import { AboutPage } from '@/pages/public/AboutPage';
 import { ContactPage } from '@/pages/public/ContactPage';
 import { PublicPresentationPage } from '@/pages/public/PublicPresentationPage';
@@ -102,6 +104,8 @@ export default function App(): JSX.Element {
                 <Route path="/changelog" element={<ChangelogPage />} />
                 <Route path="/compare" element={<CompareHubPage />} />
                 <Route path="/compare/:slug" element={<ComparePage />} />
+                <Route path="/use-cases" element={<UseCasesHubPage />} />
+                <Route path="/use-cases/:slug" element={<UseCasePage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/login" element={<LoginPage />} />

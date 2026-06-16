@@ -11,6 +11,7 @@ const COLUMNS: { headingKey: string; links: { to: string; labelKey: string }[] }
       { to: '/features', labelKey: 'public.nav.features' },
       { to: '/pricing', labelKey: 'public.nav.pricing' },
       { to: '/compare', labelKey: 'public.nav.compare' },
+      { to: '/use-cases', labelKey: 'public.nav.useCases' },
       { to: '/changelog', labelKey: 'public.nav.changelog' },
     ],
   },
