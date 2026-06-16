@@ -784,6 +784,7 @@ export const zhCN = {
       helpTeacher: '课程花名册。使用工具栏的过滤器按小组集查看;选中后可分配、锁定、重命名或删除。',
       helpStudent: '查看老师创建的小组。在开放期内可加入或退出。',
       searchPlaceholder: '搜索姓名或邮箱…',
+      loadingBody: '正在加载名单和小组…',
       filterAll: '全部',
       filterByGroupSet: '按 {{name}} 过滤',
       colName: '姓名',

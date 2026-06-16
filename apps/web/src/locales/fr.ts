@@ -820,6 +820,7 @@ export const fr = {
       helpStudent:
         'Parcourez les groupes créés par votre enseignant. Rejoignez un groupe ouvert tant que les inscriptions le sont ; quittez pour changer.',
       searchPlaceholder: 'Rechercher un nom ou un courriel…',
+      loadingBody: 'Chargement de la liste et des groupes…',
       filterAll: 'Tous',
       filterByGroupSet: 'Filtrer par {{name}}',
       colName: 'Nom',
