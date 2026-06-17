@@ -10,7 +10,6 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { DownloadPresentationButton } from '@/components/presentation/DownloadPresentationButton';
@@ -92,10 +91,8 @@ export function StudentPresentationsPage(): JSX.Element {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('presentations.colTitle')}</TableHead>
-                <TableHead>{t('presentations.colDescription')}</TableHead>
                 <TableHead>{t('presentations.colModule')}</TableHead>
                 <TableHead className="text-right">{t('presentations.colSlides')}</TableHead>
-                <TableHead>{t('presentations.colSource')}</TableHead>
                 <TableHead className="text-right">{t('presentations.colActions')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -115,9 +112,6 @@ export function StudentPresentationsPage(): JSX.Element {
                         </Link>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-[24ch] text-muted-foreground">
-                      <span className="line-clamp-1">{p.description ?? '—'}</span>
-                    </TableCell>
                     <TableCell>
                       <span className={p.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
                         {p.moduleId ? (moduleTitleById.get(p.moduleId) ?? '—') : '—'}
@@ -125,30 +119,24 @@ export function StudentPresentationsPage(): JSX.Element {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{p.slideCount}</TableCell>
                     <TableCell>
-                      {isGamma && p.externalUrl ? (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Button size="sm" variant="outline" asChild>
-                            <a
-                              href={p.externalUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                              {t('gamma.openInGamma')}
-                            </a>
-                          </Button>
-                          {p.fileAssetId ? (
-                            <DownloadPresentationButton fileAssetId={p.fileAssetId} />
-                          ) : null}
-                        </div>
-                      ) : p.fileAssetId ? (
-                        <DownloadPresentationButton fileAssetId={p.fileAssetId} />
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
                       <div className="flex items-center justify-end gap-1.5">
+                        {isGamma && p.externalUrl ? (
+                          <ActionIconButton
+                            icon={ExternalLink}
+                            label={t('gamma.openInGamma')}
+                            color="sky"
+                            onClick={() =>
+                              window.open(p.externalUrl!, '_blank', 'noopener,noreferrer')
+                            }
+                          />
+                        ) : null}
+                        {p.fileAssetId ? (
+                          <DownloadPresentationButton
+                            fileAssetId={p.fileAssetId}
+                            iconOnly
+                            className="h-8 w-8 p-0"
+                          />
+                        ) : null}
                         <ActionIconButton
                           icon={Eye}
                           label={t('presentations.openViewer')}

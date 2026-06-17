@@ -5,7 +5,6 @@ import { Download, ExternalLink, FileText, RefreshCw } from 'lucide-react';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
-import { stripMarkdown } from '@/components/ui/markdown';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import {
   Table,
@@ -77,7 +76,6 @@ export function StudentMaterialsPage(): JSX.Element {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('materials.colTitle')}</TableHead>
-                <TableHead>{t('materials.colDescription')}</TableHead>
                 <TableHead>{t('materials.colModule')}</TableHead>
                 <TableHead>{t('materials.colSource')}</TableHead>
                 <TableHead className="text-right">{t('materials.colActions')}</TableHead>
@@ -93,11 +91,6 @@ export function StudentMaterialsPage(): JSX.Element {
                     >
                       {m.title}
                     </Link>
-                  </TableCell>
-                  <TableCell className="max-w-[32ch] text-muted-foreground">
-                    <span className="line-clamp-1">
-                      {m.description ? stripMarkdown(m.description) : '—'}
-                    </span>
                   </TableCell>
                   <TableCell>
                     <span className={m.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
