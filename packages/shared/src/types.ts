@@ -1552,6 +1552,8 @@ export interface AnnouncementSummary {
   commentCount: number;
   /** Announcement-level emoji reactions. */
   reactions: ReactionSummary[];
+  /** When status='scheduled', the time the cron will auto-publish. */
+  publishAt: string | null;
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;

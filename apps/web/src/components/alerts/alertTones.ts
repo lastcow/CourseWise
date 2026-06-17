@@ -10,6 +10,7 @@ export const TYPE_TONE: Record<AlertType, string> = {
   inactivity: 'border-sky-500/60 text-sky-700 dark:text-sky-300',
   manual: 'border-muted-foreground/40 text-muted-foreground',
   quiz_schedule_open: 'border-emerald-500/60 text-emerald-700 dark:text-emerald-300',
+  announcement: 'border-indigo-500/60 text-indigo-700 dark:text-indigo-300',
 };
 
 export const TYPE_ACTIVE: Record<AlertType, string> = {
@@ -20,4 +21,5 @@ export const TYPE_ACTIVE: Record<AlertType, string> = {
   inactivity: 'bg-sky-500/10',
   manual: 'bg-muted',
   quiz_schedule_open: 'bg-emerald-500/10',
+  announcement: 'bg-indigo-500/10',
 };

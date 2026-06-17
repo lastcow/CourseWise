@@ -714,6 +714,11 @@ export const fr = {
       noComments: 'Aucun commentaire.',
       commentPlaceholder: 'Écrire un commentaire…',
       commentSend: 'Envoyer',
+      scheduleCta: 'Planifier',
+      scheduleFor: 'Planifier pour',
+      scheduled: 'Annonce planifiée',
+      scheduledFor: 'Planifiée pour {{when}}',
+      validationSchedule: 'Choisissez une date et une heure',
       status: {
         draft: 'Brouillon',
         scheduled: 'Planifiée',
@@ -2109,6 +2114,7 @@ export const fr = {
         inactivity: 'Inactivité',
         manual: 'Manuelle',
         quiz_schedule_open: 'Quiz ouvert',
+        announcement: 'Annonce',
       },
     },
     dashboard: {

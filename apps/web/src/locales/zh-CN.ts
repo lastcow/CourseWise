@@ -683,6 +683,11 @@ export const zhCN = {
       noComments: '暂无评论。',
       commentPlaceholder: '写评论…',
       commentSend: '发送',
+      scheduleCta: '定时发布',
+      scheduleFor: '定时发布时间',
+      scheduled: '公告已排期',
+      scheduledFor: '将于 {{when}} 发布',
+      validationSchedule: '请选择日期和时间',
       status: {
         draft: '草稿',
         scheduled: '已排期',
@@ -2011,6 +2016,7 @@ export const zhCN = {
         inactivity: '长时间未活动',
         manual: '人工',
         quiz_schedule_open: '测验已开放',
+        announcement: '公告',
       },
     },
     dashboard: {

@@ -708,6 +708,11 @@ export const en = {
       noComments: 'No comments yet.',
       commentPlaceholder: 'Write a comment…',
       commentSend: 'Send',
+      scheduleCta: 'Schedule',
+      scheduleFor: 'Schedule for',
+      scheduled: 'Announcement scheduled',
+      scheduledFor: 'Scheduled for {{when}}',
+      validationSchedule: 'Pick a date and time',
       status: {
         draft: 'Draft',
         scheduled: 'Scheduled',
@@ -2082,6 +2087,7 @@ export const en = {
         inactivity: 'Inactivity',
         manual: 'Manual',
         quiz_schedule_open: 'Quiz now open',
+        announcement: 'Announcement',
       },
     },
     dashboard: {

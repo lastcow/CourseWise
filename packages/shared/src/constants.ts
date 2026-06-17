@@ -359,6 +359,8 @@ export const ALERT_TYPES = [
   'manual',
   // System-generated when a student's quiz tester schedule (wave) opens.
   'quiz_schedule_open',
+  // Rolling pointer to a course's latest announcement.
+  'announcement',
 ] as const;
 export type AlertType = (typeof ALERT_TYPES)[number];
 

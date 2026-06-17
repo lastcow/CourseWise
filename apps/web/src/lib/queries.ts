@@ -476,6 +476,18 @@ export function usePinAnnouncement(courseId: string) {
   });
 }
 
+export function useScheduleAnnouncement(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, publishAt }: { id: string; publishAt: string }) =>
+      apiCall<AnnouncementSummary>(`/api/announcements/${id}/schedule`, {
+        method: 'POST',
+        body: { publishAt },
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['announcements', courseId] }),
+  });
+}
+
 export function useMarkAnnouncementRead(courseId: string) {
   const qc = useQueryClient();
   return useMutation({

@@ -5,6 +5,7 @@ import {
   createAnnouncementCommentSchema,
   createAnnouncementSchema,
   pinAnnouncementSchema,
+  scheduleAnnouncementSchema,
   updateAnnouncementSchema,
   type AnnouncementAttachment,
   type AnnouncementAudience,
@@ -16,6 +17,7 @@ import {
   type CreateAnnouncementInput,
   type PinAnnouncementInput,
   type ReactionSummary,
+  type ScheduleAnnouncementInput,
   type UpdateAnnouncementInput,
 } from '@coursewise/shared';
 import type { Db } from '../db/client';
@@ -41,6 +43,7 @@ import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
 import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/courseAccess';
 import { recordAudit } from '../services/audit';
+import { publishAnnouncement } from '../services/announcements/publish';
 import type { AppEnv } from '../types';
 
 const r = new Hono<AppEnv>();
@@ -208,6 +211,7 @@ async function buildSummary(
     attachments,
     commentCount,
     reactions,
+    publishAt: row.publishAt ?? null,
     publishedAt: row.publishedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -303,6 +307,7 @@ r.get(
         status: announcements.status,
         pinned: announcements.pinned,
         audience: announcements.audience,
+        publishAt: announcements.publishAt,
         publishedAt: announcements.publishedAt,
         createdAt: announcements.createdAt,
         updatedAt: announcements.updatedAt,
@@ -446,6 +451,7 @@ r.get(
         attachments: attachmentsByAnnouncement.get(row.id) ?? [],
         commentCount: commentCounts.get(row.id) ?? 0,
         reactions: reactionsByAnnouncement.get(row.id) ?? [],
+        publishAt: row.publishAt ?? null,
         publishedAt: row.publishedAt ?? null,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
@@ -480,7 +486,7 @@ r.post(
     const attachmentIds = await validateAttachments(db, courseId, input.attachmentFileIds ?? []);
 
     const publish = input.publish === true;
-    const now = new Date().toISOString();
+    const scheduledAt = !publish && input.publishAt ? input.publishAt : null;
     const [inserted] = await db
       .insert(announcements)
       .values({
@@ -488,9 +494,9 @@ r.post(
         authorId: auth.user.id,
         title: input.title,
         body: input.body,
-        status: publish ? 'published' : 'draft',
+        status: scheduledAt ? 'scheduled' : 'draft',
         audience,
-        publishedAt: publish ? now : null,
+        publishAt: scheduledAt,
       })
       .returning();
     if (!inserted) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create announcement');
@@ -498,15 +504,25 @@ r.post(
     if (targetGroupIds.length) await setTargets(db, inserted.id, targetGroupIds);
     if (attachmentIds.length) await setAttachments(db, inserted.id, attachmentIds);
 
+    // Fan out only after targets/attachments exist so the audience resolves.
+    if (publish) await publishAnnouncement(db, c.env, inserted.id);
+
     await recordAudit(db, {
       actorType: auth.method === 'jwt' ? 'user' : 'api_token',
       actorUserId: auth.user.id,
       actorTokenId: auth.tokenId ?? null,
-      action: publish ? 'announcement.publish' : 'announcement.create',
+      action: publish
+        ? 'announcement.publish'
+        : scheduledAt
+          ? 'announcement.schedule'
+          : 'announcement.create',
       target: inserted.id,
       metadata: { courseId, audience },
     });
-    return success(c, await buildSummary(db, inserted, auth.user.id, true), 201);
+    const fresh =
+      (await db.select().from(announcements).where(eq(announcements.id, inserted.id)).limit(1))[0] ??
+      inserted;
+    return success(c, await buildSummary(db, fresh, auth.user.id, true), 201);
   },
 );
 
@@ -614,9 +630,52 @@ async function transition(c: Context<AppEnv>, next: 'published' | 'archived' | '
   return success(c, await buildSummary(db, updated, auth.user.id, true));
 }
 
-r.post('/announcements/:announcementId/publish', requireScopeGroup('announcementsWrite'), (c) =>
-  transition(c, 'published'),
+// Publish now: flip status + fan out (rolling alert + email) to the audience.
+r.post('/announcements/:announcementId/publish', requireScopeGroup('announcementsWrite'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const row = await loadWritable(c);
+  await publishAnnouncement(db, c.env, row.id);
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'announcement.publish',
+    target: row.id,
+  });
+  const fresh =
+    (await db.select().from(announcements).where(eq(announcements.id, row.id)).limit(1))[0] ?? row;
+  return success(c, await buildSummary(db, fresh, auth.user.id, true));
+});
+
+// Schedule (or reschedule) a future publish; the cron sweep does the fan-out.
+r.post(
+  '/announcements/:announcementId/schedule',
+  requireScopeGroup('announcementsWrite'),
+  validateJson(scheduleAnnouncementSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const row = await loadWritable(c);
+    const { publishAt } = c.get('validated') as ScheduleAnnouncementInput;
+    const [updated] = await db
+      .update(announcements)
+      .set({ status: 'scheduled', publishAt, updatedAt: new Date().toISOString() })
+      .where(eq(announcements.id, row.id))
+      .returning();
+    if (!updated) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Announcement not found');
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'announcement.schedule',
+      target: row.id,
+      metadata: { publishAt },
+    });
+    return success(c, await buildSummary(db, updated, auth.user.id, true));
+  },
 );
+
 r.post('/announcements/:announcementId/archive', requireScopeGroup('announcementsWrite'), (c) =>
   transition(c, 'archived'),
 );

@@ -103,6 +103,8 @@ export const alertTypeEnum = pgEnum('alert_type', [
   'inactivity',
   'manual',
   'quiz_schedule_open',
+  // Rolling "new announcement" pointer (one open per student per course).
+  'announcement',
 ]);
 export const alertSeverityEnum = pgEnum('alert_severity', ['info', 'warning', 'critical']);
 export const alertStatusEnum = pgEnum('alert_status', ['open', 'resolved', 'dismissed']);
@@ -1754,12 +1756,15 @@ export const announcements = pgTable(
     status: announcementStatusEnum('status').notNull().default('draft'),
     pinned: boolean('pinned').notNull().default(false),
     audience: announcementAudienceEnum('audience').notNull().default('course'),
+    /** When status='scheduled', the cron sweep publishes at/after this time. */
+    publishAt: timestamp('publish_at', { withTimezone: true, mode: 'string' }),
     publishedAt: timestamp('published_at', { withTimezone: true, mode: 'string' }),
     ...timestamps,
   },
   (t) => ({
     courseIdx: index('announcements_course_idx').on(t.courseId),
     courseStatusIdx: index('announcements_course_status_idx').on(t.courseId, t.status),
+    scheduledPublishIdx: index('announcements_scheduled_publish_idx').on(t.status, t.publishAt),
   }),
 );
 export type AnnouncementRow = typeof announcements.$inferSelect;
