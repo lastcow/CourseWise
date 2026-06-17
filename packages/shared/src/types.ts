@@ -1500,6 +1500,30 @@ export interface UnreadCountResponse {
   total: number;
 }
 
+// -------- Announcements --------
+
+export const ANNOUNCEMENT_STATUSES = ['draft', 'scheduled', 'published', 'archived'] as const;
+export type AnnouncementStatus = (typeof ANNOUNCEMENT_STATUSES)[number];
+
+export interface AnnouncementSummary {
+  id: string;
+  courseId: string;
+  authorId: string | null;
+  authorName: string | null;
+  title: string;
+  /** Markdown. Included in the list payload so the student feed renders inline. */
+  body: string;
+  status: AnnouncementStatus;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Whether the calling user has read this announcement. */
+  isRead: boolean;
+  /** Teacher-only: how many recipients have read it, and the audience size. */
+  readCount?: number;
+  audienceCount?: number;
+}
+
 // -------- Student profile (Modify dialog) --------
 
 export interface StudentProfileEnrollmentRow {

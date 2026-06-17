@@ -1724,3 +1724,59 @@ export const messages = pgTable(
 
 export type MessageThreadRow = typeof messageThreads.$inferSelect;
 export type MessageRow = typeof messages.$inferSelect;
+
+// --- Announcements ---------------------------------------------------------
+// One-to-many course broadcasts (teacher → enrolled students). Distinct from
+// messaging (which is strictly 1:1). `scheduled` is reserved for timed publish
+// (wired in a later milestone); `announcement_reads` tracks per-student read
+// state so the unread badge is accurate per announcement (the alerts table's
+// one-open-per-type index can't model that).
+export const announcementStatusEnum = pgEnum('announcement_status', [
+  'draft',
+  'scheduled',
+  'published',
+  'archived',
+]);
+
+export const announcements = pgTable(
+  'announcements',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    status: announcementStatusEnum('status').notNull().default('draft'),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    courseIdx: index('announcements_course_idx').on(t.courseId),
+    courseStatusIdx: index('announcements_course_status_idx').on(t.courseId, t.status),
+  }),
+);
+export type AnnouncementRow = typeof announcements.$inferSelect;
+
+export const announcementReads = pgTable(
+  'announcement_reads',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    announcementId: uuid('announcement_id')
+      .notNull()
+      .references(() => announcements.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    readAt: timestamp('read_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  },
+  (t) => ({
+    announcementUserUnique: uniqueIndex('announcement_reads_announcement_user_idx').on(
+      t.announcementId,
+      t.userId,
+    ),
+    userIdx: index('announcement_reads_user_idx').on(t.userId),
+  }),
+);
+export type AnnouncementReadRow = typeof announcementReads.$inferSelect;

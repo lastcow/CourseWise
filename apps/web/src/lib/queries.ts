@@ -14,6 +14,9 @@ import type {
   AlertSummary,
   AlertWithContext,
   AlertWithStudent,
+  AnnouncementSummary,
+  CreateAnnouncementInput,
+  UpdateAnnouncementInput,
   AiJobDetail,
   AiJobSummary,
   AiModelOption,
@@ -410,6 +413,60 @@ export function useDeleteMaterial(courseId: string) {
     mutationFn: (id: string) =>
       apiCall<{ id: string }>(`/api/materials/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['materials', courseId] }),
+  });
+}
+
+// Announcements
+export function useAnnouncements(courseId: string | null) {
+  return useQuery({
+    queryKey: ['announcements', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<AnnouncementSummary[]>(`/api/courses/${courseId}/announcements`),
+  });
+}
+
+export function useCreateAnnouncement(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateAnnouncementInput) =>
+      apiCall<AnnouncementSummary>(`/api/courses/${courseId}/announcements`, { body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['announcements', courseId] }),
+  });
+}
+
+export function useUpdateAnnouncement(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateAnnouncementInput }) =>
+      apiCall<AnnouncementSummary>(`/api/announcements/${id}`, { method: 'PATCH', body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['announcements', courseId] }),
+  });
+}
+
+export function useTransitionAnnouncement(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action }: { id: string; action: 'publish' | 'archive' | 'unpublish' }) =>
+      apiCall<AnnouncementSummary>(`/api/announcements/${id}/${action}`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['announcements', courseId] }),
+  });
+}
+
+export function useDeleteAnnouncement(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<{ id: string }>(`/api/announcements/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['announcements', courseId] }),
+  });
+}
+
+export function useMarkAnnouncementRead(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall<{ ok: boolean }>(`/api/announcements/${id}/read`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['announcements', courseId] }),
   });
 }
 
