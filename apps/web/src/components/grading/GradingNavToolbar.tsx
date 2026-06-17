@@ -88,8 +88,16 @@ export function GradingNavToolbar({
 
   const [open, setOpen] = React.useState(false);
   const [coords, setCoords] = React.useState<Coords | null>(null);
+  const [menuQuery, setMenuQuery] = React.useState('');
   const triggerRef = React.useRef<HTMLButtonElement | null>(null);
   const menuRef = React.useRef<HTMLDivElement | null>(null);
+  const menuSearchRef = React.useRef<HTMLInputElement | null>(null);
+
+  // Quick-find within the (already toolbar-filtered) roster. Local to the popover.
+  const mq = menuQuery.trim().toLowerCase();
+  const menuItems = mq
+    ? items.filter((it) => `${it.title} ${it.subtitle ?? ''}`.toLowerCase().includes(mq))
+    : items;
 
   const place = React.useCallback((): void => {
     const r = triggerRef.current?.getBoundingClientRect();
@@ -112,22 +120,36 @@ export function GradingNavToolbar({
       if (e.key === 'Escape') setOpen(false);
     };
     const dismiss = (): void => setOpen(false);
+    // Capture-phase scroll fires for ANY scroll, including the popover's own
+    // scrollable list — ignore those so scrolling the list doesn't close it.
+    // A scroll elsewhere (page/ancestor) moves the trigger, so we still dismiss.
+    const onScroll = (e: Event): void => {
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
     window.addEventListener('resize', dismiss);
-    window.addEventListener('scroll', dismiss, true);
+    window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('resize', dismiss);
-      window.removeEventListener('scroll', dismiss, true);
+      window.removeEventListener('scroll', onScroll, true);
     };
+  }, [open]);
+
+  // Focus the in-popover search on open.
+  React.useEffect(() => {
+    if (open) menuSearchRef.current?.focus();
   }, [open]);
 
   const toggle = (): void => {
     if (open) {
       setOpen(false);
     } else {
+      setMenuQuery('');
       place();
       setOpen(true);
     }
@@ -208,38 +230,54 @@ export function GradingNavToolbar({
                 right: coords.right,
                 minWidth: coords.minWidth,
               }}
-              className="z-50 max-h-[24rem] max-w-[24rem] overflow-y-auto overflow-x-hidden rounded-md border bg-card text-card-foreground shadow-lg"
+              className="z-50 flex max-h-[24rem] max-w-[24rem] flex-col overflow-hidden rounded-md border bg-card text-card-foreground shadow-lg"
             >
-              <ul className="py-1">
-                {items.map((it) => (
-                  <li key={it.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOpen(false);
-                        onSelect(it.id);
-                      }}
-                      className={cn(
-                        'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-accent',
-                        it.id === selectedId && 'bg-muted',
-                      )}
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium">{it.title}</span>
-                        {it.score || it.subtitle ? (
-                          <span className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                            {it.score ? <span className="font-mono">{it.score}</span> : null}
-                            {it.subtitle ? <span>{it.subtitle}</span> : null}
-                          </span>
-                        ) : null}
-                      </span>
-                      <Badge variant={STATUS_VARIANT[it.status]} className="shrink-0">
-                        {it.statusLabel}
-                      </Badge>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="border-b bg-muted/30 p-1.5">
+                <input
+                  ref={menuSearchRef}
+                  type="search"
+                  value={menuQuery}
+                  onChange={(e) => setMenuQuery(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              {menuItems.length === 0 ? (
+                <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                  {t('grading.nav.noMatch')}
+                </p>
+              ) : (
+                <ul className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1">
+                  {menuItems.map((it) => (
+                    <li key={it.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpen(false);
+                          onSelect(it.id);
+                        }}
+                        className={cn(
+                          'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-accent',
+                          it.id === selectedId && 'bg-muted',
+                        )}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">{it.title}</span>
+                          {it.score || it.subtitle ? (
+                            <span className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                              {it.score ? <span className="font-mono">{it.score}</span> : null}
+                              {it.subtitle ? <span>{it.subtitle}</span> : null}
+                            </span>
+                          ) : null}
+                        </span>
+                        <Badge variant={STATUS_VARIANT[it.status]} className="shrink-0">
+                          {it.statusLabel}
+                        </Badge>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>,
             document.body,
           )

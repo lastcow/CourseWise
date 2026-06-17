@@ -1812,6 +1812,7 @@ export const zhCN = {
         prev: '上一个',
         next: '下一个',
         pick: '选择…',
+        noMatch: '无匹配',
       },
       policyTabTitle: '评分策略',
       policyTitle: '评分策略',
