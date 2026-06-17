@@ -55,6 +55,11 @@ export const ADMIN_TOKEN_SCOPES: readonly ApiTokenScope[] = [
   'admin:read',
   'admin:write',
   'admin:tokens',
+  // admin:write already satisfies the grades/quizzes write scope-groups, but we
+  // also carry these explicitly so the admin token literally advertises grading
+  // + quiz-authoring capability (for scope introspection / external tooling).
+  'teacher:grades',
+  'quizzes:write',
 ];
 
 export const TEACHER_ALLOWED_SCOPES: readonly ApiTokenScope[] = [
