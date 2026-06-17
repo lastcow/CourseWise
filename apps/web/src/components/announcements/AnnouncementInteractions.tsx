@@ -146,17 +146,21 @@ export function AnnouncementInteractions({
               ))}
             </ul>
           )}
-          <div className="flex items-start gap-2">
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={2}
-              placeholder={t('announcements.commentPlaceholder')}
-            />
-            <Button size="sm" onClick={onSend} disabled={addComment.isPending || !draft.trim()}>
-              {t('announcements.commentSend')}
-            </Button>
-          </div>
+          {announcement.allowComments ? (
+            <div className="flex items-start gap-2">
+              <Textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={2}
+                placeholder={t('announcements.commentPlaceholder')}
+              />
+              <Button size="sm" onClick={onSend} disabled={addComment.isPending || !draft.trim()}>
+                {t('announcements.commentSend')}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">{t('announcements.commentsOff')}</p>
+          )}
         </div>
       ) : null}
     </div>

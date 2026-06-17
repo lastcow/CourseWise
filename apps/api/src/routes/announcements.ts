@@ -207,6 +207,7 @@ async function buildSummary(
     status: row.status,
     pinned: row.pinned,
     priority: row.priority as AnnouncementSummary['priority'],
+    allowComments: row.allowComments,
     audience: row.audience,
     targetGroupIds,
     attachments,
@@ -308,6 +309,7 @@ r.get(
         status: announcements.status,
         pinned: announcements.pinned,
         priority: announcements.priority,
+        allowComments: announcements.allowComments,
         audience: announcements.audience,
         publishAt: announcements.publishAt,
         publishedAt: announcements.publishedAt,
@@ -454,6 +456,7 @@ r.get(
         status: row.status,
         pinned: row.pinned,
         priority: row.priority as AnnouncementSummary['priority'],
+        allowComments: row.allowComments,
         audience: row.audience,
         targetGroupIds: targetsByAnnouncement.get(row.id) ?? [],
         attachments: attachmentsByAnnouncement.get(row.id) ?? [],
@@ -504,6 +507,7 @@ r.post(
         body: input.body,
         status: scheduledAt ? 'scheduled' : 'draft',
         priority: input.priority ?? 'normal',
+        allowComments: input.allowComments ?? true,
         audience,
         publishAt: scheduledAt,
       })
@@ -561,6 +565,7 @@ r.patch(
     if (input.title !== undefined) patch.title = input.title;
     if (input.body !== undefined) patch.body = input.body;
     if (input.priority !== undefined) patch.priority = input.priority;
+    if (input.allowComments !== undefined) patch.allowComments = input.allowComments;
     if (input.audience !== undefined) {
       patch.audience = input.audience;
       if (input.audience === 'groups') {
@@ -811,6 +816,10 @@ r.post(
     const auth = c.get('auth');
     const db = c.get('db');
     const row = await loadViewable(c);
+    // Comments off blocks students; course teachers can still reply/moderate.
+    if (!row.allowComments && !(await canModerateCourse(db, auth.user, row.courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Comments are turned off for this announcement');
+    }
     const input = c.get('validated') as CreateAnnouncementCommentInput;
     const [inserted] = await db
       .insert(announcementComments)

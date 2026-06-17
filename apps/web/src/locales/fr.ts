@@ -720,6 +720,8 @@ export const fr = {
       scheduledFor: 'Planifiée pour {{when}}',
       validationSchedule: 'Choisissez une date et une heure',
       fieldPriority: 'Priorité',
+      allowComments: 'Autoriser les commentaires des étudiants',
+      commentsOff: 'Les commentaires sont désactivés.',
       priority: {
         normal: 'Normale',
         high: 'Haute',

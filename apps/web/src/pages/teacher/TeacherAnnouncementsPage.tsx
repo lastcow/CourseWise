@@ -67,6 +67,7 @@ type EditorState = {
   title: string;
   body: string;
   priority: AnnouncementPriority;
+  allowComments: boolean;
   audience: AnnouncementAudience;
   targetGroupIds: string[];
   attachments: AnnouncementAttachment[];
@@ -117,6 +118,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
       title: '',
       body: '',
       priority: 'normal',
+      allowComments: true,
       audience: 'course',
       targetGroupIds: [],
       attachments: [],
@@ -129,6 +131,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
       title: a.title,
       body: a.body,
       priority: a.priority,
+      allowComments: a.allowComments,
       audience: a.audience,
       targetGroupIds: a.targetGroupIds,
       attachments: a.attachments,
@@ -194,6 +197,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
       title,
       body,
       priority: editor.priority,
+      allowComments: editor.allowComments,
       audience: editor.audience,
       targetGroupIds: editor.audience === 'groups' ? editor.targetGroupIds : [],
       attachmentFileIds: editor.attachments.map((a) => a.fileAssetId),
@@ -234,6 +238,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
       title,
       body,
       priority: editor.priority,
+      allowComments: editor.allowComments,
       audience: editor.audience,
       targetGroupIds: editor.audience === 'groups' ? editor.targetGroupIds : [],
       attachmentFileIds: editor.attachments.map((a) => a.fileAssetId),
@@ -443,6 +448,15 @@ export function TeacherAnnouncementsPage(): JSX.Element {
                 ))}
               </select>
             </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={editor.allowComments}
+                onChange={(e) => setEditor({ ...editor, allowComments: e.target.checked })}
+              />
+              {t('announcements.allowComments')}
+            </label>
 
             <div>
               <Label>{t('announcements.fieldAudience')}</Label>

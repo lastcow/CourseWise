@@ -1349,6 +1349,7 @@ export const createAnnouncementSchema = z.object({
   /** Schedule a future publish (ISO 8601). Ignored when publish=true. */
   publishAt: z.string().datetime().optional(),
   priority: z.enum(ANNOUNCEMENT_PRIORITIES).optional(),
+  allowComments: z.boolean().optional(),
   /** 'groups' requires a non-empty targetGroupIds. */
   audience: z.enum(ANNOUNCEMENT_AUDIENCES).optional(),
   targetGroupIds: z.array(z.string().uuid()).max(200).optional(),
@@ -1363,6 +1364,7 @@ export const updateAnnouncementSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   body: z.string().trim().min(1).max(20_000).optional(),
   priority: z.enum(ANNOUNCEMENT_PRIORITIES).optional(),
+  allowComments: z.boolean().optional(),
   audience: z.enum(ANNOUNCEMENT_AUDIENCES).optional(),
   targetGroupIds: z.array(z.string().uuid()).max(200).optional(),
   attachmentFileIds: z.array(z.string().uuid()).max(20).optional(),

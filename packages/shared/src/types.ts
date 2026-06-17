@@ -1548,6 +1548,8 @@ export interface AnnouncementSummary {
   status: AnnouncementStatus;
   pinned: boolean;
   priority: AnnouncementPriority;
+  /** When false, students can't post new comments. */
+  allowComments: boolean;
   audience: AnnouncementAudience;
   /** Group ids this announcement targets (empty when audience = 'course'). */
   targetGroupIds: string[];

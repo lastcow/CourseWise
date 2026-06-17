@@ -337,6 +337,13 @@
       "when": 1784592000000,
       "tag": "0047_announcement_priority",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1784678400000,
+      "tag": "0048_announcement_allow_comments",
+      "breakpoints": true
     }
   ]
 }
