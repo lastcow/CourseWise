@@ -16,7 +16,9 @@ import type {
   GradebookQuizItem,
   GradebookStudentDetail,
   GroupScoreBreakdown,
+  LetterGradeThreshold,
 } from '@coursewise/shared';
+import { DEFAULT_LETTER_GRADES } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty';
@@ -336,39 +338,58 @@ function buildView(
 // Presentational pieces
 // ---------------------------------------------------------------------------
 
+/**
+ * Pick the letter grade for a numeric score against the course's thresholds —
+ * mirrors the API's computeLetterGrade so the hero's letter always tracks the
+ * displayed overall grade (including a teacher override).
+ */
+function letterForScore(score: number, letters: readonly LetterGradeThreshold[]): string {
+  const sorted = [...letters].sort((a, b) => b.minScore - a.minScore);
+  for (const threshold of sorted) {
+    if (score >= threshold.minScore) return threshold.letter;
+  }
+  return sorted[sorted.length - 1]?.letter ?? 'F';
+}
+
 function GradeHero({ detail }: { detail: GradebookStudentDetail }): JSX.Element {
   const { t } = useTranslation();
   const fg = detail.finalGrade;
   const score = fg?.teacherOverrideScore ?? fg?.score ?? null;
+  const letters = fg?.gradingPolicySnapshot?.letters ?? DEFAULT_LETTER_GRADES;
+  const letter = score !== null ? letterForScore(score, letters) : null;
   return (
     <Card className="overflow-hidden">
-      <div className="bg-primary p-6 text-primary-foreground">
-        <div className="text-sm font-medium uppercase tracking-wide text-primary-foreground/75">
-          {t('grading.myGradebookTitle')}
-        </div>
-        <p className="mt-1 text-sm text-primary-foreground/75">{t('grading.myGradebookSubtitle')}</p>
-        <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
-          <div>
-            <div className="text-xs uppercase tracking-wide text-primary-foreground/70">
-              {t('grading.overallGrade')}
-            </div>
-            <div className="flex items-baseline gap-3">
-              <span className="text-5xl font-semibold tabular-nums">
-                {score !== null ? score.toFixed(1) : '—'}
-              </span>
-              {fg?.letterGrade ? (
-                <span className="rounded-md bg-primary-foreground/15 px-2.5 py-1 text-2xl font-semibold">
-                  {fg.letterGrade}
-                </span>
-              ) : null}
-            </div>
+      <div className="flex items-center justify-between gap-6 bg-primary p-6 text-primary-foreground">
+        <div className="min-w-0">
+          <div className="text-sm font-medium uppercase tracking-wide text-primary-foreground/75">
+            {t('grading.myGradebookTitle')}
           </div>
-          {!fg ? (
-            <div className="mb-1 flex items-center gap-2">
-              <Badge variant="secondary">{t('grading.myGradePending')}</Badge>
+          <p className="mt-1 text-sm text-primary-foreground/75">
+            {t('grading.myGradebookSubtitle')}
+          </p>
+          <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
+            <div>
+              <div className="text-xs uppercase tracking-wide text-primary-foreground/70">
+                {t('grading.overallGrade')}
+              </div>
+              <div className="flex items-baseline gap-3">
+                <span className="text-5xl font-semibold tabular-nums">
+                  {score !== null ? score.toFixed(1) : '—'}
+                </span>
+              </div>
             </div>
-          ) : null}
+            {!fg ? (
+              <div className="mb-1 flex items-center gap-2">
+                <Badge variant="secondary">{t('grading.myGradePending')}</Badge>
+              </div>
+            ) : null}
+          </div>
         </div>
+        {letter ? (
+          <span className="shrink-0 self-stretch flex items-center text-7xl font-bold leading-none sm:text-8xl">
+            {letter}
+          </span>
+        ) : null}
       </div>
       {fg?.teacherOverrideScore !== null && fg?.teacherOverrideScore !== undefined ? (
         <CardContent className="border-t bg-muted/40 py-3 text-sm">
