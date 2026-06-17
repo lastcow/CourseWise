@@ -284,10 +284,8 @@ export function TeacherPresentationsPage(): JSX.Element {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('presentations.colTitle')}</TableHead>
-                <TableHead>{t('presentations.colDescription')}</TableHead>
                 <TableHead>{t('presentations.colModule')}</TableHead>
                 <TableHead className="text-right">{t('presentations.colSlides')}</TableHead>
-                <TableHead>{t('presentations.colSource')}</TableHead>
                 <TableHead className="text-right">{t('presentations.colActions')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -310,9 +308,6 @@ export function TeacherPresentationsPage(): JSX.Element {
                           </Link>
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[24ch] text-muted-foreground">
-                        <span className="line-clamp-1">{p.description ?? '—'}</span>
-                      </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-between gap-2">
                           <span className={p.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
@@ -332,26 +327,24 @@ export function TeacherPresentationsPage(): JSX.Element {
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{p.slideCount}</TableCell>
                       <TableCell>
-                        {p.externalUrl || p.fileAssetId ? (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {isGamma && p.externalUrl ? (
-                              <Button size="sm" variant="outline" asChild>
-                                <a href={p.externalUrl} target="_blank" rel="noopener noreferrer">
-                                  <ExternalLink className="h-4 w-4" />
-                                  {t('gamma.openInGamma')}
-                                </a>
-                              </Button>
-                            ) : null}
-                            {p.fileAssetId ? (
-                              <DownloadPresentationButton fileAssetId={p.fileAssetId} />
-                            ) : null}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
                         <div className="flex items-center justify-end gap-1.5">
+                          {isGamma && p.externalUrl ? (
+                            <ActionIconButton
+                              icon={ExternalLink}
+                              label={t('gamma.openInGamma')}
+                              color="sky"
+                              onClick={() =>
+                                window.open(p.externalUrl!, '_blank', 'noopener,noreferrer')
+                              }
+                            />
+                          ) : null}
+                          {p.fileAssetId ? (
+                            <DownloadPresentationButton
+                              fileAssetId={p.fileAssetId}
+                              iconOnly
+                              className="h-8 w-8 p-0"
+                            />
+                          ) : null}
                           {p.status !== 'published' ? (
                             <ActionIconButton
                               icon={CircleCheck}
@@ -388,7 +381,7 @@ export function TeacherPresentationsPage(): JSX.Element {
                     </TableRow>
                     {isGenerating && jobCreatedAt ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="bg-muted/30">
+                        <TableCell colSpan={4} className="bg-muted/30">
                           <GammaProgressBar createdAt={jobCreatedAt} />
                         </TableCell>
                       </TableRow>

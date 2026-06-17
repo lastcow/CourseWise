@@ -14,6 +14,8 @@ type Props = {
   variant?: 'outline' | 'ghost' | 'default' | 'secondary';
   /** Render icon only (no label). Useful in dense rows like the modules list. */
   iconOnly?: boolean;
+  /** Extra classes merged onto the button (e.g. to size it square in an actions column). */
+  className?: string;
 };
 
 /**
@@ -29,6 +31,7 @@ export function DownloadPresentationButton({
   size = 'sm',
   variant = 'outline',
   iconOnly = false,
+  className,
 }: Props): JSX.Element {
   const { t } = useTranslation();
   const toast = useToast();
@@ -56,6 +59,7 @@ export function DownloadPresentationButton({
       onClick={onClick}
       aria-label={iconOnly ? label : undefined}
       title={iconOnly ? label : undefined}
+      className={className}
     >
       <Download className="h-4 w-4" />
       {iconOnly ? null : label}
