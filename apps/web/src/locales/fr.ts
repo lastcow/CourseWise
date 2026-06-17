@@ -1898,6 +1898,11 @@ export const fr = {
       },
     },
     grading: {
+      nav: {
+        prev: 'Précédent',
+        next: 'Suivant',
+        pick: 'Sélectionner…',
+      },
       policyTabTitle: 'Politique',
       policyTitle: 'Politique de notation',
       policyDescription:

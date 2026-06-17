@@ -1874,6 +1874,11 @@ export const en = {
       },
     },
     grading: {
+      nav: {
+        prev: 'Previous',
+        next: 'Next',
+        pick: 'Select…',
+      },
       policyTabTitle: 'Policy',
       policyTitle: 'Grading policy',
       policyDescription:
