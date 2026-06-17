@@ -1515,6 +1515,25 @@ export interface AnnouncementAttachment {
   sizeBytes: number | null;
 }
 
+export interface ReactionSummary {
+  emoji: string;
+  count: number;
+  /** Whether the calling user reacted with this emoji. */
+  reacted: boolean;
+}
+
+export interface AnnouncementComment {
+  id: string;
+  announcementId: string;
+  authorId: string;
+  authorName: string | null;
+  body: string;
+  createdAt: string;
+  reactions: ReactionSummary[];
+  /** Whether the caller may delete this comment (its author or a teacher). */
+  canDelete: boolean;
+}
+
 export interface AnnouncementSummary {
   id: string;
   courseId: string;
@@ -1529,6 +1548,10 @@ export interface AnnouncementSummary {
   /** Group ids this announcement targets (empty when audience = 'course'). */
   targetGroupIds: string[];
   attachments: AnnouncementAttachment[];
+  /** Number of non-deleted comments. */
+  commentCount: number;
+  /** Announcement-level emoji reactions. */
+  reactions: ReactionSummary[];
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;

@@ -710,6 +710,10 @@ export const fr = {
       fieldAttachments: 'Pièces jointes',
       attachFile: 'Joindre un fichier',
       uploading: 'Téléversement…',
+      commentsToggle: 'Commentaires ({{count}})',
+      noComments: 'Aucun commentaire.',
+      commentPlaceholder: 'Écrire un commentaire…',
+      commentSend: 'Envoyer',
       status: {
         draft: 'Brouillon',
         scheduled: 'Planifiée',

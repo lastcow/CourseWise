@@ -14,8 +14,11 @@ import type {
   AlertSummary,
   AlertWithContext,
   AlertWithStudent,
+  AnnouncementComment,
   AnnouncementSummary,
+  CreateAnnouncementCommentInput,
   CreateAnnouncementInput,
+  ReactionSummary,
   UpdateAnnouncementInput,
   AiJobDetail,
   AiJobSummary,
@@ -479,6 +482,63 @@ export function useMarkAnnouncementRead(courseId: string) {
     mutationFn: (id: string) =>
       apiCall<{ ok: boolean }>(`/api/announcements/${id}/read`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['announcements', courseId] }),
+  });
+}
+
+export function useAnnouncementComments(announcementId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['announcement-comments', announcementId],
+    enabled: !!announcementId && enabled,
+    queryFn: () =>
+      apiCall<AnnouncementComment[]>(`/api/announcements/${announcementId}/comments`),
+  });
+}
+
+export function useAddAnnouncementComment(announcementId: string, courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateAnnouncementCommentInput) =>
+      apiCall<AnnouncementComment>(`/api/announcements/${announcementId}/comments`, { body: input }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['announcement-comments', announcementId] });
+      void qc.invalidateQueries({ queryKey: ['announcements', courseId] });
+    },
+  });
+}
+
+export function useDeleteAnnouncementComment(announcementId: string, courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (commentId: string) =>
+      apiCall<{ id: string }>(`/api/announcements/comments/${commentId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['announcement-comments', announcementId] });
+      void qc.invalidateQueries({ queryKey: ['announcements', courseId] });
+    },
+  });
+}
+
+export function useToggleAnnouncementReaction(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, emoji }: { id: string; emoji: string }) =>
+      apiCall<{ reactions: ReactionSummary[] }>(`/api/announcements/${id}/reactions`, {
+        method: 'PUT',
+        body: { emoji },
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['announcements', courseId] }),
+  });
+}
+
+export function useToggleCommentReaction(announcementId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ commentId, emoji }: { commentId: string; emoji: string }) =>
+      apiCall<{ reactions: ReactionSummary[] }>(
+        `/api/announcements/comments/${commentId}/reactions`,
+        { method: 'PUT', body: { emoji } },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['announcement-comments', announcementId] }),
   });
 }
 

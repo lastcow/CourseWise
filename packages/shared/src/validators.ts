@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ANNOUNCEMENT_REACTION_EMOJIS } from './constants';
 import { ANNOUNCEMENT_AUDIENCES } from './types';
 import {
   ALERT_SEVERITIES,
@@ -1363,3 +1364,13 @@ export type UpdateAnnouncementInput = z.infer<typeof updateAnnouncementSchema>;
 
 export const pinAnnouncementSchema = z.object({ pinned: z.boolean() });
 export type PinAnnouncementInput = z.infer<typeof pinAnnouncementSchema>;
+
+export const createAnnouncementCommentSchema = z.object({
+  body: z.string().trim().min(1).max(5_000),
+});
+export type CreateAnnouncementCommentInput = z.infer<typeof createAnnouncementCommentSchema>;
+
+export const announcementReactionSchema = z.object({
+  emoji: z.enum(ANNOUNCEMENT_REACTION_EMOJIS),
+});
+export type AnnouncementReactionInput = z.infer<typeof announcementReactionSchema>;
