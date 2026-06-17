@@ -40,6 +40,7 @@ import { TeacherInvitationsPage } from '@/pages/teacher/TeacherInvitationsPage';
 import { TeacherModulesPage } from '@/pages/teacher/TeacherModulesPage';
 import { TeacherMaterialsPage } from '@/pages/teacher/TeacherMaterialsPage';
 import { TeacherMaterialDetailPage } from '@/pages/teacher/TeacherMaterialDetailPage';
+import { TeacherAnnouncementsPage } from '@/pages/teacher/TeacherAnnouncementsPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { TeacherMaterialEditPage } from '@/pages/teacher/TeacherMaterialEditPage';
 import { TeacherPresentationsPage } from '@/pages/teacher/TeacherPresentationsPage';
@@ -69,6 +70,7 @@ import { StudentCoursesPage } from '@/pages/student/StudentCoursesPage';
 import { StudentCourseOverviewPage } from '@/pages/student/StudentCourseOverviewPage';
 import { StudentMaterialsPage } from '@/pages/student/StudentMaterialsPage';
 import { StudentMaterialDetailPage } from '@/pages/student/StudentMaterialDetailPage';
+import { StudentAnnouncementsPage } from '@/pages/student/StudentAnnouncementsPage';
 import { StudentModulesPage } from '@/pages/student/StudentModulesPage';
 import { StudentPresentationsPage } from '@/pages/student/StudentPresentationsPage';
 import { StudentPresentationViewerPage } from '@/pages/student/StudentPresentationViewerPage';
@@ -169,6 +171,7 @@ export default function App(): JSX.Element {
                   <Route path="grade" element={<StudentGradePage />} />
                   <Route path="students" element={<StudentStudentsPage />} />
                   <Route path="groups" element={<StudentGroupSetsPage />} />
+                  <Route path="announcements" element={<StudentAnnouncementsPage />} />
                   <Route path="messages" element={<MessagesPage />} />
                 </Route>
               </Route>
@@ -285,6 +288,7 @@ export default function App(): JSX.Element {
                   <Route path="students" element={<TeacherStudentsPage />} />
                   <Route path="group-sets" element={<TeacherGroupSetsPage />} />
                   <Route path="group-sets/:setId" element={<TeacherGroupSetDetailPage />} />
+                  <Route path="announcements" element={<TeacherAnnouncementsPage />} />
                   <Route path="messages" element={<MessagesPage />} />
                 </Route>
                 <Route

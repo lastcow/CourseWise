@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { NavLink, useMatch } from 'react-router-dom';
 import {
+  useAnnouncements,
   useAssignmentsList,
   useCourseCorrectionRequests,
   useCourseStudents,
@@ -30,6 +31,7 @@ import {
   LayoutDashboard,
   Library,
   ListChecks,
+  Megaphone,
   MessageSquare,
   Presentation,
   Settings,
@@ -138,6 +140,8 @@ type CourseNavExtras = {
   discussionsCount?: number | null;
   /** Unread only; null when 0 so the badge stays hidden when caught up. */
   messagesUnreadCount?: number | null;
+  /** Unread announcements; null when caught up. */
+  announcementsUnreadCount?: number | null;
   /** Open correction requests; teacher-only. */
   correctionRequestsCount?: number | null;
 };
@@ -201,6 +205,12 @@ function teacherCourseSections(
       id: 'engagement',
       titleKey: 'course.nav.section.engagement',
       items: [
+        {
+          to: `${prefix}/announcements`,
+          labelKey: 'announcements.title',
+          icon: Megaphone,
+          badge: extra.announcementsUnreadCount ?? null,
+        },
         {
           to: `${prefix}/discussion`,
           labelKey: 'discussion.title',
@@ -308,6 +318,12 @@ function studentCourseSections(
       titleKey: 'course.nav.section.engagement',
       items: [
         {
+          to: `${prefix}/announcements`,
+          labelKey: 'announcements.title',
+          icon: Megaphone,
+          badge: extra.announcementsUnreadCount ?? null,
+        },
+        {
           to: `${prefix}/discussion`,
           labelKey: 'discussion.title',
           icon: MessageSquare,
@@ -379,6 +395,7 @@ export function SideNav({
   const quizzesQ = useQuizzesList(navCourseId);
   const discussionsQ = useDiscussionTopicsList(navCourseId);
   const messageThreadsQ = useMessageThreads(navCourseId || undefined);
+  const announcementsQ = useAnnouncements(navCourseId);
   const correctionRequestsQ = useCourseCorrectionRequests(
     isTeacherNavCourse ? navCourseId : null,
     'open',
@@ -389,6 +406,9 @@ export function SideNav({
       studentsQ.data ? studentsQ.data.filter((r) => r.status === 'enrolled').length : null;
     const unread = messageThreadsQ.data
       ? messageThreadsQ.data.reduce((acc, t) => acc + (t.unreadCount ?? 0), 0)
+      : 0;
+    const unreadAnnouncements = announcementsQ.data
+      ? announcementsQ.data.filter((a) => a.status === 'published' && !a.isRead).length
       : 0;
     return {
       activeStudentsCount,
@@ -401,6 +421,7 @@ export function SideNav({
       // Unread-only: hide the badge when caught up so it doesn't shout
       // "0" at the user.
       messagesUnreadCount: unread > 0 ? unread : null,
+      announcementsUnreadCount: unreadAnnouncements > 0 ? unreadAnnouncements : null,
       correctionRequestsCount: correctionRequestsQ.data
         ? correctionRequestsQ.data.length
         : null,
@@ -414,6 +435,7 @@ export function SideNav({
     quizzesQ.data,
     discussionsQ.data,
     messageThreadsQ.data,
+    announcementsQ.data,
     correctionRequestsQ.data,
   ]);
 

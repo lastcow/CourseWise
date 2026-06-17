@@ -1336,3 +1336,19 @@ export const aiChatRequestSchema = z.object({
   locale: z.string().max(10).optional(),
 });
 export type AiChatRequestInput = z.infer<typeof aiChatRequestSchema>;
+
+// -------- Announcements --------
+
+export const createAnnouncementSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(20_000),
+  /** Publish immediately instead of saving as a draft. */
+  publish: z.boolean().optional(),
+});
+export type CreateAnnouncementInput = z.infer<typeof createAnnouncementSchema>;
+
+export const updateAnnouncementSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  body: z.string().trim().min(1).max(20_000).optional(),
+});
+export type UpdateAnnouncementInput = z.infer<typeof updateAnnouncementSchema>;

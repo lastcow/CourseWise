@@ -133,6 +133,18 @@ export const SCOPE_GROUPS = {
     'courses:write',
   ],
   materialsWrite: ['admin:write', 'teacher:write', 'materials:write', 'courses:write'],
+  // Announcements reuse the generic course scopes (no dedicated announcements:*
+  // token scope); JWT users bypass scope checks entirely.
+  announcementsRead: [
+    'admin:read',
+    'admin:write',
+    'teacher:read',
+    'teacher:write',
+    'student:read',
+    'courses:read',
+    'courses:write',
+  ],
+  announcementsWrite: ['admin:write', 'teacher:write', 'courses:write'],
   invitationCodesRead: [
     'admin:read',
     'admin:write',
