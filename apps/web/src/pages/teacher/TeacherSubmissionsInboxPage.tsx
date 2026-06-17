@@ -21,6 +21,7 @@ import {
   type GradingNavItem,
   type GradingNavStatus,
 } from '@/components/grading/GradingNavToolbar';
+import { GradingDetailLoading } from '@/components/grading/GradingDetailLoading';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -329,7 +330,9 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
 
       <div>
         {/* Detail */}
-        {!detailOpen ? (
+        {(isGroupMode ? grouped.isLoading : submissions.isLoading) ? (
+          <GradingDetailLoading />
+        ) : !detailOpen ? (
           <Card>
             <CardContent className="py-12">
               <EmptyState

@@ -27,6 +27,7 @@ import {
   type GradingNavItem,
   type GradingNavStatus,
 } from '@/components/grading/GradingNavToolbar';
+import { GradingDetailLoading } from '@/components/grading/GradingDetailLoading';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -189,7 +190,9 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
 
       <div>
         {/* Grading detail */}
-        {!d ? (
+        {selectedAttemptId && attempt.isLoading ? (
+          <GradingDetailLoading />
+        ) : !d ? (
           <Card>
             <CardContent className="py-12">
               <EmptyState
