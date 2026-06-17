@@ -16,8 +16,6 @@ import {
   type QuizAttemptDetail,
   type QuizAttemptSummary,
   type QuizAttemptWithStudent,
-  type QuizQuestionStudentView,
-  type QuizQuestionTeacherView,
   type QuizQuestionType,
   type QuizSummary,
   type ReorderQuizQuestionsInput,
@@ -43,6 +41,11 @@ import { requireAuth, requireCourseAccess, requireTokenCourseAccess } from '../m
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
 import { canWriteCourse, isCourseEnrolled, isCourseTeacher } from '../services/courseAccess';
+import {
+  toReviewQuestion,
+  toStudentQuestion,
+  toTeacherQuestion,
+} from '../services/quizQuestionView';
 import { assertCourseAcceptsSubmissions } from '../services/courseSubmissions';
 import { recordAudit } from '../services/audit';
 import {
@@ -98,33 +101,8 @@ function toQuizSummary(
   };
 }
 
-function toTeacherQuestion(row: typeof quizQuestions.$inferSelect): QuizQuestionTeacherView {
-  return {
-    id: row.id,
-    quizId: row.quizId,
-    position: row.position,
-    prompt: row.prompt,
-    type: row.type as QuizQuestionType,
-    options: Array.isArray(row.options) ? (row.options as string[]) : null,
-    correctAnswers: row.correctAnswers ?? null,
-    explanation: row.explanation ?? null,
-    points: Number(row.points),
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}
-
-function toStudentQuestion(row: typeof quizQuestions.$inferSelect): QuizQuestionStudentView {
-  return {
-    id: row.id,
-    quizId: row.quizId,
-    position: row.position,
-    prompt: row.prompt,
-    type: row.type as QuizQuestionType,
-    options: Array.isArray(row.options) ? (row.options as string[]) : null,
-    points: Number(row.points),
-  };
-}
+// Question view mappers live in services/quizQuestionView.ts so the
+// "explanation never reaches a student" invariant is unit-tested in isolation.
 
 function toAttemptSummary(row: typeof quizAttempts.$inferSelect): QuizAttemptSummary {
   return {
@@ -759,11 +737,19 @@ async function loadAttemptDetail(
     .orderBy(asc(quizQuestions.position), asc(quizQuestions.createdAt));
   const answers = await listAttemptAnswers(c, attempt.id);
   const pendingReviewCount = answers.filter((a) => a.pointsAwarded === null).length;
-  const includeCorrect = auth.user.role !== 'student' || attempt.status !== 'in_progress';
+  // Teachers/admins see everything. A student sees nothing extra while the
+  // attempt is live; after submit they get correct answers for review but the
+  // explanation / marking guide is never sent to a student.
+  const isStudent = auth.user.role === 'student';
+  const questionsView = !isStudent
+    ? questions.map(toTeacherQuestion)
+    : attempt.status === 'in_progress'
+      ? questions.map(toStudentQuestion)
+      : questions.map(toReviewQuestion);
   return {
     ...toAttemptSummary(attempt),
     quiz: toQuizSummary(quiz, questions.length),
-    questions: includeCorrect ? questions.map(toTeacherQuestion) : questions.map(toStudentQuestion),
+    questions: questionsView,
     answers,
     pendingReviewCount,
   };
