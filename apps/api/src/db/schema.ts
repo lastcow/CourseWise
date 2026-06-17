@@ -1757,6 +1757,8 @@ export const announcements = pgTable(
     pinned: boolean('pinned').notNull().default(false),
     // 'normal' | 'high' | 'urgent' (CHECK in migration) — mirrors messaging.
     priority: text('priority').notNull().default('normal'),
+    /** When false, students can't post new comments (existing stay visible). */
+    allowComments: boolean('allow_comments').notNull().default(true),
     audience: announcementAudienceEnum('audience').notNull().default('course'),
     /** When status='scheduled', the cron sweep publishes at/after this time. */
     publishAt: timestamp('publish_at', { withTimezone: true, mode: 'string' }),

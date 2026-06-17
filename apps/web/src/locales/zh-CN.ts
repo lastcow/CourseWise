@@ -689,6 +689,8 @@ export const zhCN = {
       scheduledFor: '将于 {{when}} 发布',
       validationSchedule: '请选择日期和时间',
       fieldPriority: '优先级',
+      allowComments: '允许学生评论',
+      commentsOff: '评论已关闭。',
       priority: {
         normal: '普通',
         high: '高',

@@ -714,6 +714,8 @@ export const en = {
       scheduledFor: 'Scheduled for {{when}}',
       validationSchedule: 'Pick a date and time',
       fieldPriority: 'Priority',
+      allowComments: 'Allow students to comment',
+      commentsOff: 'Comments are turned off.',
       priority: {
         normal: 'Normal',
         high: 'High',
