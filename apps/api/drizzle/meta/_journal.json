@@ -302,6 +302,41 @@
       "when": 1784160000000,
       "tag": "0042_course_submission_lock",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1784246400000,
+      "tag": "0043_announcements",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1784332800000,
+      "tag": "0044_announcement_targeting",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1784419200000,
+      "tag": "0045_announcement_comments_reactions",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1784505600000,
+      "tag": "0046_announcement_scheduling",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1784592000000,
+      "tag": "0047_announcement_priority",
+      "breakpoints": true
     }
   ]
 }
