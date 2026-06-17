@@ -461,6 +461,18 @@ export function useDeleteAnnouncement(courseId: string) {
   });
 }
 
+export function usePinAnnouncement(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
+      apiCall<AnnouncementSummary>(`/api/announcements/${id}/pin`, {
+        method: 'POST',
+        body: { pinned },
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['announcements', courseId] }),
+  });
+}
+
 export function useMarkAnnouncementRead(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -780,7 +792,8 @@ export function uploadFile(
     | 'submission'
     | 'course'
     | 'presentation'
-    | 'message' = 'material',
+    | 'message'
+    | 'announcement' = 'material',
   onProgress?: (pct: number) => void,
 ): Promise<UploadFileResponse> {
   const form = new FormData();

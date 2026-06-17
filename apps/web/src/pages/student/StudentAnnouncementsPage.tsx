@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Megaphone, RefreshCw } from 'lucide-react';
+import { Megaphone, Pin, RefreshCw } from 'lucide-react';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { MarkdownView } from '@/components/ui/markdown';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
+import { AnnouncementAttachments } from '@/components/announcements/AnnouncementAttachments';
 import { cn } from '@/lib/utils';
 import { useAnnouncements, useMarkAnnouncementRead } from '@/lib/queries';
 
@@ -71,13 +72,17 @@ export function StudentAnnouncementsPage(): JSX.Element {
                 className={cn('rounded-md border p-4', isNew && 'border-primary/40 bg-primary/5')}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-medium">{a.title}</h3>
+                  <div className="flex items-center gap-2">
+                    {a.pinned ? <Pin className="h-3.5 w-3.5 text-primary" aria-hidden /> : null}
+                    <h3 className="font-medium">{a.title}</h3>
+                  </div>
                   {isNew ? <Badge variant="info">{t('announcements.new')}</Badge> : null}
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {a.authorName ?? '—'} · {formatDate(a.publishedAt ?? a.createdAt)}
                 </p>
                 <MarkdownView source={a.body} className="mt-3 border-t pt-3" />
+                <AnnouncementAttachments attachments={a.attachments} />
               </div>
             );
           })}

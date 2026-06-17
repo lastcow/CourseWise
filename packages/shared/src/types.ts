@@ -1505,6 +1505,16 @@ export interface UnreadCountResponse {
 export const ANNOUNCEMENT_STATUSES = ['draft', 'scheduled', 'published', 'archived'] as const;
 export type AnnouncementStatus = (typeof ANNOUNCEMENT_STATUSES)[number];
 
+export const ANNOUNCEMENT_AUDIENCES = ['course', 'groups'] as const;
+export type AnnouncementAudience = (typeof ANNOUNCEMENT_AUDIENCES)[number];
+
+export interface AnnouncementAttachment {
+  fileAssetId: string;
+  fileName: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+}
+
 export interface AnnouncementSummary {
   id: string;
   courseId: string;
@@ -1514,6 +1524,11 @@ export interface AnnouncementSummary {
   /** Markdown. Included in the list payload so the student feed renders inline. */
   body: string;
   status: AnnouncementStatus;
+  pinned: boolean;
+  audience: AnnouncementAudience;
+  /** Group ids this announcement targets (empty when audience = 'course'). */
+  targetGroupIds: string[];
+  attachments: AnnouncementAttachment[];
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
