@@ -1508,6 +1508,9 @@ export type AnnouncementStatus = (typeof ANNOUNCEMENT_STATUSES)[number];
 export const ANNOUNCEMENT_AUDIENCES = ['course', 'groups'] as const;
 export type AnnouncementAudience = (typeof ANNOUNCEMENT_AUDIENCES)[number];
 
+export const ANNOUNCEMENT_PRIORITIES = ['normal', 'high', 'urgent'] as const;
+export type AnnouncementPriority = (typeof ANNOUNCEMENT_PRIORITIES)[number];
+
 export interface AnnouncementAttachment {
   fileAssetId: string;
   fileName: string;
@@ -1544,6 +1547,7 @@ export interface AnnouncementSummary {
   body: string;
   status: AnnouncementStatus;
   pinned: boolean;
+  priority: AnnouncementPriority;
   audience: AnnouncementAudience;
   /** Group ids this announcement targets (empty when audience = 'course'). */
   targetGroupIds: string[];

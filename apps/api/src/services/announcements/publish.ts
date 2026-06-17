@@ -81,6 +81,9 @@ export async function publishAnnouncement(
 
   const link = `/student/courses/${ann.courseId}/announcements`;
   const bodyText = `New announcement in ${courseTitle}`;
+  // Priority bumps the alert severity so high/urgent announcements stand out.
+  const severity: 'info' | 'warning' | 'critical' =
+    ann.priority === 'urgent' ? 'critical' : ann.priority === 'high' ? 'warning' : 'info';
 
   // Rolling in-app alert: one open 'announcement' alert per (student, course),
   // refreshed to this announcement. Matches the partial-unique open-alert index.
@@ -91,7 +94,7 @@ export async function publishAnnouncement(
         userId: rec.id,
         courseId: ann.courseId,
         type: 'announcement' as const,
-        severity: 'info' as const,
+        severity,
         status: 'open' as const,
         title: ann.title,
         body: bodyText,
@@ -105,6 +108,7 @@ export async function publishAnnouncement(
       set: {
         title: ann.title,
         body: bodyText,
+        severity,
         linkUrl: link,
         readAt: null,
         status: 'open',

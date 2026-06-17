@@ -1755,6 +1755,8 @@ export const announcements = pgTable(
     body: text('body').notNull(),
     status: announcementStatusEnum('status').notNull().default('draft'),
     pinned: boolean('pinned').notNull().default(false),
+    // 'normal' | 'high' | 'urgent' (CHECK in migration) — mirrors messaging.
+    priority: text('priority').notNull().default('normal'),
     audience: announcementAudienceEnum('audience').notNull().default('course'),
     /** When status='scheduled', the cron sweep publishes at/after this time. */
     publishAt: timestamp('publish_at', { withTimezone: true, mode: 'string' }),

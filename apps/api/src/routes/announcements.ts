@@ -206,6 +206,7 @@ async function buildSummary(
     body: row.body,
     status: row.status,
     pinned: row.pinned,
+    priority: row.priority as AnnouncementSummary['priority'],
     audience: row.audience,
     targetGroupIds,
     attachments,
@@ -306,6 +307,7 @@ r.get(
         body: announcements.body,
         status: announcements.status,
         pinned: announcements.pinned,
+        priority: announcements.priority,
         audience: announcements.audience,
         publishAt: announcements.publishAt,
         publishedAt: announcements.publishedAt,
@@ -315,7 +317,12 @@ r.get(
       .from(announcements)
       .leftJoin(users, eq(users.id, announcements.authorId))
       .where(where)
-      .orderBy(desc(announcements.pinned), desc(announcements.createdAt));
+      .orderBy(
+        desc(announcements.pinned),
+        // Urgent first, then high, then normal.
+        sql`case ${announcements.priority} when 'urgent' then 2 when 'high' then 1 else 0 end desc`,
+        desc(announcements.createdAt),
+      );
 
     const ids = rows.map((row) => row.id);
 
@@ -446,6 +453,7 @@ r.get(
         body: row.body,
         status: row.status,
         pinned: row.pinned,
+        priority: row.priority as AnnouncementSummary['priority'],
         audience: row.audience,
         targetGroupIds: targetsByAnnouncement.get(row.id) ?? [],
         attachments: attachmentsByAnnouncement.get(row.id) ?? [],
@@ -495,6 +503,7 @@ r.post(
         title: input.title,
         body: input.body,
         status: scheduledAt ? 'scheduled' : 'draft',
+        priority: input.priority ?? 'normal',
         audience,
         publishAt: scheduledAt,
       })
@@ -551,6 +560,7 @@ r.patch(
     const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
     if (input.title !== undefined) patch.title = input.title;
     if (input.body !== undefined) patch.body = input.body;
+    if (input.priority !== undefined) patch.priority = input.priority;
     if (input.audience !== undefined) {
       patch.audience = input.audience;
       if (input.audience === 'groups') {

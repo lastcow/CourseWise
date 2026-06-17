@@ -688,6 +688,12 @@ export const zhCN = {
       scheduled: '公告已排期',
       scheduledFor: '将于 {{when}} 发布',
       validationSchedule: '请选择日期和时间',
+      fieldPriority: '优先级',
+      priority: {
+        normal: '普通',
+        high: '高',
+        urgent: '紧急',
+      },
       status: {
         draft: '草稿',
         scheduled: '已排期',

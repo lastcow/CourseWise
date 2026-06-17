@@ -40,11 +40,13 @@ import {
   useTransitionAnnouncement,
   useUpdateAnnouncement,
 } from '@/lib/queries';
-import type {
-  AnnouncementAttachment,
-  AnnouncementAudience,
-  AnnouncementStatus,
-  AnnouncementSummary,
+import {
+  ANNOUNCEMENT_PRIORITIES,
+  type AnnouncementAttachment,
+  type AnnouncementAudience,
+  type AnnouncementPriority,
+  type AnnouncementStatus,
+  type AnnouncementSummary,
 } from '@coursewise/shared';
 
 function formatDate(iso: string | null): string {
@@ -64,6 +66,7 @@ type EditorState = {
   id: string | null;
   title: string;
   body: string;
+  priority: AnnouncementPriority;
   audience: AnnouncementAudience;
   targetGroupIds: string[];
   attachments: AnnouncementAttachment[];
@@ -113,6 +116,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
       id: null,
       title: '',
       body: '',
+      priority: 'normal',
       audience: 'course',
       targetGroupIds: [],
       attachments: [],
@@ -124,6 +128,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
       id: a.id,
       title: a.title,
       body: a.body,
+      priority: a.priority,
       audience: a.audience,
       targetGroupIds: a.targetGroupIds,
       attachments: a.attachments,
@@ -188,6 +193,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
     const payload = {
       title,
       body,
+      priority: editor.priority,
       audience: editor.audience,
       targetGroupIds: editor.audience === 'groups' ? editor.targetGroupIds : [],
       attachmentFileIds: editor.attachments.map((a) => a.fileAssetId),
@@ -227,6 +233,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
     const payload = {
       title,
       body,
+      priority: editor.priority,
       audience: editor.audience,
       targetGroupIds: editor.audience === 'groups' ? editor.targetGroupIds : [],
       attachmentFileIds: editor.attachments.map((a) => a.fileAssetId),
@@ -315,6 +322,14 @@ export function TeacherAnnouncementsPage(): JSX.Element {
                     <Badge variant={statusVariant(a.status)}>
                       {t(`announcements.status.${a.status}`)}
                     </Badge>
+                    {a.priority !== 'normal' ? (
+                      <Badge
+                        variant={a.priority === 'urgent' ? 'default' : 'warning'}
+                        className={a.priority === 'urgent' ? 'bg-red-600 text-white' : undefined}
+                      >
+                        {t(`announcements.priority.${a.priority}`)}
+                      </Badge>
+                    ) : null}
                     {a.audience === 'groups' ? (
                       <Badge variant="outline">
                         {t('announcements.audienceGroupsCount', { count: a.targetGroupIds.length })}
@@ -409,6 +424,24 @@ export function TeacherAnnouncementsPage(): JSX.Element {
                 onChange={(body) => setEditor({ ...editor, body })}
                 placeholder={t('announcements.bodyPlaceholder')}
               />
+            </div>
+
+            <div>
+              <Label htmlFor="ann-priority">{t('announcements.fieldPriority')}</Label>
+              <select
+                id="ann-priority"
+                value={editor.priority}
+                onChange={(e) =>
+                  setEditor({ ...editor, priority: e.target.value as AnnouncementPriority })
+                }
+                className="mt-1 block h-8 rounded-md border bg-background px-2 text-sm"
+              >
+                {ANNOUNCEMENT_PRIORITIES.map((p) => (
+                  <option key={p} value={p}>
+                    {t(`announcements.priority.${p}`)}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
