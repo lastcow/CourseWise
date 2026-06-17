@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ANNOUNCEMENT_REACTION_EMOJIS } from './constants';
-import { ANNOUNCEMENT_AUDIENCES } from './types';
+import { ANNOUNCEMENT_AUDIENCES, ANNOUNCEMENT_PRIORITIES } from './types';
 import {
   ALERT_SEVERITIES,
   ALERT_STATUSES,
@@ -1348,6 +1348,7 @@ export const createAnnouncementSchema = z.object({
   publish: z.boolean().optional(),
   /** Schedule a future publish (ISO 8601). Ignored when publish=true. */
   publishAt: z.string().datetime().optional(),
+  priority: z.enum(ANNOUNCEMENT_PRIORITIES).optional(),
   /** 'groups' requires a non-empty targetGroupIds. */
   audience: z.enum(ANNOUNCEMENT_AUDIENCES).optional(),
   targetGroupIds: z.array(z.string().uuid()).max(200).optional(),
@@ -1361,6 +1362,7 @@ export type ScheduleAnnouncementInput = z.infer<typeof scheduleAnnouncementSchem
 export const updateAnnouncementSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   body: z.string().trim().min(1).max(20_000).optional(),
+  priority: z.enum(ANNOUNCEMENT_PRIORITIES).optional(),
   audience: z.enum(ANNOUNCEMENT_AUDIENCES).optional(),
   targetGroupIds: z.array(z.string().uuid()).max(200).optional(),
   attachmentFileIds: z.array(z.string().uuid()).max(20).optional(),

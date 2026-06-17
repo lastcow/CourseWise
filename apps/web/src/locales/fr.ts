@@ -719,6 +719,12 @@ export const fr = {
       scheduled: 'Annonce planifiée',
       scheduledFor: 'Planifiée pour {{when}}',
       validationSchedule: 'Choisissez une date et une heure',
+      fieldPriority: 'Priorité',
+      priority: {
+        normal: 'Normale',
+        high: 'Haute',
+        urgent: 'Urgente',
+      },
       status: {
         draft: 'Brouillon',
         scheduled: 'Planifiée',

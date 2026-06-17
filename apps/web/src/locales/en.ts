@@ -713,6 +713,12 @@ export const en = {
       scheduled: 'Announcement scheduled',
       scheduledFor: 'Scheduled for {{when}}',
       validationSchedule: 'Pick a date and time',
+      fieldPriority: 'Priority',
+      priority: {
+        normal: 'Normal',
+        high: 'High',
+        urgent: 'Urgent',
+      },
       status: {
         draft: 'Draft',
         scheduled: 'Scheduled',

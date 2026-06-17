@@ -73,9 +73,17 @@ export function StudentAnnouncementsPage(): JSX.Element {
                 className={cn('rounded-md border p-4', isNew && 'border-primary/40 bg-primary/5')}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {a.pinned ? <Pin className="h-3.5 w-3.5 text-primary" aria-hidden /> : null}
                     <h3 className="font-medium">{a.title}</h3>
+                    {a.priority !== 'normal' ? (
+                      <Badge
+                        variant={a.priority === 'urgent' ? 'default' : 'warning'}
+                        className={a.priority === 'urgent' ? 'bg-red-600 text-white' : undefined}
+                      >
+                        {t(`announcements.priority.${a.priority}`)}
+                      </Badge>
+                    ) : null}
                   </div>
                   {isNew ? <Badge variant="info">{t('announcements.new')}</Badge> : null}
                 </div>
