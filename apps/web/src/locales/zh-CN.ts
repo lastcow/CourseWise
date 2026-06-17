@@ -1808,6 +1808,11 @@ export const zhCN = {
       },
     },
     grading: {
+      nav: {
+        prev: '上一个',
+        next: '下一个',
+        pick: '选择…',
+      },
       policyTabTitle: '评分策略',
       policyTitle: '评分策略',
       policyDescription: '各权重之和必须为 100。修改后将生成新版本,并把已有最终成绩标记为过期。',

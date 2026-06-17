@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -16,6 +16,11 @@ import {
 } from 'lucide-react';
 import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import { AssignmentRequirementDialog } from '@/components/assignments/AssignmentRequirementDialog';
+import {
+  GradingNavToolbar,
+  type GradingNavItem,
+  type GradingNavStatus,
+} from '@/components/grading/GradingNavToolbar';
 import { Button } from '@/components/ui/button';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -59,6 +64,13 @@ function statusLabel(t: (k: string) => string, s: SubmissionStatus): string {
 // grade out to every teammate).
 function groupRepresentative(g: GroupSubmissionWithMembers): SubmissionWithStudent | null {
   return g.members.find((m) => m.status !== 'draft') ?? g.members[0] ?? null;
+}
+
+function navStatusOf(s: SubmissionStatus): GradingNavStatus {
+  if (s === 'graded') return 'graded';
+  if (s === 'returned') return 'returned';
+  if (s === 'submitted' || s === 'late') return 'needs';
+  return 'other';
 }
 
 export function TeacherSubmissionsInboxPage(): JSX.Element {
@@ -235,6 +247,55 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
       g.members.some((m) => matchesPerson(m.student.name, m.student.email)),
   );
 
+  // Roster the toolbar selector navigates — ungraded first, then by name/order.
+  const navItems: GradingNavItem[] = isGroupMode
+    ? [...filteredGroups]
+        .sort(
+          (a, b) =>
+            submissionGradingRank(groupRepresentative(a)?.status ?? 'submitted') -
+            submissionGradingRank(groupRepresentative(b)?.status ?? 'submitted'),
+        )
+        .map((g) => {
+          const rep = groupRepresentative(g);
+          const st = rep?.status ?? 'submitted';
+          return {
+            id: g.groupSubmissionId,
+            title: g.groupName,
+            subtitle: t('submissions.memberCount', { count: g.members.length }),
+            status: navStatusOf(st),
+            statusLabel: statusLabel(t, st),
+            score: rep?.score != null ? `${rep.score} / ${maxScore ?? '—'}` : null,
+          };
+        })
+    : [...filteredSubs]
+        .sort((a, b) => submissionGradingRank(a.status) - submissionGradingRank(b.status))
+        .map((s) => ({
+          id: s.id,
+          title: s.student.name,
+          status: navStatusOf(s.status),
+          statusLabel: statusLabel(t, s.status),
+          score: s.score != null ? `${s.score} / ${maxScore ?? '—'}` : null,
+        }));
+
+  // Auto-select the first roster entry once data loads (no left list to click).
+  const currentNavId = isGroupMode ? selectedGroupId : selectedId;
+  useEffect(() => {
+    if (navItems.length === 0) return;
+    if (currentNavId && navItems.some((it) => it.id === currentNavId)) return;
+    if (isGroupMode) openGroup(navItems[0]!.id);
+    else openIndividual(navItems[0]!.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navItems, currentNavId, isGroupMode]);
+
+  const summaryBadge =
+    toGradeCount > 0 ? (
+      <Badge variant="warning">{t('submissions.toGradeCount', { count: toGradeCount })}</Badge>
+    ) : rosterCount > 0 ? (
+      <Badge variant="success" className="gap-1">
+        <CheckCircle2 className="h-3 w-3" aria-hidden /> {t('submissions.allGraded')}
+      </Badge>
+    ) : null;
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
@@ -252,107 +313,21 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
         </h2>
       </header>
 
-      <div className="grid items-start gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
-        {/* Roster */}
-        <Card className="overflow-hidden">
-          <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2.5">
-            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              {t('submissions.inbox')}
-            </span>
-            {toGradeCount > 0 ? (
-              <Badge variant="warning">
-                {t('submissions.toGradeCount', { count: toGradeCount })}
-              </Badge>
-            ) : rosterCount > 0 ? (
-              <Badge variant="success" className="gap-1">
-                <CheckCircle2 className="h-3 w-3" aria-hidden /> {t('submissions.allGraded')}
-              </Badge>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2 border-b bg-muted/30 px-2 py-2">
-            <Input
-              type="search"
-              value={rosterSearch}
-              onChange={(e) => setRosterSearch(e.target.value)}
-              placeholder={t('submissions.searchPlaceholder')}
-              className="h-8 min-w-0 flex-1"
-            />
-            <ActionIconButton
-              icon={ClipboardList}
-              label={t('submissions.viewRequirements')}
-              color="sky"
-              onClick={() => setReqOpen(true)}
-              disabled={!assignment.data}
-            />
-          </div>
-          <CardContent className="p-1">
-            {(isGroupMode ? grouped.isLoading : submissions.isLoading) ? (
-              <p className="px-2 py-2 text-sm text-muted-foreground">{t('common.loading')}</p>
-            ) : isGroupMode ? (
-              !grouped.data || grouped.data.groups.length === 0 ? (
-                <EmptyState title={t('submissions.empty')} />
-              ) : filteredGroups.length === 0 ? (
-                <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-                  {t('submissions.noSearchMatch')}
-                </p>
-              ) : (
-                <div className="space-y-0.5">
-                  {[...filteredGroups]
-                    .sort(
-                      (a, b) =>
-                        submissionGradingRank(groupRepresentative(a)?.status ?? 'submitted') -
-                        submissionGradingRank(groupRepresentative(b)?.status ?? 'submitted'),
-                    )
-                    .map((g) => {
-                      const rep = groupRepresentative(g);
-                      const status = rep?.status ?? 'submitted';
-                      return (
-                        <RosterRow
-                          key={g.groupSubmissionId}
-                          title={g.groupName}
-                          subtitle={t('submissions.memberCount', { count: g.members.length })}
-                          status={status}
-                          score={rep?.score ?? null}
-                          maxScore={maxScore}
-                          selected={selectedGroupId === g.groupSubmissionId}
-                          onClick={() => openGroup(g.groupSubmissionId)}
-                        />
-                      );
-                    })}
-                  {!rq && grouped.data.ungroupedStudents.length > 0 ? (
-                    <div className="mt-2 rounded border border-dashed p-2 text-xs text-muted-foreground">
-                      <p className="font-medium">{t('submissions.notSubmittedYet')}</p>
-                      <p className="mt-1">
-                        {grouped.data.ungroupedStudents.map((u) => u.name).join(', ')}
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              )
-            ) : !submissions.data || submissions.data.length === 0 ? (
-              <EmptyState title={t('submissions.empty')} />
-            ) : filteredSubs.length === 0 ? (
-              <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-                {t('submissions.noSearchMatch')}
-              </p>
-            ) : (
-              <div className="space-y-0.5">
-                {filteredSubs.map((s) => (
-                  <RosterRow
-                    key={s.id}
-                    title={s.student.name}
-                    status={s.status}
-                    score={s.score ?? null}
-                    maxScore={maxScore}
-                    selected={selectedId === s.id}
-                    onClick={() => openIndividual(s.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <GradingNavToolbar
+        search={rosterSearch}
+        onSearchChange={setRosterSearch}
+        searchPlaceholder={t('submissions.searchPlaceholder')}
+        requirementsIcon={ClipboardList}
+        requirementsLabel={t('submissions.viewRequirements')}
+        onViewRequirements={() => setReqOpen(true)}
+        requirementsDisabled={!assignment.data}
+        items={navItems}
+        selectedId={currentNavId}
+        onSelect={(id) => (isGroupMode ? openGroup(id) : openIndividual(id))}
+        summary={summaryBadge}
+      />
 
+      <div>
         {/* Detail */}
         {!detailOpen ? (
           <Card>
@@ -365,7 +340,7 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
             </CardContent>
           </Card>
         ) : (
-          <Card className="sticky top-4 self-start overflow-hidden">
+          <Card className="overflow-hidden">
             {/* Header band */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-6 py-4">
               <div className="min-w-0">
@@ -639,51 +614,6 @@ export function TeacherSubmissionsInboxPage(): JSX.Element {
         />
       ) : null}
     </div>
-  );
-}
-
-function RosterRow({
-  title,
-  subtitle,
-  status,
-  score,
-  maxScore,
-  selected,
-  onClick,
-}: {
-  title: string;
-  subtitle?: string;
-  status: SubmissionStatus;
-  score: number | null;
-  maxScore: number | null;
-  selected: boolean;
-  onClick: () => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const ng = needsGrading(status);
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex w-full flex-col gap-1 rounded-md border-l-2 px-2.5 py-2 text-left text-sm hover:bg-muted',
-        selected ? 'bg-muted' : '',
-        ng ? 'border-l-amber-400' : 'border-l-transparent',
-      )}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-medium">{title}</span>
-        <Badge variant={statusVariant(status)} className="shrink-0">
-          {statusLabel(t, status)}
-        </Badge>
-      </div>
-      <div className="flex items-center justify-between gap-2 font-mono text-xs text-muted-foreground">
-        <span>
-          {score != null ? `${score} / ${maxScore ?? '—'}` : '—'}
-        </span>
-        {subtitle ? <span className="font-sans">{subtitle}</span> : null}
-      </div>
-    </button>
   );
 }
 

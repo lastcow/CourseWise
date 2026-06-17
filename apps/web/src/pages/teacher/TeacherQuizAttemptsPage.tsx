@@ -22,6 +22,11 @@ import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Button } from '@/components/ui/button';
 import { MessageComposeDialog } from '@/components/messaging/MessageComposeDialog';
 import { QuizRequirementDialog } from '@/components/quizzes/QuizRequirementDialog';
+import {
+  GradingNavToolbar,
+  type GradingNavItem,
+  type GradingNavStatus,
+} from '@/components/grading/GradingNavToolbar';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -87,6 +92,12 @@ function needsGrading(a: QuizAttemptWithStudent): boolean {
   return (a.status === 'submitted' || a.status === 'expired') && !a.teacherReviewed;
 }
 
+function navStatusOf(a: QuizAttemptWithStudent): GradingNavStatus {
+  if (a.status === 'in_progress') return 'inProgress';
+  if (needsGrading(a)) return 'needs';
+  return 'graded';
+}
+
 export function TeacherQuizAttemptsPage(): JSX.Element {
   const { t } = useTranslation();
   const { courseId, quizId } = useParams();
@@ -117,6 +128,36 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
     ? roster.filter((a) => `${a.student.name} ${a.student.email}`.toLowerCase().includes(rq))
     : roster;
 
+  const navItems: GradingNavItem[] = filteredRoster.map((a) => ({
+    id: a.id,
+    title: a.student.name,
+    status: navStatusOf(a),
+    statusLabel:
+      a.status === 'in_progress'
+        ? t('quizzes.attemptStatus.in_progress')
+        : needsGrading(a)
+          ? t('quizzes.needsGrading')
+          : t('quizzes.gradedPill'),
+    score: `${a.score ?? '—'} / ${a.maxScore ?? '—'}`,
+  }));
+
+  // Auto-select the first attempt once data loads (no left list to click).
+  useEffect(() => {
+    if (navItems.length === 0) return;
+    if (selectedAttemptId && navItems.some((it) => it.id === selectedAttemptId)) return;
+    setSelectedAttemptId(navItems[0]!.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navItems, selectedAttemptId]);
+
+  const attemptsSummary =
+    toGradeCount > 0 ? (
+      <Badge variant="warning">{t('quizzes.toGradeCount', { count: toGradeCount })}</Badge>
+    ) : roster.length > 0 ? (
+      <Badge variant="success" className="gap-1">
+        <CheckCircle2 className="h-3 w-3" aria-hidden /> {t('quizzes.allGraded')}
+      </Badge>
+    ) : null;
+
   const d = attempt.data;
   const pct =
     d && d.score !== null && d.maxScore && d.maxScore > 0 ? (d.score / d.maxScore) * 100 : null;
@@ -132,96 +173,21 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
         </Button>
       </header>
 
-      <div className="grid items-start gap-4 md:grid-cols-[280px_minmax(0,1fr)]">
-        {/* Roster */}
-        <Card className="overflow-hidden">
-          <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2.5">
-            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              {t('quizzes.attemptsListTitle')}
-            </span>
-            {toGradeCount > 0 ? (
-              <Badge variant="warning">{t('quizzes.toGradeCount', { count: toGradeCount })}</Badge>
-            ) : roster.length > 0 ? (
-              <Badge variant="success" className="gap-1">
-                <CheckCircle2 className="h-3 w-3" aria-hidden /> {t('quizzes.allGraded')}
-              </Badge>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2 border-b bg-muted/30 px-2 py-2">
-            <Input
-              type="search"
-              value={rosterSearch}
-              onChange={(e) => setRosterSearch(e.target.value)}
-              placeholder={t('quizzes.attemptsSearchPlaceholder')}
-              className="h-8 min-w-0 flex-1"
-            />
-            <ActionIconButton
-              icon={ListChecks}
-              label={t('quizzes.viewQuiz')}
-              color="sky"
-              onClick={() => setReqOpen(true)}
-              disabled={!quiz.data}
-            />
-          </div>
-          <CardContent className="p-1">
-            {attempts.isLoading ? (
-              <p className="px-2 py-2 text-sm text-muted-foreground">{t('common.loading')}</p>
-            ) : roster.length === 0 ? (
-              <EmptyState title={t('quizzes.noAttempts')} />
-            ) : filteredRoster.length === 0 ? (
-              <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-                {t('quizzes.attemptsNoMatch')}
-              </p>
-            ) : (
-              <ul className="space-y-0.5">
-                {filteredRoster.map((a) => {
-                  const ng = needsGrading(a);
-                  const aPct =
-                    a.score !== null && a.maxScore && a.maxScore > 0
-                      ? Math.round((a.score / a.maxScore) * 100)
-                      : null;
-                  return (
-                    <li key={a.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedAttemptId(a.id)}
-                        className={cn(
-                          'flex w-full flex-col gap-1 rounded-md border-l-2 px-2.5 py-2 text-left text-sm hover:bg-muted',
-                          selectedAttemptId === a.id ? 'bg-muted' : '',
-                          ng ? 'border-l-amber-400' : 'border-l-transparent',
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate font-medium">{a.student.name}</span>
-                          {a.status === 'in_progress' ? (
-                            <Badge variant="secondary" className="shrink-0">
-                              {t('quizzes.attemptStatus.in_progress')}
-                            </Badge>
-                          ) : ng ? (
-                            <Badge variant="warning" className="shrink-0 gap-1">
-                              <Clock className="h-3 w-3" aria-hidden /> {t('quizzes.needsGrading')}
-                            </Badge>
-                          ) : (
-                            <Badge variant="success" className="shrink-0 gap-1">
-                              <CheckCircle2 className="h-3 w-3" aria-hidden /> {t('quizzes.gradedPill')}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-                          <span>
-                            {a.score ?? '—'} / {a.maxScore ?? '—'}
-                          </span>
-                          {aPct !== null ? <span>· {aPct}%</span> : null}
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+      <GradingNavToolbar
+        search={rosterSearch}
+        onSearchChange={setRosterSearch}
+        searchPlaceholder={t('quizzes.attemptsSearchPlaceholder')}
+        requirementsIcon={ListChecks}
+        requirementsLabel={t('quizzes.viewQuiz')}
+        onViewRequirements={() => setReqOpen(true)}
+        requirementsDisabled={!quiz.data}
+        items={navItems}
+        selectedId={selectedAttemptId}
+        onSelect={setSelectedAttemptId}
+        summary={attemptsSummary}
+      />
 
+      <div>
         {/* Grading detail */}
         {!d ? (
           <Card>
