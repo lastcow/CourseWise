@@ -393,6 +393,7 @@ export const FILE_RELATED_TYPES = [
   'course',
   'presentation',
   'message',
+  'announcement',
 ] as const;
 export type FileRelatedType = (typeof FILE_RELATED_TYPES)[number];
 

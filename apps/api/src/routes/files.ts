@@ -10,9 +10,12 @@ import {
   type UploadFileResponse,
 } from '@coursewise/shared';
 import {
+  announcementTargets,
+  announcements,
   assignmentSubmissions,
   assignments,
   fileAssets,
+  groupMemberships,
   presentations,
   readingMaterials,
   messageThreads,
@@ -312,6 +315,31 @@ r.get('/files/:fileId/download-url', async (c) => {
           : undefined;
         if (!thread || (thread.a !== auth.user.id && thread.b !== auth.user.id)) {
           throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Not a participant in this conversation');
+        }
+      } else if (row.relatedType === 'announcement' && row.relatedId) {
+        // Announcement attachments: visible once the announcement is published
+        // and, when targeted, the student is a member of a target group.
+        const ann = (
+          await db.select().from(announcements).where(eq(announcements.id, row.relatedId)).limit(1)
+        )[0];
+        if (!ann || ann.status !== 'published') {
+          throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Announcement is not published');
+        }
+        if (ann.audience === 'groups') {
+          const [hit] = await db
+            .select({ id: announcementTargets.id })
+            .from(announcementTargets)
+            .innerJoin(groupMemberships, eq(groupMemberships.groupId, announcementTargets.groupId))
+            .where(
+              and(
+                eq(announcementTargets.announcementId, ann.id),
+                eq(groupMemberships.studentId, auth.user.id),
+              ),
+            )
+            .limit(1);
+          if (!hit) {
+            throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Announcement is not addressed to you');
+          }
         }
       } else {
         // Presentation files are linked via `presentations.fileAssetId` rather

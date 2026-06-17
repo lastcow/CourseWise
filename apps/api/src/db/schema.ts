@@ -1737,6 +1737,9 @@ export const announcementStatusEnum = pgEnum('announcement_status', [
   'published',
   'archived',
 ]);
+// 'course' = every enrolled student; 'groups' = only members of the groups
+// listed in announcement_targets.
+export const announcementAudienceEnum = pgEnum('announcement_audience', ['course', 'groups']);
 
 export const announcements = pgTable(
   'announcements',
@@ -1749,6 +1752,8 @@ export const announcements = pgTable(
     title: text('title').notNull(),
     body: text('body').notNull(),
     status: announcementStatusEnum('status').notNull().default('draft'),
+    pinned: boolean('pinned').notNull().default(false),
+    audience: announcementAudienceEnum('audience').notNull().default('course'),
     publishedAt: timestamp('published_at', { withTimezone: true, mode: 'string' }),
     ...timestamps,
   },
@@ -1780,3 +1785,42 @@ export const announcementReads = pgTable(
   }),
 );
 export type AnnouncementReadRow = typeof announcementReads.$inferSelect;
+
+// Targeted audience: when announcements.audience = 'groups', the recipients are
+// the union of members of these groups.
+export const announcementTargets = pgTable(
+  'announcement_targets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    announcementId: uuid('announcement_id')
+      .notNull()
+      .references(() => announcements.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+  },
+  (t) => ({
+    announcementIdx: index('announcement_targets_announcement_idx').on(t.announcementId),
+    announcementGroupUnique: uniqueIndex('announcement_targets_announcement_group_idx').on(
+      t.announcementId,
+      t.groupId,
+    ),
+  }),
+);
+export type AnnouncementTargetRow = typeof announcementTargets.$inferSelect;
+
+export const announcementAttachments = pgTable(
+  'announcement_attachments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    announcementId: uuid('announcement_id')
+      .notNull()
+      .references(() => announcements.id, { onDelete: 'cascade' }),
+    fileAssetId: uuid('file_asset_id').references(() => fileAssets.id, { onDelete: 'set null' }),
+    position: integer('position').notNull().default(0),
+  },
+  (t) => ({
+    announcementIdx: index('announcement_attachments_announcement_idx').on(t.announcementId),
+  }),
+);
+export type AnnouncementAttachmentRow = typeof announcementAttachments.$inferSelect;

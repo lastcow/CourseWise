@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ANNOUNCEMENT_AUDIENCES } from './types';
 import {
   ALERT_SEVERITIES,
   ALERT_STATUSES,
@@ -1344,11 +1345,21 @@ export const createAnnouncementSchema = z.object({
   body: z.string().trim().min(1).max(20_000),
   /** Publish immediately instead of saving as a draft. */
   publish: z.boolean().optional(),
+  /** 'groups' requires a non-empty targetGroupIds. */
+  audience: z.enum(ANNOUNCEMENT_AUDIENCES).optional(),
+  targetGroupIds: z.array(z.string().uuid()).max(200).optional(),
+  attachmentFileIds: z.array(z.string().uuid()).max(20).optional(),
 });
 export type CreateAnnouncementInput = z.infer<typeof createAnnouncementSchema>;
 
 export const updateAnnouncementSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   body: z.string().trim().min(1).max(20_000).optional(),
+  audience: z.enum(ANNOUNCEMENT_AUDIENCES).optional(),
+  targetGroupIds: z.array(z.string().uuid()).max(200).optional(),
+  attachmentFileIds: z.array(z.string().uuid()).max(20).optional(),
 });
 export type UpdateAnnouncementInput = z.infer<typeof updateAnnouncementSchema>;
+
+export const pinAnnouncementSchema = z.object({ pinned: z.boolean() });
+export type PinAnnouncementInput = z.infer<typeof pinAnnouncementSchema>;
