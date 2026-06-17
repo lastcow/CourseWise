@@ -1902,6 +1902,7 @@ export const fr = {
         prev: 'Précédent',
         next: 'Suivant',
         pick: 'Sélectionner…',
+        noMatch: 'Aucun résultat',
       },
       policyTabTitle: 'Politique',
       policyTitle: 'Politique de notation',
