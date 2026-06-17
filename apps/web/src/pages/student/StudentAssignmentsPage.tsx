@@ -5,7 +5,6 @@ import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
-import { stripMarkdown } from '@/components/ui/markdown';
 import {
   Table,
   TableBody,
@@ -108,10 +107,8 @@ export function StudentAssignmentsPage(): JSX.Element {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('assignments.colTitle')}</TableHead>
-                <TableHead>{t('assignments.colDescription')}</TableHead>
                 <TableHead>{t('assignments.colModule')}</TableHead>
                 <TableHead>{t('assignments.colDue')}</TableHead>
-                <TableHead className="text-right">{t('assignments.colMaxScore')}</TableHead>
                 <TableHead>{t('assignments.colMyStatus')}</TableHead>
                 <TableHead className="text-right">{t('assignments.colMyGrade')}</TableHead>
               </TableRow>
@@ -125,6 +122,10 @@ export function StudentAssignmentsPage(): JSX.Element {
                 // column to a non-default badge.
                 const hasSubmitted = mine && mine.status !== 'draft';
                 const overdue = isOverdue(a.dueDate) && a.status !== 'closed' && !hasSubmitted;
+                // My grade reads as `score / max`; an ungraded score keeps the
+                // denominator (`— / max`) so the points possible stays visible.
+                const myScore = mine?.score != null ? mine.score : '—';
+                const scoreLabel = a.maxScore != null ? `${myScore} / ${a.maxScore}` : `${myScore}`;
                 return (
                   <TableRow key={a.id}>
                     <TableCell className="font-medium">
@@ -138,11 +139,6 @@ export function StudentAssignmentsPage(): JSX.Element {
                         </Link>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-[24ch] text-muted-foreground">
-                      <span className="line-clamp-1">
-                        {a.description ? stripMarkdown(a.description) : '—'}
-                      </span>
-                    </TableCell>
                     <TableCell>
                       <span className={a.moduleId ? 'line-clamp-1' : 'text-muted-foreground'}>
                         {a.moduleId ? (moduleTitleById.get(a.moduleId) ?? '—') : '—'}
@@ -154,7 +150,6 @@ export function StudentAssignmentsPage(): JSX.Element {
                         <span className="ml-2 text-destructive">{t('assignments.overdue')}</span>
                       ) : null}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{a.maxScore ?? '—'}</TableCell>
                     <TableCell>
                       {hasSubmitted ? (
                         <Badge variant={submissionVariant(mine!.status)}>
@@ -166,9 +161,7 @@ export function StudentAssignmentsPage(): JSX.Element {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {mine?.score != null ? mine.score : '—'}
-                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{scoreLabel}</TableCell>
                   </TableRow>
                 );
               })}
