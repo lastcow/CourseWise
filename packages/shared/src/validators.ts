@@ -1346,12 +1346,17 @@ export const createAnnouncementSchema = z.object({
   body: z.string().trim().min(1).max(20_000),
   /** Publish immediately instead of saving as a draft. */
   publish: z.boolean().optional(),
+  /** Schedule a future publish (ISO 8601). Ignored when publish=true. */
+  publishAt: z.string().datetime().optional(),
   /** 'groups' requires a non-empty targetGroupIds. */
   audience: z.enum(ANNOUNCEMENT_AUDIENCES).optional(),
   targetGroupIds: z.array(z.string().uuid()).max(200).optional(),
   attachmentFileIds: z.array(z.string().uuid()).max(20).optional(),
 });
 export type CreateAnnouncementInput = z.infer<typeof createAnnouncementSchema>;
+
+export const scheduleAnnouncementSchema = z.object({ publishAt: z.string().datetime() });
+export type ScheduleAnnouncementInput = z.infer<typeof scheduleAnnouncementSchema>;
 
 export const updateAnnouncementSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),

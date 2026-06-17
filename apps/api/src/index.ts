@@ -41,6 +41,7 @@ import { retryFailedR2CleanupJobs } from './jobs/r2CleanupRetry';
 import { sweepExpiredCourseExports } from './jobs/courseExportSweep';
 import { closeExpiredAttendanceSessions } from './jobs/attendanceSessionSweep';
 import { runQuizScheduleOpenSweep } from './jobs/quizScheduleOpenSweep';
+import { runAnnouncementPublishSweep } from './jobs/announcementPublishSweep';
 import { runRetentionSweep } from './services/retentionSweep';
 import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
@@ -234,6 +235,12 @@ export default {
             console.log('quizSchedule.openSweep.ok', { cron: controller.cron, ...summary });
           } catch (err) {
             console.error('quizSchedule.openSweep.failed', { cron: controller.cron, err });
+          }
+          try {
+            const summary = await runAnnouncementPublishSweep(db, env);
+            console.log('announcement.publishSweep.ok', { cron: controller.cron, ...summary });
+          } catch (err) {
+            console.error('announcement.publishSweep.failed', { cron: controller.cron, err });
           }
           return;
         }

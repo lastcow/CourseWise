@@ -36,6 +36,7 @@ import {
   useGroupSet,
   useGroupSets,
   usePinAnnouncement,
+  useScheduleAnnouncement,
   useTransitionAnnouncement,
   useUpdateAnnouncement,
 } from '@/lib/queries';
@@ -66,7 +67,20 @@ type EditorState = {
   audience: AnnouncementAudience;
   targetGroupIds: string[];
   attachments: AnnouncementAttachment[];
+  /** datetime-local value for a scheduled publish ('' = none). */
+  schedule: string;
 };
+
+/** ISO → datetime-local value (local time, minute precision). */
+function toLocalInput(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
+    d.getMinutes(),
+  )}`;
+}
 
 export function TeacherAnnouncementsPage(): JSX.Element {
   const { t } = useTranslation();
@@ -80,6 +94,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
   const transition = useTransitionAnnouncement(id);
   const del = useDeleteAnnouncement(id);
   const pin = usePinAnnouncement(id);
+  const schedule = useScheduleAnnouncement(id);
   const groupSetsQ = useGroupSets(id || undefined);
 
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -94,7 +109,15 @@ export function TeacherAnnouncementsPage(): JSX.Element {
   const saving = create.isPending || update.isPending;
 
   const openNew = () =>
-    setEditor({ id: null, title: '', body: '', audience: 'course', targetGroupIds: [], attachments: [] });
+    setEditor({
+      id: null,
+      title: '',
+      body: '',
+      audience: 'course',
+      targetGroupIds: [],
+      attachments: [],
+      schedule: '',
+    });
   const openEdit = (a: AnnouncementSummary) => {
     setPickerSetId('');
     setEditor({
@@ -104,6 +127,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
       audience: a.audience,
       targetGroupIds: a.targetGroupIds,
       attachments: a.attachments,
+      schedule: toLocalInput(a.publishAt),
     });
   };
 
@@ -176,6 +200,45 @@ export function TeacherAnnouncementsPage(): JSX.Element {
         await create.mutateAsync({ ...payload, publish });
       }
       toast.push({ title: t('announcements.saved'), tone: 'success' });
+      setEditor(null);
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  const onSchedule = async () => {
+    if (!editor) return;
+    const title = editor.title.trim();
+    const body = editor.body.trim();
+    if (!title || !body) {
+      toast.push({ title: t('announcements.validationRequired'), tone: 'error' });
+      return;
+    }
+    if (editor.audience === 'groups' && editor.targetGroupIds.length === 0) {
+      toast.push({ title: t('announcements.validationAudience'), tone: 'error' });
+      return;
+    }
+    if (!editor.schedule) {
+      toast.push({ title: t('announcements.validationSchedule'), tone: 'error' });
+      return;
+    }
+    const publishAt = new Date(editor.schedule).toISOString();
+    const payload = {
+      title,
+      body,
+      audience: editor.audience,
+      targetGroupIds: editor.audience === 'groups' ? editor.targetGroupIds : [],
+      attachmentFileIds: editor.attachments.map((a) => a.fileAssetId),
+    };
+    try {
+      if (editor.id) {
+        await update.mutateAsync({ id: editor.id, input: payload });
+        await schedule.mutateAsync({ id: editor.id, publishAt });
+      } else {
+        await create.mutateAsync({ ...payload, publishAt });
+      }
+      toast.push({ title: t('announcements.scheduled'), tone: 'success' });
       setEditor(null);
     } catch (err) {
       const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
@@ -264,6 +327,9 @@ export function TeacherAnnouncementsPage(): JSX.Element {
                       read: a.readCount ?? 0,
                       total: a.audienceCount ?? 0,
                     })}
+                    {a.status === 'scheduled' && a.publishAt
+                      ? ` · ${t('announcements.scheduledFor', { when: formatDate(a.publishAt) })}`
+                      : ''}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -445,12 +511,30 @@ export function TeacherAnnouncementsPage(): JSX.Element {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div>
+              <Label htmlFor="ann-schedule">{t('announcements.scheduleFor')}</Label>
+              <input
+                id="ann-schedule"
+                type="datetime-local"
+                value={editor.schedule}
+                onChange={(e) => setEditor({ ...editor, schedule: e.target.value })}
+                className="mt-1 block h-8 rounded-md border bg-background px-2 text-sm"
+              />
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={() => setEditor(null)}>
                 {t('common.cancel')}
               </Button>
               <Button variant="outline" onClick={() => onSave(false)} disabled={saving}>
                 {t('announcements.saveDraft')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onSchedule}
+                disabled={saving || schedule.isPending || !editor.schedule}
+              >
+                {t('announcements.scheduleCta')}
               </Button>
               <Button onClick={() => onSave(true)} disabled={saving}>
                 {t('announcements.publish')}
