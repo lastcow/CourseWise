@@ -397,6 +397,10 @@ export const FILE_RELATED_TYPES = [
 ] as const;
 export type FileRelatedType = (typeof FILE_RELATED_TYPES)[number];
 
+/** Allowed emoji for announcement / comment reactions. */
+export const ANNOUNCEMENT_REACTION_EMOJIS = ['👍', '🎉', '❤️', '👀'] as const;
+export type AnnouncementReactionEmoji = (typeof ANNOUNCEMENT_REACTION_EMOJIS)[number];
+
 export const PRESENTATION_STATUSES = ['draft', 'published', 'archived'] as const;
 export type PresentationStatus = (typeof PRESENTATION_STATUSES)[number];
 

@@ -1,20 +1,28 @@
 import { Hono, type Context } from 'hono';
-import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
+  announcementReactionSchema,
+  createAnnouncementCommentSchema,
   createAnnouncementSchema,
   pinAnnouncementSchema,
   updateAnnouncementSchema,
   type AnnouncementAttachment,
   type AnnouncementAudience,
+  type AnnouncementComment,
+  type AnnouncementReactionInput,
   type AnnouncementStatus,
   type AnnouncementSummary,
+  type CreateAnnouncementCommentInput,
   type CreateAnnouncementInput,
   type PinAnnouncementInput,
+  type ReactionSummary,
   type UpdateAnnouncementInput,
 } from '@coursewise/shared';
 import type { Db } from '../db/client';
 import {
   announcementAttachments,
+  announcementComments,
+  announcementReactions,
   announcementReads,
   announcementTargets,
   announcements,
@@ -113,6 +121,46 @@ async function loadAttachments(db: Db, announcementId: string): Promise<Announce
     }));
 }
 
+/** Collapse raw reaction rows into per-emoji summaries from the viewer's POV. */
+function summarizeReactions(
+  rows: { emoji: string; userId: string }[],
+  viewerId: string,
+): ReactionSummary[] {
+  const map = new Map<string, { count: number; reacted: boolean }>();
+  for (const row of rows) {
+    const cur = map.get(row.emoji) ?? { count: 0, reacted: false };
+    cur.count += 1;
+    if (row.userId === viewerId) cur.reacted = true;
+    map.set(row.emoji, cur);
+  }
+  return [...map.entries()].map(([emoji, v]) => ({ emoji, count: v.count, reacted: v.reacted }));
+}
+
+async function announcementReactionsFor(
+  db: Db,
+  announcementId: string,
+  viewerId: string,
+): Promise<ReactionSummary[]> {
+  const rows = await db
+    .select({ emoji: announcementReactions.emoji, userId: announcementReactions.userId })
+    .from(announcementReactions)
+    .where(eq(announcementReactions.announcementId, announcementId));
+  return summarizeReactions(rows, viewerId);
+}
+
+async function commentCountFor(db: Db, announcementId: string): Promise<number> {
+  const [c] = await db
+    .select({ c: count() })
+    .from(announcementComments)
+    .where(
+      and(
+        eq(announcementComments.announcementId, announcementId),
+        isNull(announcementComments.deletedAt),
+      ),
+    );
+  return Number(c?.c ?? 0);
+}
+
 /** Single-announcement summary (used by mutation responses). */
 async function buildSummary(
   db: Db,
@@ -130,9 +178,11 @@ async function buildSummary(
       .where(and(eq(announcementReads.announcementId, row.id), eq(announcementReads.userId, viewerId)))
       .limit(1)
   )[0];
-  const [targetGroupIds, attachments] = await Promise.all([
+  const [targetGroupIds, attachments, reactions, commentCount] = await Promise.all([
     loadTargetGroupIds(db, row.id),
     loadAttachments(db, row.id),
+    announcementReactionsFor(db, row.id, viewerId),
+    commentCountFor(db, row.id),
   ]);
   let readCount: number | undefined;
   let audienceCount: number | undefined;
@@ -156,6 +206,8 @@ async function buildSummary(
     audience: row.audience,
     targetGroupIds,
     attachments,
+    commentCount,
+    reactions,
     publishedAt: row.publishedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -343,6 +395,41 @@ r.get(
       readCounts = new Map(counts.map((row) => [row.aId, Number(row.c)]));
     }
 
+    // Comment counts (non-deleted) + announcement-level reactions, batched.
+    const commentCounts = new Map<string, number>();
+    const reactionsByAnnouncement = new Map<string, ReactionSummary[]>();
+    if (visibleIds.length) {
+      const cc = await db
+        .select({ aId: announcementComments.announcementId, c: count() })
+        .from(announcementComments)
+        .where(
+          and(
+            inArray(announcementComments.announcementId, visibleIds),
+            isNull(announcementComments.deletedAt),
+          ),
+        )
+        .groupBy(announcementComments.announcementId);
+      for (const row of cc) commentCounts.set(row.aId, Number(row.c));
+      const rx = await db
+        .select({
+          aId: announcementReactions.announcementId,
+          emoji: announcementReactions.emoji,
+          userId: announcementReactions.userId,
+        })
+        .from(announcementReactions)
+        .where(inArray(announcementReactions.announcementId, visibleIds));
+      const byAnn = new Map<string, { emoji: string; userId: string }[]>();
+      for (const row of rx) {
+        if (!row.aId) continue;
+        const list = byAnn.get(row.aId) ?? [];
+        list.push({ emoji: row.emoji, userId: row.userId });
+        byAnn.set(row.aId, list);
+      }
+      for (const [aId, rows2] of byAnn) {
+        reactionsByAnnouncement.set(aId, summarizeReactions(rows2, auth.user.id));
+      }
+    }
+
     const summaries: AnnouncementSummary[] = [];
     for (const row of visibleRows) {
       summaries.push({
@@ -357,6 +444,8 @@ r.get(
         audience: row.audience,
         targetGroupIds: targetsByAnnouncement.get(row.id) ?? [],
         attachments: attachmentsByAnnouncement.get(row.id) ?? [],
+        commentCount: commentCounts.get(row.id) ?? 0,
+        reactions: reactionsByAnnouncement.get(row.id) ?? [],
         publishedAt: row.publishedAt ?? null,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
@@ -567,5 +656,228 @@ r.post('/announcements/:announcementId/read', requireScopeGroup('announcementsRe
     .onConflictDoNothing();
   return success(c, { ok: true });
 });
+
+// --- Comments + reactions --------------------------------------------------
+
+/** Load an announcement the caller may view, or throw. */
+async function loadViewable(c: Context<AppEnv>): Promise<AnnouncementRow> {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const id = requireParam(c, 'announcementId');
+  const row = (await db.select().from(announcements).where(eq(announcements.id, id)).limit(1))[0];
+  if (!row) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Announcement not found');
+  if (!(await canViewAnnouncement(db, auth.user, row))) {
+    throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No access to this announcement');
+  }
+  return row;
+}
+
+async function canModerateCourse(db: Db, user: Viewer, courseId: string): Promise<boolean> {
+  if (user.role === 'admin') return true;
+  if (user.role === 'teacher') return isCourseTeacher(db, courseId, user.id);
+  return false;
+}
+
+r.get('/announcements/:announcementId/comments', requireScopeGroup('announcementsRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const row = await loadViewable(c);
+  const canModerate = await canModerateCourse(db, auth.user, row.courseId);
+
+  const rows = await db
+    .select({
+      id: announcementComments.id,
+      authorId: announcementComments.authorId,
+      authorName: users.name,
+      body: announcementComments.body,
+      createdAt: announcementComments.createdAt,
+    })
+    .from(announcementComments)
+    .leftJoin(users, eq(users.id, announcementComments.authorId))
+    .where(
+      and(
+        eq(announcementComments.announcementId, row.id),
+        isNull(announcementComments.deletedAt),
+      ),
+    )
+    .orderBy(asc(announcementComments.createdAt));
+
+  const commentIds = rows.map((row2) => row2.id);
+  const reactionRows = commentIds.length
+    ? await db
+        .select({
+          commentId: announcementReactions.commentId,
+          emoji: announcementReactions.emoji,
+          userId: announcementReactions.userId,
+        })
+        .from(announcementReactions)
+        .where(inArray(announcementReactions.commentId, commentIds))
+    : [];
+  const byComment = new Map<string, { emoji: string; userId: string }[]>();
+  for (const rr of reactionRows) {
+    if (!rr.commentId) continue;
+    const list = byComment.get(rr.commentId) ?? [];
+    list.push({ emoji: rr.emoji, userId: rr.userId });
+    byComment.set(rr.commentId, list);
+  }
+
+  const comments: AnnouncementComment[] = rows.map((row2) => ({
+    id: row2.id,
+    announcementId: row.id,
+    authorId: row2.authorId,
+    authorName: row2.authorName ?? null,
+    body: row2.body,
+    createdAt: row2.createdAt,
+    reactions: summarizeReactions(byComment.get(row2.id) ?? [], auth.user.id),
+    canDelete: canModerate || row2.authorId === auth.user.id,
+  }));
+  return success(c, comments);
+});
+
+r.post(
+  '/announcements/:announcementId/comments',
+  requireScopeGroup('announcementsRead'),
+  validateJson(createAnnouncementCommentSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const row = await loadViewable(c);
+    const input = c.get('validated') as CreateAnnouncementCommentInput;
+    const [inserted] = await db
+      .insert(announcementComments)
+      .values({ announcementId: row.id, authorId: auth.user.id, body: input.body })
+      .returning();
+    if (!inserted) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to add comment');
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'announcement.comment.create',
+      target: inserted.id,
+      metadata: { announcementId: row.id },
+    });
+    const comment: AnnouncementComment = {
+      id: inserted.id,
+      announcementId: row.id,
+      authorId: auth.user.id,
+      authorName: auth.user.name,
+      body: inserted.body,
+      createdAt: inserted.createdAt,
+      reactions: [],
+      canDelete: true,
+    };
+    return success(c, comment, 201);
+  },
+);
+
+r.delete('/announcements/comments/:commentId', requireScopeGroup('announcementsRead'), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const commentId = requireParam(c, 'commentId');
+  const comment = (
+    await db.select().from(announcementComments).where(eq(announcementComments.id, commentId)).limit(1)
+  )[0];
+  if (!comment || comment.deletedAt) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Comment not found');
+  const ann = (
+    await db.select().from(announcements).where(eq(announcements.id, comment.announcementId)).limit(1)
+  )[0];
+  if (!ann) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Announcement not found');
+  const allowed =
+    comment.authorId === auth.user.id || (await canModerateCourse(db, auth.user, ann.courseId));
+  if (!allowed) throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Cannot delete this comment');
+  await db
+    .update(announcementComments)
+    .set({ deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+    .where(eq(announcementComments.id, commentId));
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'announcement.comment.delete',
+    target: commentId,
+  });
+  return success(c, { id: commentId });
+});
+
+/** Toggle a reaction on/off, returning the target's updated summary. */
+r.put(
+  '/announcements/:announcementId/reactions',
+  requireScopeGroup('announcementsRead'),
+  validateJson(announcementReactionSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const row = await loadViewable(c);
+    const { emoji } = c.get('validated') as AnnouncementReactionInput;
+    const existing = (
+      await db
+        .select({ id: announcementReactions.id })
+        .from(announcementReactions)
+        .where(
+          and(
+            eq(announcementReactions.announcementId, row.id),
+            isNull(announcementReactions.commentId),
+            eq(announcementReactions.userId, auth.user.id),
+            eq(announcementReactions.emoji, emoji),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (existing) {
+      await db.delete(announcementReactions).where(eq(announcementReactions.id, existing.id));
+    } else {
+      await db
+        .insert(announcementReactions)
+        .values({ announcementId: row.id, userId: auth.user.id, emoji });
+    }
+    return success(c, { reactions: await announcementReactionsFor(db, row.id, auth.user.id) });
+  },
+);
+
+r.put(
+  '/announcements/comments/:commentId/reactions',
+  requireScopeGroup('announcementsRead'),
+  validateJson(announcementReactionSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const commentId = requireParam(c, 'commentId');
+    const { emoji } = c.get('validated') as AnnouncementReactionInput;
+    const comment = (
+      await db.select().from(announcementComments).where(eq(announcementComments.id, commentId)).limit(1)
+    )[0];
+    if (!comment || comment.deletedAt) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Comment not found');
+    const ann = (
+      await db.select().from(announcements).where(eq(announcements.id, comment.announcementId)).limit(1)
+    )[0];
+    if (!ann || !(await canViewAnnouncement(db, auth.user, ann))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No access to this announcement');
+    }
+    const existing = (
+      await db
+        .select({ id: announcementReactions.id })
+        .from(announcementReactions)
+        .where(
+          and(
+            eq(announcementReactions.commentId, commentId),
+            isNull(announcementReactions.announcementId),
+            eq(announcementReactions.userId, auth.user.id),
+            eq(announcementReactions.emoji, emoji),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (existing) {
+      await db.delete(announcementReactions).where(eq(announcementReactions.id, existing.id));
+    } else {
+      await db.insert(announcementReactions).values({ commentId, userId: auth.user.id, emoji });
+    }
+    const rows = await db
+      .select({ emoji: announcementReactions.emoji, userId: announcementReactions.userId })
+      .from(announcementReactions)
+      .where(eq(announcementReactions.commentId, commentId));
+    return success(c, { reactions: summarizeReactions(rows, auth.user.id) });
+  },
+);
 
 export default r;

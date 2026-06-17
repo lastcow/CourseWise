@@ -8,6 +8,7 @@ import { MarkdownView } from '@/components/ui/markdown';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { AnnouncementAttachments } from '@/components/announcements/AnnouncementAttachments';
+import { AnnouncementInteractions } from '@/components/announcements/AnnouncementInteractions';
 import { cn } from '@/lib/utils';
 import { useAnnouncements, useMarkAnnouncementRead } from '@/lib/queries';
 
@@ -83,6 +84,7 @@ export function StudentAnnouncementsPage(): JSX.Element {
                 </p>
                 <MarkdownView source={a.body} className="mt-3 border-t pt-3" />
                 <AnnouncementAttachments attachments={a.attachments} />
+                <AnnouncementInteractions announcement={a} courseId={id} />
               </div>
             );
           })}

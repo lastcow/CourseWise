@@ -24,6 +24,7 @@ import { MarkdownView } from '@/components/ui/markdown';
 import { EmptyState } from '@/components/ui/empty';
 import { CourseSectionHeader, ListSkeleton } from '@/components/course/CourseSectionHeader';
 import { AnnouncementAttachments } from '@/components/announcements/AnnouncementAttachments';
+import { AnnouncementInteractions } from '@/components/announcements/AnnouncementInteractions';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { ApiClientError } from '@/lib/api';
@@ -311,6 +312,7 @@ export function TeacherAnnouncementsPage(): JSX.Element {
               </div>
               <MarkdownView source={a.body} className="mt-3 border-t pt-3" />
               <AnnouncementAttachments attachments={a.attachments} />
+              <AnnouncementInteractions announcement={a} courseId={id} />
             </div>
           ))}
         </div>

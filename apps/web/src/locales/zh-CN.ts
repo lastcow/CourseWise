@@ -679,6 +679,10 @@ export const zhCN = {
       fieldAttachments: '附件',
       attachFile: '添加附件',
       uploading: '上传中…',
+      commentsToggle: '评论 ({{count}})',
+      noComments: '暂无评论。',
+      commentPlaceholder: '写评论…',
+      commentSend: '发送',
       status: {
         draft: '草稿',
         scheduled: '已排期',

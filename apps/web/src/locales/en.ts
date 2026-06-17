@@ -704,6 +704,10 @@ export const en = {
       fieldAttachments: 'Attachments',
       attachFile: 'Attach file',
       uploading: 'Uploading…',
+      commentsToggle: 'Comments ({{count}})',
+      noComments: 'No comments yet.',
+      commentPlaceholder: 'Write a comment…',
+      commentSend: 'Send',
       status: {
         draft: 'Draft',
         scheduled: 'Scheduled',

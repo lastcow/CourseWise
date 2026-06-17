@@ -1824,3 +1824,62 @@ export const announcementAttachments = pgTable(
   }),
 );
 export type AnnouncementAttachmentRow = typeof announcementAttachments.$inferSelect;
+
+// Flat (one-level) comments under a published announcement. Soft-deleted via
+// deletedAt so threads stay coherent and auditable.
+export const announcementComments = pgTable(
+  'announcement_comments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    announcementId: uuid('announcement_id')
+      .notNull()
+      .references(() => announcements.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    announcementIdx: index('announcement_comments_announcement_idx').on(
+      t.announcementId,
+      t.createdAt,
+    ),
+  }),
+);
+export type AnnouncementCommentRow = typeof announcementComments.$inferSelect;
+
+// Emoji reactions on either an announcement or a comment (exactly one target,
+// enforced by a CHECK in the migration). Partial unique indexes dedupe per
+// target type since NULL target columns would otherwise defeat a single index.
+export const announcementReactions = pgTable(
+  'announcement_reactions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    announcementId: uuid('announcement_id').references(() => announcements.id, {
+      onDelete: 'cascade',
+    }),
+    commentId: uuid('comment_id').references(() => announcementComments.id, {
+      onDelete: 'cascade',
+    }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    emoji: text('emoji').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    annUserEmoji: uniqueIndex('announcement_reactions_ann_user_emoji_idx')
+      .on(t.announcementId, t.userId, t.emoji)
+      .where(sql`${t.commentId} is null`),
+    commentUserEmoji: uniqueIndex('announcement_reactions_comment_user_emoji_idx')
+      .on(t.commentId, t.userId, t.emoji)
+      .where(sql`${t.announcementId} is null`),
+    annIdx: index('announcement_reactions_ann_idx').on(t.announcementId),
+    commentIdx: index('announcement_reactions_comment_idx').on(t.commentId),
+  }),
+);
+export type AnnouncementReactionRow = typeof announcementReactions.$inferSelect;
