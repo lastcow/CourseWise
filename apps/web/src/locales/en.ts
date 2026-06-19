@@ -1538,6 +1538,14 @@ export const en = {
       titleLabel: 'Title',
       descriptionLabel: 'Description',
       timeLimit: 'Time limit (minutes)',
+      lockdownLabel: 'Lockdown (exam mode)',
+      lockdownHelp:
+        'Blocks copy / paste / right-click and flags when a student leaves the quiz tab or app. Note: a browser can detect but cannot fully prevent switching to another window or device.',
+      lockdownActive: 'Lockdown',
+      lockdownWarning: 'Leaving the quiz is recorded. Return to the quiz.',
+      lockdownViolations: 'Switches',
+      lockdownFlagged_one: '⚠ {{count}} switch',
+      lockdownFlagged_other: '⚠ {{count}} switches',
       timeLimitDisplay: '{{minutes}} min limit',
       noTimeLimit: 'No time limit',
       untilDateHint:

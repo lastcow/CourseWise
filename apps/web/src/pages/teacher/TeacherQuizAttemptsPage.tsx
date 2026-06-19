@@ -9,6 +9,7 @@ import {
   ListChecks,
   Mail,
   Percent,
+  ShieldAlert,
   Sparkles,
   XCircle,
   type LucideIcon,
@@ -140,6 +141,10 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
           ? t('quizzes.needsGrading')
           : t('quizzes.gradedPill'),
     score: `${a.score ?? '—'} / ${a.maxScore ?? '—'}`,
+    subtitle:
+      a.lockdownViolations > 0
+        ? t('quizzes.lockdownFlagged', { count: a.lockdownViolations })
+        : undefined,
   }));
 
   // Auto-select the first attempt once data loads (no left list to click).
@@ -290,6 +295,13 @@ export function TeacherQuizAttemptsPage(): JSX.Element {
                     value={d.submittedAt ? formatSubmittedAt(d.submittedAt) : '—'}
                     className="sm:col-span-2"
                   />
+                  {quiz.data?.lockdown ? (
+                    <Fact
+                      icon={ShieldAlert}
+                      label={t('quizzes.lockdownViolations')}
+                      value={String(d.lockdownViolations)}
+                    />
+                  ) : null}
                 </dl>
               </CardContent>
             </Card>
