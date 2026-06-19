@@ -79,6 +79,7 @@ export function TeacherQuizEditorPage(): JSX.Element {
     description: '',
     timeLimitMinutes: '',
     groupId: null as string | null,
+    lockdown: false,
     // Scheduling window (datetime-local strings). startTime + endTime
     // gate when students can open an attempt; untilDate caps an
     // in-progress attempt to min(startedAt + timeLimit, untilDate).
@@ -97,6 +98,7 @@ export function TeacherQuizEditorPage(): JSX.Element {
         timeLimitMinutes:
           quiz.data.timeLimitMinutes != null ? String(quiz.data.timeLimitMinutes) : '',
         groupId: quiz.data.groupId ?? null,
+        lockdown: quiz.data.lockdown,
         startTime: toDatetimeLocalValue(quiz.data.startTime),
         endTime: toDatetimeLocalValue(quiz.data.endTime),
         untilDate: toDatetimeLocalValue(quiz.data.untilDate),
@@ -205,6 +207,22 @@ export function TeacherQuizEditorPage(): JSX.Element {
             />
           </div>
           <div>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={meta.lockdown}
+                onChange={(e) => setMeta({ ...meta, lockdown: e.target.checked })}
+              />
+              <span>
+                <span className="font-medium">{t('quizzes.lockdownLabel')}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {t('quizzes.lockdownHelp')}
+                </span>
+              </span>
+            </label>
+          </div>
+          <div>
             <Label htmlFor="quiz-group">{t('quizzes.groupLabel')}</Label>
             <select
               id="quiz-group"
@@ -294,6 +312,7 @@ export function TeacherQuizEditorPage(): JSX.Element {
                       ? Number.parseInt(meta.timeLimitMinutes, 10)
                       : null,
                     groupId: meta.groupId,
+                    lockdown: meta.lockdown,
                     startTime: startIso,
                     endTime: endIso,
                     untilDate: untilIso,

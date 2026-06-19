@@ -36,6 +36,7 @@ import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm';
 import {
+  recordLockdownViolation,
   useCourse,
   useMyQuizAttempts,
   useQuiz,
@@ -780,6 +781,41 @@ export function StudentQuizRunnerPage(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expired, inProgress]);
 
+  // Lockdown / exam mode: while a lockdown attempt is in progress, block
+  // copy/cut/paste/right-click/selection (so the student can only type their
+  // answers) and flag every tab/app switch as a violation for the teacher.
+  const lockdownActive = !!quiz.data?.lockdown && inProgress;
+  useEffect(() => {
+    if (!lockdownActive || !attemptId) return;
+    const block = (e: Event): void => e.preventDefault();
+    const onHidden = (): void => {
+      if (document.hidden) {
+        void recordLockdownViolation(attemptId).catch(() => undefined);
+        toast.push({ title: t('quizzes.lockdownWarning'), tone: 'error' });
+      }
+    };
+    const onBlur = (): void => {
+      void recordLockdownViolation(attemptId).catch(() => undefined);
+    };
+    document.addEventListener('copy', block);
+    document.addEventListener('cut', block);
+    document.addEventListener('paste', block);
+    document.addEventListener('contextmenu', block);
+    document.addEventListener('selectstart', block);
+    document.addEventListener('visibilitychange', onHidden);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      document.removeEventListener('copy', block);
+      document.removeEventListener('cut', block);
+      document.removeEventListener('paste', block);
+      document.removeEventListener('contextmenu', block);
+      document.removeEventListener('selectstart', block);
+      document.removeEventListener('visibilitychange', onHidden);
+      window.removeEventListener('blur', onBlur);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockdownActive, attemptId]);
+
   const completed = attemptsList.data?.find(
     (a) => a.status === 'submitted' || a.status === 'expired',
   );
@@ -971,13 +1007,20 @@ export function StudentQuizRunnerPage(): JSX.Element {
         // but under that page header so they don't visually overlap.
         // Without these, the bar's previous `top-0 z-10` slid behind the
         // page header and disappeared on scroll.
-        <div className="sticky top-14 z-20 -mx-4 flex items-center justify-between border-b bg-background/95 px-4 py-2 shadow-sm backdrop-blur">
+        <div className="sticky top-14 z-20 -mx-4 flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-2 shadow-sm backdrop-blur">
           <span className="text-sm">{t('quizzes.questionsCount', { count: totalQuestions })}</span>
-          {remaining !== null ? (
-            <Badge variant={remaining < 60_000 ? 'destructive' : 'secondary'}>
-              {t('quizzes.timeLeft', { time: formatRemaining(remaining) })}
-            </Badge>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {lockdownActive ? (
+              <Badge variant="warning" className="gap-1">
+                <Lock className="h-3 w-3" aria-hidden /> {t('quizzes.lockdownActive')}
+              </Badge>
+            ) : null}
+            {remaining !== null ? (
+              <Badge variant={remaining < 60_000 ? 'destructive' : 'secondary'}>
+                {t('quizzes.timeLeft', { time: formatRemaining(remaining) })}
+              </Badge>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

@@ -621,6 +621,8 @@ export interface QuizSummary {
   untilDate: string | null;
   timeLimitMinutes: number | null;
   maxAttempts: number;
+  /** Exam mode: block copy/paste/right-click + flag tab switches during attempts. */
+  lockdown: boolean;
   maxScore: number | null;
   passingScore: number | null;
   publishedAt: string | null;
@@ -721,6 +723,8 @@ export interface QuizAttemptSummary {
   score: number | null;
   maxScore: number | null;
   teacherReviewed: boolean;
+  /** Tab/app switches detected during a lockdown attempt. */
+  lockdownViolations: number;
   gradedAt: string | null;
   gradedById: string | null;
   createdAt: string;

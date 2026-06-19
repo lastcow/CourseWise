@@ -72,6 +72,7 @@ function quiz(over: Partial<QuizSummary> = {}): QuizSummary {
     untilDate: null,
     timeLimitMinutes: null,
     maxAttempts: 1,
+    lockdown: false,
     maxScore: null,
     passingScore: null,
     publishedAt: null,

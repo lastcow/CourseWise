@@ -892,6 +892,9 @@ export const quizzes = pgTable(
     untilDate: timestamp('until_date', { withTimezone: true, mode: 'string' }),
     timeLimitMinutes: integer('time_limit_minutes'),
     maxAttempts: integer('max_attempts').notNull().default(1),
+    // Exam/lockdown mode: the student runner blocks copy/paste/right-click and
+    // flags tab/app switches while an attempt is in progress.
+    lockdown: boolean('lockdown').notNull().default(false),
     maxScore: numeric('max_score', { precision: 6, scale: 2 }),
     passingScore: numeric('passing_score', { precision: 6, scale: 2 }),
     publishedAt: timestamp('published_at', { withTimezone: true, mode: 'string' }),
@@ -947,6 +950,8 @@ export const quizAttempts = pgTable(
     score: numeric('score', { precision: 6, scale: 2 }),
     maxScore: numeric('max_score', { precision: 6, scale: 2 }),
     teacherReviewed: boolean('teacher_reviewed').notNull().default(false),
+    // Count of lockdown violations (tab/app switches) detected during the attempt.
+    lockdownViolations: integer('lockdown_violations').notNull().default(0),
     gradedAt: timestamp('graded_at', { withTimezone: true, mode: 'string' }),
     gradedById: uuid('graded_by_id').references(() => users.id, { onDelete: 'set null' }),
     // Which tester schedule (wave) governed this attempt's window. null for

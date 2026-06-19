@@ -669,6 +669,7 @@ export const createQuizSchema = z
       .optional()
       .nullable(),
     maxAttempts: z.number().int().positive().max(100).optional(),
+    lockdown: z.boolean().optional(),
     passingScore: z.number().min(0).max(1000).optional().nullable(),
   })
   .refine(quizSchedulingOrderOk, {
@@ -697,6 +698,7 @@ export const updateQuizSchema = z
       .optional()
       .nullable(),
     maxAttempts: z.number().int().positive().max(100).optional(),
+    lockdown: z.boolean().optional(),
     passingScore: z.number().min(0).max(1000).optional().nullable(),
   })
   .refine(quizSchedulingOrderOk, {

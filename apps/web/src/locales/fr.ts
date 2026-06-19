@@ -1556,6 +1556,14 @@ export const fr = {
       titleLabel: 'Titre',
       descriptionLabel: 'Description',
       timeLimit: 'Limite de temps (minutes)',
+      lockdownLabel: 'Verrouillage (mode examen)',
+      lockdownHelp:
+        "Bloque copier / coller / clic droit et signale quand un étudiant quitte l'onglet ou l'application du quiz. Note : un navigateur peut détecter mais ne peut pas totalement empêcher le passage à une autre fenêtre ou un autre appareil.",
+      lockdownActive: 'Verrouillé',
+      lockdownWarning: 'Quitter le quiz est enregistré. Revenez au quiz.',
+      lockdownViolations: 'Changements',
+      lockdownFlagged_one: '⚠ {{count}} changement',
+      lockdownFlagged_other: '⚠ {{count}} changements',
       timeLimitDisplay: 'Limite de {{minutes}} min',
       noTimeLimit: 'Sans limite de temps',
       untilDateHint:

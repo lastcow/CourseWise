@@ -1736,6 +1736,14 @@ export function useSubmitQuizAttempt(attemptId: string) {
   });
 }
 
+/** Record one lockdown violation (tab/app switch) for an in-progress attempt. */
+export function recordLockdownViolation(attemptId: string): Promise<{ lockdownViolations: number }> {
+  return apiCall<{ lockdownViolations: number }>(
+    `/api/quiz-attempts/${attemptId}/lockdown-violation`,
+    { method: 'POST' },
+  );
+}
+
 export function useQuizAttempts(quizId: string | null) {
   return useQuery({
     queryKey: ['quiz-attempts', quizId],

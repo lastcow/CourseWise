@@ -88,6 +88,7 @@ function toQuizSummary(
     untilDate: row.untilDate ?? null,
     timeLimitMinutes: row.timeLimitMinutes ?? null,
     maxAttempts: row.maxAttempts,
+    lockdown: row.lockdown,
     maxScore: num(row.maxScore),
     passingScore: num(row.passingScore),
     publishedAt: row.publishedAt ?? null,
@@ -116,6 +117,7 @@ function toAttemptSummary(row: typeof quizAttempts.$inferSelect): QuizAttemptSum
     score: num(row.score),
     maxScore: num(row.maxScore),
     teacherReviewed: row.teacherReviewed,
+    lockdownViolations: row.lockdownViolations,
     gradedAt: row.gradedAt ?? null,
     gradedById: row.gradedById ?? null,
     createdAt: row.createdAt,
@@ -310,6 +312,7 @@ r.post(
         untilDate: input.untilDate ?? null,
         timeLimitMinutes: input.timeLimitMinutes ?? null,
         maxAttempts: input.maxAttempts ?? 1,
+        lockdown: input.lockdown ?? false,
         passingScore: input.passingScore != null ? input.passingScore.toString() : null,
         status: 'draft',
         createdById: auth.user.id,
@@ -402,6 +405,7 @@ r.patch(
     if (input.untilDate !== undefined) patch.untilDate = input.untilDate;
     if (input.timeLimitMinutes !== undefined) patch.timeLimitMinutes = input.timeLimitMinutes;
     if (input.maxAttempts !== undefined) patch.maxAttempts = input.maxAttempts;
+    if (input.lockdown !== undefined) patch.lockdown = input.lockdown;
     if (input.passingScore !== undefined) {
       patch.passingScore = input.passingScore === null ? null : input.passingScore.toString();
     }
@@ -1091,6 +1095,35 @@ r.get('/me/quizzes/:quizId/attempts', requireScopeGroup('quizAttemptsRead'), asy
     .orderBy(desc(quizAttempts.startedAt));
   return success(c, rows.map(toAttemptSummary));
 });
+
+// Record a lockdown violation (tab/app switch) for the caller's own in-progress
+// attempt. Best-effort + idempotent-ish: only the owner can bump it, and only
+// while the attempt is live. Returns the new count.
+r.post(
+  '/quiz-attempts/:attemptId/lockdown-violation',
+  requireScopeGroup('quizAttemptsWrite'),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const id = requireParam(c, 'attemptId');
+    const attempt = await loadAttempt(c, id);
+    if (auth.user.role !== 'student' || attempt.studentId !== auth.user.id) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'Cannot modify another attempt');
+    }
+    if (attempt.status !== 'in_progress') {
+      return success(c, { lockdownViolations: attempt.lockdownViolations });
+    }
+    const [updated] = await db
+      .update(quizAttempts)
+      .set({
+        lockdownViolations: sql`${quizAttempts.lockdownViolations} + 1`,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(quizAttempts.id, id))
+      .returning({ lockdownViolations: quizAttempts.lockdownViolations });
+    return success(c, { lockdownViolations: updated?.lockdownViolations ?? attempt.lockdownViolations + 1 });
+  },
+);
 
 // =================== Grading override ===================
 
