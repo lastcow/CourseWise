@@ -14,10 +14,15 @@ import { createDb } from '../db/client';
 import {
   assignmentSubmissions,
   assignments,
+  attendanceRecords,
+  attendanceSessions,
   courseExportJobs,
   courseTeachers,
   courses,
   enrollments,
+  fileAssets,
+  finalGrades,
+  modules,
   readingMaterials,
 } from '../db/schema';
 import { gatherCourseExport } from '../services/courseExport';
@@ -101,7 +106,14 @@ async function seed(): Promise<Seed> {
   const studentId = await userId(await login(STUDENT1_EMAIL, STUDENT1_PASSWORD));
   const [course] = await db
     .insert(courses)
-    .values({ code: COURSE_CODE, title: 'Export Integration 101', status: 'active' })
+    .values({
+      code: COURSE_CODE,
+      title: 'Export Integration 101',
+      status: 'active',
+      syllabusMd: '# Syllabus\nWeekly labs, one final project.',
+      startDate: '2026-01-05T00:00:00.000Z',
+      endDate: '2026-04-24T00:00:00.000Z',
+    })
     .returning({ id: courses.id });
   const courseId = course!.id;
   await db.insert(courseTeachers).values({ courseId, teacherId, role: 'primary' });
@@ -119,14 +131,65 @@ async function seed(): Promise<Seed> {
     .insert(assignments)
     .values({ courseId, title: 'Lab 1', description: 'Do the lab', maxScore: '100.00', status: 'published' })
     .returning({ id: assignments.id });
-  await db.insert(assignmentSubmissions).values({
-    assignmentId: a!.id,
-    studentId,
-    status: 'graded',
-    content: 'my answer',
-    score: '88.00',
-    feedback: 'nice',
-  });
+  const [sub] = await db
+    .insert(assignmentSubmissions)
+    .values({
+      assignmentId: a!.id,
+      studentId,
+      status: 'graded',
+      content: 'my answer',
+      score: '88.00',
+      feedback: 'nice',
+    })
+    .returning({ id: assignmentSubmissions.id });
+  // Attachment uploaded alongside the submission (linked polymorphically),
+  // the student's cached final grade, a calendar module, and an attendance
+  // session + record — independent chains, so inserted in parallel.
+  await Promise.all([
+    db.insert(fileAssets).values({
+      ownerId: studentId,
+      courseId,
+      objectKey: `courses/${courseId}/submissions/lab1-report.pdf`,
+      contentType: 'application/pdf',
+      sizeBytes: 1234,
+      originalFilename: 'lab1-report.pdf',
+      status: 'ready',
+      relatedType: 'submission',
+      relatedId: sub!.id,
+    }),
+    db.insert(finalGrades).values({
+      courseId,
+      studentId,
+      score: '91.50',
+      letterGrade: 'A-',
+    }),
+    db.insert(modules).values({
+      courseId,
+      title: 'Week 1 - Foundations',
+      status: 'published',
+      position: 0,
+      startAt: '2026-01-05T00:00:00.000Z',
+      endAt: '2026-01-12T00:00:00.000Z',
+    }),
+    (async () => {
+      const [session] = await db
+        .insert(attendanceSessions)
+        .values({
+          courseId,
+          title: 'Lecture 1',
+          sessionDate: '2026-01-06T09:00:00.000Z',
+          status: 'closed',
+          createdById: teacherId,
+        })
+        .returning({ id: attendanceSessions.id });
+      await db.insert(attendanceRecords).values({
+        sessionId: session!.id,
+        studentId,
+        status: 'present',
+        recordedById: teacherId,
+      });
+    })(),
+  ]);
   return { courseId, teacherId, studentId };
 }
 
@@ -140,28 +203,61 @@ describe.skipIf(!hasDb)('Course export (integration, requires DATABASE_URL)', ()
   let s: Seed;
   let teacherToken: string;
 
+  // Seeding is a series of round trips to a remote Postgres; give it headroom
+  // beyond the 10s default.
   beforeEach(async () => {
     await clean();
     teacherToken = await login(TEACHER_EMAIL, TEACHER_PASSWORD);
     s = await seed();
-  });
+  }, 30_000);
   afterAll(async () => {
     await clean();
   });
 
-  it('gatherCourseExport produces the expected entries', async () => {
+  // gather is a dozen-plus sequential round trips to a remote Postgres; give
+  // it headroom beyond the 5s default.
+  it('gatherCourseExport produces the expected entries', { timeout: 30_000 }, async () => {
     const db = createDb(env.DATABASE_URL);
     const manifest = await gatherCourseExport(db, s.courseId);
     expect(manifest).not.toBeNull();
     const paths = manifest!.textEntries.map((e) => e.path);
     expect(paths).toContain('README.txt');
-    expect(paths).toContain('scores.csv');
+    expect(paths).toContain('final_grades.csv');
     expect(paths.some((p) => p.startsWith('materials/') && p.endsWith('content.md'))).toBe(true);
     expect(paths.some((p) => p.startsWith('assignments/') && p.endsWith('requirement.md'))).toBe(true);
     expect(paths.some((p) => p.includes('/submissions/') && p.endsWith('submission.json'))).toBe(true);
-    // scores.csv carries the graded submission.
-    const scores = manifest!.textEntries.find((e) => e.path === 'scores.csv')!.content;
-    expect(scores).toContain('88');
+
+    // final_grades.csv carries the student's final grade — not the per-item 88.
+    const csv = manifest!.textEntries.find((e) => e.path === 'final_grades.csv')!.content;
+    expect(csv).toContain('91.5');
+    expect(csv).toContain('A-');
+    expect(csv).toContain(STUDENT1_EMAIL);
+    expect(csv).not.toContain('88');
+
+    // The per-item score stays out of the submission record too; feedback stays in.
+    const subJson = manifest!.textEntries.find((e) => e.path.endsWith('submission.json'))!.content;
+    expect(subJson).not.toContain('"score"');
+    expect(subJson).toContain('nice');
+
+    // The submission's attachment is exported under the student's files/ folder.
+    expect(
+      manifest!.fileEntries.some(
+        (f) => f.path.includes('/files/') && f.path.endsWith('lab1-report.pdf'),
+      ),
+    ).toBe(true);
+
+    // Syllabus + teaching calendar.
+    const syllabus = manifest!.textEntries.find((e) => e.path === 'syllabus.md')!.content;
+    expect(syllabus).toContain('Weekly labs');
+    const calendar = manifest!.textEntries.find((e) => e.path === 'calendar.json')!.content;
+    expect(calendar).toContain('2026-01-05');
+    expect(calendar).toContain('Week 1 - Foundations');
+
+    // Attendance CSV carries the recorded session row.
+    const attendance = manifest!.textEntries.find((e) => e.path === 'attendance.csv')!.content;
+    expect(attendance).toContain('Lecture 1');
+    expect(attendance).toContain(STUDENT1_EMAIL);
+    expect(attendance).toContain('present');
   });
 
   it('request without a workflow binding marks the job failed (503), then lists it', async () => {
