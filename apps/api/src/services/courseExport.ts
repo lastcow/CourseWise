@@ -4,6 +4,8 @@ import type { Db } from '../db/client';
 import {
   assignmentSubmissions,
   assignments,
+  attendanceRecords,
+  attendanceSessions,
   courses,
   discussionGrades,
   discussionPosts,
@@ -12,6 +14,7 @@ import {
   fileAssets,
   finalGrades,
   groupSubmissions,
+  modules,
   quizAnswers,
   quizAttempts,
   quizQuestions,
@@ -77,8 +80,13 @@ type ReadyAsset = {
 
 /**
  * Gather everything needed to build a course export ZIP into a serializable
- * manifest: rendered text files (metadata.json, requirement.md, scores.csv,
- * README) and the list of binary files (by R2 object key) to stream in.
+ * manifest: rendered text files (syllabus.md, calendar.json, metadata.json,
+ * requirement.md, final_grades.csv, attendance.csv, README) and the list of
+ * binary files (by R2 object key) to stream in.
+ *
+ * Grades policy: the export carries each student's FINAL grade only — per-item
+ * assignment/quiz scores are deliberately not included (the gradebook stays the
+ * source for itemized scores). Submissions are exported with their attachments.
  */
 export async function gatherCourseExport(db: Db, courseId: string): Promise<ExportManifest | null> {
   const [course] = await db
@@ -87,6 +95,12 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
       code: courses.code,
       title: courses.title,
       termLabel: courses.termLabel,
+      startDate: courses.startDate,
+      endDate: courses.endDate,
+      meetingSlotsJson: courses.meetingSlotsJson,
+      moduleCadence: courses.moduleCadence,
+      syllabusMd: courses.syllabusMd,
+      syllabusFileAssetId: courses.syllabusFileAssetId,
     })
     .from(courses)
     .where(eq(courses.id, courseId))
@@ -154,6 +168,36 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
     .from(enrollments)
     .where(eq(enrollments.courseId, courseId));
   const userIds = new Set<string>(enrolledRows.map((e) => e.studentId));
+
+  // ---- Syllabus + teaching calendar ----
+  if (course.syllabusMd) {
+    textEntries.push({ path: 'syllabus.md', content: course.syllabusMd });
+  }
+  addFileById('syllabus/', course.syllabusFileAssetId);
+  const moduleRows = await db
+    .select()
+    .from(modules)
+    .where(eq(modules.courseId, courseId))
+    .orderBy(asc(modules.position));
+  textEntries.push({
+    path: 'calendar.json',
+    content: json({
+      startDate: course.startDate,
+      endDate: course.endDate,
+      // Weekly meeting slots: { day: 0-6 (Sun-Sat), start: 'HH:MM', end: 'HH:MM' }.
+      meetingSlots: course.meetingSlotsJson,
+      moduleCadence: course.moduleCadence,
+      modules: moduleRows.map((m) => ({
+        title: m.title,
+        description: m.description,
+        status: m.status,
+        position: m.position,
+        startAt: m.startAt,
+        endAt: m.endAt,
+        closedAt: m.closedAt,
+      })),
+    }),
+  });
 
   // ---- Reading materials ----
   const materials = await db
@@ -284,6 +328,27 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
     gradesByTopic.set(g.topicId, list);
   }
 
+  // ---- Attendance sessions + records ----
+  const sessionRows = await db
+    .select()
+    .from(attendanceSessions)
+    .where(eq(attendanceSessions.courseId, courseId))
+    .orderBy(asc(attendanceSessions.sessionDate));
+  const sessionIds = sessionRows.map((s) => s.id);
+  const attRecords = sessionIds.length
+    ? await db
+        .select()
+        .from(attendanceRecords)
+        .where(inArray(attendanceRecords.sessionId, sessionIds))
+    : [];
+  const recordsBySession = new Map<string, typeof attRecords>();
+  for (const r of attRecords) {
+    userIds.add(r.studentId);
+    const list = recordsBySession.get(r.sessionId) ?? [];
+    list.push(r);
+    recordsBySession.set(r.sessionId, list);
+  }
+
   // ---- Resolve all referenced users ----
   const userRows = userIds.size
     ? await db
@@ -324,8 +389,6 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
           student: userById.get(s.studentId)?.name ?? null,
           email: userById.get(s.studentId)?.email ?? null,
           status: s.status,
-          score: num(s.score),
-          maxScore: num(a.maxScore),
           feedback: s.feedback,
           submittedAt: gs?.submittedAt ?? s.submittedAt,
           gradedAt: s.gradedAt,
@@ -380,8 +443,6 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
           student: userById.get(at.studentId)?.name ?? null,
           email: userById.get(at.studentId)?.email ?? null,
           status: at.status,
-          score: num(at.score),
-          maxScore: num(at.maxScore),
           startedAt: at.startedAt,
           submittedAt: at.submittedAt,
           teacherReviewed: at.teacherReviewed,
@@ -394,7 +455,6 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
             questionId: ans.questionId,
             answer: ans.answer,
             isCorrect: ans.isCorrect,
-            pointsAwarded: num(ans.pointsAwarded),
           })),
         ),
       });
@@ -427,14 +487,15 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
       ),
     });
     if (tpc.isGraded) {
+      // Scores stay out of the export (final grade only) — keep the written
+      // feedback, which is part of the student's record but not a score.
       for (const g of gradesByTopic.get(tpc.id) ?? []) {
+        if (!g.feedback) continue;
         textEntries.push({
-          path: `${folder}grades/${labelFor(g.studentId)}.json`,
+          path: `${folder}feedback/${labelFor(g.studentId)}.json`,
           content: json({
             student: userById.get(g.studentId)?.name ?? null,
             email: userById.get(g.studentId)?.email ?? null,
-            score: num(g.score),
-            maxScore: num(tpc.maxScore),
             feedback: g.feedback,
             gradedAt: g.gradedAt,
           }),
@@ -443,34 +504,54 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
     }
   });
 
-  // ---- scores.csv (long format) ----
+  // ---- final_grades.csv — one row per enrollment, final grade only ----
+  // Per-item assignment/quiz scores are deliberately not exported. Finals are
+  // read from the cached final_grades table (not recomputed here: recalculating
+  // stamps finalizedAt/finalizedById, a side effect an export must not have),
+  // so an Outdated column flags rows the gradebook hasn't refreshed yet.
   const finals = await db.select().from(finalGrades).where(eq(finalGrades.courseId, courseId));
-  const rows: string[] = ['Student,Email,Type,Item,Score,Max,Status/Letter'];
-  const push = (uid: string, type: string, item: string, score: unknown, max: unknown, st: unknown) =>
+  const finalByStudent = new Map(finals.map((f) => [f.studentId, f]));
+  const rows: string[] = ['Student,Email,Enrollment Status,Final Score,Letter Grade,Outdated'];
+  const roster = [...enrolledRows].sort((a, b) =>
+    (userById.get(a.studentId)?.name ?? '').localeCompare(userById.get(b.studentId)?.name ?? ''),
+  );
+  for (const e of roster) {
+    const u = userById.get(e.studentId);
+    const f = finalByStudent.get(e.studentId);
     rows.push(
       [
-        csvCell(userById.get(uid)?.name ?? ''),
-        csvCell(userById.get(uid)?.email ?? ''),
-        csvCell(type),
-        csvCell(item),
-        csvCell(score),
-        csvCell(max),
-        csvCell(st),
+        csvCell(u?.name ?? ''),
+        csvCell(u?.email ?? ''),
+        csvCell(e.status),
+        csvCell(f ? num(f.teacherOverrideScore ?? f.score) : null),
+        csvCell(f?.letterGrade ?? null),
+        csvCell(f?.isOutdated ? 'yes' : null),
       ].join(','),
     );
-  for (const a of assignmentRows)
-    for (const s of subsByAssignment.get(a.id) ?? [])
-      push(s.studentId, 'Assignment', a.title, num(s.score), num(a.maxScore), s.status);
-  for (const q of quizRows)
-    for (const at of attemptsByQuiz.get(q.id) ?? [])
-      push(at.studentId, 'Quiz', q.title, num(at.score), num(at.maxScore), at.status);
-  for (const tpc of topicRows)
-    if (tpc.isGraded)
-      for (const g of gradesByTopic.get(tpc.id) ?? [])
-        push(g.studentId, 'Discussion', tpc.title, num(g.score), num(tpc.maxScore), '');
-  for (const f of finals)
-    push(f.studentId, 'Final', '', num(f.teacherOverrideScore ?? f.score), '', f.letterGrade ?? '');
-  textEntries.push({ path: 'scores.csv', content: rows.join('\n') });
+  }
+  textEntries.push({ path: 'final_grades.csv', content: rows.join('\n') });
+
+  // ---- attendance.csv — one row per recorded attendance, in session order ----
+  const attRows = ['Session,Session Date,Student,Email,Status,Notes,Recorded At'];
+  for (const sess of sessionRows) {
+    const recs = [...(recordsBySession.get(sess.id) ?? [])].sort((a, b) =>
+      (userById.get(a.studentId)?.name ?? '').localeCompare(userById.get(b.studentId)?.name ?? ''),
+    );
+    for (const r of recs) {
+      attRows.push(
+        [
+          csvCell(sess.title),
+          csvCell(sess.sessionDate),
+          csvCell(userById.get(r.studentId)?.name ?? ''),
+          csvCell(userById.get(r.studentId)?.email ?? ''),
+          csvCell(r.status),
+          csvCell(r.notes),
+          csvCell(r.recordedAt),
+        ].join(','),
+      );
+    }
+  }
+  textEntries.push({ path: 'attendance.csv', content: attRows.join('\n') });
 
   // ---- README ----
   textEntries.push({
@@ -480,11 +561,16 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
       `Course: ${course.title} (${course.code})${course.termLabel ? ` · ${course.termLabel}` : ''}\n` +
       `Generated: ${generatedAt}\n\n` +
       `Contents:\n` +
-      `  scores.csv             — every student score across all gradable items\n` +
+      `  syllabus.md, syllabus/ — course syllabus (text and/or uploaded file), when set\n` +
+      `  calendar.json          — teaching calendar: course dates, weekly meeting slots, module windows\n` +
+      `  final_grades.csv       — each student's final grade (score + letter); per-item scores are not exported\n` +
+      `  attendance.csv         — every attendance record across all sessions\n` +
       `  materials/             — reading materials (metadata + files / links)\n` +
-      `  assignments/<item>/    — requirement + each student's submission (files, score, feedback)\n` +
-      `  quizzes/<item>/        — questions + each attempt's answers and score\n` +
-      `  discussions/<item>/    — posts + per-student grades\n` +
+      `  assignments/<item>/    — requirement + each student's submission (answer text, attachments, feedback)\n` +
+      `  quizzes/<item>/        — questions + each attempt's answers\n` +
+      `  discussions/<item>/    — posts + per-student feedback\n` +
+      `\nFinal grades reflect the gradebook's last recalculation; a "yes" in the` +
+      ` Outdated column means newer submissions may not be included yet.\n` +
       (missingFiles.length
         ? `\nNote: ${missingFiles.length} referenced file(s) were missing or not ready and were skipped.\n`
         : ''),

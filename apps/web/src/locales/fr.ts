@@ -318,7 +318,7 @@ export const fr = {
       export: {
         title: 'Exporter les données du cours',
         description:
-          'Génère un ZIP des supports de lecture et de tous les éléments notés — devoirs, quiz, discussions — avec chaque remise et note. Le traitement s’exécute en arrière-plan ; nous vous enverrons un lien par e-mail une fois prêt. Pour des raisons de confidentialité, chaque export est automatiquement supprimé 72 heures après sa génération.',
+          'Génère un ZIP du plan de cours, du calendrier d’enseignement, des supports de lecture, devoirs, quiz et discussions — chaque remise avec ses pièces jointes — ainsi que des CSV des notes finales et de l’assiduité (sans le détail par élément). Le traitement s’exécute en arrière-plan ; nous vous enverrons un lien par e-mail une fois prêt. Pour des raisons de confidentialité, chaque export est automatiquement supprimé 72 heures après sa génération.',
         cta: 'Exporter les données du cours',
         requested: 'Export lancé — nous vous enverrons un lien de téléchargement par e-mail.',
         download: 'Télécharger',
