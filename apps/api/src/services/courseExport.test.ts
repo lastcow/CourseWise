@@ -13,6 +13,10 @@ describe('sanitize', () => {
   it('caps length at 80 chars', () => {
     expect(sanitize('x'.repeat(200)).length).toBe(80);
   });
+  it('keeps CJK characters so student names survive in folder paths', () => {
+    expect(sanitize('陈小明')).toBe('陈小明');
+    expect(sanitize('陈小明 / lab #1')).toBe('陈小明 _ lab _1');
+  });
 });
 
 describe('exportObjectKey', () => {

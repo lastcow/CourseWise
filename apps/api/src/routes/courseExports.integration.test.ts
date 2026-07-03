@@ -22,8 +22,17 @@ import {
   enrollments,
   fileAssets,
   finalGrades,
+  groupSets,
+  groupSubmissions,
+  groups,
   modules,
+  presentations,
+  quizAnswers,
+  quizAttempts,
+  quizQuestions,
+  quizzes,
   readingMaterials,
+  studentProfiles,
 } from '../db/schema';
 import { gatherCourseExport } from '../services/courseExport';
 
@@ -48,6 +57,8 @@ const TEACHER_EMAIL = 'teacher@example.com';
 const TEACHER_PASSWORD = 'Teacher123!';
 const STUDENT1_EMAIL = 'student1@example.com';
 const STUDENT1_PASSWORD = 'Student123!';
+const STUDENT2_EMAIL = 'student2@example.com';
+const STUDENT2_PASSWORD = 'Student123!';
 
 interface Envelope<T> {
   success: boolean;
@@ -98,12 +109,14 @@ interface Seed {
   courseId: string;
   teacherId: string;
   studentId: string;
+  studentId2: string;
 }
 
 async function seed(): Promise<Seed> {
   const db = createDb(env.DATABASE_URL);
   const teacherId = await userId(await login(TEACHER_EMAIL, TEACHER_PASSWORD));
   const studentId = await userId(await login(STUDENT1_EMAIL, STUDENT1_PASSWORD));
+  const studentId2 = await userId(await login(STUDENT2_EMAIL, STUDENT2_PASSWORD));
   const [course] = await db
     .insert(courses)
     .values({
@@ -117,7 +130,18 @@ async function seed(): Promise<Seed> {
     .returning({ id: courses.id });
   const courseId = course!.id;
   await db.insert(courseTeachers).values({ courseId, teacherId, role: 'primary' });
-  await db.insert(enrollments).values({ courseId, studentId, status: 'enrolled' });
+  await db.insert(enrollments).values([
+    { courseId, studentId, status: 'enrolled' },
+    { courseId, studentId: studentId2, status: 'enrolled' },
+  ]);
+  // Student number surfaces in final_grades.csv and attendance.csv.
+  await db
+    .insert(studentProfiles)
+    .values({ userId: studentId, studentNumber: 'S-EXP-001' })
+    .onConflictDoUpdate({
+      target: studentProfiles.userId,
+      set: { studentNumber: 'S-EXP-001' },
+    });
 
   await db.insert(readingMaterials).values({
     courseId,
@@ -142,35 +166,165 @@ async function seed(): Promise<Seed> {
       feedback: 'nice',
     })
     .returning({ id: assignmentSubmissions.id });
-  // Attachment uploaded alongside the submission (linked polymorphically),
-  // the student's cached final grade, a calendar module, and an attendance
-  // session + record — independent chains, so inserted in parallel.
-  await Promise.all([
-    db.insert(fileAssets).values({
-      ownerId: studentId,
+  // Group assignment: shared content lives on the group submission; the shared
+  // file is uploaded against ONE member's row and must export for the team.
+  const [gset] = await db
+    .insert(groupSets)
+    .values({ courseId, name: 'Teams', maxMembersPerGroup: 4, createdById: teacherId })
+    .returning({ id: groupSets.id });
+  const [a2] = await db
+    .insert(assignments)
+    .values({
       courseId,
-      objectKey: `courses/${courseId}/submissions/lab1-report.pdf`,
-      contentType: 'application/pdf',
-      sizeBytes: 1234,
-      originalFilename: 'lab1-report.pdf',
-      status: 'ready',
-      relatedType: 'submission',
-      relatedId: sub!.id,
-    }),
+      title: 'Lab 2 Team',
+      description: 'Team lab',
+      maxScore: '100.00',
+      status: 'published',
+      submissionMode: 'group',
+      groupSetId: gset!.id,
+    })
+    .returning({ id: assignments.id });
+  const [grp] = await db
+    .insert(groups)
+    .values({ groupSetId: gset!.id, name: 'Team Alpha' })
+    .returning({ id: groups.id });
+  const [gsub] = await db
+    .insert(groupSubmissions)
+    .values({
+      assignmentId: a2!.id,
+      groupId: grp!.id,
+      content: 'team answer',
+      submittedById: studentId,
+      submittedAt: '2026-02-01T10:00:00.000Z',
+    })
+    .returning({ id: groupSubmissions.id });
+  const memberRows = await db
+    .insert(assignmentSubmissions)
+    .values([
+      {
+        assignmentId: a2!.id,
+        studentId,
+        status: 'submitted' as const,
+        groupSubmissionId: gsub!.id,
+        submittedAt: '2026-02-01T10:00:00.000Z',
+      },
+      {
+        assignmentId: a2!.id,
+        studentId: studentId2,
+        status: 'submitted' as const,
+        groupSubmissionId: gsub!.id,
+        submittedAt: '2026-02-01T10:00:00.000Z',
+      },
+    ])
+    .returning({ id: assignmentSubmissions.id, studentId: assignmentSubmissions.studentId });
+  const lab2Row = memberRows.find((r) => r.studentId === studentId)!;
+
+  // Quiz with a reviewed answer, for the human-readable answers.md.
+  const [qz] = await db
+    .insert(quizzes)
+    .values({ courseId, title: 'Quiz 1', status: 'published', maxScore: '10.00' })
+    .returning({ id: quizzes.id });
+  const [qq] = await db
+    .insert(quizQuestions)
+    .values({
+      quizId: qz!.id,
+      position: 0,
+      prompt: 'Capital of France?',
+      type: 'single_choice',
+      options: ['London', 'Paris'],
+      correctAnswers: [1],
+      points: '2.00',
+    })
+    .returning({ id: quizQuestions.id });
+  const [att] = await db
+    .insert(quizAttempts)
+    .values({
+      quizId: qz!.id,
+      studentId,
+      status: 'submitted',
+      submittedAt: '2026-02-02T10:00:00.000Z',
+      teacherReviewed: true,
+    })
+    .returning({ id: quizAttempts.id });
+  await db.insert(quizAnswers).values({
+    attemptId: att!.id,
+    questionId: qq!.id,
+    answer: 1,
+    isCorrect: true,
+    pointsAwarded: '2.00',
+    feedback: 'good job',
+  });
+
+  // Submission attachments, the student's cached final grade, a calendar
+  // module with its presentation deck, and an attendance session + record —
+  // independent chains, so inserted in parallel.
+  await Promise.all([
+    db.insert(fileAssets).values([
+      {
+        ownerId: studentId,
+        courseId,
+        objectKey: `courses/${courseId}/submissions/lab1-report.pdf`,
+        contentType: 'application/pdf',
+        sizeBytes: 1234,
+        originalFilename: 'lab1-report.pdf',
+        status: 'ready',
+        relatedType: 'submission',
+        relatedId: sub!.id,
+      },
+      {
+        ownerId: studentId,
+        courseId,
+        objectKey: `courses/${courseId}/submissions/lab2-shared.pdf`,
+        contentType: 'application/pdf',
+        sizeBytes: 2048,
+        originalFilename: 'lab2-shared.pdf',
+        status: 'ready',
+        relatedType: 'submission',
+        relatedId: lab2Row.id,
+      },
+    ]),
     db.insert(finalGrades).values({
       courseId,
       studentId,
       score: '91.50',
       letterGrade: 'A-',
     }),
-    db.insert(modules).values({
-      courseId,
-      title: 'Week 1 - Foundations',
-      status: 'published',
-      position: 0,
-      startAt: '2026-01-05T00:00:00.000Z',
-      endAt: '2026-01-12T00:00:00.000Z',
-    }),
+    (async () => {
+      const [mod] = await db
+        .insert(modules)
+        .values({
+          courseId,
+          title: 'Week 1 - Foundations',
+          status: 'published',
+          position: 0,
+          startAt: '2026-01-05T00:00:00.000Z',
+          endAt: '2026-01-12T00:00:00.000Z',
+        })
+        .returning({ id: modules.id });
+      const [pptAsset] = await db
+        .insert(fileAssets)
+        .values({
+          ownerId: teacherId,
+          courseId,
+          objectKey: `courses/${courseId}/presentations/deck.pptx`,
+          contentType:
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          sizeBytes: 5000,
+          originalFilename: 'gamma-job-1.pptx',
+          status: 'ready',
+          relatedType: 'material',
+        })
+        .returning({ id: fileAssets.id });
+      await db.insert(presentations).values({
+        courseId,
+        moduleId: mod!.id,
+        title: 'Intro Deck',
+        status: 'published',
+        position: 0,
+        createdById: teacherId,
+        fileAssetId: pptAsset!.id,
+      });
+    })(),
     (async () => {
       const [session] = await db
         .insert(attendanceSessions)
@@ -190,7 +344,7 @@ async function seed(): Promise<Seed> {
       });
     })(),
   ]);
-  return { courseId, teacherId, studentId };
+  return { courseId, teacherId, studentId, studentId2 };
 }
 
 async function clean(): Promise<void> {
@@ -209,7 +363,7 @@ describe.skipIf(!hasDb)('Course export (integration, requires DATABASE_URL)', ()
     await clean();
     teacherToken = await login(TEACHER_EMAIL, TEACHER_PASSWORD);
     s = await seed();
-  }, 30_000);
+  }, 60_000);
   afterAll(async () => {
     await clean();
   });
@@ -229,6 +383,8 @@ describe.skipIf(!hasDb)('Course export (integration, requires DATABASE_URL)', ()
 
     // final_grades.csv carries the student's final grade — not the per-item 88.
     const csv = manifest!.textEntries.find((e) => e.path === 'final_grades.csv')!.content;
+    expect(csv).toContain('Student ID');
+    expect(csv).toContain('S-EXP-001');
     expect(csv).toContain('91.5');
     expect(csv).toContain('A-');
     expect(csv).toContain(STUDENT1_EMAIL);
@@ -239,10 +395,44 @@ describe.skipIf(!hasDb)('Course export (integration, requires DATABASE_URL)', ()
     expect(subJson).not.toContain('"score"');
     expect(subJson).toContain('nice');
 
+    // submission.md is the readable record: prompt + answer + teacher feedback.
+    const subMd = manifest!.textEntries.find(
+      (e) => e.path.includes('Lab 1') && e.path.endsWith('submission.md'),
+    )!.content;
+    expect(subMd).toContain('Do the lab');
+    expect(subMd).toContain('my answer');
+    expect(subMd).toContain('nice');
+
     // The submission's attachment is exported under the student's files/ folder.
     expect(
       manifest!.fileEntries.some(
         (f) => f.path.includes('/files/') && f.path.endsWith('lab1-report.pdf'),
+      ),
+    ).toBe(true);
+
+    // Group assignment: the shared file (uploaded on one member's row) lands in
+    // BOTH member folders, and the shared text answer renders in both mds.
+    const lab2Files = manifest!.fileEntries.filter(
+      (f) => f.path.includes('Lab 2') && f.path.endsWith('lab2-shared.pdf'),
+    );
+    expect(lab2Files.length).toBe(2);
+    const lab2Mds = manifest!.textEntries.filter(
+      (e) => e.path.includes('Lab 2') && e.path.endsWith('submission.md'),
+    );
+    expect(lab2Mds.length).toBe(2);
+    for (const md of lab2Mds) expect(md.content).toContain('team answer');
+
+    // Quiz answers.md: question, chosen option text, correctness, teacher review.
+    const quizMd = manifest!.textEntries.find((e) => e.path.endsWith('answers.md'))!.content;
+    expect(quizMd).toContain('Capital of France?');
+    expect(quizMd).toContain('**Student answer:** 2. Paris');
+    expect(quizMd).toContain('**Result:** correct');
+    expect(quizMd).toContain('good job');
+
+    // Presentation deck exported under materials/presentations, named by title.
+    expect(
+      manifest!.fileEntries.some(
+        (f) => f.path === 'materials/presentations/01-Intro Deck/Intro Deck.pptx',
       ),
     ).toBe(true);
 
@@ -253,11 +443,16 @@ describe.skipIf(!hasDb)('Course export (integration, requires DATABASE_URL)', ()
     expect(calendar).toContain('2026-01-05');
     expect(calendar).toContain('Week 1 - Foundations');
 
-    // Attendance CSV carries the recorded session row.
+    // attendance.csv is a student × session matrix keyed by student number.
     const attendance = manifest!.textEntries.find((e) => e.path === 'attendance.csv')!.content;
-    expect(attendance).toContain('Lecture 1');
-    expect(attendance).toContain(STUDENT1_EMAIL);
-    expect(attendance).toContain('present');
+    const attLines = attendance.split('\n');
+    expect(attLines[0]).toContain('Student ID');
+    expect(attLines[0]).toContain('Lecture 1 (2026-01-06)');
+    const s1Row = attLines.find((l) => l.includes('S-EXP-001'));
+    expect(s1Row).toBeDefined();
+    expect(s1Row).toContain('present');
+    // Roster row exists for the second student even with nothing recorded.
+    expect(attendance).toContain('Student Two');
   });
 
   it('request without a workflow binding marks the job failed (503), then lists it', async () => {
