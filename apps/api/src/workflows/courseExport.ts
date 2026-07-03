@@ -8,6 +8,7 @@ import {
   exportObjectKey,
   gatherCourseExport,
 } from '../services/courseExport';
+import { GammaClient, mirrorMissingDeckFiles } from '../services/gamma';
 import { renderCourseExportEmail } from '../services/courseExportEmail';
 import { DEFAULT_EMAIL_FROM, sendEmailViaCloudflare } from '../services/email';
 import type { AppBindings } from '../types';
@@ -32,6 +33,25 @@ export class CourseExportWorkflow extends WorkflowEntrypoint<AppBindings, Course
           .update(courseExportJobs)
           .set({ status: 'running', updatedAt: new Date().toISOString() })
           .where(eq(courseExportJobs.id, jobId));
+      });
+
+      // Best-effort: Gamma decks whose R2 mirror failed (or predates the
+      // mirroring) only exist as an expiring Gamma link — download them into
+      // R2 now so the ZIP contains the PPT files. Also heals the in-app
+      // Download button for those decks. Never blocks the export.
+      await step.do('mirror-decks', async () => {
+        if (!env.COURSE_FILES) return;
+        try {
+          const db = createDb(env.DATABASE_URL);
+          await mirrorMissingDeckFiles(courseId, {
+            db,
+            r2: env.COURSE_FILES,
+            bucketName: env.R2_BUCKET ?? 'coursewise-files',
+            client: env.GAMMA_API_KEY ? new GammaClient(env.GAMMA_API_KEY) : undefined,
+          });
+        } catch (err) {
+          console.error('course.export.mirror_decks.failed', { jobId, err });
+        }
       });
 
       // Gather + zip live in ONE step so the (potentially large) manifest never

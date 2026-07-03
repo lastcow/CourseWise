@@ -116,5 +116,6 @@ discussions/NN-<title>/
 - **`assignments/.../submission.md`**（替代 answer.txt）：题目要求 + 学生答案（组作业取共享内容）+ 老师批阅，一份人类可读的记录。
 - **`quizzes/.../answers.md`**（json 保留）：逐题渲染题干、选项、学生答案（选择题按下标映射回选项文本，见 `services/quizGrading.ts` 的答案格式）、对错/待批、每题的老师批阅（`quiz_answers.feedback`）。
 - **`materials/presentations/`**：导出每个 presentation（PPT deck）的 metadata（含所属 module）+ 文件。deck 由 Gamma 轮询器镜像进 R2（`services/gamma/poll.ts`），`originalFilename` 是不透明的 `<jobId>.pptx`，故 zip 条目按 presentation 标题命名（保留原扩展名）；仅有 `externalUrl` 的写 `external_url.txt`。
+- **按需下载缺失的 deck（mirror-decks 步骤）**：存量 deck 很多 `fileAssetId` 为空（生成时 R2 镜像失败，或早于镜像逻辑上线），R2 里没有文件、只剩会过期的 Gamma 链接，导出里就没有 PPT。新增 `services/gamma/mirrorDecks.ts` 的 `mirrorMissingDeckFiles`：对课程内所有无文件的 presentation，先用 `gamma_generation_jobs.exportUrl` 下载，链接失效则凭 `gammaGenerationId` 向 Gamma API 换新链接再下载，流式写入 R2 并补 `file_assets` 行、回填 `presentations.fileAssetId`——与 poll 完成时的镜像同构，属**永久修复**（应用内 modules 页的下载按钮同时恢复）。`CourseExportWorkflow` 在 build 之前加 `mirror-decks` 步骤调用它，逐个 deck best-effort（下载失败记日志跳过，绝不阻塞导出）。
 
 测试：集成测试 seed 扩为双学生、学号 profile、组作业（共享文件挂单个成员行）、quiz 全链（题目/attempt/批阅答案）、presentation deck；断言矩阵表头/学号列/两个成员文件夹都有共享文件/answers.md 渲染/deck 路径。seed 往返增多，hook 超时提至 60s。
