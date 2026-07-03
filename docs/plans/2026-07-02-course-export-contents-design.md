@@ -1,6 +1,6 @@
 # 课程数据导出内容（Course Export Contents）— 设计方案
 
-> 本文用中文撰写。记录**已交付**的变更：PR [#342](https://github.com/lastcow/CourseWise/pull/342)（squash 合入 `ae59d8e`，2026-07-02）。导出功能本身（后台 Workflow + 流式 ZIP + R2 + 邮件链接）此前已存在，本次只重塑**导出内容**。
+> 本文用中文撰写。记录**已交付**的变更：PR [#342](https://github.com/lastcow/CourseWise/pull/342)（squash 合入 `ae59d8e`，2026-07-02）。导出功能本身（后台 Workflow + 流式 ZIP + R2 + 邮件链接）此前已存在，本次只重塑**导出内容**。2026-07-03 的二轮修订见文末。
 
 ## 目标（Goal）
 
@@ -104,3 +104,17 @@ discussions/NN-<title>/
 | `attendance.csv` 在无考勤课程中是只有表头的空文件 | 接受：产物结构可预期（消费方无需判断文件是否存在），README 已描述 |
 | 旧导出（scores.csv 版本）与新导出并存于 72h TTL 窗口内 | 无需处理：导出为一次性产物，TTL（`COURSE_EXPORT_TTL_HOURS = 72`）自然淘汰 |
 | 考勤 `notes` 可能含敏感备注（如病假原因） | 保留：属教师可见的教育记录，与导出的 FERPA 定位一致；`ipAddress` 则排除 |
+
+## 修订（2026-07-03）
+
+需求方反馈后的二轮调整（同在 `services/courseExport.ts` 的 gather 阶段，无 schema/API 变更）：
+
+- **`attendance.csv` 改为宽表矩阵**：每位在册学生一行，列 `Student, Student ID, <Session 标题 (日期)> × N`（session 按日期排序），单元格为出勤状态，未记录留空。原 long format（每条记录一行）废弃。
+- **`final_grades.csv` 增加 `Student ID` 列**：学号取自 `student_profiles.studentNumber`（1:1 关联 users，left join 解析）。
+- **修复：submission 文件夹中文名**。`sanitize()` 原先把非 ASCII 全部替换为 `_`，中文学生名在路径中变成下划线；改为保留任意 Unicode 字母/数字（`/[^\p{L}\p{N}._ -]+/gu`）。fflate 对非 ASCII 条目名自动置 zip UTF-8/EFS 标志位，无需额外处理。
+- **修复：组作业文件缺失**。应用内组提交的附件"单元"是**全组成员行的并集**（`routes/assignments.ts` 的 `attachmentsForUnit`），文件上传时挂在上传者自己的行上；导出原先只收本人行的文件，队友上传的共享文件在其他成员文件夹中缺失。现按 `groupSubmissionId` 并集所有兄弟行的关联文件（同文件夹内按 objectKey 去重）。
+- **`assignments/.../submission.md`**（替代 answer.txt）：题目要求 + 学生答案（组作业取共享内容）+ 老师批阅，一份人类可读的记录。
+- **`quizzes/.../answers.md`**（json 保留）：逐题渲染题干、选项、学生答案（选择题按下标映射回选项文本，见 `services/quizGrading.ts` 的答案格式）、对错/待批、每题的老师批阅（`quiz_answers.feedback`）。
+- **`materials/presentations/`**：导出每个 presentation（PPT deck）的 metadata（含所属 module）+ 文件。deck 由 Gamma 轮询器镜像进 R2（`services/gamma/poll.ts`），`originalFilename` 是不透明的 `<jobId>.pptx`，故 zip 条目按 presentation 标题命名（保留原扩展名）；仅有 `externalUrl` 的写 `external_url.txt`。
+
+测试：集成测试 seed 扩为双学生、学号 profile、组作业（共享文件挂单个成员行）、quiz 全链（题目/attempt/批阅答案）、presentation deck；断言矩阵表头/学号列/两个成员文件夹都有共享文件/answers.md 渲染/deck 路径。seed 往返增多，hook 超时提至 60s。

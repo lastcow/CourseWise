@@ -15,11 +15,13 @@ import {
   finalGrades,
   groupSubmissions,
   modules,
+  presentations,
   quizAnswers,
   quizAttempts,
   quizQuestions,
   quizzes,
   readingMaterials,
+  studentProfiles,
   users,
 } from '../db/schema';
 
@@ -51,8 +53,15 @@ export interface ExportManifest {
   missingFiles: { path: string; reason: string }[];
 }
 
+// Keep any Unicode letter/number (so CJK student names survive — fflate marks
+// non-ASCII entry names with the zip UTF-8/EFS flag); strip everything else
+// that could be path-unsafe.
 export function sanitize(name: string): string {
-  const cleaned = name.trim().replace(/[^A-Za-z0-9._ -]+/g, '_').replace(/\s+/g, ' ').trim();
+  const cleaned = name
+    .trim()
+    .replace(/[^\p{L}\p{N}._ -]+/gu, '_')
+    .replace(/\s+/g, ' ')
+    .trim();
   return (cleaned || 'untitled').slice(0, 80);
 }
 function pad(n: number): string {
@@ -67,6 +76,34 @@ function csvCell(v: unknown): string {
 }
 function json(obj: unknown): string {
   return JSON.stringify(obj, null, 2);
+}
+
+// Render a stored quiz answer as human-readable text. Choice answers are
+// option indexes (see services/quizGrading.ts), so map them back to the
+// option text; free-text answers pass through.
+function renderQuizAnswerText(type: string, options: unknown, answer: unknown): string {
+  if (type === 'true_false') {
+    if (answer === null || answer === undefined || answer === '') return '(no answer)';
+    const s = String(answer).trim().toLowerCase();
+    if (['true', 't', '1', 'yes'].includes(s)) return 'True';
+    if (['false', 'f', '0', 'no'].includes(s)) return 'False';
+    return String(answer);
+  }
+  const opts = Array.isArray(options) ? options.map((o) => String(o)) : null;
+  if (opts && ['single_choice', 'multi_choice', 'multiple_choice'].includes(type)) {
+    const raw = Array.isArray(answer)
+      ? answer
+      : answer === null || answer === undefined || answer === ''
+        ? []
+        : [answer];
+    const picked = raw
+      .map((v) => Number(v))
+      .filter((n) => Number.isInteger(n) && n >= 0)
+      .map((n) => (opts[n] !== undefined ? `${n + 1}. ${opts[n]}` : `option ${n + 1}`));
+    return picked.length ? picked.join('; ') : '(no answer)';
+  }
+  if (answer === null || answer === undefined || answer === '') return '(no answer)';
+  return typeof answer === 'string' ? answer : JSON.stringify(answer);
 }
 
 type ReadyAsset = {
@@ -138,22 +175,33 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
     }
   }
 
-  // Add a binary entry into the zip from a file-asset id; notes if missing/not ready.
-  function addFileById(folder: string, fileAssetId: string | null): void {
+  // Add a binary entry into the zip from a file-asset id; notes if missing/not
+  // ready. `seen` (object keys already added) dedupes within one folder when a
+  // file is reachable through several links (e.g. row fileAssetId + related).
+  function addFileById(folder: string, fileAssetId: string | null, seen?: Set<string>): void {
     if (!fileAssetId) return;
     const a = assetById.get(fileAssetId);
     if (!a) {
       missingFiles.push({ path: folder, reason: `file asset ${fileAssetId} missing or not ready` });
       return;
     }
+    if (seen?.has(a.objectKey)) return;
+    seen?.add(a.objectKey);
     fileEntries.push({
       path: `${folder}${sanitize(a.originalFilename ?? fileAssetId)}`,
       objectKey: a.objectKey,
       sizeBytes: a.sizeBytes,
     });
   }
-  function addRelatedFiles(folder: string, relatedType: string, relatedId: string): void {
+  function addRelatedFiles(
+    folder: string,
+    relatedType: string,
+    relatedId: string,
+    seen?: Set<string>,
+  ): void {
     for (const a of assetsByRelated.get(`${relatedType}:${relatedId}`) ?? []) {
+      if (seen?.has(a.objectKey)) continue;
+      seen?.add(a.objectKey);
       fileEntries.push({
         path: `${folder}${sanitize(a.originalFilename ?? a.id)}`,
         objectKey: a.objectKey,
@@ -227,6 +275,49 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
     }
   });
 
+  // ---- Presentations (module PPT decks) ----
+  // Decks live on presentations.fileAssetId (mirrored into R2 by the Gamma
+  // poller with an opaque `<jobId>.pptx` filename), so the zip entry is named
+  // after the presentation title instead of the asset's original filename.
+  const moduleTitleById = new Map(moduleRows.map((m) => [m.id, m.title]));
+  const presentationRows = await db
+    .select()
+    .from(presentations)
+    .where(eq(presentations.courseId, courseId))
+    .orderBy(asc(presentations.position), asc(presentations.createdAt));
+  presentationRows.forEach((p, i) => {
+    const folder = `materials/presentations/${pad(i)}-${sanitize(p.title)}/`;
+    textEntries.push({
+      path: `${folder}metadata.json`,
+      content: json({
+        title: p.title,
+        description: p.description,
+        module: p.moduleId ? (moduleTitleById.get(p.moduleId) ?? null) : null,
+        status: p.status,
+        provider: p.provider,
+        externalUrl: p.externalUrl,
+      }),
+    });
+    if (p.fileAssetId) {
+      const a = assetById.get(p.fileAssetId);
+      if (!a) {
+        missingFiles.push({
+          path: folder,
+          reason: `file asset ${p.fileAssetId} missing or not ready`,
+        });
+      } else {
+        const ext = (a.originalFilename ?? a.objectKey).match(/\.[A-Za-z0-9]+$/)?.[0] ?? '';
+        fileEntries.push({
+          path: `${folder}${sanitize(p.title)}${ext}`,
+          objectKey: a.objectKey,
+          sizeBytes: a.sizeBytes,
+        });
+      }
+    } else if (p.externalUrl) {
+      textEntries.push({ path: `${folder}external_url.txt`, content: p.externalUrl });
+    }
+  });
+
   // ---- Assignments + submissions ----
   const assignmentRows = await db
     .select()
@@ -253,6 +344,17 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
     const list = subsByAssignment.get(s.assignmentId) ?? [];
     list.push(s);
     subsByAssignment.set(s.assignmentId, list);
+  }
+  // All member-row ids per group submission. Group files are uploaded against
+  // the uploading member's own row (see routes/assignments.ts, the attachment
+  // "unit"), so a member folder must union files across every sibling row —
+  // otherwise a teammate's upload looks missing from this student's export.
+  const rowIdsByGroupSub = new Map<string, string[]>();
+  for (const s of subs) {
+    if (!s.groupSubmissionId) continue;
+    const list = rowIdsByGroupSub.get(s.groupSubmissionId) ?? [];
+    list.push(s.id);
+    rowIdsByGroupSub.set(s.groupSubmissionId, list);
   }
 
   // ---- Quizzes + questions + attempts + answers ----
@@ -341,19 +443,19 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
         .from(attendanceRecords)
         .where(inArray(attendanceRecords.sessionId, sessionIds))
     : [];
-  const recordsBySession = new Map<string, typeof attRecords>();
-  for (const r of attRecords) {
-    userIds.add(r.studentId);
-    const list = recordsBySession.get(r.sessionId) ?? [];
-    list.push(r);
-    recordsBySession.set(r.sessionId, list);
-  }
+  for (const r of attRecords) userIds.add(r.studentId);
 
   // ---- Resolve all referenced users ----
   const userRows = userIds.size
     ? await db
-        .select({ id: users.id, name: users.name, email: users.email })
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          studentNumber: studentProfiles.studentNumber,
+        })
         .from(users)
+        .leftJoin(studentProfiles, eq(studentProfiles.userId, users.id))
         .where(inArray(users.id, [...userIds]))
     : [];
   const userById = new Map(userRows.map((u) => [u.id, u]));
@@ -395,11 +497,27 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
         }),
       });
       const textBody = gs?.content ?? s.content;
-      if (textBody) textEntries.push({ path: `${sub}answer.txt`, content: textBody });
-      // Submission files: per-row + per-related, plus the shared group file.
-      addRelatedFiles(`${sub}files/`, 'submission', s.id);
-      addFileById(`${sub}files/`, s.fileAssetId);
-      if (gs?.fileAssetId) addFileById(`${sub}files/`, gs.fileAssetId);
+      // Human-readable record: prompt, the student's answer and the teacher's
+      // feedback in one file (replaces the bare answer.txt).
+      textEntries.push({
+        path: `${sub}submission.md`,
+        content:
+          `# ${a.title} — ${userById.get(s.studentId)?.name ?? 'unknown'}\n\n` +
+          `## Assignment\n\n${a.description ?? '(no description)'}\n\n` +
+          `## Student answer\n\n${textBody ?? '(no text answer — see files/)'}\n\n` +
+          `## Teacher feedback\n\n${s.feedback ?? '(none)'}\n`,
+      });
+      // Submission files: for group mode the unit is the whole team — union
+      // related files across sibling rows, plus both row-level file links.
+      const unitRowIds = s.groupSubmissionId
+        ? (rowIdsByGroupSub.get(s.groupSubmissionId) ?? [s.id])
+        : [s.id];
+      const seenFiles = new Set<string>();
+      for (const rowId of unitRowIds) {
+        addRelatedFiles(`${sub}files/`, 'submission', rowId, seenFiles);
+      }
+      addFileById(`${sub}files/`, s.fileAssetId, seenFiles);
+      if (gs?.fileAssetId) addFileById(`${sub}files/`, gs.fileAssetId, seenFiles);
     }
   });
 
@@ -458,6 +576,38 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
           })),
         ),
       });
+      // Human-readable review sheet: each question with the student's answer,
+      // correctness and the teacher's feedback.
+      const answerByQuestion = new Map(
+        (answersByAttempt.get(at.id) ?? []).map((ans) => [ans.questionId, ans]),
+      );
+      const mdParts: string[] = [
+        `# ${q.title} — ${userById.get(at.studentId)?.name ?? 'unknown'}${n > 1 ? ` (attempt ${n})` : ''}`,
+        '',
+      ];
+      (questionsByQuiz.get(q.id) ?? []).forEach((qq, qi) => {
+        mdParts.push(`## Q${qi + 1}. ${qq.prompt}`, '');
+        const opts = Array.isArray(qq.options) ? qq.options : null;
+        if (opts && opts.length) {
+          mdParts.push(...opts.map((o, oi) => `${oi + 1}. ${String(o)}`), '');
+        }
+        const ans = answerByQuestion.get(qq.id);
+        mdParts.push(
+          `**Student answer:** ${renderQuizAnswerText(qq.type, qq.options, ans?.answer)}`,
+        );
+        mdParts.push(
+          `**Result:** ${
+            ans?.isCorrect === true
+              ? 'correct'
+              : ans?.isCorrect === false
+                ? 'incorrect'
+                : 'pending review'
+          }`,
+        );
+        if (ans?.feedback) mdParts.push(`**Teacher feedback:** ${ans.feedback}`);
+        mdParts.push('');
+      });
+      textEntries.push({ path: `${af}answers.md`, content: mdParts.join('\n') });
     }
   });
 
@@ -511,7 +661,9 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
   // so an Outdated column flags rows the gradebook hasn't refreshed yet.
   const finals = await db.select().from(finalGrades).where(eq(finalGrades.courseId, courseId));
   const finalByStudent = new Map(finals.map((f) => [f.studentId, f]));
-  const rows: string[] = ['Student,Email,Enrollment Status,Final Score,Letter Grade,Outdated'];
+  const rows: string[] = [
+    'Student,Student ID,Email,Enrollment Status,Final Score,Letter Grade,Outdated',
+  ];
   const roster = [...enrolledRows].sort((a, b) =>
     (userById.get(a.studentId)?.name ?? '').localeCompare(userById.get(b.studentId)?.name ?? ''),
   );
@@ -521,6 +673,7 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
     rows.push(
       [
         csvCell(u?.name ?? ''),
+        csvCell(u?.studentNumber ?? ''),
         csvCell(u?.email ?? ''),
         csvCell(e.status),
         csvCell(f ? num(f.teacherOverrideScore ?? f.score) : null),
@@ -531,25 +684,31 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
   }
   textEntries.push({ path: 'final_grades.csv', content: rows.join('\n') });
 
-  // ---- attendance.csv — one row per recorded attendance, in session order ----
-  const attRows = ['Session,Session Date,Student,Email,Status,Notes,Recorded At'];
-  for (const sess of sessionRows) {
-    const recs = [...(recordsBySession.get(sess.id) ?? [])].sort((a, b) =>
-      (userById.get(a.studentId)?.name ?? '').localeCompare(userById.get(b.studentId)?.name ?? ''),
+  // ---- attendance.csv — student × session matrix ----
+  // One row per enrolled student, one column per session (chronological); the
+  // cell is that student's recorded status, blank when nothing was recorded.
+  const statusBySessionStudent = new Map<string, string>();
+  for (const r of attRecords) {
+    statusBySessionStudent.set(`${r.sessionId}:${r.studentId}`, r.status);
+  }
+  const attRows = [
+    [
+      'Student',
+      'Student ID',
+      ...sessionRows.map((s) => csvCell(`${s.title} (${s.sessionDate.slice(0, 10)})`)),
+    ].join(','),
+  ];
+  for (const e of roster) {
+    const u = userById.get(e.studentId);
+    attRows.push(
+      [
+        csvCell(u?.name ?? ''),
+        csvCell(u?.studentNumber ?? ''),
+        ...sessionRows.map((s) =>
+          csvCell(statusBySessionStudent.get(`${s.id}:${e.studentId}`) ?? null),
+        ),
+      ].join(','),
     );
-    for (const r of recs) {
-      attRows.push(
-        [
-          csvCell(sess.title),
-          csvCell(sess.sessionDate),
-          csvCell(userById.get(r.studentId)?.name ?? ''),
-          csvCell(userById.get(r.studentId)?.email ?? ''),
-          csvCell(r.status),
-          csvCell(r.notes),
-          csvCell(r.recordedAt),
-        ].join(','),
-      );
-    }
   }
   textEntries.push({ path: 'attendance.csv', content: attRows.join('\n') });
 
@@ -564,10 +723,11 @@ export async function gatherCourseExport(db: Db, courseId: string): Promise<Expo
       `  syllabus.md, syllabus/ — course syllabus (text and/or uploaded file), when set\n` +
       `  calendar.json          — teaching calendar: course dates, weekly meeting slots, module windows\n` +
       `  final_grades.csv       — each student's final grade (score + letter); per-item scores are not exported\n` +
-      `  attendance.csv         — every attendance record across all sessions\n` +
+      `  attendance.csv         — student × session attendance matrix\n` +
       `  materials/             — reading materials (metadata + files / links)\n` +
-      `  assignments/<item>/    — requirement + each student's submission (answer text, attachments, feedback)\n` +
-      `  quizzes/<item>/        — questions + each attempt's answers\n` +
+      `  materials/presentations/ — presentation decks (PPT downloads / links) with module info\n` +
+      `  assignments/<item>/    — requirement + per-student submission.md (prompt, answer, feedback) and files\n` +
+      `  quizzes/<item>/        — questions + per-attempt answers.md (questions, answers, review) and JSON\n` +
       `  discussions/<item>/    — posts + per-student feedback\n` +
       `\nFinal grades reflect the gradebook's last recalculation; a "yes" in the` +
       ` Outdated column means newer submissions may not be included yet.\n` +
