@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plug } from 'lucide-react';
-import type { CanvasImportSummary, CanvasSyncRun } from '@coursewise/shared';
+import type { CanvasImportSummary, CanvasPushSummary, CanvasSyncRun } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import {
   useCourse,
   useLinkCanvasCourse,
   useStartCanvasImport,
+  useStartCanvasPush,
 } from '@/lib/queries';
 import { CanvasCoursePicker } from '@/components/canvas/CanvasCoursePicker';
 
@@ -42,6 +43,7 @@ export function TeacherCanvasSyncPage(): JSX.Element {
   const runsQ = useCanvasSyncRuns(link ? id : null);
   const linkMutation = useLinkCanvasCourse(id);
   const startImport = useStartCanvasImport(id);
+  const startPush = useStartCanvasPush(id);
 
   const [selectedId, setSelectedId] = useState('');
 
@@ -99,6 +101,23 @@ export function TeacherCanvasSyncPage(): JSX.Element {
     try {
       await startImport.mutateAsync();
       toast.push({ title: t('canvas.importStarted'), tone: 'success' });
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  const onPush = async (): Promise<void> => {
+    const ok = await confirm({
+      title: t('canvas.pushConfirmTitle'),
+      description: t('canvas.pushConfirmBody'),
+      confirmLabel: t('canvas.pushCta'),
+      tone: 'default',
+    });
+    if (!ok) return;
+    try {
+      await startPush.mutateAsync();
+      toast.push({ title: t('canvas.pushStarted'), tone: 'success' });
     } catch (err) {
       const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
       toast.push({ title: t(key), tone: 'error' });
@@ -232,6 +251,28 @@ export function TeacherCanvasSyncPage(): JSX.Element {
             </Card>
           ) : null}
 
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('canvas.pushTitle')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">{t('canvas.pushIntro')}</p>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                <li>{t('canvas.pushItemScope')}</li>
+                <li>{t('canvas.pushItemCarrier')}</li>
+                <li>{t('canvas.pushItemOverwrite')}</li>
+                <li>{t('canvas.pushItemImportedSkipped')}</li>
+              </ul>
+              <Button
+                variant="outline"
+                onClick={() => void onPush()}
+                disabled={importInFlight || startPush.isPending}
+              >
+                {startPush.isPending ? t('common.loading') : t('canvas.pushCta')}
+              </Button>
+            </CardContent>
+          </Card>
+
           {runs.length > 0 || hasCompletedImport ? (
             // d) Run history with polling status badges.
             <Card>
@@ -271,14 +312,16 @@ function RunRow({ run }: { run: CanvasSyncRun }): JSX.Element {
   const { t } = useTranslation();
   const summary =
     run.status === 'done' && run.summaryJson
-      ? (run.summaryJson as Partial<CanvasImportSummary>)
+      ? (run.summaryJson as Partial<CanvasImportSummary> & Partial<CanvasPushSummary>)
       : null;
   const s = summary?.structure;
   const roster = summary?.roster;
+  const p = summary?.push;
   return (
     <div className="space-y-2 rounded-md border px-3 py-2 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={statusVariant(run.status)}>{t(`canvas.run.status.${run.status}`)}</Badge>
+        <Badge variant="secondary">{t(`canvas.run.kind.${run.kind}`)}</Badge>
         <span className="text-muted-foreground">{new Date(run.createdAt).toLocaleString()}</span>
         {run.completedAt ? (
           <span className="text-muted-foreground">
@@ -289,7 +332,28 @@ function RunRow({ run }: { run: CanvasSyncRun }): JSX.Element {
       {run.status === 'failed' && run.error ? (
         <p className="text-destructive">{run.error}</p>
       ) : null}
-      {summary ? (
+      {p ? (
+        <div className="space-y-1 text-muted-foreground">
+          <p>
+            {t('canvas.run.pushModules', {
+              created: p.modules?.created ?? 0,
+              updated: p.modules?.updated ?? 0,
+              skipped: p.modules?.skippedImported ?? 0,
+            })}
+          </p>
+          <p>
+            {t('canvas.run.pushAssignments', {
+              created: p.assignments?.created ?? 0,
+              updated: p.assignments?.updated ?? 0,
+              skipped:
+                (p.assignments?.skippedImported ?? 0) + (p.assignments?.skippedNoModule ?? 0),
+            })}
+            {' · '}
+            {t('canvas.run.pushItems', { count: p.moduleItems?.created ?? 0 })}
+          </p>
+        </div>
+      ) : null}
+      {summary && !p ? (
         <div className="space-y-1 text-muted-foreground">
           <p>
             {t('canvas.run.groups', {

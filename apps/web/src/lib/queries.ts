@@ -3012,6 +3012,19 @@ export function useStartCanvasImport(courseId: string) {
   });
 }
 
+export function useStartCanvasPush(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall<{ runId: string; status: string }>(`/api/courses/${courseId}/canvas/push`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['canvas', 'runs', courseId] });
+    },
+  });
+}
+
 export function useCanvasSyncRuns(courseId: string | null) {
   return useQuery({
     queryKey: ['canvas', 'runs', courseId],

@@ -443,7 +443,22 @@ export const en = {
       reimportHint:
         'Importing again only adds items that are new in Canvas — it never overwrites your CourseWise edits.',
       runsTitle: 'Import history',
+      pushTitle: 'Push to Canvas',
+      pushIntro: 'Publish the CourseWise-built skeleton into the linked Canvas course:',
+      pushItemScope: 'CourseWise-created modules and the assignments inside them are created or updated in Canvas (drafts stay unpublished).',
+      pushItemCarrier: 'Pushed assignments are schedule mirrors — submissions stay in CourseWise (Canvas shows a note).',
+      pushItemOverwrite: 'Re-pushing overwrites Canvas-side edits to pushed items — CourseWise wins.',
+      pushItemImportedSkipped: 'Content originally imported FROM Canvas is never pushed back.',
+      pushCta: 'Push to Canvas',
+      pushConfirmTitle: 'Push to Canvas?',
+      pushConfirmBody:
+        'CourseWise-created modules and their assignments will be created or updated in the linked Canvas course. Canvas-side edits to previously pushed items will be overwritten.',
+      pushStarted: 'Push started — this can take a minute.',
       run: {
+        kind: { initial_import: 'Import', structure_push: 'Push' },
+        pushModules: 'Modules: {{created}} created, {{updated}} updated, {{skipped}} skipped (imported)',
+        pushAssignments: 'Assignments: {{created}} created, {{updated}} updated, {{skipped}} skipped',
+        pushItems: '{{count}} module items created',
         status: {
           pending: 'Queued',
           running: 'Importing…',

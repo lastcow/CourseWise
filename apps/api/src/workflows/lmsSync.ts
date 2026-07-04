@@ -7,13 +7,14 @@ import {
   importCourseStructure,
   type ImportStructureSummary,
 } from '../services/lms/canvas/importCourse';
+import { pushCourseStructure, type PushStructureSummary } from '../services/lms/canvas/pushCourse';
 import { decryptCanvasToken } from '../services/lms/canvas/tokens';
 import type { AppBindings } from '../types';
 
 export interface LmsSyncParams {
   runId: string;
   courseLinkId: string;
-  kind: 'initial_import';
+  kind: 'initial_import' | 'structure_push';
 }
 
 // Initial Canvas course import (P1). Fetch + DB writes live inside single
@@ -28,7 +29,7 @@ export interface LmsSyncParams {
 // matching starts (P2).
 export class LmsSyncWorkflow extends WorkflowEntrypoint<AppBindings, LmsSyncParams> {
   override async run(event: WorkflowEvent<LmsSyncParams>, step: WorkflowStep): Promise<void> {
-    const { runId, courseLinkId } = event.payload;
+    const { runId, courseLinkId, kind } = event.payload;
     const env = this.env;
 
     try {
@@ -71,24 +72,47 @@ export class LmsSyncWorkflow extends WorkflowEntrypoint<AppBindings, LmsSyncPara
         return new CanvasClient(conn.baseUrl, token);
       };
 
-      const structure: ImportStructureSummary = await step.do(
-        'import-structure',
-        { retries: { limit: 1, delay: '10 seconds', backoff: 'exponential' } },
-        async () => {
-          const db = createDb(env.DATABASE_URL);
-          const client = await makeClient();
-          try {
-            return await importCourseStructure(db, client, {
-              courseId: link.courseId,
-              courseLinkId,
-              externalCourseId: link.externalCourseId,
-            });
-          } catch (err) {
-            await this.markAuthFailure(env, link.connectionId, err);
-            throw err;
-          }
-        },
-      );
+      let structure: ImportStructureSummary | null = null;
+      let push: PushStructureSummary | null = null;
+      if (kind === 'structure_push') {
+        push = await step.do(
+          'push-structure',
+          { retries: { limit: 1, delay: '10 seconds', backoff: 'exponential' } },
+          async () => {
+            const db = createDb(env.DATABASE_URL);
+            const client = await makeClient();
+            try {
+              return await pushCourseStructure(db, client, {
+                courseId: link.courseId,
+                courseLinkId,
+                externalCourseId: link.externalCourseId,
+              });
+            } catch (err) {
+              await this.markAuthFailure(env, link.connectionId, err);
+              throw err;
+            }
+          },
+        );
+      } else {
+        structure = await step.do(
+          'import-structure',
+          { retries: { limit: 1, delay: '10 seconds', backoff: 'exponential' } },
+          async () => {
+            const db = createDb(env.DATABASE_URL);
+            const client = await makeClient();
+            try {
+              return await importCourseStructure(db, client, {
+                courseId: link.courseId,
+                courseLinkId,
+                externalCourseId: link.externalCourseId,
+              });
+            } catch (err) {
+              await this.markAuthFailure(env, link.connectionId, err);
+              throw err;
+            }
+          },
+        );
+      }
 
       await step.do('finalize', async () => {
         const db = createDb(env.DATABASE_URL);
@@ -97,15 +121,17 @@ export class LmsSyncWorkflow extends WorkflowEntrypoint<AppBindings, LmsSyncPara
           .update(lmsSyncRuns)
           .set({
             status: 'done',
-            summaryJson: { structure },
+            summaryJson: kind === 'structure_push' ? { push } : { structure },
             completedAt: now,
             updatedAt: now,
           })
           .where(eq(lmsSyncRuns.id, runId));
-        await db
-          .update(lmsCourseLinks)
-          .set({ importedAt: now, importRunId: runId, updatedAt: now })
-          .where(eq(lmsCourseLinks.id, courseLinkId));
+        if (kind === 'initial_import') {
+          await db
+            .update(lmsCourseLinks)
+            .set({ importedAt: now, importRunId: runId, updatedAt: now })
+            .where(eq(lmsCourseLinks.id, courseLinkId));
+        }
       });
     } catch (err) {
       // Record the failure so it's visible in the sync-runs list, then rethrow
