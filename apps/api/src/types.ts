@@ -36,6 +36,10 @@ export interface AppBindings {
   ANTHROPIC_API_KEY?: string;
   GAMMA_API_KEY?: string;
   OPENAI_API_KEY?: string;
+  // AES-GCM key (base64, 32 bytes) encrypting teacher Canvas tokens at rest in
+  // lms_connections.token_enc. Optional: canvas routes 500 with a clear error
+  // until it is set. Generate with `openssl rand -base64 32`.
+  CANVAS_TOKEN_ENC_KEY?: string;
   // Workers AI binding powering the in-app AI chat (material tutor). Optional:
   // dev/test envs without the binding still run; the chat endpoint degrades to
   // 503 UPSTREAM_UNAVAILABLE.
@@ -49,6 +53,10 @@ export interface AppBindings {
   // Cloudflare Workflow that builds a course-export ZIP into R2 and emails the
   // requester a download link. Created via env.COURSE_EXPORT_WORKFLOW.create().
   COURSE_EXPORT_WORKFLOW?: Workflow;
+  // Cloudflare Workflow that imports an existing Canvas course as drafts
+  // (structure + roster reference; never creates student accounts). Created
+  // via env.LMS_SYNC_WORKFLOW.create().
+  LMS_SYNC_WORKFLOW?: Workflow;
   // Outbound email via the Cloudflare Worker `send_email` binding. Configured
   // in wrangler.toml via [[send_email]] with an `allowed_destination_addresses`
   // list — sends to addresses NOT on that list will throw, which we catch and

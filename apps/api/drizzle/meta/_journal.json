@@ -351,6 +351,13 @@
       "when": 1784764800000,
       "tag": "0049_quiz_lockdown",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1784851200000,
+      "tag": "0050_canvas_lms_core",
+      "breakpoints": true
     }
   ]
 }

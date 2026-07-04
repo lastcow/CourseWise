@@ -12,6 +12,7 @@ export const zhCN = {
       logout: '退出登录',
       profile: '个人资料',
       apiTokens: 'API 令牌',
+      integrations: '集成',
       disclosures: '记录披露',
       correctionRequests: '更正申请',
       sideMenu: '侧边导航',
@@ -270,6 +271,46 @@ export const zhCN = {
         emptyDescription:
           '创建你的第一枚令牌,用于在脚本、定时任务或外部集成中调用 CourseWise API。',
       },
+      integrations: {
+        title: '集成',
+        description: '将外部工具连接到你的 CourseWise 账户。',
+        teacherOnly: '集成功能目前仅对教师开放。',
+        canvas: {
+          title: 'Canvas LMS',
+          description:
+            '使用个人访问令牌连接你的 Canvas 账户,即可将课程结构和名单参考导入 CourseWise。',
+          connectCta: '连接 Canvas',
+          baseUrlLabel: 'Canvas 地址',
+          baseUrlHelp: 'Canvas 实例的完整 https:// 地址,例如 https://school.instructure.com。',
+          baseUrlInvalid: '请输入 Canvas 实例的完整 https:// 地址。',
+          tokenLabel: '访问令牌',
+          tokenTooShort: '令牌似乎太短 — 请从 Canvas 完整复制后粘贴。',
+          tokenHelp:
+            '在 Canvas 的「账户 → 设置 → + 新建访问令牌」中创建。建议将有效期设为学期结束,用途填写 “CourseWise integration”。令牌在 Canvas 中只显示一次;我们会加密保存,仅显示末 4 位。',
+          connected: 'Canvas 已连接。',
+          accountLabel: 'Canvas 账户',
+          tokenValue: '令牌',
+          tokenExpires: '令牌将于 {{date}} 过期',
+          status: {
+            active: '生效中',
+            expired: '已过期',
+            revoked: '已撤销',
+            invalid: '无效',
+            error: '错误',
+          },
+          reconnectHint:
+            '该令牌已失效。请从 Canvas 粘贴新的令牌重新连接 — 在此之前课程关联和导入将暂停。',
+          reconnectCta: '重新连接',
+          disconnectCta: '断开连接',
+          disconnectTitle: '断开 Canvas 连接?',
+          disconnectBody:
+            'CourseWise 将删除保存的令牌并停止与 Canvas 通信。已导入的内容会保留。请记得同时在 Canvas 的「账户 → 设置 → 已批准的集成」中删除该令牌。',
+          disconnected: 'Canvas 已断开连接。',
+          disconnectedRemote: '该令牌也已在 Canvas 中撤销。',
+          disconnectedManualHint:
+            '未能在 Canvas 中撤销该令牌 — 请前往「账户 → 设置 → 已批准的集成」手动删除。',
+        },
+      },
     },
     course: {
       nav: {
@@ -336,6 +377,67 @@ export const zhCN = {
           deleting: '正在删除…',
           failed: '删除课程失败,请重试。',
         },
+      },
+    },
+    canvas: {
+      title: 'Canvas 同步',
+      description:
+        '将本课程与你 Canvas 账户中的课程关联,然后把课程结构和名单参考导入 CourseWise。',
+      noConnectionTitle: '请先连接 Canvas',
+      noConnectionBody:
+        '先在「设置 → 集成」中使用访问令牌连接你的 Canvas 账户,再回到这里关联本课程。',
+      goToSettings: '打开集成设置',
+      reconnectNeeded: '你的 Canvas 令牌已失效。请在「设置 → 集成」中重新连接 Canvas 后再试。',
+      pickerTitle: '关联 Canvas 课程',
+      pickerDescription:
+        '选择与本 CourseWise 课程对应的 Canvas 课程。关联只保存对应关系 — 在你启动下方的导入之前不会复制任何内容。',
+      termFilterLabel: '学期',
+      termFilterAll: '全部学期',
+      pickerLabel: 'Canvas 课程',
+      pickerPlaceholder: '选择 Canvas 课程…',
+      pickerEmpty: '你的 Canvas 账户中没有找到课程。',
+      pickerStudents: '{{count}} 名学生',
+      suggestionHint: '推荐匹配:「{{name}}」与本课程的课程代码({{code}})相同。',
+      linkCta: '关联课程',
+      linked: 'Canvas 课程已关联。',
+      linkedTitle: '已关联的 Canvas 课程',
+      importedAt: '导入于 {{date}}',
+      importTitle: '初始导入',
+      importIntro: '导入会将所关联 Canvas 课程的结构复制到 CourseWise:',
+      importItemCourseFields:
+        '课程信息(学期、日期、简介)— 只填充此处仍为空的字段,绝不覆盖你的已有内容。',
+      importItemGroups: '作业分组及其成绩权重。',
+      importItemAssignments:
+        '作业 — Canvas 测验会导入为空白的测验草稿占位,需在 CourseWise 中重建。',
+      importItemModules: '模块(不含模块内条目)。',
+      importDrafts: '所有内容均以草稿形式导入:在你审阅并发布之前,学生看不到任何内容。',
+      importRoster:
+        '同时会从 Canvas 获取一份只读的名单参考快照。不会创建任何学生账户 — 学生通过邀请码自行注册,之后再与名单匹配。',
+      importCta: '从 Canvas 导入',
+      importConfirmTitle: '从 Canvas 导入?',
+      importConfirmBody:
+        '课程结构将以草稿形式创建,并获取一份名单参考快照。不会创建学生账户,也不会发布任何内容。',
+      importStarted: '导入已开始 — 可能需要一点时间。',
+      reimportCta: '再次导入',
+      reimportHint: '再次导入只会添加 Canvas 中新增的内容 — 绝不会覆盖你在 CourseWise 中的修改。',
+      runsTitle: '导入历史',
+      run: {
+        status: {
+          pending: '排队中',
+          running: '导入中…',
+          done: '完成',
+          failed: '失败',
+        },
+        groups: '作业分组:导入 {{imported}} 个,跳过 {{skipped}} 个',
+        assignments: '作业:导入 {{imported}} 个,跳过 {{skipped}} 个',
+        quizStubs: '{{count}} 个测验草稿占位',
+        modules: '模块:导入 {{imported}} 个,跳过 {{skipped}} 个',
+        weightRounded: '分组权重已四舍五入为整数百分比:',
+        keptLocal: '保留了你本地的字段值:{{fields}}',
+        roster: '名单快照:{{count}} 条记录',
+        rosterEmail: '邮箱可见 {{visible}}/{{total}}',
+        rosterSis: 'SIS 学号可见 {{visible}}/{{total}}',
+        rosterLogin: '登录名可见 {{visible}}/{{total}}',
       },
     },
     admin: {

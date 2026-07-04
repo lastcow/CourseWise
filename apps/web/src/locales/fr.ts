@@ -12,6 +12,7 @@ export const fr = {
       logout: 'Se déconnecter',
       profile: 'Profil',
       apiTokens: 'Jetons API',
+      integrations: 'Intégrations',
       disclosures: 'Divulgations de dossier',
       correctionRequests: 'Demandes de correction',
       sideMenu: 'Navigation latérale',
@@ -286,6 +287,47 @@ export const fr = {
         emptyDescription:
           "Créez votre premier jeton pour appeler l'API CourseWise depuis vos scripts, tâches planifiées ou intégrations externes.",
       },
+      integrations: {
+        title: 'Intégrations',
+        description: 'Connectez des outils externes à votre compte CourseWise.',
+        teacherOnly: 'Les intégrations sont pour le moment réservées aux enseignants.',
+        canvas: {
+          title: 'Canvas LMS',
+          description:
+            "Connectez votre compte Canvas avec un jeton d'accès personnel pour importer la structure d'un cours et une référence de liste d'étudiants dans CourseWise.",
+          connectCta: 'Connecter Canvas',
+          baseUrlLabel: 'URL Canvas',
+          baseUrlHelp:
+            "L'adresse https:// complète de votre instance Canvas, p. ex. https://school.instructure.com.",
+          baseUrlInvalid: "Saisissez l'adresse https:// complète de votre instance Canvas.",
+          tokenLabel: "Jeton d'accès",
+          tokenTooShort: 'Ce jeton semble trop court — collez le jeton complet depuis Canvas.',
+          tokenHelp:
+            "Créez-en un dans Canvas sous Compte → Paramètres → + Nouveau jeton d'accès. Nous recommandons une expiration en fin de trimestre et l'objet « CourseWise integration ». Canvas ne montre le jeton qu'une seule fois ; nous le stockons chiffré et n'affichons que ses 4 derniers caractères.",
+          connected: 'Canvas connecté.',
+          accountLabel: 'Compte Canvas',
+          tokenValue: 'Jeton',
+          tokenExpires: 'Le jeton expire le {{date}}',
+          status: {
+            active: 'Actif',
+            expired: 'Expiré',
+            revoked: 'Révoqué',
+            invalid: 'Invalide',
+            error: 'Erreur',
+          },
+          reconnectHint:
+            'Ce jeton ne fonctionne plus. Collez un nouveau jeton depuis Canvas pour vous reconnecter — la liaison de cours et les imports sont suspendus en attendant.',
+          reconnectCta: 'Reconnecter',
+          disconnectCta: 'Déconnecter',
+          disconnectTitle: 'Déconnecter Canvas ?',
+          disconnectBody:
+            'CourseWise supprime le jeton stocké et cesse de communiquer avec Canvas. Le contenu déjà importé est conservé. Pensez aussi à supprimer le jeton dans Canvas sous Compte → Paramètres → Intégrations approuvées.',
+          disconnected: 'Canvas déconnecté.',
+          disconnectedRemote: 'Le jeton a également été révoqué dans Canvas.',
+          disconnectedManualHint:
+            'Impossible de révoquer le jeton dans Canvas — supprimez-le là-bas sous Compte → Paramètres → Intégrations approuvées.',
+        },
+      },
     },
     course: {
       nav: {
@@ -353,6 +395,70 @@ export const fr = {
           deleting: 'Suppression…',
           failed: 'Échec de la suppression du cours. Veuillez réessayer.',
         },
+      },
+    },
+    canvas: {
+      title: 'Synchronisation Canvas',
+      description:
+        "Liez ce cours à un cours de votre compte Canvas, puis importez sa structure et une référence de liste d'étudiants dans CourseWise.",
+      noConnectionTitle: "Connectez d'abord Canvas",
+      noConnectionBody:
+        "Connectez votre compte Canvas avec un jeton d'accès dans Paramètres → Intégrations, puis revenez ici pour lier ce cours.",
+      goToSettings: "Ouvrir les paramètres d'intégration",
+      reconnectNeeded:
+        'Votre jeton Canvas ne fonctionne plus. Reconnectez Canvas dans Paramètres → Intégrations, puis réessayez.',
+      pickerTitle: 'Lier un cours Canvas',
+      pickerDescription:
+        "Choisissez le cours Canvas correspondant à ce cours CourseWise. La liaison n'enregistre que la correspondance — rien n'est importé tant que vous ne lancez pas l'import ci-dessous.",
+      termFilterLabel: 'Session',
+      termFilterAll: 'Toutes les sessions',
+      pickerLabel: 'Cours Canvas',
+      pickerPlaceholder: 'Sélectionnez un cours Canvas…',
+      pickerEmpty: 'Aucun cours trouvé sur votre compte Canvas.',
+      pickerStudents: '{{count}} étudiants',
+      suggestionHint: 'Correspondance suggérée : « {{name}} » a le même code de cours ({{code}}).',
+      linkCta: 'Lier le cours',
+      linked: 'Cours Canvas lié.',
+      linkedTitle: 'Cours Canvas lié',
+      importedAt: 'Importé le {{date}}',
+      importTitle: 'Import initial',
+      importIntro: "L'import copie la structure du cours Canvas lié dans CourseWise :",
+      importItemCourseFields:
+        'Les informations du cours (trimestre, dates, description) — seuls les champs encore vides ici sont remplis, vos valeurs ne sont jamais écrasées.',
+      importItemGroups: 'Les groupes de devoirs avec leurs pondérations.',
+      importItemAssignments:
+        'Les devoirs — les quiz Canvas deviennent des ébauches de quiz vides à reconstruire dans CourseWise.',
+      importItemModules: 'Les modules (sans leurs éléments).',
+      importDrafts:
+        "Tout est importé en brouillon : rien n'est visible pour les étudiants tant que vous ne l'avez pas relu et publié.",
+      importRoster:
+        "Une capture de référence en lecture seule de la liste d'étudiants est également prise depuis Canvas. Aucun compte étudiant n'est créé — les étudiants s'inscrivent eux-mêmes avec un code d'invitation et sont rapprochés de la liste ensuite.",
+      importCta: 'Importer depuis Canvas',
+      importConfirmTitle: 'Importer depuis Canvas ?',
+      importConfirmBody:
+        "La structure du cours sera créée en brouillon et une capture de référence de la liste d'étudiants sera prise. Aucun compte étudiant n'est créé et rien n'est publié.",
+      importStarted: 'Import lancé — cela peut prendre une minute.',
+      reimportCta: 'Importer à nouveau',
+      reimportHint:
+        "Un nouvel import n'ajoute que les éléments nouveaux dans Canvas — il n'écrase jamais vos modifications CourseWise.",
+      runsTitle: 'Historique des imports',
+      run: {
+        status: {
+          pending: 'En file',
+          running: 'Import…',
+          done: 'Terminé',
+          failed: 'Échec',
+        },
+        groups: 'Groupes de devoirs : {{imported}} importés, {{skipped}} ignorés',
+        assignments: 'Devoirs : {{imported}} importés, {{skipped}} ignorés',
+        quizStubs: '{{count}} ébauches de quiz',
+        modules: 'Modules : {{imported}} importés, {{skipped}} ignorés',
+        weightRounded: 'Pondérations de groupes arrondies au pourcentage entier :',
+        keptLocal: 'Vos valeurs locales ont été conservées pour : {{fields}}',
+        roster: 'Capture de la liste : {{count}} entrées',
+        rosterEmail: 'e-mail visible pour {{visible}}/{{total}}',
+        rosterSis: 'ID SIS visible pour {{visible}}/{{total}}',
+        rosterLogin: 'identifiant visible pour {{visible}}/{{total}}',
       },
     },
     admin: {

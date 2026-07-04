@@ -30,6 +30,11 @@ OPENAI_API_KEY=
 # clear error until this is set. Create one at https://gamma.app/account-settings/api-keys
 GAMMA_API_KEY=
 
+# AES-GCM key (base64, 32 bytes) encrypting teacher Canvas tokens at rest.
+# Optional in dev — canvas routes return 500 with a clear error until this is
+# set. Generate with `openssl rand -base64 32`
+CANVAS_TOKEN_ENC_KEY=
+
 # Outbound email uses Cloudflare Email Service (beta) via the `[[send_email]]`
 # binding configured in wrangler.toml. The binding only exists inside the
 # Workers runtime — `wrangler dev` will surface it, but local Node-based

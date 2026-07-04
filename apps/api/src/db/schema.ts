@@ -1897,3 +1897,211 @@ export const announcementReactions = pgTable(
   }),
 );
 export type AnnouncementReactionRow = typeof announcementReactions.$inferSelect;
+
+// --- Canvas LMS sync (import-first, docs/plans/2026-07-04-canvas-sync-v2) ---
+
+export const lmsProviderEnum = pgEnum('lms_provider', ['canvas']);
+export const lmsConnectionStatusEnum = pgEnum('lms_connection_status', [
+  'active',
+  'expired',
+  'revoked',
+  'invalid',
+  'error',
+]);
+export const lmsSyncRunKindEnum = pgEnum('lms_sync_run_kind', [
+  'initial_import',
+  'roster_refresh',
+  'grade_export',
+]);
+export const lmsSyncRunStatusEnum = pgEnum('lms_sync_run_status', [
+  'pending',
+  'running',
+  'done',
+  'failed',
+]);
+export const lmsIdMapLocalTypeEnum = pgEnum('lms_id_map_local_type', [
+  'student_link',
+  'assignment',
+  'assignment_group',
+  'module',
+  'pushed_assignment_column',
+  'final_grade_column',
+]);
+export const lmsMatchMethodEnum = pgEnum('lms_match_method', [
+  'sis',
+  'email',
+  'login_id',
+  'claim',
+  'name_suggestion',
+  'manual',
+]);
+
+// One LMS connection per teacher (their personal access token).
+export const lmsConnections = pgTable(
+  'lms_connections',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    provider: lmsProviderEnum('provider').notNull().default('canvas'),
+    teacherId: uuid('teacher_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    baseUrl: text('base_url').notNull(),
+    externalUserId: text('external_user_id'),
+    externalUserName: text('external_user_name'),
+    // AES-GCM ciphertext (base64(iv || ct)). Key = Worker secret
+    // CANVAS_TOKEN_ENC_KEY; the plaintext token exists only in-memory at
+    // validate/call time and is never persisted or logged.
+    tokenEnc: text('token_enc').notNull(),
+    tokenLast4: text('token_last4').notNull(),
+    tokenExpiresAt: timestamp('token_expires_at', { withTimezone: true, mode: 'string' }),
+    status: lmsConnectionStatusEnum('status').notNull().default('active'),
+    lastValidatedAt: timestamp('last_validated_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    teacherUnique: uniqueIndex('lms_connections_teacher_idx').on(t.teacherId),
+  }),
+);
+export type LmsConnectionRow = typeof lmsConnections.$inferSelect;
+
+// Links one CourseWise course to one external LMS course.
+export const lmsCourseLinks = pgTable(
+  'lms_course_links',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    connectionId: uuid('connection_id')
+      .notNull()
+      .references(() => lmsConnections.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    // Text, not integer: tolerates Canvas cross-shard "shard~id" forms.
+    externalCourseId: text('external_course_id').notNull(),
+    externalCourseName: text('external_course_name'),
+    externalCourseCode: text('external_course_code'),
+    importedAt: timestamp('imported_at', { withTimezone: true, mode: 'string' }),
+    // Plain uuid (no FK): survives run-row pruning, avoids a circular reference
+    // with lms_sync_runs.
+    importRunId: uuid('import_run_id'),
+    rosterRefreshEnabled: boolean('roster_refresh_enabled').notNull().default(false),
+    rosterRefreshUntil: timestamp('roster_refresh_until', { withTimezone: true, mode: 'string' }),
+    lastRosterFetchAt: timestamp('last_roster_fetch_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    courseUnique: uniqueIndex('lms_course_links_course_idx').on(t.courseId),
+    connectionIdx: index('lms_course_links_connection_idx').on(t.connectionId),
+  }),
+);
+export type LmsCourseLinkRow = typeof lmsCourseLinks.$inferSelect;
+
+// Read-only reference snapshot of the external course roster. Never drives
+// account creation or enrollment changes; zero FKs to users/enrollments by
+// design — students self-register and are linked manually via lms_id_map.
+export const lmsRosterEntries = pgTable(
+  'lms_roster_entries',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseLinkId: uuid('course_link_id')
+      .notNull()
+      .references(() => lmsCourseLinks.id, { onDelete: 'cascade' }),
+    canvasUserId: text('canvas_user_id').notNull(),
+    name: text('name').notNull(),
+    sortableName: text('sortable_name'),
+    // Nullable: visibility of each field depends on the teacher token's
+    // Canvas permissions (read_email_addresses / read_sis / view_user_logins).
+    email: text('email'),
+    loginId: text('login_id'),
+    sisUserId: text('sis_user_id'),
+    enrollmentState: text('enrollment_state'),
+    sectionNames: jsonb('section_names'),
+    fingerprint: text('fingerprint').notNull(),
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+    disappearedAt: timestamp('disappeared_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    linkUserUnique: uniqueIndex('lms_roster_entries_link_user_idx').on(
+      t.courseLinkId,
+      t.canvasUserId,
+    ),
+  }),
+);
+export type LmsRosterEntryRow = typeof lmsRosterEntries.$inferSelect;
+
+// Maps local entities to external LMS ids: import provenance for structure
+// rows and confirmed student identity links. localId is polymorphic (no FK).
+export const lmsIdMap = pgTable(
+  'lms_id_map',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    courseLinkId: uuid('course_link_id')
+      .notNull()
+      .references(() => lmsCourseLinks.id, { onDelete: 'cascade' }),
+    localType: lmsIdMapLocalTypeEnum('local_type').notNull(),
+    localId: uuid('local_id').notNull(),
+    externalId: text('external_id').notNull(),
+    // sha256 of the mapped-field subset at import time; re-import skips
+    // unchanged rows and never overwrites locally edited ones.
+    lastSyncedFingerprint: text('last_synced_fingerprint'),
+    syncedAt: timestamp('synced_at', { withTimezone: true, mode: 'string' }),
+    matchMethod: lmsMatchMethodEnum('match_method'),
+    confirmedByUserId: uuid('confirmed_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    linkTypeLocalUnique: uniqueIndex('lms_id_map_link_type_local_idx').on(
+      t.courseLinkId,
+      t.localType,
+      t.localId,
+    ),
+    linkTypeExternalIdx: index('lms_id_map_link_type_external_idx').on(
+      t.courseLinkId,
+      t.localType,
+      t.externalId,
+    ),
+  }),
+);
+export type LmsIdMapRow = typeof lmsIdMap.$inferSelect;
+
+// Job rows for LMS sync workflows (202 + poll pattern, like course_export_jobs).
+export const lmsSyncRuns = pgTable(
+  'lms_sync_runs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    connectionId: uuid('connection_id')
+      .notNull()
+      .references(() => lmsConnections.id, { onDelete: 'cascade' }),
+    courseLinkId: uuid('course_link_id').references(() => lmsCourseLinks.id, {
+      onDelete: 'set null',
+    }),
+    kind: lmsSyncRunKindEnum('kind').notNull(),
+    status: lmsSyncRunStatusEnum('status').notNull().default('pending'),
+    requestedById: uuid('requested_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    summaryJson: jsonb('summary_json'),
+    error: text('error'),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'string' }),
+    completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    connectionCreatedIdx: index('lms_sync_runs_connection_created_idx').on(
+      t.connectionId,
+      t.createdAt,
+    ),
+    statusIdx: index('lms_sync_runs_status_idx')
+      .on(t.status, t.createdAt)
+      .where(sql`${t.status} in ('pending', 'running')`),
+  }),
+);
+export type LmsSyncRunRow = typeof lmsSyncRuns.$inferSelect;

@@ -1385,3 +1385,24 @@ export const announcementReactionSchema = z.object({
   emoji: z.enum(ANNOUNCEMENT_REACTION_EMOJIS),
 });
 export type AnnouncementReactionInput = z.infer<typeof announcementReactionSchema>;
+
+// -------- Canvas LMS integration --------
+
+export const connectCanvasSchema = z.object({
+  /** Canvas instance base URL, e.g. https://school.instructure.com */
+  baseUrl: z
+    .string()
+    .trim()
+    .url()
+    .max(500)
+    .refine((u) => u.startsWith('https://'), { message: 'baseUrl must be https' }),
+  /** Teacher personal access token. Encrypted at rest, never logged. */
+  token: z.string().trim().min(20).max(500),
+});
+export type ConnectCanvasInput = z.infer<typeof connectCanvasSchema>;
+
+export const linkCanvasCourseSchema = z.object({
+  /** Canvas course id as text (tolerates cross-shard "shard~id" forms). */
+  canvasCourseId: z.string().trim().min(1).max(100),
+});
+export type LinkCanvasCourseInput = z.infer<typeof linkCanvasCourseSchema>;

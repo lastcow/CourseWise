@@ -12,6 +12,7 @@ import teacherInvitationsAdminRoutes from './routes/teacherInvitations';
 import teacherRoutes from './routes/teacher';
 import coursesRoutes from './routes/courses';
 import courseExportsRoutes from './routes/courseExports';
+import canvasRoutes from './routes/canvas';
 import modulesRoutes from './routes/modules';
 import invitationsRoutes from './routes/invitations';
 import materialsRoutes from './routes/materials';
@@ -47,6 +48,7 @@ import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
 export { MaterialGenerationWorkflow } from './workflows/materialGeneration';
 export { CourseExportWorkflow } from './workflows/courseExport';
+export { LmsSyncWorkflow } from './workflows/lmsSync';
 
 export type Env = AppBindings;
 
@@ -130,6 +132,7 @@ app.route('/api/admin', teacherInvitationsAdminRoutes);
 app.route('/api/teacher', teacherRoutes);
 app.route('/api', coursesRoutes);
 app.route('/api', courseExportsRoutes);
+app.route('/api', canvasRoutes);
 app.route('/api', modulesRoutes);
 app.route('/api', invitationsRoutes);
 app.route('/api', materialsRoutes);
