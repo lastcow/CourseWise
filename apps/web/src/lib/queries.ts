@@ -2957,6 +2957,27 @@ export function useCanvasCourses(enabled: boolean) {
   });
 }
 
+// Settings-page flow: import a Canvas course as a NEW CourseWise course
+// (creates the shell, links it, starts the initial_import run).
+export function useImportCanvasCourse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (canvasCourseId: string) =>
+      apiCall<{
+        courseId: string;
+        linkId: string;
+        runId: string;
+        status: string;
+        code: string;
+        title: string;
+      }>('/api/lms/canvas/import', { body: { canvasCourseId } }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['courses'] });
+      void qc.invalidateQueries({ queryKey: ['canvas'] });
+    },
+  });
+}
+
 export function useCanvasCourseLink(courseId: string | null) {
   return useQuery({
     queryKey: ['canvas', 'link', courseId],

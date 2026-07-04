@@ -1,13 +1,23 @@
 import { Hono } from 'hono';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import {
   connectCanvasSchema,
+  importCanvasCourseSchema,
   linkCanvasCourseSchema,
+  DEFAULT_GRADING_POLICY,
   type ConnectCanvasInput,
+  type ImportCanvasCourseInput,
   type LinkCanvasCourseInput,
 } from '@coursewise/shared';
 import type { Db } from '../db/client';
-import { lmsConnections, lmsCourseLinks, lmsSyncRuns, type LmsConnectionRow } from '../db/schema';
+import {
+  courses,
+  courseTeachers,
+  lmsConnections,
+  lmsCourseLinks,
+  lmsSyncRuns,
+  type LmsConnectionRow,
+} from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { requireParam } from '../lib/params';
 import { success } from '../lib/response';
@@ -296,6 +306,163 @@ r.get('/lms/canvas/courses', requireTeacherOrAdmin, requireScopeGroup('canvasSyn
     courses.filter((course) => course.workflow_state !== 'deleted').map(courseDto),
   );
 });
+
+// Import a Canvas course as a NEW CourseWise course (settings-page flow):
+// create the course shell from Canvas metadata, link it, and start the
+// initial_import workflow in one step. Remaining metadata (term, dates,
+// syllabus) is filled by the workflow's empty-fields-only pass.
+r.post(
+  '/lms/canvas/import',
+  requireTeacherOrAdmin,
+  requireScopeGroup('canvasSync'),
+  validateJson(importCanvasCourseSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const input = c.get('validated') as ImportCanvasCourseInput;
+    const connection = connectionOr404(await loadConnection(db, auth.user.id));
+
+    const [alreadyLinked] = await db
+      .select({ courseId: lmsCourseLinks.courseId })
+      .from(lmsCourseLinks)
+      .where(
+        and(
+          eq(lmsCourseLinks.connectionId, connection.id),
+          eq(lmsCourseLinks.externalCourseId, input.canvasCourseId),
+        ),
+      )
+      .limit(1);
+    if (alreadyLinked) {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        'This Canvas course is already imported — open its CourseWise course to re-import',
+      );
+    }
+
+    const canvasCourse = await withCanvas(db, c.env, connection, (client) =>
+      client.getCourse(input.canvasCourseId),
+    );
+
+    const code = canvasCourse.course_code?.trim() || `CANVAS-${input.canvasCourseId}`;
+    const title = canvasCourse.name?.trim() || code;
+    const [codeTaken] = await db
+      .select({ id: courses.id })
+      .from(courses)
+      .where(eq(courses.code, code))
+      .limit(1);
+    if (codeTaken) {
+      throw new ApiException(
+        409,
+        ERROR_CODES.CONFLICT,
+        `Course code "${code}" already exists — open that course and link Canvas from its Canvas sync page instead`,
+      );
+    }
+
+    const [created] = await db
+      .insert(courses)
+      .values({ code, title, gradingPolicyJson: DEFAULT_GRADING_POLICY })
+      .returning({ id: courses.id });
+    if (!created) {
+      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create course');
+    }
+    // Admins create the course without a teacher row (same as POST /courses
+    // without teacherId); requireCourseTeacher passes admins regardless.
+    if (auth.user.role === 'teacher') {
+      await db.insert(courseTeachers).values({
+        courseId: created.id,
+        teacherId: auth.user.id,
+        role: 'primary',
+      });
+    }
+
+    const [link] = await db
+      .insert(lmsCourseLinks)
+      .values({
+        connectionId: connection.id,
+        courseId: created.id,
+        externalCourseId: input.canvasCourseId,
+        externalCourseName: canvasCourse.name ?? null,
+        externalCourseCode: canvasCourse.course_code ?? null,
+      })
+      .returning({ id: lmsCourseLinks.id });
+    if (!link) {
+      throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to link Canvas course');
+    }
+
+    const [run] = await db
+      .insert(lmsSyncRuns)
+      .values({
+        connectionId: connection.id,
+        courseLinkId: link.id,
+        kind: 'initial_import',
+        requestedById: auth.user.id,
+      })
+      .returning({ id: lmsSyncRuns.id });
+    if (!run) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create sync run');
+
+    if (!c.env.LMS_SYNC_WORKFLOW) {
+      await db
+        .update(lmsSyncRuns)
+        .set({
+          status: 'failed',
+          error: 'workflow-binding-missing',
+          completedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(lmsSyncRuns.id, run.id));
+      throw new ApiException(
+        503,
+        ERROR_CODES.INTERNAL_ERROR,
+        'Canvas import is not enabled in this environment.',
+      );
+    }
+    try {
+      await c.env.LMS_SYNC_WORKFLOW.create({
+        id: run.id,
+        params: { runId: run.id, courseLinkId: link.id, kind: 'initial_import' as const },
+      });
+    } catch (err) {
+      await db
+        .update(lmsSyncRuns)
+        .set({
+          status: 'failed',
+          error: `workflow-create-failed: ${String(err instanceof Error ? err.message : err).slice(0, 300)}`,
+          completedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(lmsSyncRuns.id, run.id));
+      throw new ApiException(
+        503,
+        ERROR_CODES.INTERNAL_ERROR,
+        'Failed to start the import — try again shortly.',
+      );
+    }
+
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'course.create',
+      target: created.id,
+      metadata: { code, source: 'canvas', canvasCourseId: input.canvasCourseId },
+    });
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'canvas.import.run',
+      target: run.id,
+      metadata: { courseId: created.id, courseLinkId: link.id, createdCourse: true },
+    });
+
+    return success(
+      c,
+      { courseId: created.id, linkId: link.id, runId: run.id, status: 'pending' as const, code, title },
+      202,
+    );
+  },
+);
 
 // --- Course-level: link + import runs ---
 

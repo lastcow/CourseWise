@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plug } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +10,14 @@ import { useConfirm } from '@/components/ui/confirm';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/authContext';
 import { ApiClientError } from '@/lib/api';
-import { useCanvasConnection, useConnectCanvas, useDisconnectCanvas } from '@/lib/queries';
+import {
+  useCanvasConnection,
+  useCanvasCourses,
+  useConnectCanvas,
+  useDisconnectCanvas,
+  useImportCanvasCourse,
+} from '@/lib/queries';
+import { CanvasCoursePicker } from '@/components/canvas/CanvasCoursePicker';
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
@@ -30,6 +38,9 @@ export function SettingsIntegrationsPage(): JSX.Element {
   const connectionQ = useCanvasConnection(isTeacher);
   const connectMutation = useConnectCanvas();
   const disconnectMutation = useDisconnectCanvas();
+  const navigate = useNavigate();
+  const importMutation = useImportCanvasCourse();
+  const [importCourseId, setImportCourseId] = useState('');
 
   // Re-shows the connect form over an existing (dead) connection.
   const [showForm, setShowForm] = useState(false);
@@ -42,6 +53,35 @@ export function SettingsIntegrationsPage(): JSX.Element {
 
   const connection = connectionQ.data ?? null;
   const formVisible = !connection || showForm;
+  const canImport = !!connection && connection.status === 'active';
+  const coursesQ = useCanvasCourses(isTeacher && canImport);
+  const remoteCourses = coursesQ.data ?? [];
+
+  const handleImport = async (): Promise<void> => {
+    if (!importCourseId) return;
+    const ok = await confirm({
+      title: t('canvas.importConfirmTitle'),
+      description: t('canvas.importConfirmBody'),
+      confirmLabel: t('canvas.importCta'),
+      tone: 'default',
+    });
+    if (!ok) return;
+    try {
+      const res = await importMutation.mutateAsync(importCourseId);
+      toast.push({
+        title: t('settings.integrations.canvas.importStarted', { title: res.title }),
+        tone: 'success',
+      });
+      navigate(`/teacher/courses/${res.courseId}/canvas`);
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        // 409s carry the actionable reason (already imported / code taken).
+        toast.push({ title: err.error.message || t(err.error.i18nKey), tone: 'error' });
+      } else {
+        toast.push({ title: t('errors.internal'), tone: 'error' });
+      }
+    }
+  };
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,6 +298,43 @@ export function SettingsIntegrationsPage(): JSX.Element {
           </CardContent>
         </Card>
       )}
+
+      {isTeacher && canImport ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('settings.integrations.canvas.importTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {t('settings.integrations.canvas.importDescription')}
+            </p>
+            {coursesQ.isLoading ? (
+              <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+            ) : remoteCourses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('canvas.pickerEmpty')}</p>
+            ) : (
+              <>
+                <CanvasCoursePicker
+                  courses={remoteCourses}
+                  value={importCourseId}
+                  onChange={setImportCourseId}
+                  idPrefix="settings-canvas"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => void handleImport()}
+                    disabled={!importCourseId || importMutation.isPending}
+                  >
+                    {importMutation.isPending
+                      ? t('common.loading')
+                      : t('settings.integrations.canvas.importCta')}
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

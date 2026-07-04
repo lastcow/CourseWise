@@ -296,6 +296,11 @@ export const fr = {
           description:
             "Connectez votre compte Canvas avec un jeton d'accès personnel pour importer la structure d'un cours et une référence de liste d'étudiants dans CourseWise.",
           connectCta: 'Connecter Canvas',
+          importTitle: 'Importer un cours Canvas',
+          importDescription:
+            'Choisissez un de vos cours Canvas et CourseWise créera un nouveau cours à partir de celui-ci — la structure est importée en brouillons, la liste des étudiants est capturée en référence seule, et aucun compte étudiant n\'est créé.',
+          importCta: 'Importer comme nouveau cours',
+          importStarted: 'Import de « {{title}} » démarré',
           baseUrlLabel: 'URL Canvas',
           baseUrlHelp:
             "L'adresse https:// complète de votre instance Canvas, p. ex. https://school.instructure.com.",
