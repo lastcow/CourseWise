@@ -42,7 +42,7 @@ AI_CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 #                          required for POST /api/courses/{id}/presentations/gamma
 #   CANVAS_TOKEN_ENC_KEY — AES-GCM key (base64, 32 bytes) encrypting teacher
 #                          Canvas tokens at rest (lms_connections.token_enc);
-#                          required for /api/teacher/canvas/*. Generate with
+#                          required for /api/lms/canvas/*. Generate with
 #                          `openssl rand -base64 32`.
 # Outbound email (teacher invitations + future notifications). Uses
 # Cloudflare Email Service (beta) via the `[[send_email]]` binding block
