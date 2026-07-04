@@ -358,6 +358,13 @@
       "when": 1784851200000,
       "tag": "0050_canvas_lms_core",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1784937600000,
+      "tag": "0051_clear_roster_snapshots",
+      "breakpoints": true
     }
   ]
 }
