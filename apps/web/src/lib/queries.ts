@@ -2908,7 +2908,7 @@ export function useCanvasConnection(enabled = true) {
   return useQuery({
     queryKey: ['canvas', 'connection'],
     enabled,
-    queryFn: () => apiCall<CanvasConnection | null>('/api/teacher/canvas/connection'),
+    queryFn: () => apiCall<CanvasConnection | null>('/api/lms/canvas/connection'),
   });
 }
 
@@ -2916,7 +2916,7 @@ export function useConnectCanvas() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: ConnectCanvasInput) =>
-      apiCall<CanvasConnection>('/api/teacher/canvas/connect', { body: input }),
+      apiCall<CanvasConnection>('/api/lms/canvas/connect', { body: input }),
     onSuccess: () => {
       // A fresh token can revive the course list and any link's
       // connectionStatus, so refresh the whole canvas scope.
@@ -2929,7 +2929,7 @@ export function useDisconnectCanvas() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () =>
-      apiCall<{ ok: boolean; remoteRevoked: boolean }>('/api/teacher/canvas/connection', {
+      apiCall<{ ok: boolean; remoteRevoked: boolean }>('/api/lms/canvas/connection', {
         method: 'DELETE',
       }),
     onSuccess: () => {
@@ -2948,7 +2948,7 @@ export function useCanvasCourses(enabled: boolean) {
     enabled,
     queryFn: async () => {
       try {
-        return await apiCall<CanvasRemoteCourse[]>('/api/teacher/canvas/courses');
+        return await apiCall<CanvasRemoteCourse[]>('/api/lms/canvas/courses');
       } catch (err) {
         if (err instanceof ApiClientError && err.status === 404) return [];
         throw err;

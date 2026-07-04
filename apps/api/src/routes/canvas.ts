@@ -11,7 +11,7 @@ import { lmsConnections, lmsCourseLinks, lmsSyncRuns, type LmsConnectionRow } fr
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { requireParam } from '../lib/params';
 import { success } from '../lib/response';
-import { requireAuth, requireCourseTeacher, requireTeacher, requireTokenCourseAccess } from '../middleware/auth';
+import { requireAuth, requireCourseTeacher, requireRole, requireTokenCourseAccess } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
 import { recordAudit } from '../services/audit';
@@ -26,6 +26,10 @@ import type { AppBindings, AppEnv } from '../types';
 
 const r = new Hono<AppEnv>();
 r.use('*', requireAuth);
+
+// Admins can connect their own Canvas token too (requireCourseTeacher already
+// passes admins on the course-level routes below).
+const requireTeacherOrAdmin = requireRole('teacher', 'admin');
 
 const CONNECT_TOKEN_PURPOSE = 'coursewise';
 
@@ -110,7 +114,7 @@ function courseDto(course: CanvasCourse) {
 
 // --- Teacher-level: connection lifecycle ---
 
-r.get('/teacher/canvas/connection', requireTeacher, requireScopeGroup('canvasSync'), async (c) => {
+r.get('/lms/canvas/connection', requireTeacherOrAdmin, requireScopeGroup('canvasSync'), async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
   const row = await loadConnection(db, auth.user.id);
@@ -118,8 +122,8 @@ r.get('/teacher/canvas/connection', requireTeacher, requireScopeGroup('canvasSyn
 });
 
 r.post(
-  '/teacher/canvas/connect',
-  requireTeacher,
+  '/lms/canvas/connect',
+  requireTeacherOrAdmin,
   requireScopeGroup('canvasSync'),
   validateJson(connectCanvasSchema),
   async (c) => {
@@ -223,7 +227,7 @@ r.post(
   },
 );
 
-r.delete('/teacher/canvas/connection', requireTeacher, requireScopeGroup('canvasSync'), async (c) => {
+r.delete('/lms/canvas/connection', requireTeacherOrAdmin, requireScopeGroup('canvasSync'), async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
   const row = connectionOr404(await loadConnection(db, auth.user.id));
@@ -277,7 +281,7 @@ r.delete('/teacher/canvas/connection', requireTeacher, requireScopeGroup('canvas
   return success(c, { ok: true, remoteRevoked });
 });
 
-r.get('/teacher/canvas/courses', requireTeacher, requireScopeGroup('canvasSync'), async (c) => {
+r.get('/lms/canvas/courses', requireTeacherOrAdmin, requireScopeGroup('canvasSync'), async (c) => {
   const auth = c.get('auth');
   const db = c.get('db');
   const connection = connectionOr404(await loadConnection(db, auth.user.id));
