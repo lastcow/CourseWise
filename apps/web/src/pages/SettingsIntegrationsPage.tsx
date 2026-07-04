@@ -55,7 +55,8 @@ export function SettingsIntegrationsPage(): JSX.Element {
   const formVisible = !connection || showForm;
   const canImport = !!connection && connection.status === 'active';
   const coursesQ = useCanvasCourses(isTeacher && canImport);
-  const remoteCourses = coursesQ.data ?? [];
+  // Already-imported courses drop out of the import picker.
+  const remoteCourses = (coursesQ.data ?? []).filter((c) => !c.imported);
 
   const handleImport = async (): Promise<void> => {
     if (!importCourseId) return;

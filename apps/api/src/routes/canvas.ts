@@ -110,9 +110,10 @@ async function withCanvas<T>(
   }
 }
 
-function courseDto(course: CanvasCourse) {
+function courseDto(course: CanvasCourse, importedIds: Set<string>) {
   return {
     id: String(course.id),
+    imported: importedIds.has(String(course.id)),
     name: course.name ?? null,
     courseCode: course.course_code ?? null,
     term: course.term?.name ?? null,
@@ -296,6 +297,11 @@ r.get('/lms/canvas/courses', requireTeacherOrAdmin, requireScopeGroup('canvasSyn
   const db = c.get('db');
   const connection = connectionOr404(await loadConnection(db, auth.user.id));
   const courses = await withCanvas(db, c.env, connection, (client) => client.listTeacherCourses());
+  const linked = await db
+    .select({ externalCourseId: lmsCourseLinks.externalCourseId })
+    .from(lmsCourseLinks)
+    .where(eq(lmsCourseLinks.connectionId, connection.id));
+  const importedIds = new Set(linked.map((l) => l.externalCourseId));
   const now = new Date().toISOString();
   await db
     .update(lmsConnections)
@@ -303,7 +309,9 @@ r.get('/lms/canvas/courses', requireTeacherOrAdmin, requireScopeGroup('canvasSyn
     .where(eq(lmsConnections.id, connection.id));
   return success(
     c,
-    courses.filter((course) => course.workflow_state !== 'deleted').map(courseDto),
+    courses
+      .filter((course) => course.workflow_state !== 'deleted')
+      .map((course) => courseDto(course, importedIds)),
   );
 });
 
