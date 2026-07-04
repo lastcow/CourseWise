@@ -1406,3 +1406,9 @@ export const linkCanvasCourseSchema = z.object({
   canvasCourseId: z.string().trim().min(1).max(100),
 });
 export type LinkCanvasCourseInput = z.infer<typeof linkCanvasCourseSchema>;
+
+export const importCanvasCourseSchema = z.object({
+  /** Canvas course id as text (tolerates cross-shard "shard~id" forms). */
+  canvasCourseId: z.string().trim().min(1).max(100),
+});
+export type ImportCanvasCourseInput = z.infer<typeof importCanvasCourseSchema>;

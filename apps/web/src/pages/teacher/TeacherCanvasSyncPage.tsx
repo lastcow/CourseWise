@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import { Plug } from 'lucide-react';
-import type { CanvasImportSummary, CanvasRemoteCourse, CanvasSyncRun } from '@coursewise/shared';
+import type { CanvasImportSummary, CanvasSyncRun } from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty';
-import { Label } from '@/components/ui/input';
 import { useConfirm } from '@/components/ui/confirm';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError } from '@/lib/api';
@@ -21,17 +19,10 @@ import {
   useLinkCanvasCourse,
   useStartCanvasImport,
 } from '@/lib/queries';
+import { CanvasCoursePicker } from '@/components/canvas/CanvasCoursePicker';
 
 const statusVariant = (s: string): 'success' | 'warning' | 'destructive' | 'secondary' =>
   s === 'done' ? 'success' : s === 'failed' ? 'destructive' : 'warning';
-
-function courseOptionLabel(c: CanvasRemoteCourse, t: TFunction): string {
-  const parts = [c.name ?? c.courseCode ?? c.id];
-  if (c.courseCode && c.courseCode !== c.name) parts.push(c.courseCode);
-  if (c.term) parts.push(c.term);
-  if (c.totalStudents != null) parts.push(t('canvas.pickerStudents', { count: c.totalStudents }));
-  return parts.join(' · ');
-}
 
 export function TeacherCanvasSyncPage(): JSX.Element {
   const { t } = useTranslation();
@@ -53,28 +44,8 @@ export function TeacherCanvasSyncPage(): JSX.Element {
   const startImport = useStartCanvasImport(id);
 
   const [selectedId, setSelectedId] = useState('');
-  const [termFilter, setTermFilter] = useState('all');
 
   const remoteCourses = useMemo(() => coursesQ.data ?? [], [coursesQ.data]);
-  // Distinct Canvas terms, newest-looking first (term names usually embed the
-  // year, so a descending sort puts the current semester on top).
-  const terms = useMemo(
-    () =>
-      [...new Set(remoteCourses.map((c) => c.term).filter((x): x is string => !!x))].sort((a, b) =>
-        b.localeCompare(a),
-      ),
-    [remoteCourses],
-  );
-  const filteredCourses = useMemo(
-    () => (termFilter === 'all' ? remoteCourses : remoteCourses.filter((c) => c.term === termFilter)),
-    [remoteCourses, termFilter],
-  );
-  const onTermFilterChange = (value: string): void => {
-    setTermFilter(value);
-    const stillVisible =
-      value === 'all' || remoteCourses.some((c) => c.id === selectedId && c.term === value);
-    if (!stillVisible) setSelectedId('');
-  };
   const cwCode = course.data?.code.trim().toLowerCase() ?? '';
   const suggestion = useMemo(
     () =>
@@ -186,40 +157,12 @@ export function TeacherCanvasSyncPage(): JSX.Element {
               <p className="text-sm text-muted-foreground">{t('canvas.pickerEmpty')}</p>
             ) : (
               <>
-                {terms.length > 1 ? (
-                  <div className="space-y-1">
-                    <Label htmlFor="canvas-term">{t('canvas.termFilterLabel')}</Label>
-                    <select
-                      id="canvas-term"
-                      value={termFilter}
-                      onChange={(e) => onTermFilterChange(e.target.value)}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      <option value="all">{t('canvas.termFilterAll')}</option>
-                      {terms.map((term) => (
-                        <option key={term} value={term}>
-                          {term}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
-                <div className="space-y-1">
-                  <Label htmlFor="canvas-course">{t('canvas.pickerLabel')}</Label>
-                  <select
-                    id="canvas-course"
-                    value={selectedId}
-                    onChange={(e) => setSelectedId(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="">{t('canvas.pickerPlaceholder')}</option>
-                    {filteredCourses.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {courseOptionLabel(c, t)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <CanvasCoursePicker
+                  courses={remoteCourses}
+                  value={selectedId}
+                  onChange={setSelectedId}
+                  idPrefix="course-canvas"
+                />
                 {suggestion ? (
                   <p className="text-xs text-muted-foreground">
                     {t('canvas.suggestionHint', {

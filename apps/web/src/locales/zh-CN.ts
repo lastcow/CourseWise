@@ -280,6 +280,11 @@ export const zhCN = {
           description:
             '使用个人访问令牌连接你的 Canvas 账户,即可将课程结构和名单参考导入 CourseWise。',
           connectCta: '连接 Canvas',
+          importTitle: '导入 Canvas 课程',
+          importDescription:
+            '选择你的一门 Canvas 课程,CourseWise 将据此新建课程——结构以草稿导入,名册仅作只读参考,不会创建任何学生账号。',
+          importCta: '导入为新课程',
+          importStarted: '已开始导入「{{title}}」',
           baseUrlLabel: 'Canvas 地址',
           baseUrlHelp: 'Canvas 实例的完整 https:// 地址,例如 https://school.instructure.com。',
           baseUrlInvalid: '请输入 Canvas 实例的完整 https:// 地址。',

@@ -292,6 +292,11 @@ export const en = {
           description:
             'Connect your Canvas account with a personal access token to import course structure and a roster reference into CourseWise.',
           connectCta: 'Connect Canvas',
+          importTitle: 'Import a Canvas course',
+          importDescription:
+            'Pick one of your Canvas courses and CourseWise will create a new course from it — structure imports as drafts, a read-only roster reference is captured, and no student accounts are created.',
+          importCta: 'Import as new course',
+          importStarted: 'Import of "{{title}}" started',
           baseUrlLabel: 'Canvas URL',
           baseUrlHelp:
             'The full https:// address of your Canvas instance, e.g. https://school.instructure.com.',
