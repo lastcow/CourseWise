@@ -12,6 +12,7 @@ export const en = {
       logout: 'Sign out',
       profile: 'Profile',
       apiTokens: 'API tokens',
+      integrations: 'Integrations',
       disclosures: 'Record disclosures',
       correctionRequests: 'Correction requests',
       sideMenu: 'Side navigation',
@@ -282,6 +283,47 @@ export const en = {
         emptyDescription:
           'Create your first token to call the CourseWise API from scripts, scheduled jobs, or external integrations.',
       },
+      integrations: {
+        title: 'Integrations',
+        description: 'Connect external tools to your CourseWise account.',
+        teacherOnly: 'Integrations are currently available to teachers only.',
+        canvas: {
+          title: 'Canvas LMS',
+          description:
+            'Connect your Canvas account with a personal access token to import course structure and a roster reference into CourseWise.',
+          connectCta: 'Connect Canvas',
+          baseUrlLabel: 'Canvas URL',
+          baseUrlHelp:
+            'The full https:// address of your Canvas instance, e.g. https://school.instructure.com.',
+          baseUrlInvalid: 'Enter the full https:// address of your Canvas instance.',
+          tokenLabel: 'Access token',
+          tokenTooShort: 'That token looks too short — paste the complete token from Canvas.',
+          tokenHelp:
+            'Create one in Canvas under Account → Settings → + New Access Token. We recommend an expiry at the end of term and the purpose "CourseWise integration". Canvas shows the token only once; we store it encrypted and display only its last 4 characters.',
+          connected: 'Canvas connected.',
+          accountLabel: 'Canvas account',
+          tokenValue: 'Token',
+          tokenExpires: 'Token expires {{date}}',
+          status: {
+            active: 'Active',
+            expired: 'Expired',
+            revoked: 'Revoked',
+            invalid: 'Invalid',
+            error: 'Error',
+          },
+          reconnectHint:
+            'This token no longer works. Paste a fresh token from Canvas to reconnect — course linking and imports are paused until then.',
+          reconnectCta: 'Reconnect',
+          disconnectCta: 'Disconnect',
+          disconnectTitle: 'Disconnect Canvas?',
+          disconnectBody:
+            'CourseWise deletes the stored token and stops talking to Canvas. Content you already imported stays. Remember to also remove the token in Canvas under Account → Settings → Approved Integrations.',
+          disconnected: 'Canvas disconnected.',
+          disconnectedRemote: 'The token was also revoked in Canvas.',
+          disconnectedManualHint:
+            'We could not revoke the token in Canvas — remove it there under Account → Settings → Approved Integrations.',
+        },
+      },
     },
     course: {
       nav: {
@@ -349,6 +391,70 @@ export const en = {
           deleting: 'Deleting…',
           failed: 'Failed to delete course. Please try again.',
         },
+      },
+    },
+    canvas: {
+      title: 'Canvas sync',
+      description:
+        'Link this course to a course on your Canvas account, then import its structure and a roster reference into CourseWise.',
+      noConnectionTitle: 'Connect Canvas first',
+      noConnectionBody:
+        'Connect your Canvas account with an access token in Settings → Integrations, then come back here to link this course.',
+      goToSettings: 'Open integration settings',
+      reconnectNeeded:
+        'Your Canvas token no longer works. Reconnect Canvas in Settings → Integrations, then try again.',
+      pickerTitle: 'Link a Canvas course',
+      pickerDescription:
+        'Pick the Canvas course that matches this CourseWise course. Linking stores the mapping only — nothing is imported until you start the import below.',
+      termFilterLabel: 'Term',
+      termFilterAll: 'All terms',
+      pickerLabel: 'Canvas course',
+      pickerPlaceholder: 'Select a Canvas course…',
+      pickerEmpty: 'No courses were found on your Canvas account.',
+      pickerStudents: '{{count}} students',
+      suggestionHint: 'Suggested match: "{{name}}" has the same course code ({{code}}).',
+      linkCta: 'Link course',
+      linked: 'Canvas course linked.',
+      linkedTitle: 'Linked Canvas course',
+      importedAt: 'Imported {{date}}',
+      importTitle: 'Initial import',
+      importIntro: 'The import copies the structure of the linked Canvas course into CourseWise:',
+      importItemCourseFields:
+        'Course details (term, dates, description) — it only fills fields that are still empty here and never overwrites your values.',
+      importItemGroups: 'Assignment groups with their grading weights.',
+      importItemAssignments:
+        'Assignments — Canvas quizzes come across as empty draft quiz stubs to rebuild in CourseWise.',
+      importItemModules: 'Modules (without their items).',
+      importDrafts:
+        'Everything is imported as a draft: nothing is visible to students until you review and publish it.',
+      importRoster:
+        'It also takes a read-only roster reference snapshot from Canvas. No student accounts are created — students self-register with an invitation code and are matched to the roster later.',
+      importCta: 'Import from Canvas',
+      importConfirmTitle: 'Import from Canvas?',
+      importConfirmBody:
+        'Course structure will be created as drafts and a roster reference snapshot will be taken. No student accounts are created and nothing is published.',
+      importStarted: 'Import started — this can take a minute.',
+      reimportCta: 'Import again',
+      reimportHint:
+        'Importing again only adds items that are new in Canvas — it never overwrites your CourseWise edits.',
+      runsTitle: 'Import history',
+      run: {
+        status: {
+          pending: 'Queued',
+          running: 'Importing…',
+          done: 'Done',
+          failed: 'Failed',
+        },
+        groups: 'Assignment groups: {{imported}} imported, {{skipped}} skipped',
+        assignments: 'Assignments: {{imported}} imported, {{skipped}} skipped',
+        quizStubs: '{{count}} quiz stubs',
+        modules: 'Modules: {{imported}} imported, {{skipped}} skipped',
+        weightRounded: 'Group weights rounded to whole percents:',
+        keptLocal: 'Kept your local values for: {{fields}}',
+        roster: 'Roster snapshot: {{count}} entries',
+        rosterEmail: 'email visible for {{visible}}/{{total}}',
+        rosterSis: 'SIS ID visible for {{visible}}/{{total}}',
+        rosterLogin: 'login ID visible for {{visible}}/{{total}}',
       },
     },
     admin: {

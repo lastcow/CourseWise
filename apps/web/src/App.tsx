@@ -28,12 +28,14 @@ import { LegalRoutes } from '@/pages/legal/LegalRoutes';
 import { SettingsApiTokensPage } from '@/pages/SettingsApiTokensPage';
 import { SettingsCorrectionRequestsPage } from '@/pages/SettingsCorrectionRequestsPage';
 import { SettingsDisclosuresPage } from '@/pages/SettingsDisclosuresPage';
+import { SettingsIntegrationsPage } from '@/pages/SettingsIntegrationsPage';
 import { AdminAiPage } from '@/pages/admin/AdminAiPage';
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage';
 import { AdminInvitationCodesPage } from '@/pages/admin/AdminInvitationCodesPage';
 import { AdminTeachersPage } from '@/pages/admin/AdminTeachersPage';
 import { TeacherCoursesPage } from '@/pages/teacher/TeacherCoursesPage';
 import { TeacherNewCoursePage } from '@/pages/teacher/TeacherNewCoursePage';
+import { TeacherCanvasSyncPage } from '@/pages/teacher/TeacherCanvasSyncPage';
 import { TeacherCourseOverviewPage } from '@/pages/teacher/TeacherCourseOverviewPage';
 import { TeacherCourseSettings } from '@/pages/teacher/TeacherCourseSettings';
 import { TeacherInvitationsPage } from '@/pages/teacher/TeacherInvitationsPage';
@@ -121,6 +123,7 @@ export default function App(): JSX.Element {
               <Route element={<RoleAwareBackOfficeLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/settings/api-tokens" element={<SettingsApiTokensPage />} />
+                <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />
                 <Route path="/settings/disclosures" element={<SettingsDisclosuresPage />} />
                 <Route
                   path="/settings/correction-requests"
@@ -280,6 +283,7 @@ export default function App(): JSX.Element {
                   <Route path="quizzes" element={<TeacherQuizzesPage />} />
                   <Route path="quizzes/:quizId/attempts" element={<TeacherQuizAttemptsPage />} />
                   <Route path="attendance" element={<TeacherAttendancePage />} />
+                  <Route path="canvas" element={<TeacherCanvasSyncPage />} />
                   <Route path="gradebook" element={<TeacherGradebookPage />} />
                   <Route path="gradebook/:studentId" element={<TeacherGradebookStudentPage />} />
                   <Route path="grading-policy" element={<TeacherGradingPolicyPage />} />

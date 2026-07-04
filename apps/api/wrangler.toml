@@ -40,6 +40,10 @@ AI_CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 #   OPENAI_API_KEY        — OpenAI API key (referenced by ai_providers.api_key_secret_ref)
 #   GAMMA_API_KEY        — Gamma Generate API key (https://developers.gamma.app),
 #                          required for POST /api/courses/{id}/presentations/gamma
+#   CANVAS_TOKEN_ENC_KEY — AES-GCM key (base64, 32 bytes) encrypting teacher
+#                          Canvas tokens at rest (lms_connections.token_enc);
+#                          required for /api/teacher/canvas/*. Generate with
+#                          `openssl rand -base64 32`.
 # Outbound email (teacher invitations + future notifications). Uses
 # Cloudflare Email Service (beta) via the `[[send_email]]` binding block
 # below. When the binding is unset or the sender domain isn't yet verified,
@@ -99,6 +103,14 @@ class_name = "MaterialGenerationWorkflow"
 binding = "COURSE_EXPORT_WORKFLOW"
 name = "coursewise-course-export"
 class_name = "CourseExportWorkflow"
+
+# Cloudflare Workflow that imports an existing Canvas course into CourseWise
+# as drafts (structure + read-only roster reference snapshot; never creates
+# student accounts). Class exported from src/index.ts.
+[[workflows]]
+binding = "LMS_SYNC_WORKFLOW"
+name = "coursewise-lms-sync"
+class_name = "LmsSyncWorkflow"
 
 # Outbound email binding (teacher invitations + future notifications). Uses
 # Cloudflare Email Service (beta) — NOT the older Email Routing send_email

@@ -32,6 +32,11 @@ import type {
   AttendanceSessionSummary,
   AttendanceStatus,
   BulkMarkAttendanceInput,
+  CanvasConnection,
+  CanvasCourseLink,
+  CanvasRemoteCourse,
+  CanvasSyncRun,
+  ConnectCanvasInput,
   CourseDeletionLogEntry,
   CourseDeletionPreview,
   CourseDetail,
@@ -2894,5 +2899,107 @@ export function useSendStudentResetLink() {
       apiCall<SendResetLinkResponse>(`/api/students/${userId}/reset-password-link`, {
         method: 'POST',
       }),
+  });
+}
+
+// ---------- Canvas LMS integration (token connect + course import) ----------
+
+export function useCanvasConnection(enabled = true) {
+  return useQuery({
+    queryKey: ['canvas', 'connection'],
+    enabled,
+    queryFn: () => apiCall<CanvasConnection | null>('/api/teacher/canvas/connection'),
+  });
+}
+
+export function useConnectCanvas() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ConnectCanvasInput) =>
+      apiCall<CanvasConnection>('/api/teacher/canvas/connect', { body: input }),
+    onSuccess: () => {
+      // A fresh token can revive the course list and any link's
+      // connectionStatus, so refresh the whole canvas scope.
+      void qc.invalidateQueries({ queryKey: ['canvas'] });
+    },
+  });
+}
+
+export function useDisconnectCanvas() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall<{ ok: boolean; remoteRevoked: boolean }>('/api/teacher/canvas/connection', {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['canvas'] });
+    },
+  });
+}
+
+// Remote Canvas course list for the link picker. Only fetched while the picker
+// is visible; a 404 (teacher has no connection) reads as an empty list rather
+// than an error. A 409 (stored token died) is left to throw so the page can
+// show the "reconnect Canvas" hint.
+export function useCanvasCourses(enabled: boolean) {
+  return useQuery({
+    queryKey: ['canvas', 'courses'],
+    enabled,
+    queryFn: async () => {
+      try {
+        return await apiCall<CanvasRemoteCourse[]>('/api/teacher/canvas/courses');
+      } catch (err) {
+        if (err instanceof ApiClientError && err.status === 404) return [];
+        throw err;
+      }
+    },
+  });
+}
+
+export function useCanvasCourseLink(courseId: string | null) {
+  return useQuery({
+    queryKey: ['canvas', 'link', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<CanvasCourseLink | null>(`/api/courses/${courseId}/canvas/link`),
+  });
+}
+
+export function useLinkCanvasCourse(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (canvasCourseId: string) =>
+      apiCall<{ linkId: string }>(`/api/courses/${courseId}/canvas/link`, {
+        body: { canvasCourseId },
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['canvas', 'link', courseId] });
+    },
+  });
+}
+
+export function useStartCanvasImport(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall<{ runId: string; status: 'pending' }>(`/api/courses/${courseId}/canvas/import`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['canvas', 'runs', courseId] });
+    },
+  });
+}
+
+export function useCanvasSyncRuns(courseId: string | null) {
+  return useQuery({
+    queryKey: ['canvas', 'runs', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<CanvasSyncRun[]>(`/api/courses/${courseId}/canvas/runs`),
+    // Poll while any run is still in flight so the status flips to Done on its own.
+    refetchInterval: (q) => {
+      const data = q.state.data as CanvasSyncRun[] | undefined;
+      return data?.some((r) => r.status === 'pending' || r.status === 'running') ? 4000 : false;
+    },
   });
 }

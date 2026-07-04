@@ -406,6 +406,70 @@ export interface CourseExportJob {
   expiresAt: string | null;
 }
 
+// ---------- Canvas LMS integration (P0 token connect + P1 course import) ----------
+
+export type CanvasConnectionStatus = 'active' | 'expired' | 'revoked' | 'invalid' | 'error';
+
+// Teacher-level Canvas connection. The raw token is write-only — reads expose
+// only the last 4 characters.
+export interface CanvasConnection {
+  id: string;
+  baseUrl: string;
+  externalUserId: string | null;
+  externalUserName: string | null;
+  tokenLast4: string;
+  tokenExpiresAt: string | null;
+  status: CanvasConnectionStatus;
+  lastValidatedAt: string | null;
+  createdAt: string;
+}
+
+// A course as listed by the teacher's Canvas account (link picker).
+export interface CanvasRemoteCourse {
+  id: string;
+  name: string | null;
+  courseCode: string | null;
+  term: string | null;
+  startAt: string | null;
+  endAt: string | null;
+  totalStudents: number | null;
+}
+
+// CourseWise course ↔ Canvas course link (null connectionStatus/baseUrl when
+// the owning connection row is gone).
+export interface CanvasCourseLink {
+  id: string;
+  externalCourseId: string;
+  externalCourseName: string | null;
+  externalCourseCode: string | null;
+  importedAt: string | null;
+  lastRosterFetchAt: string | null;
+  connectionStatus: CanvasConnectionStatus | null;
+  canvasBaseUrl: string | null;
+}
+
+// summaryJson payload of a completed initial-import run.
+export interface CanvasImportSummary {
+  structure: {
+    assignmentGroups: { imported: number; skipped: number; weightRounded: string[] };
+    assignments: { imported: number; skipped: number; quizStubs: number; scoreDropped?: number };
+    modules: { imported: number; skipped: number };
+    courseFields: { updated: string[]; keptLocal: string[] };
+  };
+  roster: { entries: number; withEmail: number; withSisId: number; withLoginId: number };
+}
+
+export interface CanvasSyncRun {
+  id: string;
+  kind: 'initial_import';
+  status: 'pending' | 'running' | 'done' | 'failed';
+  // CanvasImportSummary once the run is done; null/unknown otherwise.
+  summaryJson: unknown | null;
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
 export interface AssignmentSummary {
   id: string;
   courseId: string;

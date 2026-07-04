@@ -33,7 +33,9 @@ import {
   ListChecks,
   Megaphone,
   MessageSquare,
+  Plug,
   Presentation,
+  RefreshCw,
   Settings,
   ShieldAlert,
   Sliders,
@@ -78,6 +80,7 @@ const SETTINGS_GROUP: NavGroup = {
   titleKey: 'nav.settingsSection',
   items: [
     { to: '/settings/api-tokens', labelKey: 'nav.apiTokens', icon: KeyRound },
+    { to: '/settings/integrations', labelKey: 'nav.integrations', icon: Plug },
     { to: '/settings/disclosures', labelKey: 'nav.disclosures', icon: ShieldAlert },
     {
       to: '/settings/correction-requests',
@@ -252,6 +255,7 @@ function teacherCourseSections(
           icon: ClipboardEdit,
           badge: extra.correctionRequestsCount ?? null,
         },
+        { to: `${prefix}/canvas`, labelKey: 'canvas.title', icon: RefreshCw },
         { to: `${prefix}/settings`, labelKey: 'courses.editTitle', icon: Settings },
       ],
     },

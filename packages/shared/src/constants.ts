@@ -126,6 +126,8 @@ export const SCOPE_GROUPS = {
     'courses:write',
   ],
   coursesWrite: ['admin:write', 'teacher:write', 'courses:write'],
+  // Canvas LMS integration (token connect, course link, import runs).
+  canvasSync: ['admin:write', 'teacher:write', 'courses:write'],
   materialsRead: [
     'admin:read',
     'admin:write',
