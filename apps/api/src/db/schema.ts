@@ -19,6 +19,8 @@ export const userRoleEnum = pgEnum('user_role', ['admin', 'teacher', 'student'])
 export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'suspended']);
 export const preferredLanguageEnum = pgEnum('preferred_language', ['en', 'zh-CN', 'fr']);
 export const courseStatusEnum = pgEnum('course_status', ['draft', 'active', 'archived']);
+// Which external LMS a course was imported from / linked to (null = native).
+export const lmsProviderEnum = pgEnum('lms_provider', ['canvas']);
 // How modules chunk against the course schedule: one module per class session
 // (driven by meeting_slots_json) or per fixed period.
 export const moduleCadenceEnum = pgEnum('module_cadence', [
@@ -309,6 +311,9 @@ export const courses = pgTable(
     bannerFileAssetId: uuid('banner_file_asset_id').references((): AnyPgColumn => fileAssets.id, {
       onDelete: 'set null',
     }),
+    // Set when the course was created from / linked to an external LMS course
+    // (Canvas import). Null for native CourseWise courses.
+    lmsProvider: lmsProviderEnum('lms_provider'),
     syllabusMd: text('syllabus_md'),
     syllabusFileAssetId: uuid('syllabus_file_asset_id').references(
       (): AnyPgColumn => fileAssets.id,
@@ -1900,7 +1905,6 @@ export type AnnouncementReactionRow = typeof announcementReactions.$inferSelect;
 
 // --- Canvas LMS sync (import-first, docs/plans/2026-07-04-canvas-sync-v2) ---
 
-export const lmsProviderEnum = pgEnum('lms_provider', ['canvas']);
 export const lmsConnectionStatusEnum = pgEnum('lms_connection_status', [
   'active',
   'expired',

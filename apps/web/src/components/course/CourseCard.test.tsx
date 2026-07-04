@@ -18,6 +18,7 @@ const base: CourseSummary = {
   meetingSlots: null,
   moduleCadence: null,
   status: 'active',
+  lmsProvider: null,
   gradingPolicy: null,
   archivedAt: null,
   createdAt: '2026-01-01',

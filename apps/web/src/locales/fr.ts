@@ -567,6 +567,7 @@ export const fr = {
       gradingPolicy: 'Politique de notation',
       createTitle: 'Nouveau cours',
       editTitle: 'Paramètres du cours',
+      fromCanvas: 'Canvas',
       archive: 'Archiver',
       activate: 'Activer',
       deleteConfirm: 'Supprimer ce cours ? Cette action est irréversible.',

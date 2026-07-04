@@ -563,6 +563,7 @@ export const en = {
       gradingPolicy: 'Grading policy',
       createTitle: 'New course',
       editTitle: 'Course settings',
+      fromCanvas: 'Canvas',
       archive: 'Archive',
       activate: 'Activate',
       deleteConfirm: 'Delete this course? This cannot be undone.',

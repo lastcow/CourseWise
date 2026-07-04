@@ -540,6 +540,7 @@ export const zhCN = {
       gradingPolicy: '评分策略',
       createTitle: '新建课程',
       editTitle: '课程设置',
+      fromCanvas: 'Canvas 导入',
       archive: '归档',
       activate: '激活',
       deleteConfirm: '确认删除这门课程?此操作不可撤销。',

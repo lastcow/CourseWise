@@ -361,7 +361,7 @@ r.post(
 
     const [created] = await db
       .insert(courses)
-      .values({ code, title, gradingPolicyJson: DEFAULT_GRADING_POLICY })
+      .values({ code, title, gradingPolicyJson: DEFAULT_GRADING_POLICY, lmsProvider: 'canvas' })
       .returning({ id: courses.id });
     if (!created) {
       throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create course');
@@ -555,6 +555,10 @@ r.post(
         throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to link Canvas course');
       }
       linkId = inserted.id;
+      await db
+        .update(courses)
+        .set({ lmsProvider: 'canvas', updatedAt: now })
+        .where(eq(courses.id, courseId));
     }
 
     await recordAudit(db, {

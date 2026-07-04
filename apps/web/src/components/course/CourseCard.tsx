@@ -37,13 +37,18 @@ export function CourseCard({ course, hrefBase }: Props): JSX.Element {
     >
       <div className="relative">
         {banner}
-        <div className="absolute left-2 top-2">
+        <div className="absolute left-2 top-2 flex gap-1">
           <Badge
             variant={course.status === 'active' ? 'success' : 'secondary'}
             className="bg-background/80 backdrop-blur"
           >
             {t(statusKey)}
           </Badge>
+          {course.lmsProvider === 'canvas' ? (
+            <Badge variant="secondary" className="bg-background/80 backdrop-blur">
+              {t('courses.fromCanvas')}
+            </Badge>
+          ) : null}
         </div>
         <div className="absolute right-2 top-2 rounded-md bg-background/80 px-2 py-0.5 font-mono text-xs backdrop-blur">
           {course.code}

@@ -128,6 +128,8 @@ export interface CourseSummary {
   /** Teacher-chosen module chunking; null = modules are not schedule-driven. */
   moduleCadence: ModuleCadence | null;
   status: CourseStatus;
+  /** External LMS this course was imported from / linked to; null = native. */
+  lmsProvider: 'canvas' | null;
   gradingPolicy: GradingPolicy | null;
   archivedAt: string | null;
   createdAt: string;
