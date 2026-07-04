@@ -294,7 +294,7 @@ export const en = {
           connectCta: 'Connect Canvas',
           importTitle: 'Import a Canvas course',
           importDescription:
-            'Pick one of your Canvas courses and CourseWise will create a new course from it — structure imports as drafts, a read-only roster reference is captured, and no student accounts are created.',
+            'Pick one of your Canvas courses and CourseWise will create a new course from it — structure only, imported as drafts. No student data is touched.',
           importCta: 'Import as new course',
           importStarted: 'Import of "{{title}}" started',
           baseUrlLabel: 'Canvas URL',
@@ -437,7 +437,7 @@ export const en = {
       importCta: 'Import from Canvas',
       importConfirmTitle: 'Import from Canvas?',
       importConfirmBody:
-        'Course structure will be created as drafts and a roster reference snapshot will be taken. No student accounts are created and nothing is published.',
+        'Course structure only, created as drafts. No student data is touched and nothing is published.',
       importStarted: 'Import started — this can take a minute.',
       reimportCta: 'Import again',
       reimportHint:

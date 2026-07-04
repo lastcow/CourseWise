@@ -282,7 +282,7 @@ export const zhCN = {
           connectCta: '连接 Canvas',
           importTitle: '导入 Canvas 课程',
           importDescription:
-            '选择你的一门 Canvas 课程,CourseWise 将据此新建课程——结构以草稿导入,名册仅作只读参考,不会创建任何学生账号。',
+            '选择你的一门 Canvas 课程,CourseWise 将据此新建课程——仅导入课程结构(草稿态),不涉及任何学生信息。',
           importCta: '导入为新课程',
           importStarted: '已开始导入「{{title}}」',
           baseUrlLabel: 'Canvas 地址',
@@ -421,7 +421,7 @@ export const zhCN = {
       importCta: '从 Canvas 导入',
       importConfirmTitle: '从 Canvas 导入?',
       importConfirmBody:
-        '课程结构将以草稿形式创建,并获取一份名单参考快照。不会创建学生账户,也不会发布任何内容。',
+        '仅导入课程结构(以草稿形式创建)。不涉及任何学生信息,也不会发布任何内容。',
       importStarted: '导入已开始 — 可能需要一点时间。',
       reimportCta: '再次导入',
       reimportHint: '再次导入只会添加 Canvas 中新增的内容 — 绝不会覆盖你在 CourseWise 中的修改。',

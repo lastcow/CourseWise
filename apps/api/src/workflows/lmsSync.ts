@@ -5,12 +5,9 @@ import { lmsConnections, lmsCourseLinks, lmsSyncRuns } from '../db/schema';
 import { CanvasAuthError, CanvasClient } from '../services/lms/canvas/client';
 import {
   importCourseStructure,
-  snapshotRoster,
   type ImportStructureSummary,
-  type RosterSnapshotSummary,
 } from '../services/lms/canvas/importCourse';
 import { decryptCanvasToken } from '../services/lms/canvas/tokens';
-import { recordAudit } from '../services/audit';
 import type { AppBindings } from '../types';
 
 export interface LmsSyncParams {
@@ -25,6 +22,10 @@ export interface LmsSyncParams {
 // A terminal Canvas 401 marks the connection status precisely
 // (invalid/expired/revoked) and fails the run without step retries burning
 // requests against a dead token.
+// STRUCTURE ONLY by explicit product decision: the import touches zero
+// student data — no accounts, and no roster snapshot either. The roster
+// reference fetch happens later, as an explicit action when identity
+// matching starts (P2).
 export class LmsSyncWorkflow extends WorkflowEntrypoint<AppBindings, LmsSyncParams> {
   override async run(event: WorkflowEvent<LmsSyncParams>, step: WorkflowStep): Promise<void> {
     const { runId, courseLinkId } = event.payload;
@@ -89,24 +90,6 @@ export class LmsSyncWorkflow extends WorkflowEntrypoint<AppBindings, LmsSyncPara
         },
       );
 
-      const roster: RosterSnapshotSummary = await step.do(
-        'roster-snapshot',
-        { retries: { limit: 1, delay: '10 seconds', backoff: 'exponential' } },
-        async () => {
-          const db = createDb(env.DATABASE_URL);
-          const client = await makeClient();
-          try {
-            return await snapshotRoster(db, client, {
-              courseLinkId,
-              externalCourseId: link.externalCourseId,
-            });
-          } catch (err) {
-            await this.markAuthFailure(env, link.connectionId, err);
-            throw err;
-          }
-        },
-      );
-
       await step.do('finalize', async () => {
         const db = createDb(env.DATABASE_URL);
         const now = new Date().toISOString();
@@ -114,7 +97,7 @@ export class LmsSyncWorkflow extends WorkflowEntrypoint<AppBindings, LmsSyncPara
           .update(lmsSyncRuns)
           .set({
             status: 'done',
-            summaryJson: { structure, roster },
+            summaryJson: { structure },
             completedAt: now,
             updatedAt: now,
           })
@@ -123,22 +106,6 @@ export class LmsSyncWorkflow extends WorkflowEntrypoint<AppBindings, LmsSyncPara
           .update(lmsCourseLinks)
           .set({ importedAt: now, importRunId: runId, updatedAt: now })
           .where(eq(lmsCourseLinks.id, courseLinkId));
-        // FERPA bookkeeping (v2 §九.1): record what the roster ingest actually
-        // pulled — row count + which PII fields were visible to this token.
-        // Inbound school-official ingest, not a §99.32 disclosure, so no
-        // per-student disclosure rows.
-        await recordAudit(db, {
-          actorType: 'system',
-          action: 'canvas.roster.snapshot',
-          target: courseLinkId,
-          metadata: {
-            runId,
-            entries: roster.entries,
-            withEmail: roster.withEmail,
-            withSisId: roster.withSisId,
-            withLoginId: roster.withLoginId,
-          },
-        });
       });
     } catch (err) {
       // Record the failure so it's visible in the sync-runs list, then rethrow

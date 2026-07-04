@@ -456,7 +456,8 @@ export interface CanvasImportSummary {
     modules: { imported: number; skipped: number };
     courseFields: { updated: string[]; keptLocal: string[] };
   };
-  roster: { entries: number; withEmail: number; withSisId: number; withLoginId: number };
+  // Absent since the structure-only import decision; present on legacy runs.
+  roster?: { entries: number; withEmail: number; withSisId: number; withLoginId: number };
 }
 
 export interface CanvasSyncRun {

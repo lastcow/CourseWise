@@ -298,7 +298,7 @@ export const fr = {
           connectCta: 'Connecter Canvas',
           importTitle: 'Importer un cours Canvas',
           importDescription:
-            'Choisissez un de vos cours Canvas et CourseWise créera un nouveau cours à partir de celui-ci — la structure est importée en brouillons, la liste des étudiants est capturée en référence seule, et aucun compte étudiant n\'est créé.',
+            'Choisissez un de vos cours Canvas et CourseWise créera un nouveau cours à partir de celui-ci — structure uniquement, importée en brouillons. Aucune donnée étudiante n\'est touchée.',
           importCta: 'Importer comme nouveau cours',
           importStarted: 'Import de « {{title}} » démarré',
           baseUrlLabel: 'URL Canvas',
@@ -441,7 +441,7 @@ export const fr = {
       importCta: 'Importer depuis Canvas',
       importConfirmTitle: 'Importer depuis Canvas ?',
       importConfirmBody:
-        "La structure du cours sera créée en brouillon et une capture de référence de la liste d'étudiants sera prise. Aucun compte étudiant n'est créé et rien n'est publié.",
+        "Structure du cours uniquement, créée en brouillon. Aucune donnée étudiante n'est touchée et rien n'est publié.",
       importStarted: 'Import lancé — cela peut prendre une minute.',
       reimportCta: 'Importer à nouveau',
       reimportHint:
