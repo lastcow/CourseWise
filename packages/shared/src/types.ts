@@ -435,6 +435,8 @@ export interface CanvasRemoteCourse {
   startAt: string | null;
   endAt: string | null;
   totalStudents: number | null;
+  /** Already imported/linked into CourseWise via this connection. */
+  imported: boolean;
 }
 
 // CourseWise course ↔ Canvas course link (null connectionStatus/baseUrl when

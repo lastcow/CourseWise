@@ -45,7 +45,11 @@ export function TeacherCanvasSyncPage(): JSX.Element {
 
   const [selectedId, setSelectedId] = useState('');
 
-  const remoteCourses = useMemo(() => coursesQ.data ?? [], [coursesQ.data]);
+  // Canvas courses already linked to a CourseWise course drop out of the picker.
+  const remoteCourses = useMemo(
+    () => (coursesQ.data ?? []).filter((c) => !c.imported),
+    [coursesQ.data],
+  );
   const cwCode = course.data?.code.trim().toLowerCase() ?? '';
   const suggestion = useMemo(
     () =>
