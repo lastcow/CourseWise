@@ -1,5 +1,11 @@
 # Canvas LMS two-way sync — design
 
+> **Superseded (2026-07-04).** Replaced by
+> [2026-07-04-canvas-sync-v2-import-first-design.md](2026-07-04-canvas-sync-v2-import-first-design.md)
+> (import-first, teacher personal-access-token auth, identity linking) and
+> [2026-07-04-canvas-sync-v3-bidirectional-design.md](2026-07-04-canvas-sync-v3-bidirectional-design.md)
+> (full bidirectional content sync built on v2). Kept for history; do not implement from this doc.
+
 ## Goal
 
 Let a teacher connect a course to a **Canvas LMS** course and keep the two in
