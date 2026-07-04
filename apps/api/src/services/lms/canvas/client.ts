@@ -137,7 +137,7 @@ export class CanvasClient {
     this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
-  private async rawRequest(method: string, url: string): Promise<Response> {
+  private async rawRequest(method: string, url: string, payload?: unknown): Promise<Response> {
     let attempt = 0;
     for (;;) {
       const res = await fetch(url, {
@@ -146,7 +146,9 @@ export class CanvasClient {
           authorization: `Bearer ${this.token}`,
           accept: 'application/json',
           'user-agent': USER_AGENT,
+          ...(payload !== undefined ? { 'content-type': 'application/json' } : {}),
         },
+        body: payload !== undefined ? JSON.stringify(payload) : undefined,
       });
       const rateLimited =
         res.status === 429 ||
@@ -160,17 +162,18 @@ export class CanvasClient {
     }
   }
 
-  private async request<T>(method: string, path: string): Promise<T> {
-    const { body } = await this.requestWithLink<T>(method, path);
+  private async request<T>(method: string, path: string, payload?: unknown): Promise<T> {
+    const { body } = await this.requestWithLink<T>(method, path, payload);
     return body;
   }
 
   private async requestWithLink<T>(
     method: string,
     pathOrUrl: string,
+    payload?: unknown,
   ): Promise<{ body: T; next: string | null }> {
     const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${this.baseUrl}${pathOrUrl}`;
-    const res = await this.rawRequest(method, url);
+    const res = await this.rawRequest(method, url, payload);
     const text = await res.text();
     if (!res.ok) {
       if (res.status === 401) {
@@ -293,6 +296,63 @@ export class CanvasClient {
   listSections(courseId: string): Promise<CanvasSection[]> {
     return this.getPaginated<CanvasSection>(
       `/api/v1/courses/${encodeURIComponent(courseId)}/sections`,
+    );
+  }
+
+  // --- CW→Canvas structure push (one-way; CW-native entities only) ---
+
+  createModule(courseId: string, module: { name: string; position?: number; published?: boolean }): Promise<CanvasModule> {
+    return this.request<CanvasModule>(
+      'POST',
+      `/api/v1/courses/${encodeURIComponent(courseId)}/modules`,
+      { module: { name: module.name, position: module.position } },
+    );
+  }
+
+  updateModule(
+    courseId: string,
+    moduleId: string,
+    module: { name?: string; position?: number; published?: boolean },
+  ): Promise<CanvasModule> {
+    return this.request<CanvasModule>(
+      'PUT',
+      `/api/v1/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}`,
+      { module },
+    );
+  }
+
+  createAssignment(
+    courseId: string,
+    assignment: Record<string, unknown>,
+  ): Promise<CanvasAssignment> {
+    return this.request<CanvasAssignment>(
+      'POST',
+      `/api/v1/courses/${encodeURIComponent(courseId)}/assignments`,
+      { assignment },
+    );
+  }
+
+  updateAssignment(
+    courseId: string,
+    assignmentId: string,
+    assignment: Record<string, unknown>,
+  ): Promise<CanvasAssignment> {
+    return this.request<CanvasAssignment>(
+      'PUT',
+      `/api/v1/courses/${encodeURIComponent(courseId)}/assignments/${encodeURIComponent(assignmentId)}`,
+      { assignment },
+    );
+  }
+
+  createModuleItem(
+    courseId: string,
+    moduleId: string,
+    item: { title?: string; type: 'Assignment'; content_id: number; position?: number },
+  ): Promise<{ id: number }> {
+    return this.request<{ id: number }>(
+      'POST',
+      `/api/v1/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}/items`,
+      { module_item: item },
     );
   }
 

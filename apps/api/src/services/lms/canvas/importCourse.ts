@@ -219,6 +219,7 @@ export async function importCourseStructure(
       db.insert(lmsIdMap).values({
         courseLinkId,
         localType: 'assignment_group',
+        origin: 'import',
         localId: groupLocalId,
         externalId,
         lastSyncedFingerprint: await sha256Hex(`${name}|${rawWeight}|${g.position ?? ''}`),
@@ -255,6 +256,7 @@ export async function importCourseStructure(
       db.insert(lmsIdMap).values({
         courseLinkId,
         localType: 'module',
+        origin: 'import',
         localId: moduleLocalId,
         externalId,
         lastSyncedFingerprint: await sha256Hex(`${title}|${m.position ?? ''}`),
@@ -316,6 +318,7 @@ export async function importCourseStructure(
       db.insert(lmsIdMap).values({
         courseLinkId,
         localType: 'assignment',
+        origin: 'import',
         localId: assignmentLocalId,
         externalId,
         lastSyncedFingerprint: await sha256Hex(

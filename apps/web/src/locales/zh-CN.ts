@@ -426,7 +426,22 @@ export const zhCN = {
       reimportCta: '再次导入',
       reimportHint: '再次导入只会添加 Canvas 中新增的内容 — 绝不会覆盖你在 CourseWise 中的修改。',
       runsTitle: '导入历史',
+      pushTitle: '推送到 Canvas',
+      pushIntro: '把在 CourseWise 搭建的课程骨架发布到已关联的 Canvas 课程:',
+      pushItemScope: '在 CourseWise 创建的模块及其中的作业会在 Canvas 中创建或更新(草稿保持未发布)。',
+      pushItemCarrier: '推送的作业只是日程镜像——提交仍在 CourseWise 完成(Canvas 中会有说明)。',
+      pushItemOverwrite: '再次推送会覆盖 Canvas 侧对已推送内容的修改——以 CourseWise 为准。',
+      pushItemImportedSkipped: '最初从 Canvas 导入的内容绝不会被回推。',
+      pushCta: '推送到 Canvas',
+      pushConfirmTitle: '推送到 Canvas?',
+      pushConfirmBody:
+        '将在已关联的 Canvas 课程中创建或更新 CourseWise 创建的模块及其作业。Canvas 侧对已推送内容的修改会被覆盖。',
+      pushStarted: '推送已开始——可能需要一点时间。',
       run: {
+        kind: { initial_import: '导入', structure_push: '推送' },
+        pushModules: '模块:新建 {{created}}、更新 {{updated}}、跳过 {{skipped}}(导入来源)',
+        pushAssignments: '作业:新建 {{created}}、更新 {{updated}}、跳过 {{skipped}}',
+        pushItems: '创建 {{count}} 个模块条目',
         status: {
           pending: '排队中',
           running: '导入中…',

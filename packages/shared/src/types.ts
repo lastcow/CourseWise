@@ -453,6 +453,19 @@ export interface CanvasCourseLink {
 }
 
 // summaryJson payload of a completed initial-import run.
+export interface CanvasPushSummary {
+  push: {
+    modules: { created: number; updated: number; skippedImported: number };
+    assignments: {
+      created: number;
+      updated: number;
+      skippedImported: number;
+      skippedNoModule: number;
+    };
+    moduleItems: { created: number };
+  };
+}
+
 export interface CanvasImportSummary {
   structure: {
     assignmentGroups: { imported: number; skipped: number; weightRounded: string[] };
@@ -466,7 +479,7 @@ export interface CanvasImportSummary {
 
 export interface CanvasSyncRun {
   id: string;
-  kind: 'initial_import';
+  kind: 'initial_import' | 'structure_push';
   status: 'pending' | 'running' | 'done' | 'failed';
   // CanvasImportSummary once the run is done; null/unknown otherwise.
   summaryJson: unknown | null;

@@ -123,6 +123,88 @@ function courseDto(course: CanvasCourse, importedIds: Set<string>) {
   };
 }
 
+// Insert a sync-run row and start the workflow; marks the row failed when the
+// workflow cannot start so it never blocks future runs as a stuck 'pending'.
+async function createAndStartRun(
+  db: Db,
+  env: AppBindings,
+  args: {
+    connectionId: string;
+    courseLinkId: string;
+    kind: 'initial_import' | 'structure_push';
+    requestedById: string;
+  },
+): Promise<string> {
+  const [run] = await db
+    .insert(lmsSyncRuns)
+    .values({
+      connectionId: args.connectionId,
+      courseLinkId: args.courseLinkId,
+      kind: args.kind,
+      requestedById: args.requestedById,
+    })
+    .returning({ id: lmsSyncRuns.id });
+  if (!run) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create sync run');
+
+  const markFailed = async (error: string): Promise<void> => {
+    await db
+      .update(lmsSyncRuns)
+      .set({
+        status: 'failed',
+        error,
+        completedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(lmsSyncRuns.id, run.id));
+  };
+
+  if (!env.LMS_SYNC_WORKFLOW) {
+    await markFailed('workflow-binding-missing');
+    throw new ApiException(
+      503,
+      ERROR_CODES.INTERNAL_ERROR,
+      'Canvas sync is not enabled in this environment.',
+    );
+  }
+  try {
+    await env.LMS_SYNC_WORKFLOW.create({
+      id: run.id,
+      params: { runId: run.id, courseLinkId: args.courseLinkId, kind: args.kind },
+    });
+  } catch (err) {
+    await markFailed(
+      `workflow-create-failed: ${String(err instanceof Error ? err.message : err).slice(0, 300)}`,
+    );
+    throw new ApiException(
+      503,
+      ERROR_CODES.INTERNAL_ERROR,
+      'Failed to start the sync — try again shortly.',
+    );
+  }
+  return run.id;
+}
+
+// A run stuck in pending/running (e.g. Worker killed mid-workflow) must not
+// block runs forever — a sync finishes in minutes, so anything older than
+// the staleness window no longer counts as in-progress.
+const IN_PROGRESS_STALE_MS = 30 * 60 * 1000;
+
+async function assertNoRunInProgress(db: Db, courseLinkId: string): Promise<void> {
+  const [latest] = await db
+    .select({ status: lmsSyncRuns.status, createdAt: lmsSyncRuns.createdAt })
+    .from(lmsSyncRuns)
+    .where(eq(lmsSyncRuns.courseLinkId, courseLinkId))
+    .orderBy(desc(lmsSyncRuns.createdAt))
+    .limit(1);
+  if (
+    latest &&
+    (latest.status === 'pending' || latest.status === 'running') &&
+    Date.now() - new Date(latest.createdAt).getTime() < IN_PROGRESS_STALE_MS
+  ) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'A sync is already in progress');
+  }
+}
+
 // --- Teacher-level: connection lifecycle ---
 
 r.get('/lms/canvas/connection', requireTeacherOrAdmin, requireScopeGroup('canvasSync'), async (c) => {
@@ -398,54 +480,12 @@ r.post(
       throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to link Canvas course');
     }
 
-    const [run] = await db
-      .insert(lmsSyncRuns)
-      .values({
-        connectionId: connection.id,
-        courseLinkId: link.id,
-        kind: 'initial_import',
-        requestedById: auth.user.id,
-      })
-      .returning({ id: lmsSyncRuns.id });
-    if (!run) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create sync run');
-
-    if (!c.env.LMS_SYNC_WORKFLOW) {
-      await db
-        .update(lmsSyncRuns)
-        .set({
-          status: 'failed',
-          error: 'workflow-binding-missing',
-          completedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(lmsSyncRuns.id, run.id));
-      throw new ApiException(
-        503,
-        ERROR_CODES.INTERNAL_ERROR,
-        'Canvas import is not enabled in this environment.',
-      );
-    }
-    try {
-      await c.env.LMS_SYNC_WORKFLOW.create({
-        id: run.id,
-        params: { runId: run.id, courseLinkId: link.id, kind: 'initial_import' as const },
-      });
-    } catch (err) {
-      await db
-        .update(lmsSyncRuns)
-        .set({
-          status: 'failed',
-          error: `workflow-create-failed: ${String(err instanceof Error ? err.message : err).slice(0, 300)}`,
-          completedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(lmsSyncRuns.id, run.id));
-      throw new ApiException(
-        503,
-        ERROR_CODES.INTERNAL_ERROR,
-        'Failed to start the import — try again shortly.',
-      );
-    }
+    const runId = await createAndStartRun(db, c.env, {
+      connectionId: connection.id,
+      courseLinkId: link.id,
+      kind: 'initial_import',
+      requestedById: auth.user.id,
+    });
 
     await recordAudit(db, {
       actorType: auth.method === 'jwt' ? 'user' : 'api_token',
@@ -460,13 +500,13 @@ r.post(
       actorUserId: auth.user.id,
       actorTokenId: auth.tokenId ?? null,
       action: 'canvas.import.run',
-      target: run.id,
+      target: runId,
       metadata: { courseId: created.id, courseLinkId: link.id, createdCourse: true },
     });
 
     return success(
       c,
-      { courseId: created.id, linkId: link.id, runId: run.id, status: 'pending' as const, code, title },
+      { courseId: created.id, linkId: link.id, runId, status: 'pending' as const, code, title },
       202,
     );
   },
@@ -595,87 +635,60 @@ r.post('/courses/:courseId/canvas/import', ...courseGuards, async (c) => {
   if (!link) {
     throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Link a Canvas course first');
   }
-
-  // A run stuck in pending/running (e.g. Worker killed mid-workflow) must not
-  // block imports forever — an initial import finishes in minutes, so anything
-  // older than the staleness window no longer counts as in-progress.
-  const IN_PROGRESS_STALE_MS = 30 * 60 * 1000;
-  const [latest] = await db
-    .select({ status: lmsSyncRuns.status, createdAt: lmsSyncRuns.createdAt })
-    .from(lmsSyncRuns)
-    .where(eq(lmsSyncRuns.courseLinkId, link.id))
-    .orderBy(desc(lmsSyncRuns.createdAt))
-    .limit(1);
-  if (
-    latest &&
-    (latest.status === 'pending' || latest.status === 'running') &&
-    Date.now() - new Date(latest.createdAt).getTime() < IN_PROGRESS_STALE_MS
-  ) {
-    throw new ApiException(409, ERROR_CODES.CONFLICT, 'An import is already in progress');
-  }
-
-  const [run] = await db
-    .insert(lmsSyncRuns)
-    .values({
-      connectionId: link.connectionId,
-      courseLinkId: link.id,
-      kind: 'initial_import',
-      requestedById: auth.user.id,
-    })
-    .returning({ id: lmsSyncRuns.id });
-  if (!run) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create sync run');
-
-  if (!c.env.LMS_SYNC_WORKFLOW) {
-    await db
-      .update(lmsSyncRuns)
-      .set({
-        status: 'failed',
-        error: 'workflow-binding-missing',
-        completedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(lmsSyncRuns.id, run.id));
-    throw new ApiException(
-      503,
-      ERROR_CODES.INTERNAL_ERROR,
-      'Canvas import is not enabled in this environment.',
-    );
-  }
-
-  try {
-    await c.env.LMS_SYNC_WORKFLOW.create({
-      id: run.id,
-      params: { runId: run.id, courseLinkId: link.id, kind: 'initial_import' as const },
-    });
-  } catch (err) {
-    // Without this the row would sit 'pending' forever and the in-progress
-    // guard above would 409 every retry until the staleness window passes.
-    await db
-      .update(lmsSyncRuns)
-      .set({
-        status: 'failed',
-        error: `workflow-create-failed: ${String(err instanceof Error ? err.message : err).slice(0, 300)}`,
-        completedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(lmsSyncRuns.id, run.id));
-    throw new ApiException(
-      503,
-      ERROR_CODES.INTERNAL_ERROR,
-      'Failed to start the import — try again shortly.',
-    );
-  }
+  await assertNoRunInProgress(db, link.id);
+  const runId = await createAndStartRun(db, c.env, {
+    connectionId: link.connectionId,
+    courseLinkId: link.id,
+    kind: 'initial_import',
+    requestedById: auth.user.id,
+  });
 
   await recordAudit(db, {
     actorType: auth.method === 'jwt' ? 'user' : 'api_token',
     actorUserId: auth.user.id,
     actorTokenId: auth.tokenId ?? null,
     action: 'canvas.import.run',
-    target: run.id,
+    target: runId,
     metadata: { courseId, courseLinkId: link.id },
   });
 
-  return success(c, { runId: run.id, status: 'pending' as const }, 202);
+  return success(c, { runId, status: 'pending' as const }, 202);
+});
+
+// One-way CW→Canvas structure push: CW-native modules + their assignments are
+// created/updated in Canvas (drafts stay unpublished; Canvas-side edits to
+// pushed objects are overwritten; imported-from-Canvas entities are skipped).
+r.post('/courses/:courseId/canvas/push', ...courseGuards, async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const courseId = requireParam(c, 'courseId');
+
+  const [link] = await db
+    .select({ id: lmsCourseLinks.id, connectionId: lmsCourseLinks.connectionId })
+    .from(lmsCourseLinks)
+    .where(eq(lmsCourseLinks.courseId, courseId))
+    .limit(1);
+  if (!link) {
+    throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Link a Canvas course first');
+  }
+  await assertNoRunInProgress(db, link.id);
+  const runId = await createAndStartRun(db, c.env, {
+    connectionId: link.connectionId,
+    courseLinkId: link.id,
+    kind: 'structure_push',
+    requestedById: auth.user.id,
+  });
+
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'canvas.push.run',
+    target: runId,
+    metadata: { courseId, courseLinkId: link.id },
+  });
+
+  return success(c, { runId, status: 'pending' as const }, 202);
 });
 
 r.get('/courses/:courseId/canvas/runs', ...courseGuards, async (c) => {

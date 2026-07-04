@@ -447,7 +447,22 @@ export const fr = {
       reimportHint:
         "Un nouvel import n'ajoute que les éléments nouveaux dans Canvas — il n'écrase jamais vos modifications CourseWise.",
       runsTitle: 'Historique des imports',
+      pushTitle: 'Pousser vers Canvas',
+      pushIntro: 'Publier le squelette construit dans CourseWise vers le cours Canvas lié :',
+      pushItemScope: 'Les modules créés dans CourseWise et leurs devoirs sont créés ou mis à jour dans Canvas (les brouillons restent non publiés).',
+      pushItemCarrier: 'Les devoirs poussés sont des miroirs de calendrier — les remises restent dans CourseWise (Canvas affiche une note).',
+      pushItemOverwrite: 'Pousser à nouveau écrase les modifications faites côté Canvas — CourseWise a priorité.',
+      pushItemImportedSkipped: 'Le contenu importé depuis Canvas n\'est jamais renvoyé.',
+      pushCta: 'Pousser vers Canvas',
+      pushConfirmTitle: 'Pousser vers Canvas ?',
+      pushConfirmBody:
+        'Les modules créés dans CourseWise et leurs devoirs seront créés ou mis à jour dans le cours Canvas lié. Les modifications côté Canvas sur les éléments déjà poussés seront écrasées.',
+      pushStarted: 'Poussée lancée — cela peut prendre une minute.',
       run: {
+        kind: { initial_import: 'Import', structure_push: 'Poussée' },
+        pushModules: 'Modules : {{created}} créés, {{updated}} mis à jour, {{skipped}} ignorés (importés)',
+        pushAssignments: 'Devoirs : {{created}} créés, {{updated}} mis à jour, {{skipped}} ignorés',
+        pushItems: '{{count}} éléments de module créés',
         status: {
           pending: 'En file',
           running: 'Import…',

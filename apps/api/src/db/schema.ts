@@ -1914,6 +1914,7 @@ export const lmsConnectionStatusEnum = pgEnum('lms_connection_status', [
 ]);
 export const lmsSyncRunKindEnum = pgEnum('lms_sync_run_kind', [
   'initial_import',
+  'structure_push',
   'roster_refresh',
   'grade_export',
 ]);
@@ -1928,6 +1929,7 @@ export const lmsIdMapLocalTypeEnum = pgEnum('lms_id_map_local_type', [
   'assignment',
   'assignment_group',
   'module',
+  'module_item',
   'pushed_assignment_column',
   'final_grade_column',
 ]);
@@ -2050,6 +2052,9 @@ export const lmsIdMap = pgTable(
     localType: lmsIdMapLocalTypeEnum('local_type').notNull(),
     localId: uuid('local_id').notNull(),
     externalId: text('external_id').notNull(),
+    // Which direction minted this mapping: 'import' (Canvas→CW) rows are never
+    // pushed back to Canvas; 'push' (CW→Canvas) rows are updated on re-push.
+    origin: text('origin'),
     // sha256 of the mapped-field subset at import time; re-import skips
     // unchanged rows and never overwrites locally edited ones.
     lastSyncedFingerprint: text('last_synced_fingerprint'),
