@@ -67,6 +67,7 @@ function toCourseSummary(
     updatedAt: row.updatedAt,
     bannerFileAssetId: row.bannerFileAssetId ?? null,
     bannerUrl,
+    lmsProvider: row.lmsProvider ?? null,
     syllabusMd: row.syllabusMd ?? null,
     syllabusFileAssetId: row.syllabusFileAssetId ?? null,
     syllabusFileUrl,
@@ -153,6 +154,7 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       c.created_at AS "createdAt",
       c.updated_at AS "updatedAt",
       c.banner_file_asset_id AS "bannerFileAssetId",
+      c.lms_provider AS "lmsProvider",
       c.syllabus_md AS "syllabusMd",
       c.syllabus_file_asset_id AS "syllabusFileAssetId",
       fa.bucket AS "banner_bucket",
@@ -187,6 +189,7 @@ r.get('/courses', requireScopeGroup('coursesRead'), async (c) => {
       meetingSlots: (row.meetingSlotsJson ?? null) as CourseSummary['meetingSlots'],
       moduleCadence: (row.moduleCadence ?? null) as CourseSummary['moduleCadence'],
       status: row.status as CourseSummary['status'],
+      lmsProvider: (row.lmsProvider ?? null) as CourseSummary['lmsProvider'],
       gradingPolicy: ((row.gradingPolicyJson as GradingPolicy | null) ??
         null) as CourseSummary['gradingPolicy'],
       archivedAt: (row.archivedAt ?? null) as string | null,
