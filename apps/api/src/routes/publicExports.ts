@@ -53,7 +53,7 @@ function fileNameFor(code: string | null): string {
 }
 
 // Guest-visible metadata for the share page. No PII beyond course code.
-r.get('/public/exports/:token', async (c) => {
+r.get('/exports/:token', async (c) => {
   const db = c.get('db');
   const token = requireParam(c, 'token');
   const resolved = await resolveShareByToken(db, token);
@@ -78,7 +78,7 @@ r.get('/public/exports/:token', async (c) => {
 
 // Validate token (+ passphrase + limits) and mint a short-lived presigned URL.
 r.post(
-  '/public/exports/:token/download',
+  '/exports/:token/download',
   validateJson(exportShareDownloadSchema),
   async (c) => {
     const db = c.get('db');

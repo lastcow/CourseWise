@@ -125,6 +125,12 @@ app.get('/api/openapi.json', (c) => {
   return c.json(buildOpenApiSpec({ serverUrl }));
 });
 
+// Public (unauthenticated) routes must be mounted BEFORE any router mounted at
+// bare '/api', because those register an `ALL /api/*` requireAuth middleware
+// that would otherwise run first and 401 the guest request. Distinct-prefix
+// mounts ('/api/public', '/api/auth', …) are only safe when registered ahead
+// of the '/api' catch-alls.
+app.route('/api/public', publicExportsRoutes);
 app.route('/api/auth', authRoutes);
 app.route('/api/me', meRoutes);
 app.route('/api/admin', adminRoutes);
@@ -133,7 +139,6 @@ app.route('/api/admin', teacherInvitationsAdminRoutes);
 app.route('/api/teacher', teacherRoutes);
 app.route('/api', coursesRoutes);
 app.route('/api', courseExportsRoutes);
-app.route('/api', publicExportsRoutes);
 app.route('/api', canvasRoutes);
 app.route('/api', modulesRoutes);
 app.route('/api', invitationsRoutes);
