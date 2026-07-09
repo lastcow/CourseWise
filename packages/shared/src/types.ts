@@ -398,6 +398,29 @@ export interface SlideSummary {
 }
 
 // Teacher-requested course export job (async ZIP build → emailed link).
+export interface ExportShare {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  maxDownloads: number;
+  downloadCount: number;
+  hasPassphrase: boolean;
+  locked: boolean;
+  lastDownloadedAt: string | null;
+  /** Full share URL, returned ONCE at creation; null when listing. */
+  url: string | null;
+}
+
+// Public (guest) metadata for a share token — no student PII.
+export interface ExportShareMeta {
+  courseCode: string;
+  fileName: string;
+  sizeBytes: number | null;
+  expiresAt: string;
+  requiresPassphrase: boolean;
+  downloadsRemaining: number;
+}
+
 export interface CourseExportJob {
   id: string;
   status: 'pending' | 'running' | 'done' | 'failed';

@@ -1591,6 +1591,44 @@ export const courseExportJobs = pgTable(
 
 export type CourseExportJobRow = typeof courseExportJobs.$inferSelect;
 
+// Capability share links for a completed course export: a teacher mints a
+// high-entropy token (stored hashed) that lets someone WITHOUT a CourseWise
+// account download the export ZIP. Because the ZIP holds student education
+// records, every share is time-boxed, download-capped, revocable, optionally
+// passphrase-protected, and audited on every guest download (FERPA §99.32).
+export const courseExportShares = pgTable(
+  'course_export_shares',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    exportJobId: uuid('export_job_id')
+      .notNull()
+      .references(() => courseExportJobs.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
+    // sha256 of the 48-char base62 token; the plaintext is returned once at
+    // creation and never persisted.
+    tokenHash: text('token_hash').notNull(),
+    // bcrypt hash of the optional passphrase; null = no passphrase.
+    passphraseHash: text('passphrase_hash'),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+    maxDownloads: integer('max_downloads').notNull().default(10),
+    downloadCount: integer('download_count').notNull().default(0),
+    failedAttempts: integer('failed_attempts').notNull().default(0),
+    lockedAt: timestamp('locked_at', { withTimezone: true, mode: 'string' }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'string' }),
+    lastDownloadedAt: timestamp('last_downloaded_at', { withTimezone: true, mode: 'string' }),
+    ...timestamps,
+  },
+  (t) => ({
+    tokenHashUnique: uniqueIndex('course_export_shares_token_hash_idx').on(t.tokenHash),
+    exportJobIdx: index('course_export_shares_export_job_idx').on(t.exportJobId),
+  }),
+);
+
+export type CourseExportShareRow = typeof courseExportShares.$inferSelect;
+
 // FERPA §99.20: every student can request a record they believe is
 // inaccurate or misleading be corrected. This table is the queue of those
 // requests with their resolution state. `target_id` is polymorphic by

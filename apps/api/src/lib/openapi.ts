@@ -30,6 +30,8 @@ export const PUBLIC_ROUTE_WHITELIST: ReadonlyArray<{ method: Method; path: strin
   { method: 'post', path: '/api/auth/forgot-password' },
   { method: 'post', path: '/api/auth/reset-password' },
   { method: 'get', path: '/api/auth/teacher-invitations/:token' },
+  { method: 'get', path: '/api/public/exports/:token' },
+  { method: 'post', path: '/api/public/exports/:token/download' },
 ];
 
 export function isPublicRoute(method: string, path: string): boolean {

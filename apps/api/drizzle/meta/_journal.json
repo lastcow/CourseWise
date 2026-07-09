@@ -379,6 +379,13 @@
       "when": 1785110400000,
       "tag": "0053_structure_push",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1785196800000,
+      "tag": "0054_course_export_shares",
+      "breakpoints": true
     }
   ]
 }

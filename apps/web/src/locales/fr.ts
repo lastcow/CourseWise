@@ -298,7 +298,7 @@ export const fr = {
           connectCta: 'Connecter Canvas',
           importTitle: 'Importer un cours Canvas',
           importDescription:
-            'Choisissez un de vos cours Canvas et CourseWise créera un nouveau cours à partir de celui-ci — structure uniquement, importée en brouillons. Aucune donnée étudiante n\'est touchée.',
+            "Choisissez un de vos cours Canvas et CourseWise créera un nouveau cours à partir de celui-ci — structure uniquement, importée en brouillons. Aucune donnée étudiante n'est touchée.",
           importCta: 'Importer comme nouveau cours',
           importStarted: 'Import de « {{title}} » démarré',
           baseUrlLabel: 'URL Canvas',
@@ -377,6 +377,41 @@ export const fr = {
           done: 'Prêt',
           failed: 'Échec',
         },
+        share: {
+          shareCta: 'Partager',
+          dialogTitle: 'Partager cet export',
+          warning:
+            'Ceci crée un lien de téléchargement sans connexion. Toute personne disposant du lien peut télécharger les notes, l’assiduité et les remises des étudiants. Ne l’envoyez qu’aux personnes que vous avez autorisées.',
+          linkReady: 'Votre lien de partage',
+          copy: 'Copier',
+          linkOnce:
+            'Ce lien n’est affiché qu’une seule fois — copiez-le maintenant. Vous pouvez le révoquer ci-dessous à tout moment.',
+          createAnother: 'Créer un autre lien',
+          passphraseLabel: 'Phrase secrète (facultatif)',
+          passphrasePlaceholder: 'Au moins 8 caractères',
+          passphraseHint:
+            'Les destinataires doivent la saisir pour télécharger — une seconde couche de protection.',
+          passphraseTooShort: 'La phrase secrète doit comporter au moins 8 caractères.',
+          ttlLabel: 'Expire après',
+          ttlHours: '{{count}} heures',
+          maxDownloadsLabel: 'Téléchargements max',
+          createCta: 'Créer le lien',
+          created: 'Lien de partage créé.',
+          copied: 'Lien copié dans le presse-papiers.',
+          copyFailed: 'Impossible de copier le lien.',
+          activeTitle: 'Liens actifs',
+          none: 'Aucun lien de partage actif.',
+          downloadsUsed: '{{used}} / {{max}} téléchargements',
+          expiresLabel: 'expire le {{date}}',
+          locked: 'Verrouillé',
+          expired: 'Expiré',
+          passphraseProtected: 'Protégé par phrase secrète',
+          revoke: 'Révoquer',
+          revoked: 'Lien révoqué.',
+          revokeConfirmTitle: 'Révoquer ce lien de partage ?',
+          revokeConfirmBody:
+            'Le lien cesse de fonctionner immédiatement. Toute personne qui le détient ne pourra plus télécharger.',
+        },
       },
       dangerZone: {
         title: 'Zone sensible',
@@ -449,10 +484,13 @@ export const fr = {
       runsTitle: 'Historique des imports',
       pushTitle: 'Pousser vers Canvas',
       pushIntro: 'Publier le squelette construit dans CourseWise vers le cours Canvas lié :',
-      pushItemScope: 'Les modules créés dans CourseWise et leurs devoirs sont créés ou mis à jour dans Canvas (les brouillons restent non publiés).',
-      pushItemCarrier: 'Les devoirs poussés sont des miroirs de calendrier — les remises restent dans CourseWise (Canvas affiche une note).',
-      pushItemOverwrite: 'Pousser à nouveau écrase les modifications faites côté Canvas — CourseWise a priorité.',
-      pushItemImportedSkipped: 'Le contenu importé depuis Canvas n\'est jamais renvoyé.',
+      pushItemScope:
+        'Les modules créés dans CourseWise et leurs devoirs sont créés ou mis à jour dans Canvas (les brouillons restent non publiés).',
+      pushItemCarrier:
+        'Les devoirs poussés sont des miroirs de calendrier — les remises restent dans CourseWise (Canvas affiche une note).',
+      pushItemOverwrite:
+        'Pousser à nouveau écrase les modifications faites côté Canvas — CourseWise a priorité.',
+      pushItemImportedSkipped: "Le contenu importé depuis Canvas n'est jamais renvoyé.",
       pushCta: 'Pousser vers Canvas',
       pushConfirmTitle: 'Pousser vers Canvas ?',
       pushConfirmBody:
@@ -460,7 +498,8 @@ export const fr = {
       pushStarted: 'Poussée lancée — cela peut prendre une minute.',
       run: {
         kind: { initial_import: 'Import', structure_push: 'Poussée' },
-        pushModules: 'Modules : {{created}} créés, {{updated}} mis à jour, {{skipped}} ignorés (importés)',
+        pushModules:
+          'Modules : {{created}} créés, {{updated}} mis à jour, {{skipped}} ignorés (importés)',
         pushAssignments: 'Devoirs : {{created}} créés, {{updated}} mis à jour, {{skipped}} ignorés',
         pushItems: '{{count}} éléments de module créés',
         status: {
@@ -502,6 +541,28 @@ export const fr = {
       notFoundBody: "Ce lien a peut-être été désactivé par l'enseignant ou l'URL est incorrecte.",
       noEmbed:
         'Ce diaporama ne peut pas être intégré directement. Utilisez « Ouvrir dans Gamma » ou téléchargez le .pptx ci-dessus.',
+    },
+    exportShare: {
+      title: 'Export du cours',
+      unavailableTitle: 'Ce lien n’est pas disponible',
+      fileLabel: 'Fichier',
+      sizeLabel: 'Taille',
+      expiresLabel: 'Disponible jusqu’au',
+      downloadsRemainingLabel: 'Téléchargements restants',
+      passphraseLabel: 'Phrase secrète',
+      downloadCta: 'Télécharger',
+      downloading: 'Préparation…',
+      started:
+        'Votre téléchargement a commencé. S’il ne se passe rien, vérifiez les téléchargements de votre navigateur.',
+      privacyNote:
+        'Ce fichier contient des dossiers scolaires d’étudiants. Traitez-le conformément aux politiques de confidentialité de votre établissement.',
+      error: {
+        gone: 'Ce lien n’est plus disponible. Il a peut-être expiré, atteint sa limite de téléchargements ou été révoqué.',
+        locked:
+          'Ce lien est temporairement verrouillé après trop de tentatives de phrase secrète incorrectes. Réessayez plus tard.',
+        passphraseRequired: 'Une phrase secrète est requise pour télécharger ce fichier.',
+        passphraseIncorrect: 'Cette phrase secrète est incorrecte. Veuillez réessayer.',
+      },
     },
     ferpaNotice: {
       title: 'Vos droits FERPA',
