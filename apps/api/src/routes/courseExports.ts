@@ -1,15 +1,26 @@
 import { Hono } from 'hono';
 import { and, desc, eq } from 'drizzle-orm';
-import { courseExportJobs, courses } from '../db/schema';
+import {
+  createExportShareSchema,
+  type CreateExportShareInput,
+  type ExportShare,
+} from '@coursewise/shared';
+import { courseExportJobs, courseExportShares, courses } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
-import { presignR2Url, type R2SignerConfig } from '../lib/r2Sign';
+import { presignR2Url, r2SignerConfigFromEnv, type R2SignerConfig } from '../lib/r2Sign';
 import { resolveRequestOrigin } from '../lib/requestOrigin';
 import { requireAuth, requireTokenCourseAccess } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
+import { validateJson } from '../middleware/validate';
 import { recordAudit } from '../services/audit';
 import { canAccessCourse, canWriteCourse } from '../services/courseAccess';
+import {
+  createExportShare,
+  listActiveShares,
+  revokeShare,
+} from '../services/courseExportShare';
 import type { AppBindings, AppEnv } from '../types';
 
 const r = new Hono<AppEnv>();
@@ -18,27 +29,28 @@ r.use('*', requireAuth);
 const DOWNLOAD_PRESIGN_EXPIRES = 5 * 60; // 5 minutes
 
 function signerConfig(env: AppBindings): R2SignerConfig {
-  const accountId = env.R2_ACCOUNT_ID;
-  const accessKeyId = env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
-  const bucket = env.R2_BUCKET ?? 'coursewise-files';
-  const missing: string[] = [];
-  if (!accountId) missing.push('R2_ACCOUNT_ID');
-  if (!accessKeyId) missing.push('R2_ACCESS_KEY_ID');
-  if (!secretAccessKey) missing.push('R2_SECRET_ACCESS_KEY');
-  if (missing.length > 0) {
+  const result = r2SignerConfigFromEnv(env);
+  if (!result.config) {
     throw new ApiException(
       500,
       ERROR_CODES.INTERNAL_ERROR,
-      `R2 download presign is not configured: missing ${missing.join(', ')}.`,
+      `R2 download presign is not configured: missing ${result.missing.join(', ')}.`,
     );
   }
+  return result.config;
+}
+
+function shareDto(row: typeof courseExportShares.$inferSelect, url: string | null): ExportShare {
   return {
-    accountId: accountId as string,
-    accessKeyId: accessKeyId as string,
-    secretAccessKey: secretAccessKey as string,
-    bucket,
-    endpoint: env.R2_PUBLIC_ENDPOINT || undefined,
+    id: row.id,
+    createdAt: row.createdAt,
+    expiresAt: row.expiresAt,
+    maxDownloads: row.maxDownloads,
+    downloadCount: row.downloadCount,
+    hasPassphrase: !!row.passphraseHash,
+    locked: !!row.lockedAt,
+    lastDownloadedAt: row.lastDownloadedAt ?? null,
+    url,
   };
 }
 
@@ -178,6 +190,127 @@ r.get(
     });
 
     return success(c, { downloadUrl: presigned.url, expiresAt: presigned.expiresAt, fileName });
+  },
+);
+
+// Helper: load a completed, unexpired export owned by the course, or throw.
+async function requireDownloadableExport(
+  db: AppEnv['Variables']['db'],
+  courseId: string,
+  jobId: string,
+): Promise<typeof courseExportJobs.$inferSelect> {
+  const [job] = await db
+    .select()
+    .from(courseExportJobs)
+    .where(and(eq(courseExportJobs.id, jobId), eq(courseExportJobs.courseId, courseId)))
+    .limit(1);
+  if (!job) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Export not found');
+  if (job.status !== 'done' || !job.objectKey) {
+    throw new ApiException(409, ERROR_CODES.CONFLICT, 'Export is not ready');
+  }
+  if (job.expiresAt && Date.parse(job.expiresAt) < Date.now()) {
+    throw new ApiException(410, ERROR_CODES.NOT_FOUND, 'Export has expired');
+  }
+  return job;
+}
+
+// Create a guest share link for a completed export. Returns the plaintext link
+// ONCE. A teacher of the course only.
+r.post(
+  '/courses/:courseId/exports/:jobId/shares',
+  requireScopeGroup('coursesWrite'),
+  requireTokenCourseAccess(),
+  validateJson(createExportShareSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    const jobId = requireParam(c, 'jobId');
+    if (!(await canWriteCourse(db, auth.user, courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No access to this export');
+    }
+    const job = await requireDownloadableExport(db, courseId, jobId);
+    const input = c.get('validated') as CreateExportShareInput;
+
+    const { row, token } = await createExportShare(db, {
+      exportJobId: jobId,
+      courseId,
+      createdById: auth.user.id,
+      passphrase: input.passphrase ?? null,
+      expiresInHours: input.expiresInHours ?? null,
+      maxDownloads: input.maxDownloads ?? null,
+      jobExpiresAt: job.expiresAt ?? null,
+    });
+
+    const origin = resolveRequestOrigin(c).replace(/\/$/, '');
+    const url = `${origin}/share/export/${token}`;
+
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'course.export.share.create',
+      target: row.id,
+      metadata: {
+        courseId,
+        jobId,
+        hasPassphrase: !!row.passphraseHash,
+        expiresAt: row.expiresAt,
+        maxDownloads: row.maxDownloads,
+      },
+    });
+
+    return success(c, shareDto(row, url), 201);
+  },
+);
+
+// List active (non-revoked) shares for an export. Never returns token/hash.
+r.get(
+  '/courses/:courseId/exports/:jobId/shares',
+  requireScopeGroup('coursesRead'),
+  requireTokenCourseAccess(),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    const jobId = requireParam(c, 'jobId');
+    if (!(await canWriteCourse(db, auth.user, courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No access to this export');
+    }
+    const rows = await listActiveShares(db, jobId);
+    return success(
+      c,
+      rows.filter((row) => row.courseId === courseId).map((row) => shareDto(row, null)),
+    );
+  },
+);
+
+// Revoke a share (kills the guest link immediately).
+r.delete(
+  '/courses/:courseId/exports/:jobId/shares/:shareId',
+  requireScopeGroup('coursesWrite'),
+  requireTokenCourseAccess(),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    const shareId = requireParam(c, 'shareId');
+    if (!(await canWriteCourse(db, auth.user, courseId))) {
+      throw new ApiException(403, ERROR_CODES.FORBIDDEN, 'No access to this export');
+    }
+    const revoked = await revokeShare(db, { shareId, courseId });
+    if (!revoked) throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Share not found');
+
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'course.export.share.revoke',
+      target: shareId,
+      metadata: { courseId },
+    });
+
+    return success(c, { ok: true });
   },
 );
 

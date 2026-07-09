@@ -1412,3 +1412,19 @@ export const importCanvasCourseSchema = z.object({
   canvasCourseId: z.string().trim().min(1).max(100),
 });
 export type ImportCanvasCourseInput = z.infer<typeof importCanvasCourseSchema>;
+
+// -------- Course export guest share --------
+
+export const createExportShareSchema = z.object({
+  /** Optional passphrase (adds a second factor over the token). */
+  passphrase: z.string().trim().min(8).max(128).optional(),
+  /** Share lifetime; clamped server-side to the export's own TTL. */
+  expiresInHours: z.number().int().min(1).max(72).optional(),
+  maxDownloads: z.number().int().min(1).max(1000).optional(),
+});
+export type CreateExportShareInput = z.infer<typeof createExportShareSchema>;
+
+export const exportShareDownloadSchema = z.object({
+  passphrase: z.string().min(1).max(128).optional(),
+});
+export type ExportShareDownloadInput = z.infer<typeof exportShareDownloadSchema>;

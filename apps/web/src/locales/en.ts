@@ -373,6 +373,40 @@ export const en = {
           done: 'Ready',
           failed: 'Failed',
         },
+        share: {
+          shareCta: 'Share',
+          dialogTitle: 'Share this export',
+          warning:
+            'This creates a login-free download link. Anyone with the link can download student grades, attendance and submissions. Only send it to people you have authorized.',
+          linkReady: 'Your share link',
+          copy: 'Copy',
+          linkOnce:
+            'This link is shown only once — copy it now. You can revoke it below at any time.',
+          createAnother: 'Create another link',
+          passphraseLabel: 'Passphrase (optional)',
+          passphrasePlaceholder: 'At least 4 characters',
+          passphraseHint: 'Recipients must enter this to download — a second layer of protection.',
+          passphraseTooShort: 'Passphrase must be at least 8 characters.',
+          ttlLabel: 'Expires after',
+          ttlHours: '{{count}} hours',
+          maxDownloadsLabel: 'Max downloads',
+          createCta: 'Create link',
+          created: 'Share link created.',
+          copied: 'Link copied to clipboard.',
+          copyFailed: 'Could not copy the link.',
+          activeTitle: 'Active links',
+          none: 'No active share links.',
+          downloadsUsed: '{{used}} / {{max}} downloads',
+          expiresLabel: 'expires {{date}}',
+          locked: 'Locked',
+          expired: 'Expired',
+          passphraseProtected: 'Passphrase protected',
+          revoke: 'Revoke',
+          revoked: 'Link revoked.',
+          revokeConfirmTitle: 'Revoke this share link?',
+          revokeConfirmBody:
+            'The link stops working immediately. Anyone who has it will no longer be able to download.',
+        },
       },
       dangerZone: {
         title: 'Danger zone',
@@ -445,9 +479,12 @@ export const en = {
       runsTitle: 'Import history',
       pushTitle: 'Push to Canvas',
       pushIntro: 'Publish the CourseWise-built skeleton into the linked Canvas course:',
-      pushItemScope: 'CourseWise-created modules and the assignments inside them are created or updated in Canvas (drafts stay unpublished).',
-      pushItemCarrier: 'Pushed assignments are schedule mirrors — submissions stay in CourseWise (Canvas shows a note).',
-      pushItemOverwrite: 'Re-pushing overwrites Canvas-side edits to pushed items — CourseWise wins.',
+      pushItemScope:
+        'CourseWise-created modules and the assignments inside them are created or updated in Canvas (drafts stay unpublished).',
+      pushItemCarrier:
+        'Pushed assignments are schedule mirrors — submissions stay in CourseWise (Canvas shows a note).',
+      pushItemOverwrite:
+        'Re-pushing overwrites Canvas-side edits to pushed items — CourseWise wins.',
       pushItemImportedSkipped: 'Content originally imported FROM Canvas is never pushed back.',
       pushCta: 'Push to Canvas',
       pushConfirmTitle: 'Push to Canvas?',
@@ -456,8 +493,10 @@ export const en = {
       pushStarted: 'Push started — this can take a minute.',
       run: {
         kind: { initial_import: 'Import', structure_push: 'Push' },
-        pushModules: 'Modules: {{created}} created, {{updated}} updated, {{skipped}} skipped (imported)',
-        pushAssignments: 'Assignments: {{created}} created, {{updated}} updated, {{skipped}} skipped',
+        pushModules:
+          'Modules: {{created}} created, {{updated}} updated, {{skipped}} skipped (imported)',
+        pushAssignments:
+          'Assignments: {{created}} created, {{updated}} updated, {{skipped}} skipped',
         pushItems: '{{count}} module items created',
         status: {
           pending: 'Queued',
@@ -498,6 +537,27 @@ export const en = {
       notFoundBody: 'This link may have been disabled by the teacher, or the URL is incorrect.',
       noEmbed:
         'This deck can’t be embedded directly. Use “Open in Gamma” or download the .pptx above.',
+    },
+    exportShare: {
+      title: 'Course export',
+      unavailableTitle: 'This link is not available',
+      fileLabel: 'File',
+      sizeLabel: 'Size',
+      expiresLabel: 'Available until',
+      downloadsRemainingLabel: 'Downloads remaining',
+      passphraseLabel: 'Passphrase',
+      downloadCta: 'Download',
+      downloading: 'Preparing…',
+      started: 'Your download has started. If nothing happens, check your browser downloads.',
+      privacyNote:
+        'This file contains student education records. Handle it in line with your institution’s privacy policies.',
+      error: {
+        gone: 'This link is no longer available. It may have expired, reached its download limit, or been revoked.',
+        locked:
+          'This link is temporarily locked after too many incorrect passphrase attempts. Try again later.',
+        passphraseRequired: 'A passphrase is required to download this file.',
+        passphraseIncorrect: 'That passphrase is incorrect. Please try again.',
+      },
     },
     ferpaNotice: {
       title: 'Your FERPA rights',

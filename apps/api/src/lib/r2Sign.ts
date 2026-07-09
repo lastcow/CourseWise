@@ -19,6 +19,39 @@ export interface R2SignerConfig {
   endpoint?: string;
 }
 
+export interface R2SignerEnv {
+  R2_ACCOUNT_ID?: string;
+  R2_ACCESS_KEY_ID?: string;
+  R2_SECRET_ACCESS_KEY?: string;
+  R2_BUCKET?: string;
+  R2_PUBLIC_ENDPOINT?: string;
+}
+
+/**
+ * Build an R2 presign config from Worker env, or return the list of missing
+ * bindings so the caller can surface a precise 500. Shared by the course-export
+ * download route and the public share-download route.
+ */
+export function r2SignerConfigFromEnv(
+  env: R2SignerEnv,
+): { config: R2SignerConfig; missing: [] } | { config: null; missing: string[] } {
+  const missing: string[] = [];
+  if (!env.R2_ACCOUNT_ID) missing.push('R2_ACCOUNT_ID');
+  if (!env.R2_ACCESS_KEY_ID) missing.push('R2_ACCESS_KEY_ID');
+  if (!env.R2_SECRET_ACCESS_KEY) missing.push('R2_SECRET_ACCESS_KEY');
+  if (missing.length > 0) return { config: null, missing };
+  return {
+    config: {
+      accountId: env.R2_ACCOUNT_ID as string,
+      accessKeyId: env.R2_ACCESS_KEY_ID as string,
+      secretAccessKey: env.R2_SECRET_ACCESS_KEY as string,
+      bucket: env.R2_BUCKET ?? 'coursewise-files',
+      endpoint: env.R2_PUBLIC_ENDPOINT || undefined,
+    },
+    missing: [],
+  };
+}
+
 export interface PresignOptions {
   method: 'PUT' | 'GET' | 'DELETE' | 'HEAD';
   key: string;

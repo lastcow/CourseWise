@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Trash2 } from 'lucide-react';
+import { Copy, Lock, Trash2 } from 'lucide-react';
 import { MODULE_CADENCES, type MeetingSlot, type ModuleCadence } from '@coursewise/shared';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog } from '@/components/ui/dialog';
 import { Input, Label } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { Switch } from '@/components/ui/switch';
@@ -16,11 +17,15 @@ import {
   useCourse,
   useCourseExports,
   useCreateCourseExport,
+  useCreateExportShare,
   useDeletionPreview,
+  useExportShares,
+  useRevokeExportShare,
   useUpdateCourse,
 } from '@/lib/queries';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm';
 import { ApiClientError } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
 import { DeleteCourseDialog } from '@/components/course/DeleteCourseDialog';
@@ -413,6 +418,7 @@ function CourseExportSection({ courseId }: { courseId: string }): JSX.Element {
   const exportsQ = useCourseExports(courseId || null);
   const create = useCreateCourseExport(courseId);
   const jobs = exportsQ.data ?? [];
+  const [shareJobId, setShareJobId] = useState<string | null>(null);
 
   const onRequest = async (): Promise<void> => {
     try {
@@ -478,6 +484,9 @@ function CourseExportSection({ courseId }: { courseId: string }): JSX.Element {
                         <Button variant="outline" size="sm" onClick={() => void onDownload(j.id)}>
                           {t('course.export.download')}
                         </Button>
+                        <Button variant="outline" size="sm" onClick={() => setShareJobId(j.id)}>
+                          {t('course.export.share.shareCta')}
+                        </Button>
                       </>
                     ) : expired && j.status === 'done' ? (
                       <span className="text-xs text-muted-foreground">
@@ -491,6 +500,231 @@ function CourseExportSection({ courseId }: { courseId: string }): JSX.Element {
           </div>
         ) : null}
       </CardContent>
+      {shareJobId ? (
+        <ExportShareDialog
+          courseId={courseId}
+          jobId={shareJobId}
+          open
+          onClose={() => setShareJobId(null)}
+        />
+      ) : null}
     </Card>
+  );
+}
+
+function ExportShareDialog({
+  courseId,
+  jobId,
+  open,
+  onClose,
+}: {
+  courseId: string;
+  jobId: string;
+  open: boolean;
+  onClose: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const sharesQ = useExportShares(courseId, jobId, open);
+  const create = useCreateExportShare(courseId, jobId);
+  const revoke = useRevokeExportShare(courseId, jobId);
+
+  const [passphrase, setPassphrase] = useState('');
+  const [ttl, setTtl] = useState('24');
+  const [maxDownloads, setMaxDownloads] = useState('10');
+  const [createdUrl, setCreatedUrl] = useState<string | null>(null);
+
+  const onCreate = async (): Promise<void> => {
+    const trimmed = passphrase.trim();
+    if (trimmed && trimmed.length < 8) {
+      toast.push({ title: t('course.export.share.passphraseTooShort'), tone: 'error' });
+      return;
+    }
+    try {
+      const share = await create.mutateAsync({
+        passphrase: trimmed ? trimmed : undefined,
+        expiresInHours: Number(ttl),
+        maxDownloads: Number(maxDownloads),
+      });
+      setCreatedUrl(share.url);
+      setPassphrase('');
+      toast.push({ title: t('course.export.share.created'), tone: 'success' });
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  const onCopy = async (url: string): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.push({ title: t('course.export.share.copied'), tone: 'success' });
+    } catch {
+      toast.push({ title: t('course.export.share.copyFailed'), tone: 'error' });
+    }
+  };
+
+  const onRevoke = async (shareId: string): Promise<void> => {
+    const ok = await confirm({
+      title: t('course.export.share.revokeConfirmTitle'),
+      description: t('course.export.share.revokeConfirmBody'),
+      confirmLabel: t('course.export.share.revoke'),
+    });
+    if (!ok) return;
+    try {
+      await revoke.mutateAsync(shareId);
+      toast.push({ title: t('course.export.share.revoked'), tone: 'success' });
+    } catch (err) {
+      const key = err instanceof ApiClientError ? err.error.i18nKey : 'errors.internal';
+      toast.push({ title: t(key), tone: 'error' });
+    }
+  };
+
+  const shares = sharesQ.data ?? [];
+
+  return (
+    <Dialog
+      open={open}
+      onClose={() => {
+        setCreatedUrl(null);
+        onClose();
+      }}
+      title={t('course.export.share.dialogTitle')}
+    >
+      <div className="space-y-4">
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+          {t('course.export.share.warning')}
+        </div>
+
+        {createdUrl ? (
+          <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+            <Label>{t('course.export.share.linkReady')}</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={createdUrl}
+                className="font-mono text-xs"
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <Button size="sm" variant="outline" onClick={() => void onCopy(createdUrl)}>
+                <Copy className="h-4 w-4" />
+                {t('course.export.share.copy')}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('course.export.share.linkOnce')}</p>
+            <Button size="sm" variant="ghost" onClick={() => setCreatedUrl(null)}>
+              {t('course.export.share.createAnother')}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="share-passphrase">{t('course.export.share.passphraseLabel')}</Label>
+              <Input
+                id="share-passphrase"
+                type="password"
+                autoComplete="new-password"
+                value={passphrase}
+                onChange={(e) => setPassphrase(e.target.value)}
+                placeholder={t('course.export.share.passphrasePlaceholder')}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('course.export.share.passphraseHint')}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="share-ttl">{t('course.export.share.ttlLabel')}</Label>
+                <select
+                  id="share-ttl"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={ttl}
+                  onChange={(e) => setTtl(e.target.value)}
+                >
+                  {['1', '6', '12', '24', '48', '72'].map((h) => (
+                    <option key={h} value={h}>
+                      {t('course.export.share.ttlHours', { count: Number(h) })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="share-max">{t('course.export.share.maxDownloadsLabel')}</Label>
+                <Input
+                  id="share-max"
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={maxDownloads}
+                  onChange={(e) => setMaxDownloads(e.target.value)}
+                />
+              </div>
+            </div>
+            <Button onClick={() => void onCreate()} disabled={create.isPending}>
+              {t('course.export.share.createCta')}
+            </Button>
+          </div>
+        )}
+
+        <div className="space-y-2 border-t pt-3">
+          <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            {t('course.export.share.activeTitle')}
+          </div>
+          {sharesQ.isLoading ? (
+            <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+          ) : shares.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('course.export.share.none')}</p>
+          ) : (
+            <ul className="space-y-2">
+              {shares.map((s) => {
+                const expired = Date.parse(s.expiresAt) < Date.now();
+                return (
+                  <li
+                    key={s.id}
+                    className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                  >
+                    {s.hasPassphrase ? (
+                      <Lock
+                        className="h-3.5 w-3.5 text-muted-foreground"
+                        aria-label={t('course.export.share.passphraseProtected')}
+                      />
+                    ) : null}
+                    <span className="text-muted-foreground">
+                      {t('course.export.share.downloadsUsed', {
+                        used: s.downloadCount,
+                        max: s.maxDownloads,
+                      })}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      ·{' '}
+                      {t('course.export.share.expiresLabel', {
+                        date: new Date(s.expiresAt).toLocaleString(),
+                      })}
+                    </span>
+                    {s.locked ? (
+                      <Badge variant="destructive">{t('course.export.share.locked')}</Badge>
+                    ) : null}
+                    {expired ? (
+                      <Badge variant="secondary">{t('course.export.share.expired')}</Badge>
+                    ) : null}
+                    <div className="ml-auto">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void onRevoke(s.id)}
+                        disabled={revoke.isPending}
+                      >
+                        {t('course.export.share.revoke')}
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </Dialog>
   );
 }

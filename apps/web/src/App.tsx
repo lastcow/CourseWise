@@ -23,6 +23,7 @@ import { UseCasePage } from '@/pages/public/UseCasePage';
 import { AboutPage } from '@/pages/public/AboutPage';
 import { ContactPage } from '@/pages/public/ContactPage';
 import { PublicPresentationPage } from '@/pages/public/PublicPresentationPage';
+import { PublicExportDownloadPage } from '@/pages/PublicExportDownloadPage';
 import { InviteRedeemPage } from '@/pages/public/InviteRedeemPage';
 import { LegalRoutes } from '@/pages/legal/LegalRoutes';
 import { SettingsApiTokensPage } from '@/pages/SettingsApiTokensPage';
@@ -101,6 +102,8 @@ export default function App(): JSX.Element {
             <Routes>
               {/* Public presentation viewer — bare layout, no marketing chrome. */}
               <Route path="/p/:token" element={<PublicPresentationPage />} />
+              {/* Guest course-export download via capability link — no auth. */}
+              <Route path="/share/export/:token" element={<PublicExportDownloadPage />} />
               <Route element={<PublicLayout />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/features" element={<FeaturesPage />} />

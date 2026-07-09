@@ -42,6 +42,9 @@ import type {
   CourseDetail,
   CourseExportJob,
   CourseGradingSummary,
+  CreateExportShareInput,
+  ExportShare,
+  ExportShareMeta,
   CourseSummary,
   CreateAiModelInput,
   CreateAiProviderInput,
@@ -506,8 +509,7 @@ export function useAnnouncementComments(announcementId: string | null, enabled =
   return useQuery({
     queryKey: ['announcement-comments', announcementId],
     enabled: !!announcementId && enabled,
-    queryFn: () =>
-      apiCall<AnnouncementComment[]>(`/api/announcements/${announcementId}/comments`),
+    queryFn: () => apiCall<AnnouncementComment[]>(`/api/announcements/${announcementId}/comments`),
   });
 }
 
@@ -515,7 +517,9 @@ export function useAddAnnouncementComment(announcementId: string, courseId: stri
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateAnnouncementCommentInput) =>
-      apiCall<AnnouncementComment>(`/api/announcements/${announcementId}/comments`, { body: input }),
+      apiCall<AnnouncementComment>(`/api/announcements/${announcementId}/comments`, {
+        body: input,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['announcement-comments', announcementId] });
       void qc.invalidateQueries({ queryKey: ['announcements', courseId] });
@@ -1742,7 +1746,9 @@ export function useSubmitQuizAttempt(attemptId: string) {
 }
 
 /** Record one lockdown violation (tab/app switch) for an in-progress attempt. */
-export function recordLockdownViolation(attemptId: string): Promise<{ lockdownViolations: number }> {
+export function recordLockdownViolation(
+  attemptId: string,
+): Promise<{ lockdownViolations: number }> {
   return apiCall<{ lockdownViolations: number }>(
     `/api/quiz-attempts/${attemptId}/lockdown-violation`,
     { method: 'POST' },
@@ -1965,6 +1971,62 @@ export async function downloadCourseExport(courseId: string, jobId: string): Pro
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+// ---------- Course export guest shares (capability links) ----------
+
+/** List active (non-revoked) guest share links for a finished export. */
+export function useExportShares(courseId: string, jobId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['export-shares', courseId, jobId],
+    enabled: enabled && !!courseId && !!jobId,
+    queryFn: () => apiCall<ExportShare[]>(`/api/courses/${courseId}/exports/${jobId}/shares`),
+  });
+}
+
+/** Create a guest share link. The returned `url` is the one-time plaintext link. */
+export function useCreateExportShare(courseId: string, jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateExportShareInput) =>
+      apiCall<ExportShare>(`/api/courses/${courseId}/exports/${jobId}/shares`, {
+        method: 'POST',
+        body: input,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['export-shares', courseId, jobId] });
+    },
+  });
+}
+
+/** Revoke a guest share link, killing it immediately. */
+export function useRevokeExportShare(courseId: string, jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (shareId: string) =>
+      apiCall<{ ok: true }>(`/api/courses/${courseId}/exports/${jobId}/shares/${shareId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['export-shares', courseId, jobId] });
+    },
+  });
+}
+
+// Guest (unauthenticated) helpers — the token is the credential, so these MUST
+// NOT attach a JWT. Used by the public /share/export/:token page.
+export function fetchExportShareMeta(token: string): Promise<ExportShareMeta> {
+  return apiCall<ExportShareMeta>(`/api/public/exports/${token}`, { auth: false });
+}
+
+export function requestExportShareDownload(
+  token: string,
+  passphrase?: string,
+): Promise<{ downloadUrl: string; expiresAt: string; fileName: string }> {
+  return apiCall<{ downloadUrl: string; expiresAt: string; fileName: string }>(
+    `/api/public/exports/${token}/download`,
+    { auth: false, body: { passphrase } },
+  );
 }
 
 // ---------- M5: Grading policy ----------
