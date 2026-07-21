@@ -2097,6 +2097,21 @@ export const lmsIdMap = pgTable(
     // unchanged rows and never overwrites locally edited ones.
     lastSyncedFingerprint: text('last_synced_fingerprint'),
     syncedAt: timestamp('synced_at', { withTimezone: true, mode: 'string' }),
+    // Push-side echo bookkeeping (v3 §2.3 subset). Computed from the Canvas
+    // RESPONSE right after our write, so both sides of a later comparison use
+    // Canvas's own field normalization:
+    // - lastPushFingerprint: sha256 over the stable pushed-field subset
+    //   (description excluded — Canvas rewrites HTML on save, so it can never
+    //   compare equal without a normalization layer; that lands with v3 P4).
+    // - lastPushRemoteUpdatedAt: the response's updated_at verbatim (text, for
+    //   strict string equality; assignments only — modules expose none).
+    lastPushAt: timestamp('last_push_at', { withTimezone: true, mode: 'string' }),
+    lastPushRemoteUpdatedAt: text('last_push_remote_updated_at'),
+    lastPushFingerprint: text('last_push_fingerprint'),
+    // Set when a push-origin mapping's Canvas object turned out deleted over
+    // there (GET/PUT → 404). Re-pushes skip such rows and report them; we
+    // never auto-recreate what a teacher deleted in Canvas.
+    remoteMissingAt: timestamp('remote_missing_at', { withTimezone: true, mode: 'string' }),
     matchMethod: lmsMatchMethodEnum('match_method'),
     confirmedByUserId: uuid('confirmed_by_user_id').references(() => users.id, {
       onDelete: 'set null',

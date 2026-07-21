@@ -475,17 +475,30 @@ export interface CanvasCourseLink {
   canvasBaseUrl: string | null;
 }
 
-// summaryJson payload of a completed initial-import run.
+// summaryJson payload of a completed structure-push run. The remote* fields
+// arrived with push hardening (2026-07); older runs won't have them.
 export interface CanvasPushSummary {
   push: {
-    modules: { created: number; updated: number; skippedImported: number };
+    modules: {
+      created: number;
+      updated: number;
+      unchanged?: number;
+      skippedImported: number;
+      remoteMissing?: number;
+    };
     assignments: {
       created: number;
       updated: number;
+      adopted?: number;
       skippedImported: number;
       skippedNoModule: number;
+      remoteMissing?: number;
     };
-    moduleItems: { created: number };
+    moduleItems: { created: number; updated?: number; unchanged?: number };
+    // Canvas-side edits detected (and overwritten, CW wins) / Canvas-side
+    // deletions detected (skipped, never auto-recreated) — entity titles.
+    remoteEdits?: string[];
+    remoteMissingTitles?: string[];
   };
 }
 

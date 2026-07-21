@@ -87,6 +87,16 @@ export interface CanvasAssignment {
   position?: number;
   assignment_group_id?: number;
   is_quiz_assignment?: boolean;
+  updated_at?: string;
+}
+
+export interface CanvasModuleItem {
+  id: number;
+  module_id?: number;
+  position?: number;
+  title?: string;
+  type?: string;
+  content_id?: number;
 }
 
 export interface CanvasModule {
@@ -293,6 +303,20 @@ export class CanvasClient {
     );
   }
 
+  getModule(courseId: string, moduleId: string): Promise<CanvasModule> {
+    return this.request<CanvasModule>(
+      'GET',
+      `/api/v1/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}`,
+    );
+  }
+
+  getAssignment(courseId: string, assignmentId: string): Promise<CanvasAssignment> {
+    return this.request<CanvasAssignment>(
+      'GET',
+      `/api/v1/courses/${encodeURIComponent(courseId)}/assignments/${encodeURIComponent(assignmentId)}`,
+    );
+  }
+
   listSections(courseId: string): Promise<CanvasSection[]> {
     return this.getPaginated<CanvasSection>(
       `/api/v1/courses/${encodeURIComponent(courseId)}/sections`,
@@ -344,14 +368,37 @@ export class CanvasClient {
     );
   }
 
+  listModuleItems(courseId: string, moduleId: string): Promise<CanvasModuleItem[]> {
+    return this.getPaginated<CanvasModuleItem>(
+      `/api/v1/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}/items`,
+    );
+  }
+
+  // Ids are passed through as strings: Canvas accepts them, and Number() would
+  // corrupt cross-shard "shard~id" forms and ids beyond 2^53.
   createModuleItem(
     courseId: string,
     moduleId: string,
-    item: { title?: string; type: 'Assignment'; content_id: number; position?: number },
+    item: { title?: string; type: 'Assignment'; content_id: string; position?: number },
   ): Promise<{ id: number }> {
     return this.request<{ id: number }>(
       'POST',
       `/api/v1/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}/items`,
+      { module_item: item },
+    );
+  }
+
+  // moduleId is the item's CURRENT module (route position); module_item.module_id
+  // (when set) moves the item to another module in the same call.
+  updateModuleItem(
+    courseId: string,
+    moduleId: string,
+    itemId: string,
+    item: { position?: number; module_id?: string },
+  ): Promise<CanvasModuleItem> {
+    return this.request<CanvasModuleItem>(
+      'PUT',
+      `/api/v1/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}/items/${encodeURIComponent(itemId)}`,
       { module_item: item },
     );
   }

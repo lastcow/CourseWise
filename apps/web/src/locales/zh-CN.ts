@@ -473,6 +473,11 @@ export const zhCN = {
         pushModules: '模块:新建 {{created}}、更新 {{updated}}、跳过 {{skipped}}(导入来源)',
         pushAssignments: '作业:新建 {{created}}、更新 {{updated}}、跳过 {{skipped}}',
         pushItems: '创建 {{count}} 个模块条目',
+        pushItemsMoved: '移动/重排 {{count}} 个模块条目',
+        pushUnchanged: '{{count}} 项无变化',
+        pushAdopted: '{{count}} 个作业已重新关联到 Canvas 现有副本',
+        pushRemoteMissing: '{{count}} 个已推送内容在 Canvas 侧已被删除(跳过、不自动重建):',
+        pushRemoteEdits: 'Canvas 侧的手工修改已被覆盖(CourseWise 优先):',
         status: {
           pending: '排队中',
           running: '导入中…',

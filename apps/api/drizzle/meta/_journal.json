@@ -386,6 +386,13 @@
       "when": 1785196800000,
       "tag": "0054_course_export_shares",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1785283200000,
+      "tag": "0055_push_bookkeeping",
+      "breakpoints": true
     }
   ]
 }
