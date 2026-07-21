@@ -10,6 +10,7 @@ import {
   modules,
 } from '../../../db/schema';
 import { randomUuid, sha256Hex } from '../../../lib/crypto';
+import { extractCwMarker, isPendingExternalId, pendingAttemptedName } from './pushCourse';
 import type {
   CanvasAssignment,
   CanvasClient,
@@ -235,11 +236,18 @@ export async function importCourseStructure(
   // --- Modules (always draft; module items are intentionally not imported) ---
   const moduleSummary = { imported: 0, skipped: 0 };
   const seenModules = await existingExternalIds(db, courseLinkId, 'module');
+  // Push-echo guard: a 'pending:<name>' module row means a push create for
+  // <name> crashed mid-flight. The unmapped Canvas module it may have left
+  // behind belongs to that pending push (the next push adopts it) — importing
+  // it would clone our own half-pushed module back as a CW draft.
+  const pendingPushNames = new Set(
+    [...seenModules].filter(isPendingExternalId).map(pendingAttemptedName),
+  );
   let modulePosition = 0;
   for (const m of canvasModules) {
     const externalId = String(m.id);
     modulePosition += 1;
-    if (seenModules.has(externalId)) {
+    if (seenModules.has(externalId) || (m.name != null && pendingPushNames.has(m.name))) {
       moduleSummary.skipped += 1;
       continue;
     }
@@ -275,6 +283,14 @@ export async function importCourseStructure(
     assignmentPosition += 1;
     if (a.workflow_state === 'deleted') continue;
     if (seenAssignments.has(externalId)) {
+      assignmentSummary.skipped += 1;
+      continue;
+    }
+    // Echo guard: a data-coursewise-id marker means WE pushed this assignment.
+    // Mapped rows are already caught by seenAssignments; the marker also
+    // catches orphans whose push run died before the id-map insert landed —
+    // importing those would clone our own mirror back as a CW draft.
+    if (extractCwMarker(a.description)) {
       assignmentSummary.skipped += 1;
       continue;
     }

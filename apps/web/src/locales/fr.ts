@@ -502,6 +502,12 @@ export const fr = {
           'Modules : {{created}} créés, {{updated}} mis à jour, {{skipped}} ignorés (importés)',
         pushAssignments: 'Devoirs : {{created}} créés, {{updated}} mis à jour, {{skipped}} ignorés',
         pushItems: '{{count}} éléments de module créés',
+        pushItemsMoved: '{{count}} éléments de module déplacés/réordonnés',
+        pushUnchanged: '{{count}} inchangés',
+        pushAdopted: '{{count}} devoirs re-liés à des copies Canvas existantes',
+        pushRemoteMissing:
+          '{{count}} éléments poussés introuvables dans Canvas (supprimés là-bas) — ignorés, pas recréés :',
+        pushRemoteEdits: 'Modifications côté Canvas écrasées (CourseWise gagne) :',
         status: {
           pending: 'En file',
           running: 'Import…',

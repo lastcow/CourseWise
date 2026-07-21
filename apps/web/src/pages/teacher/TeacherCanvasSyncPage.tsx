@@ -340,6 +340,12 @@ function RunRow({ run }: { run: CanvasSyncRun }): JSX.Element {
               updated: p.modules?.updated ?? 0,
               skipped: p.modules?.skippedImported ?? 0,
             })}
+            {(p.modules?.unchanged ?? 0) > 0 ? (
+              <>
+                {' · '}
+                {t('canvas.run.pushUnchanged', { count: p.modules?.unchanged ?? 0 })}
+              </>
+            ) : null}
           </p>
           <p>
             {t('canvas.run.pushAssignments', {
@@ -350,7 +356,42 @@ function RunRow({ run }: { run: CanvasSyncRun }): JSX.Element {
             })}
             {' · '}
             {t('canvas.run.pushItems', { count: p.moduleItems?.created ?? 0 })}
+            {(p.moduleItems?.updated ?? 0) > 0 ? (
+              <>
+                {' · '}
+                {t('canvas.run.pushItemsMoved', { count: p.moduleItems?.updated ?? 0 })}
+              </>
+            ) : null}
           </p>
+          {(p.assignments?.adopted ?? 0) > 0 ? (
+            <p>{t('canvas.run.pushAdopted', { count: p.assignments?.adopted ?? 0 })}</p>
+          ) : null}
+          {(() => {
+            const missing = (p.modules?.remoteMissing ?? 0) + (p.assignments?.remoteMissing ?? 0);
+            if (missing === 0) return null;
+            return (
+              <div>
+                <p>{t('canvas.run.pushRemoteMissing', { count: missing })}</p>
+                {p.remoteMissingTitles?.length ? (
+                  <ul className="list-disc pl-5">
+                    {p.remoteMissingTitles.map((title, i) => (
+                      <li key={`${i}-${title}`}>{title}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })()}
+          {p.remoteEdits?.length ? (
+            <div>
+              <p>{t('canvas.run.pushRemoteEdits')}</p>
+              <ul className="list-disc pl-5">
+                {p.remoteEdits.map((title, i) => (
+                  <li key={`${i}-${title}`}>{title}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
       {summary && !p ? (

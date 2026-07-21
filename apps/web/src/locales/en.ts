@@ -498,6 +498,12 @@ export const en = {
         pushAssignments:
           'Assignments: {{created}} created, {{updated}} updated, {{skipped}} skipped',
         pushItems: '{{count}} module items created',
+        pushItemsMoved: '{{count}} module items moved/reordered',
+        pushUnchanged: '{{count}} unchanged',
+        pushAdopted: '{{count}} assignments re-linked to existing Canvas copies',
+        pushRemoteMissing:
+          '{{count}} pushed items are missing in Canvas (deleted there) — skipped, not re-created:',
+        pushRemoteEdits: 'Canvas-side edits were overwritten (CourseWise wins):',
         status: {
           pending: 'Queued',
           running: 'Importing…',
