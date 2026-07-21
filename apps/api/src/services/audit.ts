@@ -59,3 +59,26 @@ function normaliseIds(value: AuditEntry['disclosedStudentIds']): string[] {
   // Dedupe to avoid one access generating two identical rows.
   return Array.from(new Set(value.filter((id) => id && id.length > 0)));
 }
+
+/**
+ * Row values for audit entries, for callers that must write the audit rows
+ * ATOMICALLY with the business write via db.batch (neon-http has no
+ * db.transaction) — e.g. FERPA-mandated disclosure rows that may not be lost
+ * when the linked business insert succeeded (v2 M-4). Unlike recordAudit,
+ * nothing is swallowed here: the caller's batch fails as a whole.
+ */
+export function auditRowValues(entry: AuditEntry): (typeof auditLogs.$inferInsert)[] {
+  const ids = normaliseIds(entry.disclosedStudentIds);
+  const base = {
+    actorType: entry.actorType,
+    actorUserId: entry.actorUserId ?? null,
+    actorTokenId: entry.actorTokenId ?? null,
+    action: entry.action,
+    target: entry.target ?? null,
+    ip: entry.ip ?? null,
+    userAgent: entry.userAgent ?? null,
+    metadataJson: entry.metadata ?? null,
+  } as const;
+  if (ids.length === 0) return [{ ...base, disclosedStudentId: null }];
+  return ids.map((id) => ({ ...base, disclosedStudentId: id }));
+}

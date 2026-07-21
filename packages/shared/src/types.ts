@@ -515,13 +515,84 @@ export interface CanvasImportSummary {
 
 export interface CanvasSyncRun {
   id: string;
-  kind: 'initial_import' | 'structure_push';
+  kind: 'initial_import' | 'structure_push' | 'roster_refresh';
   status: 'pending' | 'running' | 'done' | 'failed';
   // CanvasImportSummary once the run is done; null/unknown otherwise.
   summaryJson: unknown | null;
   error: string | null;
   createdAt: string;
   completedAt: string | null;
+}
+
+// summaryJson payload of a completed roster-refresh run.
+export interface CanvasRosterRefreshSummary {
+  roster: {
+    entries: number;
+    added: number;
+    updated: number;
+    unchanged: number;
+    disappeared: number;
+    reappeared: number;
+    withEmail: number;
+    withSisId: number;
+    withLoginId: number;
+  };
+}
+
+export type CanvasRosterMatchMethod = 'sis' | 'email' | 'login_id' | 'manual';
+
+export interface CanvasRosterEntryDto {
+  id: string;
+  canvasUserId: string;
+  name: string;
+  sortableName: string | null;
+  email: string | null;
+  loginId: string | null;
+  sisUserId: string | null;
+  enrollmentState: string | null;
+  sectionNames: string[];
+  // Set while the entry is missing from the Canvas roster ("dropped in
+  // Canvas" badge) — a reference signal only, never an enrollment change.
+  disappearedAt: string | null;
+}
+
+export interface CanvasRosterStudentDto {
+  id: string;
+  name: string;
+  email: string;
+  studentNumber: string | null;
+}
+
+export interface CanvasRosterLinkDto {
+  studentId: string;
+  canvasUserId: string;
+  matchMethod: string | null;
+  confirmedAt: string | null;
+}
+
+export interface CanvasRosterSuggestionDto {
+  rosterEntryId: string;
+  canvasUserId: string;
+  studentId: string;
+  method: 'sis' | 'email' | 'login_id';
+}
+
+// GET /courses/:courseId/canvas/roster — everything the four-bucket
+// reconciliation view needs (suggested / confirmed / CW-only / Canvas-only
+// are derived client-side from entries+students+links+suggestions).
+export interface CanvasRosterView {
+  lastRosterFetchAt: string | null;
+  rosterRefreshEnabled: boolean;
+  rosterRefreshUntil: string | null;
+  visibility: { entries: number; withEmail: number; withSisId: number; withLoginId: number };
+  entries: CanvasRosterEntryDto[];
+  students: CanvasRosterStudentDto[];
+  links: CanvasRosterLinkDto[];
+  suggestions: CanvasRosterSuggestionDto[];
+  // Matched more than one counterpart at some ladder level: suggestions are
+  // suppressed, manual linking only.
+  ambiguousRosterEntryIds: string[];
+  ambiguousStudentIds: string[];
 }
 
 export interface AssignmentSummary {
