@@ -1,21 +1,32 @@
 import { Hono } from 'hono';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import {
+  canvasRosterLinksSchema,
+  canvasRosterScheduleSchema,
   connectCanvasSchema,
   importCanvasCourseSchema,
   linkCanvasCourseSchema,
   DEFAULT_GRADING_POLICY,
+  type CanvasRosterLinksInput,
+  type CanvasRosterScheduleInput,
+  type CanvasRosterView,
   type ConnectCanvasInput,
   type ImportCanvasCourseInput,
   type LinkCanvasCourseInput,
 } from '@coursewise/shared';
 import type { Db } from '../db/client';
 import {
+  auditLogs,
   courses,
   courseTeachers,
+  enrollments,
   lmsConnections,
   lmsCourseLinks,
+  lmsIdMap,
+  lmsRosterEntries,
   lmsSyncRuns,
+  studentProfiles,
+  users,
   type LmsConnectionRow,
 } from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
@@ -24,8 +35,9 @@ import { success } from '../lib/response';
 import { requireAuth, requireCourseTeacher, requireRole, requireTokenCourseAccess } from '../middleware/auth';
 import { requireScopeGroup } from '../middleware/scope';
 import { validateJson } from '../middleware/validate';
-import { recordAudit } from '../services/audit';
+import { auditRowValues, recordAudit } from '../services/audit';
 import { CanvasAuthError, CanvasClient, type CanvasCourse } from '../services/lms/canvas/client';
+import { computeSuggestions } from '../services/lms/canvas/match';
 import { decryptCanvasToken, encryptCanvasToken } from '../services/lms/canvas/tokens';
 import type { AppBindings, AppEnv } from '../types';
 
@@ -131,7 +143,7 @@ async function createAndStartRun(
   args: {
     connectionId: string;
     courseLinkId: string;
-    kind: 'initial_import' | 'structure_push';
+    kind: 'initial_import' | 'structure_push' | 'roster_refresh';
     requestedById: string;
   },
 ): Promise<string> {
@@ -690,6 +702,352 @@ r.post('/courses/:courseId/canvas/push', ...courseGuards, async (c) => {
 
   return success(c, { runId, status: 'pending' as const }, 202);
 });
+
+// --- Course-level: roster reference + identity linking (P2, v2 §6/§7.1) ---
+// Iron rules: no link without confirmation (suggestions are suggestions), and
+// no orphan on either side is ever hidden. The roster is a reference — it
+// never creates users or changes enrollments.
+
+async function loadCourseLinkOr404(db: Db, courseId: string) {
+  const [link] = await db
+    .select()
+    .from(lmsCourseLinks)
+    .where(eq(lmsCourseLinks.courseId, courseId))
+    .limit(1);
+  if (!link) {
+    throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Link a Canvas course first');
+  }
+  return link;
+}
+
+async function loadStudentLinks(db: Db, courseLinkId: string) {
+  return db
+    .select({
+      localId: lmsIdMap.localId,
+      externalId: lmsIdMap.externalId,
+      matchMethod: lmsIdMap.matchMethod,
+      confirmedAt: lmsIdMap.confirmedAt,
+    })
+    .from(lmsIdMap)
+    .where(and(eq(lmsIdMap.courseLinkId, courseLinkId), eq(lmsIdMap.localType, 'student_link')));
+}
+
+async function loadEnrolledStudents(db: Db, courseId: string) {
+  return db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      studentNumber: studentProfiles.studentNumber,
+    })
+    .from(enrollments)
+    .innerJoin(users, eq(enrollments.studentId, users.id))
+    .leftJoin(studentProfiles, eq(studentProfiles.userId, users.id))
+    .where(and(eq(enrollments.courseId, courseId), eq(enrollments.status, 'enrolled')))
+    .orderBy(asc(users.name));
+}
+
+// Shared by the roster view AND the link-confirm stale-plan guard: both must
+// compute suggestions identically, or a confirm could accept a pairing the
+// view never showed.
+async function loadRosterMatchState(db: Db, courseLinkId: string, courseId: string) {
+  const entryRows = await db
+    .select()
+    .from(lmsRosterEntries)
+    .where(eq(lmsRosterEntries.courseLinkId, courseLinkId))
+    .orderBy(asc(lmsRosterEntries.sortableName), asc(lmsRosterEntries.name));
+  const students = await loadEnrolledStudents(db, courseId);
+  const linkRows = await loadStudentLinks(db, courseLinkId);
+  const linkedStudentIds = new Set(linkRows.map((l) => l.localId));
+  const linkedCanvasIds = new Set(linkRows.map((l) => l.externalId));
+  // Ladder input: unlinked on both sides; disappeared entries never generate
+  // suggestions (there is nothing current to link against).
+  const match = computeSuggestions(
+    entryRows
+      .filter((e) => !linkedCanvasIds.has(e.canvasUserId) && !e.disappearedAt)
+      .map((e) => ({
+        id: e.id,
+        canvasUserId: e.canvasUserId,
+        name: e.name,
+        email: e.email,
+        loginId: e.loginId,
+        sisUserId: e.sisUserId,
+      })),
+    students
+      .filter((s) => !linkedStudentIds.has(s.id))
+      .map((s) => ({
+        userId: s.id,
+        name: s.name,
+        email: s.email,
+        studentNumber: s.studentNumber ?? null,
+      })),
+  );
+  return { entryRows, students, linkRows, linkedStudentIds, linkedCanvasIds, match };
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  if ((err as { code?: string } | null)?.code === '23505') return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('23505') || msg.toLowerCase().includes('duplicate key');
+}
+
+r.get('/courses/:courseId/canvas/roster', ...courseGuards, async (c) => {
+  const db = c.get('db');
+  const courseId = requireParam(c, 'courseId');
+  const link = await loadCourseLinkOr404(db, courseId);
+
+  const { entryRows, students, linkRows, match } = await loadRosterMatchState(
+    db,
+    link.id,
+    courseId,
+  );
+
+  const active = entryRows.filter((e) => !e.disappearedAt);
+  const view: CanvasRosterView = {
+    lastRosterFetchAt: link.lastRosterFetchAt,
+    rosterRefreshEnabled: link.rosterRefreshEnabled,
+    rosterRefreshUntil: link.rosterRefreshUntil,
+    // Field visibility drives which ladder levels are usable — surfaced so
+    // the UI can show "your Canvas permissions expose: email ✅ / SIS ❌".
+    visibility: {
+      entries: active.length,
+      withEmail: active.filter((e) => e.email).length,
+      withSisId: active.filter((e) => e.sisUserId).length,
+      withLoginId: active.filter((e) => e.loginId).length,
+    },
+    entries: entryRows.map((e) => ({
+      id: e.id,
+      canvasUserId: e.canvasUserId,
+      name: e.name,
+      sortableName: e.sortableName,
+      email: e.email,
+      loginId: e.loginId,
+      sisUserId: e.sisUserId,
+      enrollmentState: e.enrollmentState,
+      sectionNames: Array.isArray(e.sectionNames) ? (e.sectionNames as string[]) : [],
+      disappearedAt: e.disappearedAt,
+    })),
+    students: students.map((s) => ({
+      id: s.id,
+      name: s.name,
+      email: s.email,
+      studentNumber: s.studentNumber ?? null,
+    })),
+    links: linkRows.map((l) => ({
+      studentId: l.localId,
+      canvasUserId: l.externalId,
+      matchMethod: l.matchMethod,
+      confirmedAt: l.confirmedAt,
+    })),
+    suggestions: match.suggestions,
+    ambiguousRosterEntryIds: match.ambiguousRosterEntryIds,
+    ambiguousStudentIds: match.ambiguousStudentIds,
+  };
+  return success(c, view);
+});
+
+r.post('/courses/:courseId/canvas/roster/refresh', ...courseGuards, async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const courseId = requireParam(c, 'courseId');
+  const link = await loadCourseLinkOr404(db, courseId);
+
+  await assertNoRunInProgress(db, link.id);
+  const runId = await createAndStartRun(db, c.env, {
+    connectionId: link.connectionId,
+    courseLinkId: link.id,
+    kind: 'roster_refresh',
+    requestedById: auth.user.id,
+  });
+
+  await recordAudit(db, {
+    actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+    actorUserId: auth.user.id,
+    actorTokenId: auth.tokenId ?? null,
+    action: 'canvas.roster.refresh',
+    target: runId,
+    metadata: { courseId, courseLinkId: link.id },
+  });
+
+  return success(c, { runId, status: 'pending' as const }, 202);
+});
+
+r.post(
+  '/courses/:courseId/canvas/roster/links',
+  ...courseGuards,
+  validateJson(canvasRosterLinksSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    const input = c.get('validated') as CanvasRosterLinksInput;
+    const link = await loadCourseLinkOr404(db, courseId);
+
+    // Reject in-batch duplicates outright (same student or entry twice).
+    const batchStudents = new Set<string>();
+    const batchEntries = new Set<string>();
+    for (const l of input.links) {
+      if (batchStudents.has(l.studentId) || batchEntries.has(l.rosterEntryId)) {
+        throw new ApiException(400, ERROR_CODES.VALIDATION_ERROR, 'Duplicate link in request');
+      }
+      batchStudents.add(l.studentId);
+      batchEntries.add(l.rosterEntryId);
+    }
+
+    const { entryRows, students, linkedStudentIds, linkedCanvasIds, match } =
+      await loadRosterMatchState(db, link.id, courseId);
+    const entryById = new Map(entryRows.map((e) => [e.id, e]));
+    const studentById = new Map(students.map((s) => [s.id, s]));
+
+    // Stale-plan guard: a non-manual confirm must still be a LIVE server-
+    // computed suggestion at confirm time, and the stored matchMethod is the
+    // server's current one — a forged or outdated method never reaches the
+    // audit trail.
+    const liveMethod = new Map(
+      match.suggestions.map((s) => [`${s.rosterEntryId}|${s.studentId}`, s.method]),
+    );
+
+    const now = new Date().toISOString();
+    const rows: (typeof lmsIdMap.$inferInsert)[] = [];
+    const auditRows: ReturnType<typeof auditRowValues> = [];
+    for (const l of input.links) {
+      const entry = entryById.get(l.rosterEntryId);
+      if (!entry) {
+        throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Canvas roster entry not found');
+      }
+      if (!studentById.has(l.studentId)) {
+        throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'Student is not enrolled in this course');
+      }
+      if (linkedStudentIds.has(l.studentId) || linkedCanvasIds.has(entry.canvasUserId)) {
+        throw new ApiException(409, ERROR_CODES.CONFLICT, 'Already linked — refresh and retry');
+      }
+      const method =
+        l.method === 'manual' ? 'manual' : liveMethod.get(`${l.rosterEntryId}|${l.studentId}`);
+      if (!method) {
+        throw new ApiException(
+          409,
+          ERROR_CODES.CONFLICT,
+          'Suggestion is no longer valid — refresh and retry',
+        );
+      }
+      rows.push({
+        courseLinkId: link.id,
+        localType: 'student_link',
+        localId: l.studentId,
+        externalId: entry.canvasUserId,
+        matchMethod: method,
+        confirmedByUserId: auth.user.id,
+        confirmedAt: now,
+        syncedAt: now,
+      });
+      // Linking a CW student to a Canvas identity is itself a disclosure
+      // (v2 §6.4): one audit row per student, whose metadata names ONLY that
+      // student's pairing — a student reading their own disclosure log must
+      // not see anyone else's links.
+      auditRows.push(
+        ...auditRowValues({
+          actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+          actorUserId: auth.user.id,
+          actorTokenId: auth.tokenId ?? null,
+          action: 'canvas.roster.link',
+          target: link.id,
+          metadata: { courseId, canvasUserId: entry.canvasUserId, method },
+          disclosedStudentIds: l.studentId,
+        }),
+      );
+    }
+    // Business write + disclosure rows in ONE batch (neon-http batches run as
+    // a transaction): a link may never exist without its disclosure row.
+    try {
+      await db.batch([db.insert(lmsIdMap).values(rows), db.insert(auditLogs).values(auditRows)]);
+    } catch (err) {
+      // A concurrent confirm can beat the pre-read check on either side; both
+      // unique indexes turn that into a clean conflict instead of a race.
+      if (isUniqueViolation(err)) {
+        throw new ApiException(409, ERROR_CODES.CONFLICT, 'Already linked — refresh and retry');
+      }
+      throw err;
+    }
+
+    return success(c, { linked: input.links.length }, 201);
+  },
+);
+
+r.delete('/courses/:courseId/canvas/roster/links/:studentId', ...courseGuards, async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const courseId = requireParam(c, 'courseId');
+  const studentId = requireParam(c, 'studentId');
+  const link = await loadCourseLinkOr404(db, courseId);
+
+  const [row] = await db
+    .select({ id: lmsIdMap.id, externalId: lmsIdMap.externalId })
+    .from(lmsIdMap)
+    .where(
+      and(
+        eq(lmsIdMap.courseLinkId, link.id),
+        eq(lmsIdMap.localType, 'student_link'),
+        eq(lmsIdMap.localId, studentId),
+      ),
+    )
+    .limit(1);
+  if (!row) {
+    throw new ApiException(404, ERROR_CODES.NOT_FOUND, 'This student is not linked');
+  }
+  // P3 NOTE (v2 §6.4): once lms_grade_outbox exists, cancel this student's
+  // pending rows in this same batch — a corrected mislink must never let old
+  // queued grades retry against the wrong Canvas identity.
+  await db.batch([
+    db.delete(lmsIdMap).where(eq(lmsIdMap.id, row.id)),
+    db.insert(auditLogs).values(
+      auditRowValues({
+        actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+        actorUserId: auth.user.id,
+        actorTokenId: auth.tokenId ?? null,
+        action: 'canvas.roster.unlink',
+        target: link.id,
+        metadata: { courseId, canvasUserId: row.externalId },
+        disclosedStudentIds: studentId,
+      }),
+    ),
+  ]);
+
+  return success(c, { unlinked: true });
+});
+
+r.post(
+  '/courses/:courseId/canvas/roster/schedule',
+  ...courseGuards,
+  validateJson(canvasRosterScheduleSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const courseId = requireParam(c, 'courseId');
+    const input = c.get('validated') as CanvasRosterScheduleInput;
+    const link = await loadCourseLinkOr404(db, courseId);
+
+    const now = new Date().toISOString();
+    await db
+      .update(lmsCourseLinks)
+      .set({
+        rosterRefreshEnabled: input.enabled,
+        rosterRefreshUntil: input.enabled ? input.until : null,
+        updatedAt: now,
+      })
+      .where(eq(lmsCourseLinks.id, link.id));
+
+    await recordAudit(db, {
+      actorType: auth.method === 'jwt' ? 'user' : 'api_token',
+      actorUserId: auth.user.id,
+      actorTokenId: auth.tokenId ?? null,
+      action: 'canvas.roster.schedule',
+      target: link.id,
+      metadata: { courseId, enabled: input.enabled, until: input.enabled ? input.until : null },
+    });
+
+    return success(c, { enabled: input.enabled, until: input.enabled ? input.until : null });
+  },
+);
 
 r.get('/courses/:courseId/canvas/runs', ...courseGuards, async (c) => {
   const db = c.get('db');

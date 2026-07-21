@@ -1,22 +1,9 @@
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '../../../db/client';
-import {
-  assignmentGroups,
-  assignments,
-  courses,
-  lmsCourseLinks,
-  lmsIdMap,
-  lmsRosterEntries,
-  modules,
-} from '../../../db/schema';
+import { assignmentGroups, assignments, courses, lmsIdMap, modules } from '../../../db/schema';
 import { randomUuid, sha256Hex } from '../../../lib/crypto';
 import { extractCwMarker, isPendingExternalId, pendingAttemptedName } from './pushCourse';
-import type {
-  CanvasAssignment,
-  CanvasClient,
-  CanvasCourse,
-  CanvasEnrollmentUser,
-} from './client';
+import type { CanvasAssignment, CanvasClient, CanvasCourse } from './client';
 
 // One-time import of an existing Canvas course into CourseWise (P1 of
 // docs/plans/2026-07-04-canvas-sync-v2). Everything lands as a DRAFT the
@@ -24,21 +11,14 @@ import type {
 // rows afterwards. Re-import only ever ADDS new entities: rows already in
 // lms_id_map are skipped (never overwritten — CourseWise owns them after
 // import), with Canvas-side changes surfaced in the summary counts.
-// The roster snapshot is a read-only reference (lms_roster_entries) for the
-// later manual identity-linking step; it NEVER creates users or enrollments.
+// Structure only: the import touches zero student data. The roster reference
+// lives in services/lms/canvas/roster.ts (P2) as an explicit teacher action.
 
 export interface ImportStructureSummary {
   assignmentGroups: { imported: number; skipped: number; weightRounded: string[] };
   assignments: { imported: number; skipped: number; quizStubs: number; scoreDropped: number };
   modules: { imported: number; skipped: number };
   courseFields: { updated: string[]; keptLocal: string[] };
-}
-
-export interface RosterSnapshotSummary {
-  entries: number;
-  withEmail: number;
-  withSisId: number;
-  withLoginId: number;
 }
 
 // Best-effort HTML → Markdown for Canvas rich content (syllabus_body,
@@ -355,80 +335,3 @@ export async function importCourseStructure(
   };
 }
 
-function rosterFingerprint(u: CanvasEnrollmentUser, sections: string): Promise<string> {
-  return sha256Hex(
-    [u.name, u.sortable_name ?? '', u.email ?? '', u.login_id ?? '', u.sis_user_id ?? '', sections].join('|'),
-  );
-}
-
-// Read-only roster reference snapshot. Never touches users/enrollments.
-export async function snapshotRoster(
-  db: Db,
-  client: CanvasClient,
-  args: { courseLinkId: string; externalCourseId: string },
-): Promise<RosterSnapshotSummary> {
-  const { courseLinkId, externalCourseId } = args;
-  const now = new Date().toISOString();
-
-  const sections = await client.listSections(externalCourseId);
-  const sectionNameById = new Map(sections.map((s) => [s.id, s.name ?? String(s.id)]));
-  const students = await client.listStudents(externalCourseId);
-
-  const summary: RosterSnapshotSummary = { entries: 0, withEmail: 0, withSisId: 0, withLoginId: 0 };
-  for (const u of students) {
-    const sectionNames = [
-      ...new Set(
-        (u.enrollments ?? [])
-          .map((e) => (e.course_section_id ? sectionNameById.get(e.course_section_id) : null))
-          .filter((n): n is string => !!n),
-      ),
-    ];
-    const enrollmentState = u.enrollments?.[0]?.enrollment_state ?? null;
-    const fingerprint = await rosterFingerprint(u, sectionNames.join(','));
-    const values = {
-      courseLinkId,
-      canvasUserId: String(u.id),
-      name: u.name,
-      sortableName: u.sortable_name ?? null,
-      email: u.email ?? null,
-      loginId: u.login_id ?? null,
-      sisUserId: u.sis_user_id ?? null,
-      enrollmentState,
-      sectionNames,
-      fingerprint,
-      lastSeenAt: now,
-      disappearedAt: null,
-      updatedAt: now,
-    };
-    await db
-      .insert(lmsRosterEntries)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [lmsRosterEntries.courseLinkId, lmsRosterEntries.canvasUserId],
-        set: {
-          name: values.name,
-          sortableName: values.sortableName,
-          email: values.email,
-          loginId: values.loginId,
-          sisUserId: values.sisUserId,
-          enrollmentState: values.enrollmentState,
-          sectionNames: values.sectionNames,
-          fingerprint: values.fingerprint,
-          lastSeenAt: now,
-          disappearedAt: null,
-          updatedAt: now,
-        },
-      });
-    summary.entries += 1;
-    if (u.email) summary.withEmail += 1;
-    if (u.sis_user_id) summary.withSisId += 1;
-    if (u.login_id) summary.withLoginId += 1;
-  }
-
-  await db
-    .update(lmsCourseLinks)
-    .set({ lastRosterFetchAt: now, updatedAt: now })
-    .where(eq(lmsCourseLinks.id, courseLinkId));
-
-  return summary;
-}

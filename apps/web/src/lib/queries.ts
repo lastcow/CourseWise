@@ -35,6 +35,9 @@ import type {
   CanvasConnection,
   CanvasCourseLink,
   CanvasRemoteCourse,
+  CanvasRosterLinksInput,
+  CanvasRosterScheduleInput,
+  CanvasRosterView,
   CanvasSyncRun,
   ConnectCanvasInput,
   CourseDeletionLogEntry,
@@ -3096,6 +3099,68 @@ export function useCanvasSyncRuns(courseId: string | null) {
     refetchInterval: (q) => {
       const data = q.state.data as CanvasSyncRun[] | undefined;
       return data?.some((r) => r.status === 'pending' || r.status === 'running') ? 4000 : false;
+    },
+  });
+}
+
+// ---------- Canvas roster reconciliation (P2 identity linking) ----------
+
+export function useCanvasRoster(courseId: string | null) {
+  return useQuery({
+    queryKey: ['canvas', 'roster', courseId],
+    enabled: !!courseId,
+    queryFn: () => apiCall<CanvasRosterView>(`/api/courses/${courseId}/canvas/roster`),
+  });
+}
+
+export function useRefreshCanvasRoster(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall<{ runId: string; status: 'pending' }>(
+        `/api/courses/${courseId}/canvas/roster/refresh`,
+        { method: 'POST' },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['canvas', 'runs', courseId] });
+    },
+  });
+}
+
+export function useConfirmCanvasRosterLinks(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CanvasRosterLinksInput) =>
+      apiCall<{ linked: number }>(`/api/courses/${courseId}/canvas/roster/links`, { body: input }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['canvas', 'roster', courseId] });
+    },
+  });
+}
+
+export function useUnlinkCanvasRosterStudent(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (studentId: string) =>
+      apiCall<{ unlinked: boolean }>(`/api/courses/${courseId}/canvas/roster/links/${studentId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['canvas', 'roster', courseId] });
+    },
+  });
+}
+
+export function useSetCanvasRosterSchedule(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CanvasRosterScheduleInput) =>
+      apiCall<{ enabled: boolean; until: string | null }>(
+        `/api/courses/${courseId}/canvas/roster/schedule`,
+        { body: input },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['canvas', 'roster', courseId] });
     },
   });
 }

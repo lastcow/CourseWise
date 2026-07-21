@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plug } from 'lucide-react';
-import type { CanvasImportSummary, CanvasPushSummary, CanvasSyncRun } from '@coursewise/shared';
+import type {
+  CanvasImportSummary,
+  CanvasPushSummary,
+  CanvasRosterRefreshSummary,
+  CanvasSyncRun,
+} from '@coursewise/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -273,6 +278,18 @@ export function TeacherCanvasSyncPage(): JSX.Element {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('canvas.rosterCardTitle')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">{t('canvas.rosterCardBody')}</p>
+              <Button variant="outline" onClick={() => navigate(`/teacher/courses/${id}/canvas/roster`)}>
+                {t('canvas.rosterCardCta')}
+              </Button>
+            </CardContent>
+          </Card>
+
           {runs.length > 0 || hasCompletedImport ? (
             // d) Run history with polling status badges.
             <Card>
@@ -312,11 +329,14 @@ function RunRow({ run }: { run: CanvasSyncRun }): JSX.Element {
   const { t } = useTranslation();
   const summary =
     run.status === 'done' && run.summaryJson
-      ? (run.summaryJson as Partial<CanvasImportSummary> & Partial<CanvasPushSummary>)
+      ? (run.summaryJson as Partial<CanvasImportSummary> &
+          Partial<CanvasPushSummary> &
+          Partial<CanvasRosterRefreshSummary>)
       : null;
   const s = summary?.structure;
   const roster = summary?.roster;
   const p = summary?.push;
+  const isRosterRefresh = run.kind === 'roster_refresh';
   return (
     <div className="space-y-2 rounded-md border px-3 py-2 text-sm">
       <div className="flex flex-wrap items-center gap-2">
@@ -394,7 +414,33 @@ function RunRow({ run }: { run: CanvasSyncRun }): JSX.Element {
           ) : null}
         </div>
       ) : null}
-      {summary && !p ? (
+      {isRosterRefresh && roster ? (
+        <div className="space-y-1 text-muted-foreground">
+          <p>
+            {t('canvas.run.rosterRefresh', {
+              entries: roster.entries ?? 0,
+              added: roster.added ?? 0,
+              updated: roster.updated ?? 0,
+              disappeared: roster.disappeared ?? 0,
+              reappeared: roster.reappeared ?? 0,
+            })}
+          </p>
+          <p>
+            {t('canvas.run.rosterEmail', {
+              visible: roster.withEmail ?? 0,
+              total: roster.entries ?? 0,
+            })}
+            {', '}
+            {t('canvas.run.rosterSis', { visible: roster.withSisId ?? 0, total: roster.entries ?? 0 })}
+            {', '}
+            {t('canvas.run.rosterLogin', {
+              visible: roster.withLoginId ?? 0,
+              total: roster.entries ?? 0,
+            })}
+          </p>
+        </div>
+      ) : null}
+      {summary && !p && !isRosterRefresh ? (
         <div className="space-y-1 text-muted-foreground">
           <p>
             {t('canvas.run.groups', {

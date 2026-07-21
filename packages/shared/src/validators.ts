@@ -1413,6 +1413,43 @@ export const importCanvasCourseSchema = z.object({
 });
 export type ImportCanvasCourseInput = z.infer<typeof importCanvasCourseSchema>;
 
+export const canvasRosterLinksSchema = z.object({
+  /**
+   * Identity links to CONFIRM (v2 §6.1: no link without confirmation — this
+   * request IS the confirmation, including batch-confirming suggestions).
+   * method 'manual' is the teacher hand-picking a pair; the others must echo
+   * a server-computed suggestion.
+   */
+  links: z
+    .array(
+      z.object({
+        rosterEntryId: z.string().uuid(),
+        studentId: z.string().uuid(),
+        method: z.enum(['sis', 'email', 'login_id', 'manual']),
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+export type CanvasRosterLinksInput = z.infer<typeof canvasRosterLinksSchema>;
+
+export const canvasRosterScheduleSchema = z
+  .object({
+    /** Nightly roster refresh toggle (v2 §7.1). */
+    enabled: z.boolean(),
+    /** Required while enabled: auto-stop date (e.g. end of the add/drop period). */
+    until: z.string().datetime({ offset: true }).nullable(),
+  })
+  .refine((v) => !v.enabled || v.until != null, {
+    message: 'until is required while nightly refresh is enabled',
+  })
+  // A past stop date would save as "enabled" while the sweep never runs —
+  // an enabled schedule must actually schedule something.
+  .refine((v) => !v.enabled || v.until == null || new Date(v.until).getTime() > Date.now(), {
+    message: 'until must be in the future',
+  });
+export type CanvasRosterScheduleInput = z.infer<typeof canvasRosterScheduleSchema>;
+
 // -------- Course export guest share --------
 
 export const createExportShareSchema = z.object({

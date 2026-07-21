@@ -44,6 +44,7 @@ import { sweepExpiredCourseExports } from './jobs/courseExportSweep';
 import { closeExpiredAttendanceSessions } from './jobs/attendanceSessionSweep';
 import { runQuizScheduleOpenSweep } from './jobs/quizScheduleOpenSweep';
 import { runAnnouncementPublishSweep } from './jobs/announcementPublishSweep';
+import { runRosterRefreshSweep } from './jobs/rosterRefreshSweep';
 import { runRetentionSweep } from './services/retentionSweep';
 import { buildOpenApiSpec } from './lib/openapi';
 import type { AppBindings, AppEnv } from './types';
@@ -273,6 +274,16 @@ export default {
           console.log('attendance.autoClose.ok', { cron: controller.cron, ...attendance });
         } catch (err) {
           console.error('attendance.autoClose.failed', { cron: controller.cron, err });
+        }
+
+        // Nightly Canvas roster reference refresh for opted-in course links
+        // (v2 §7.1). Serial per teacher token inside the sweep; a dead token
+        // pauses that teacher's links until they reconnect.
+        try {
+          const roster = await runRosterRefreshSweep(db, env);
+          console.log('canvas.rosterSweep.ok', { cron: controller.cron, ...roster });
+        } catch (err) {
+          console.error('canvas.rosterSweep.failed', { cron: controller.cron, err });
         }
 
         // R2-cleanup retry runs alongside the retention sweep. Decoupled try/

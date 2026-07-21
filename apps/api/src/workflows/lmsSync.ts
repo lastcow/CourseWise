@@ -8,13 +8,14 @@ import {
   type ImportStructureSummary,
 } from '../services/lms/canvas/importCourse';
 import { pushCourseStructure, type PushStructureSummary } from '../services/lms/canvas/pushCourse';
+import { refreshRoster, type RosterRefreshSummary } from '../services/lms/canvas/roster';
 import { decryptCanvasToken } from '../services/lms/canvas/tokens';
 import type { AppBindings } from '../types';
 
 export interface LmsSyncParams {
   runId: string;
   courseLinkId: string;
-  kind: 'initial_import' | 'structure_push';
+  kind: 'initial_import' | 'structure_push' | 'roster_refresh';
 }
 
 // Initial Canvas course import (P1). Fetch + DB writes live inside single
@@ -74,7 +75,29 @@ export class LmsSyncWorkflow extends WorkflowEntrypoint<AppBindings, LmsSyncPara
 
       let structure: ImportStructureSummary | null = null;
       let push: PushStructureSummary | null = null;
-      if (kind === 'structure_push') {
+      let roster: RosterRefreshSummary | null = null;
+      if (kind === 'roster_refresh') {
+        // Reference refresh only — never touches users/enrollments. The
+        // circuit breaker (roster.ts) throws before any write on anomalous
+        // shrinkage, failing the run with its message.
+        roster = await step.do(
+          'refresh-roster',
+          { retries: { limit: 1, delay: '10 seconds', backoff: 'exponential' } },
+          async () => {
+            const db = createDb(env.DATABASE_URL);
+            const client = await makeClient();
+            try {
+              return await refreshRoster(db, client, {
+                courseLinkId,
+                externalCourseId: link.externalCourseId,
+              });
+            } catch (err) {
+              await this.markAuthFailure(env, link.connectionId, err);
+              throw err;
+            }
+          },
+        );
+      } else if (kind === 'structure_push') {
         push = await step.do(
           'push-structure',
           { retries: { limit: 1, delay: '10 seconds', backoff: 'exponential' } },
@@ -121,7 +144,12 @@ export class LmsSyncWorkflow extends WorkflowEntrypoint<AppBindings, LmsSyncPara
           .update(lmsSyncRuns)
           .set({
             status: 'done',
-            summaryJson: kind === 'structure_push' ? { push } : { structure },
+            summaryJson:
+              kind === 'structure_push'
+                ? { push }
+                : kind === 'roster_refresh'
+                  ? { roster }
+                  : { structure },
             completedAt: now,
             updatedAt: now,
           })

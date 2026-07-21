@@ -2130,6 +2130,11 @@ export const lmsIdMap = pgTable(
       t.localType,
       t.externalId,
     ),
+    // One Canvas identity ↔ at most one CW student per course link (the
+    // localId unique above protects the other direction).
+    studentLinkExternalUnique: uniqueIndex('lms_id_map_student_link_external_idx')
+      .on(t.courseLinkId, t.externalId)
+      .where(sql`${t.localType} = 'student_link'`),
   }),
 );
 export type LmsIdMapRow = typeof lmsIdMap.$inferSelect;
