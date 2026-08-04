@@ -31,6 +31,12 @@ final class AuthStore {
 
     init(configuration: AppConfiguration) {
         api = APIClient(configuration: configuration)
+#if DEBUG
+        if let fixture = UITestFixture.current {
+            account = fixture.account
+            state = .authenticated
+        }
+#endif
     }
 
     func restoreSession() async {

@@ -11,6 +11,7 @@
 		071ECD7E56C8FCFC589A53C0 /* FeatureDestination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AF3FD384743248F0B197C8A /* FeatureDestination.swift */; };
 		07A7613CE69DD101C205E379 /* StudentGradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40174457A72086BA2E7CFA31 /* StudentGradesView.swift */; };
 		0DC4738D6299D0A149485292 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1ACBB36B9C1A66C3C0AFD548 /* InfoPlist.strings */; };
+		0F5DBE7C8278445B908C5DD3 /* DashboardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3110FDB9D51FA3C1B99FE8CA /* DashboardUITests.swift */; };
 		10720D730CF149873A62428D /* ResourceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 670EC4034C7852855B5B0273 /* ResourceListView.swift */; };
 		17E9855C1A0132C80558F225 /* PrivacyDataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 520ACB317CF0DBD72948CBDC /* PrivacyDataView.swift */; };
 		1BF9EEDD96C9F49D41C19141 /* DeepLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82FC23F0EC46D08B9A4655FD /* DeepLinkTests.swift */; };
@@ -23,6 +24,7 @@
 		5F6D791015097D84FE61CFD1 /* Course.swift in Sources */ = {isa = PBXBuildFile; fileRef = D16975C52DF89A4E2C467AAD /* Course.swift */; };
 		687780D4F1B3484302340BC1 /* DashboardComponentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2C568357391489CD74D8AD6 /* DashboardComponentDetailView.swift */; };
 		6BB63EDE6C0A8A5A937CB2E5 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B5EFC1102FC4837FCAAED67 /* KeychainStore.swift */; };
+		6D845007ECE6E5AD63390EC2 /* UITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 973A33B25B7AB41156ED520E /* UITestFixture.swift */; };
 		77C0432066B9612C6DB4573F /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C69751032B2B841FCEE1694B /* AuthStore.swift */; };
 		7936099F31B992AA2D936DD9 /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47FEB529FED0944D0F719E75 /* APIError.swift */; };
 		7DE57D9D797366FEC0DEE468 /* BiometricUnlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FBAA976D157865C5B4F4F4 /* BiometricUnlockView.swift */; };
@@ -51,6 +53,13 @@
 			remoteGlobalIDString = 3BFF9145B3E6DA3D373F2462;
 			remoteInfo = CourseWise;
 		};
+		C8B06FE3EF104D88F741CA66 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D29B23397391DC04F25BDA13 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3BFF9145B3E6DA3D373F2462;
+			remoteInfo = CourseWise;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -60,6 +69,7 @@
 		207D23BA2DDEEA420E7EB068 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		290D89B1BE221808E8D98F2E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		296EC9FDD6708EF348ED34A2 /* CoursesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoursesView.swift; sourceTree = "<group>"; };
+		3110FDB9D51FA3C1B99FE8CA /* DashboardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardUITests.swift; sourceTree = "<group>"; };
 		34C75038F18F1C46E8C3D9DC /* AccountDeletionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionView.swift; sourceTree = "<group>"; };
 		40174457A72086BA2E7CFA31 /* StudentGradesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudentGradesView.swift; sourceTree = "<group>"; };
 		439EF2BCD7B09FA1ADA0DE24 /* BiometricAuthenticator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricAuthenticator.swift; sourceTree = "<group>"; };
@@ -75,9 +85,11 @@
 		71D829046F28439498AA443A /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		7AF3FD384743248F0B197C8A /* FeatureDestination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureDestination.swift; sourceTree = "<group>"; };
 		82FC23F0EC46D08B9A4655FD /* DeepLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkTests.swift; sourceTree = "<group>"; };
+		85AA81FF489DA9F3351C8F58 /* CourseWiseUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = CourseWiseUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		85E91540058FDFAEBDF2914B /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		90342B967B750987D0638F81 /* DashboardPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentationTests.swift; sourceTree = "<group>"; };
 		91361A7257E65C301B0D027C /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		973A33B25B7AB41156ED520E /* UITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestFixture.swift; sourceTree = "<group>"; };
 		A4ED891496BB871E7436AD5C /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
 		ACB4F3CAC70807D16253CC8D /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		B95856C1D5A6CCBC3446B930 /* DeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLink.swift; sourceTree = "<group>"; };
@@ -184,6 +196,7 @@
 				7E255DD4A488F04FD3DAE8E2 /* Models */,
 				7185404CA846F7F0B7FF1514 /* Networking */,
 				D5C2B158265AE4211BEC5FB2 /* Notifications */,
+				B754978C73A75CBEEB3B512C /* Testing */,
 			);
 			path = CourseWise;
 			sourceTree = "<group>";
@@ -233,13 +246,30 @@
 			path = Dashboard;
 			sourceTree = "<group>";
 		};
+		8C24D4EA20532DF9AF732315 /* CourseWiseUITests */ = {
+			isa = PBXGroup;
+			children = (
+				3110FDB9D51FA3C1B99FE8CA /* DashboardUITests.swift */,
+			);
+			path = CourseWiseUITests;
+			sourceTree = "<group>";
+		};
 		A20F8A37DFD490E2DA7FAEC3 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				C8A248901F729028910C8C5E /* CourseWise.app */,
 				BCB72DD2ECD5A9B9CD926F34 /* CourseWiseTests.xctest */,
+				85AA81FF489DA9F3351C8F58 /* CourseWiseUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B754978C73A75CBEEB3B512C /* Testing */ = {
+			isa = PBXGroup;
+			children = (
+				973A33B25B7AB41156ED520E /* UITestFixture.swift */,
+			);
+			path = Testing;
 			sourceTree = "<group>";
 		};
 		CCA5F23F692DB58F60239FE0 /* Resources */ = {
@@ -293,6 +323,7 @@
 			children = (
 				62F158980146E634E78F1D53 /* CourseWise */,
 				081CC707E93FA8A58FFEC703 /* CourseWiseTests */,
+				8C24D4EA20532DF9AF732315 /* CourseWiseUITests */,
 				CCA5F23F692DB58F60239FE0 /* Resources */,
 				A20F8A37DFD490E2DA7FAEC3 /* Products */,
 			);
@@ -318,6 +349,24 @@
 			productName = CourseWise;
 			productReference = C8A248901F729028910C8C5E /* CourseWise.app */;
 			productType = "com.apple.product-type.application";
+		};
+		9B6FB01BF6C53BA852B51FBF /* CourseWiseUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1BE1B4A08AF2060856F8F534 /* Build configuration list for PBXNativeTarget "CourseWiseUITests" */;
+			buildPhases = (
+				9C6E41AA705147BF277DBE69 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AAE9469A3D76F2872467B2FE /* PBXTargetDependency */,
+			);
+			name = CourseWiseUITests;
+			packageProductDependencies = (
+			);
+			productName = CourseWiseUITests;
+			productReference = 85AA81FF489DA9F3351C8F58 /* CourseWiseUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 		C7F614795FFC68F13501DCD2 /* CourseWiseTests */ = {
 			isa = PBXNativeTarget;
@@ -350,6 +399,11 @@
 						DevelopmentTeam = KQ77E3R6PM;
 						ProvisioningStyle = Automatic;
 					};
+					9B6FB01BF6C53BA852B51FBF = {
+						DevelopmentTeam = KQ77E3R6PM;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 3BFF9145B3E6DA3D373F2462;
+					};
 					C7F614795FFC68F13501DCD2 = {
 						DevelopmentTeam = KQ77E3R6PM;
 						ProvisioningStyle = Automatic;
@@ -373,6 +427,7 @@
 			targets = (
 				3BFF9145B3E6DA3D373F2462 /* CourseWise */,
 				C7F614795FFC68F13501DCD2 /* CourseWiseTests */,
+				9B6FB01BF6C53BA852B51FBF /* CourseWiseUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -397,6 +452,14 @@
 			files = (
 				A97234CE77DA5F10DC225315 /* DashboardPresentationTests.swift in Sources */,
 				1BF9EEDD96C9F49D41C19141 /* DeepLinkTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C6E41AA705147BF277DBE69 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0F5DBE7C8278445B908C5DD3 /* DashboardUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -433,12 +496,18 @@
 				BF6C5E21B0BF17C0578E69FA /* RootView.swift in Sources */,
 				2EF300339060B11C382F2F5C /* SettingsView.swift in Sources */,
 				07A7613CE69DD101C205E379 /* StudentGradesView.swift in Sources */,
+				6D845007ECE6E5AD63390EC2 /* UITestFixture.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AAE9469A3D76F2872467B2FE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3BFF9145B3E6DA3D373F2462 /* CourseWise */;
+			targetProxy = C8B06FE3EF104D88F741CA66 /* PBXContainerItemProxy */;
+		};
 		F39766AB7327A0AB70C74105 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3BFF9145B3E6DA3D373F2462 /* CourseWise */;
@@ -484,6 +553,23 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CourseWise.app/CourseWise";
 			};
 			name = Debug;
+		};
+		6492B63414F0B03859D6BA90 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.coursewise.app.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = CourseWise;
+			};
+			name = Release;
 		};
 		A3F093C618FED5160DE4F46F /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -567,6 +653,23 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
+		};
+		CECBFD27602D4631E8263444 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.coursewise.app.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = CourseWise;
+			};
+			name = Debug;
 		};
 		E6E0085FD04CF5E9DF7B5552 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -683,6 +786,15 @@
 			buildConfigurations = (
 				FBAFD2A4B9C5E56F205F74C3 /* Debug */,
 				A3F093C618FED5160DE4F46F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		1BE1B4A08AF2060856F8F534 /* Build configuration list for PBXNativeTarget "CourseWiseUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CECBFD27602D4631E8263444 /* Debug */,
+				6492B63414F0B03859D6BA90 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

@@ -88,12 +88,14 @@ struct DashboardComponentDetailView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Brand.evergreen)
                 .controlSize(.large)
+                .accessibilityIdentifier("dashboard.detail.open")
             }
             .padding()
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .background(Brand.paper)
+        .accessibilityIdentifier("dashboard.detail.\(destination.rawValue)")
         .navigationTitle(destination.titleKey)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Brand.paper, for: .navigationBar)
