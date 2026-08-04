@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["UT5XXQYCHK.com.coursewise.app"],
+        "appIDs": ["KQ77E3R6PM.com.coursewise.app"],
         "components": [
           { "/": "/invite/*", "comment": "Student course invitations" },
           { "/": "/teacher/accept-invite", "comment": "Teacher invitations" },
@@ -16,6 +16,6 @@
     ]
   },
   "webcredentials": {
-    "apps": ["UT5XXQYCHK.com.coursewise.app"]
+    "apps": ["KQ77E3R6PM.com.coursewise.app"]
   }
 }

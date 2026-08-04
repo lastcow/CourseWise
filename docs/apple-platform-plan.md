@@ -24,7 +24,7 @@ and notification previews where appropriate.
 ### Foundation — implemented
 
 - SwiftUI Universal App targeting iOS/iPadOS 17 and newer.
-- Automatic signing for Apple Team `UT5XXQYCHK` and bundle ID
+- Automatic signing for Apple Team `KQ77E3R6PM` and bundle ID
   `com.coursewise.app`.
 - English and Simplified Chinese resources.
 - Dashboard-first iPhone navigation and adaptive iPad split navigation.
