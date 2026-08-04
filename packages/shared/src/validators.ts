@@ -74,6 +74,57 @@ export const updatePreferencesSchema = z.object({
 });
 export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;
 
+export const registerMobileDeviceSchema = z.object({
+  installationId: z.string().uuid(),
+  platform: z.enum(['ios', 'ipados']),
+  environment: z.enum(['sandbox', 'production']),
+  apnsToken: z
+    .string()
+    .trim()
+    .regex(/^[a-fA-F0-9]+$/)
+    .min(32)
+    .max(512),
+  appVersion: z.string().trim().min(1).max(40),
+  osVersion: z.string().trim().min(1).max(40),
+  locale: z.enum(['en', 'zh-CN']),
+  timezone: z.string().trim().min(1).max(100),
+});
+export type RegisterMobileDeviceInput = z.infer<typeof registerMobileDeviceSchema>;
+
+const quietHourSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:mm in local device time');
+
+export const updateNotificationPreferencesSchema = z
+  .object({
+    announcements: z.boolean().optional(),
+    messages: z.boolean().optional(),
+    assignments: z.boolean().optional(),
+    quizzes: z.boolean().optional(),
+    grades: z.boolean().optional(),
+    attendance: z.boolean().optional(),
+    riskAlerts: z.boolean().optional(),
+    sensitivePreviews: z.boolean().optional(),
+    quietHoursStart: quietHourSchema.nullable().optional(),
+    quietHoursEnd: quietHourSchema.nullable().optional(),
+    timezone: z.string().trim().min(1).max(100).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: 'At least one field is required' })
+  .refine(
+    (value) => {
+      const hasStart = Object.prototype.hasOwnProperty.call(value, 'quietHoursStart');
+      const hasEnd = Object.prototype.hasOwnProperty.call(value, 'quietHoursEnd');
+      if (!hasStart && !hasEnd) return true;
+      return (
+        hasStart && hasEnd && (value.quietHoursStart == null) === (value.quietHoursEnd == null)
+      );
+    },
+    { message: 'quietHoursStart and quietHoursEnd must be set or cleared together' },
+  );
+export type UpdateNotificationPreferencesInput = z.infer<
+  typeof updateNotificationPreferencesSchema
+>;
+
 const isoDateString = z.string().datetime({ offset: true }).or(z.string().datetime());
 
 export const createApiTokenSchema = z.object({

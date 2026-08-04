@@ -47,6 +47,7 @@ import { runAnnouncementPublishSweep } from './jobs/announcementPublishSweep';
 import { runRosterRefreshSweep } from './jobs/rosterRefreshSweep';
 import { runRetentionSweep } from './services/retentionSweep';
 import { buildOpenApiSpec } from './lib/openapi';
+import { deliverPushJob, type PushJob } from './services/push';
 import type { AppBindings, AppEnv } from './types';
 export { MaterialGenerationWorkflow } from './workflows/materialGeneration';
 export { CourseExportWorkflow } from './workflows/courseExport';
@@ -200,11 +201,7 @@ app.onError((err, c) => {
     console.error('upstream edge block', err);
     return failure(
       c,
-      new ApiException(
-        503,
-        ERROR_CODES.UPSTREAM_UNAVAILABLE,
-        'Database temporarily unavailable',
-      ),
+      new ApiException(503, ERROR_CODES.UPSTREAM_UNAVAILABLE, 'Database temporarily unavailable'),
     );
   }
   console.error('unhandled error', err);
@@ -308,5 +305,17 @@ export default {
         }
       })(),
     );
+  },
+  async queue(batch: MessageBatch<PushJob>, env: AppBindings): Promise<void> {
+    const db = createDb(env.DATABASE_URL);
+    for (const message of batch.messages) {
+      try {
+        await deliverPushJob(db, env, message.body);
+        message.ack();
+      } catch (error) {
+        console.error('push.delivery.failed', { messageId: message.id, error });
+        message.retry();
+      }
+    }
   },
 };

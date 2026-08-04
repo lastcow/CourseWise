@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
 import {
+  type AccountDeletionRequestSummary,
   createSelfApiTokenSchema,
   type AiUsagePoint,
   type AiUsageResponse,
@@ -10,10 +11,25 @@ import {
   type CreateSelfApiTokenInput,
   type DisclosureLogEntry,
   type DisclosureLogResponse,
+  type MobileDeviceSummary,
+  type NotificationPreferences,
+  type RegisterMobileDeviceInput,
+  registerMobileDeviceSchema,
+  type UpdateNotificationPreferencesInput,
+  updateNotificationPreferencesSchema,
   type UpdatePreferencesInput,
   updatePreferencesSchema,
 } from '@coursewise/shared';
-import { aiUsageEvents, apiTokens, auditLogs, ferpaAcknowledgments, users } from '../db/schema';
+import {
+  accountDeletionRequests,
+  aiUsageEvents,
+  apiTokens,
+  auditLogs,
+  ferpaAcknowledgments,
+  mobileDevices,
+  notificationPreferences,
+  users,
+} from '../db/schema';
 import { defaultScopesForRole, generateApiToken } from '../services/apiTokens';
 import { recordAudit } from '../services/audit';
 import { currentAcademicYear } from '../services/ferpaAcknowledgment';
@@ -56,6 +72,263 @@ me.patch('/preferences', validateJson(updatePreferencesSchema), async (c) => {
   });
 
   return success(c, { preferredLanguage: input.preferredLanguage });
+});
+
+function summarizeMobileDevice(row: typeof mobileDevices.$inferSelect): MobileDeviceSummary {
+  return {
+    id: row.id,
+    installationId: row.installationId,
+    platform: row.platform,
+    environment: row.environment,
+    appVersion: row.appVersion,
+    osVersion: row.osVersion,
+    locale: row.locale === 'zh-CN' ? 'zh-CN' : 'en',
+    timezone: row.timezone,
+    lastSeenAt: row.lastSeenAt,
+    createdAt: row.createdAt,
+  };
+}
+
+me.get('/devices', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const rows = await db
+    .select()
+    .from(mobileDevices)
+    .where(eq(mobileDevices.userId, auth.user.id))
+    .orderBy(desc(mobileDevices.lastSeenAt));
+  return success(c, { devices: rows.map(summarizeMobileDevice) });
+});
+
+me.post('/devices', validateJson(registerMobileDeviceSchema), async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const input = c.get('validated') as RegisterMobileDeviceInput;
+  const now = new Date().toISOString();
+
+  // APNs may rotate a token or the same physical installation may switch
+  // CourseWise accounts. A token belongs to exactly one current user.
+  await db
+    .delete(mobileDevices)
+    .where(
+      and(
+        eq(mobileDevices.apnsToken, input.apnsToken),
+        eq(mobileDevices.environment, input.environment),
+      ),
+    );
+
+  const [row] = await db
+    .insert(mobileDevices)
+    .values({
+      userId: auth.user.id,
+      installationId: input.installationId,
+      platform: input.platform,
+      environment: input.environment,
+      apnsToken: input.apnsToken.toLowerCase(),
+      appVersion: input.appVersion,
+      osVersion: input.osVersion,
+      locale: input.locale,
+      timezone: input.timezone,
+      lastSeenAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: mobileDevices.installationId,
+      set: {
+        userId: auth.user.id,
+        platform: input.platform,
+        environment: input.environment,
+        apnsToken: input.apnsToken.toLowerCase(),
+        appVersion: input.appVersion,
+        osVersion: input.osVersion,
+        locale: input.locale,
+        timezone: input.timezone,
+        lastSeenAt: now,
+        updatedAt: now,
+      },
+    })
+    .returning();
+
+  if (!row) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to register device');
+  await recordAudit(db, {
+    actorType: 'user',
+    actorUserId: auth.user.id,
+    action: 'me.device.register',
+    target: row.id,
+    metadata: { platform: row.platform, environment: row.environment, appVersion: row.appVersion },
+  });
+  return success(c, summarizeMobileDevice(row), 201);
+});
+
+me.delete('/devices/:installationId', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const installationId = c.req.param('installationId');
+  const removed = await db
+    .delete(mobileDevices)
+    .where(
+      and(eq(mobileDevices.userId, auth.user.id), eq(mobileDevices.installationId, installationId)),
+    )
+    .returning({ id: mobileDevices.id });
+  if (removed.length > 0) {
+    await recordAudit(db, {
+      actorType: 'user',
+      actorUserId: auth.user.id,
+      action: 'me.device.unregister',
+      target: removed[0]?.id,
+    });
+  }
+  return success(c, { ok: true });
+});
+
+function defaultNotificationPreferences(timezone = 'UTC'): NotificationPreferences {
+  return {
+    announcements: true,
+    messages: true,
+    assignments: true,
+    quizzes: true,
+    grades: true,
+    attendance: true,
+    riskAlerts: true,
+    sensitivePreviews: false,
+    quietHoursStart: null,
+    quietHoursEnd: null,
+    timezone,
+  };
+}
+
+function summarizeNotificationPreferences(
+  row: typeof notificationPreferences.$inferSelect,
+): NotificationPreferences {
+  return {
+    announcements: row.announcements,
+    messages: row.messages,
+    assignments: row.assignments,
+    quizzes: row.quizzes,
+    grades: row.grades,
+    attendance: row.attendance,
+    riskAlerts: row.riskAlerts,
+    sensitivePreviews: row.sensitivePreviews,
+    quietHoursStart: row.quietHoursStart,
+    quietHoursEnd: row.quietHoursEnd,
+    timezone: row.timezone,
+  };
+}
+
+me.get('/notification-preferences', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const [row] = await db
+    .select()
+    .from(notificationPreferences)
+    .where(eq(notificationPreferences.userId, auth.user.id))
+    .limit(1);
+  return success(c, row ? summarizeNotificationPreferences(row) : defaultNotificationPreferences());
+});
+
+me.patch(
+  '/notification-preferences',
+  validateJson(updateNotificationPreferencesSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const db = c.get('db');
+    const input = c.get('validated') as UpdateNotificationPreferencesInput;
+    const now = new Date().toISOString();
+    const [row] = await db
+      .insert(notificationPreferences)
+      .values({ userId: auth.user.id, ...defaultNotificationPreferences(input.timezone), ...input })
+      .onConflictDoUpdate({
+        target: notificationPreferences.userId,
+        set: { ...input, updatedAt: now },
+      })
+      .returning();
+    if (!row) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to save preferences');
+    await recordAudit(db, {
+      actorType: 'user',
+      actorUserId: auth.user.id,
+      action: 'me.notification-preferences.update',
+      metadata: { fields: Object.keys(input) },
+    });
+    return success(c, summarizeNotificationPreferences(row));
+  },
+);
+
+function summarizeDeletionRequest(
+  row: typeof accountDeletionRequests.$inferSelect,
+): AccountDeletionRequestSummary {
+  return {
+    id: row.id,
+    status: row.status,
+    requestedAt: row.requestedAt,
+    resolvedAt: row.resolvedAt,
+    resolutionNote: row.resolutionNote,
+  };
+}
+
+me.get('/account-deletion-request', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const [row] = await db
+    .select()
+    .from(accountDeletionRequests)
+    .where(eq(accountDeletionRequests.userId, auth.user.id))
+    .orderBy(desc(accountDeletionRequests.createdAt))
+    .limit(1);
+  return success(c, { request: row ? summarizeDeletionRequest(row) : null });
+});
+
+me.post('/account-deletion-request', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const [existing] = await db
+    .select()
+    .from(accountDeletionRequests)
+    .where(
+      and(
+        eq(accountDeletionRequests.userId, auth.user.id),
+        eq(accountDeletionRequests.status, 'open'),
+      ),
+    )
+    .limit(1);
+  if (existing) return success(c, summarizeDeletionRequest(existing));
+
+  const [row] = await db
+    .insert(accountDeletionRequests)
+    .values({ userId: auth.user.id })
+    .returning();
+  if (!row) throw new ApiException(500, ERROR_CODES.INTERNAL_ERROR, 'Failed to create request');
+  await recordAudit(db, {
+    actorType: 'user',
+    actorUserId: auth.user.id,
+    action: 'me.account-deletion.request',
+    target: row.id,
+  });
+  return success(c, summarizeDeletionRequest(row), 201);
+});
+
+me.delete('/account-deletion-request', async (c) => {
+  const auth = c.get('auth');
+  const db = c.get('db');
+  const now = new Date().toISOString();
+  const [row] = await db
+    .update(accountDeletionRequests)
+    .set({ status: 'cancelled', resolvedAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(accountDeletionRequests.userId, auth.user.id),
+        eq(accountDeletionRequests.status, 'open'),
+      ),
+    )
+    .returning();
+  if (row) {
+    await recordAudit(db, {
+      actorType: 'user',
+      actorUserId: auth.user.id,
+      action: 'me.account-deletion.cancel',
+      target: row.id,
+    });
+  }
+  return success(c, { request: row ? summarizeDeletionRequest(row) : null });
 });
 
 function summarizeToken(row: typeof apiTokens.$inferSelect): ApiTokenSummary {
@@ -217,7 +490,8 @@ me.get('/records/disclosures', async (c) => {
       type: r.actorType,
       name: r.actorType === 'api_token' ? r.actorTokenName : r.actorName,
       role:
-        r.actorType === 'user' && (r.actorRole === 'admin' || r.actorRole === 'teacher' || r.actorRole === 'student')
+        r.actorType === 'user' &&
+        (r.actorRole === 'admin' || r.actorRole === 'teacher' || r.actorRole === 'student')
           ? r.actorRole
           : null,
     },
@@ -308,10 +582,7 @@ me.post('/ferpa-acknowledgment', async (c) => {
   // Inline IP/UA capture rather than depending on attendance.ts's local
   // helper. CF-Connecting-IP is the trusted client IP behind Cloudflare;
   // X-Forwarded-For is a fallback for non-CF deployments.
-  const ip =
-    c.req.header('cf-connecting-ip') ??
-    c.req.header('x-forwarded-for') ??
-    null;
+  const ip = c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for') ?? null;
   const userAgent = c.req.header('user-agent') ?? null;
 
   // Idempotent: ON CONFLICT DO NOTHING lets the same user POST twice in a

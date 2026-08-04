@@ -6,8 +6,10 @@ import {
   forgotPasswordSchema,
   gradeQuizAnswerSchema,
   loginSchema,
+  registerMobileDeviceSchema,
   registerSchema,
   resetPasswordSchema,
+  updateNotificationPreferencesSchema,
 } from './validators';
 
 describe('registerSchema', () => {
@@ -75,9 +77,7 @@ describe('M4 quiz validators', () => {
     expect(createQuizSchema.safeParse({ title: 'Midterm' }).success).toBe(true);
   });
   it('createQuizSchema bounds time limit', () => {
-    expect(
-      createQuizSchema.safeParse({ title: 'Q', timeLimitMinutes: 99999 }).success,
-    ).toBe(false);
+    expect(createQuizSchema.safeParse({ title: 'Q', timeLimitMinutes: 99999 }).success).toBe(false);
   });
   it('createQuizQuestionSchema requires options for choice types', () => {
     expect(
@@ -130,9 +130,7 @@ describe('M4 attendance validators', () => {
   it('bulkMarkAttendanceSchema rejects unknown status', () => {
     expect(
       bulkMarkAttendanceSchema.safeParse({
-        records: [
-          { studentId: '00000000-0000-0000-0000-000000000001', status: 'sick' },
-        ],
+        records: [{ studentId: '00000000-0000-0000-0000-000000000001', status: 'sick' }],
       }).success,
     ).toBe(false);
   });
@@ -149,12 +147,66 @@ describe('forgotPasswordSchema', () => {
 
 describe('resetPasswordSchema', () => {
   it('accepts token + 8+ char password', () => {
-    expect(resetPasswordSchema.safeParse({ token: 'abc', password: 'longenough' }).success).toBe(true);
+    expect(resetPasswordSchema.safeParse({ token: 'abc', password: 'longenough' }).success).toBe(
+      true,
+    );
   });
   it('rejects short password', () => {
     expect(resetPasswordSchema.safeParse({ token: 'abc', password: 'short' }).success).toBe(false);
   });
   it('rejects empty token', () => {
-    expect(resetPasswordSchema.safeParse({ token: '', password: 'longenough' }).success).toBe(false);
+    expect(resetPasswordSchema.safeParse({ token: '', password: 'longenough' }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe('Apple mobile validators', () => {
+  it('accepts an APNs device registration', () => {
+    expect(
+      registerMobileDeviceSchema.safeParse({
+        installationId: '00000000-0000-4000-8000-000000000001',
+        platform: 'ipados',
+        environment: 'sandbox',
+        apnsToken: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+        appVersion: '1.0.0',
+        osVersion: '26.0',
+        locale: 'zh-CN',
+        timezone: 'Asia/Shanghai',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects malformed APNs tokens', () => {
+    expect(
+      registerMobileDeviceSchema.safeParse({
+        installationId: '00000000-0000-4000-8000-000000000001',
+        platform: 'ios',
+        environment: 'production',
+        apnsToken: 'not-a-device-token',
+        appVersion: '1.0.0',
+        osVersion: '26.0',
+        locale: 'en',
+        timezone: 'America/New_York',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('requires quiet hours to be changed as a pair', () => {
+    expect(
+      updateNotificationPreferencesSchema.safeParse({ quietHoursStart: '22:00' }).success,
+    ).toBe(false);
+    expect(
+      updateNotificationPreferencesSchema.safeParse({
+        quietHoursStart: '22:00',
+        quietHoursEnd: '07:00',
+      }).success,
+    ).toBe(true);
+    expect(
+      updateNotificationPreferencesSchema.safeParse({
+        quietHoursStart: null,
+        quietHoursEnd: null,
+      }).success,
+    ).toBe(true);
   });
 });

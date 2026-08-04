@@ -6,18 +6,16 @@ export function SubprocessorsPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Subprocessors"
-        summary="The third-party vendors that CourseWise LLC uses to deliver CourseWise, and how we change the list."
+        summary="The third-party vendors that Chens LLC uses to deliver CourseWise, and how we change the list."
         lastUpdated="2026-05-29"
         version="v1.0"
       />
 
       <h2>Current subprocessors</h2>
       <p>
-        The vendors below process limited categories of customer data on
-        CourseWise LLC's instructions to deliver specific parts of the
-        Service. Each is bound by a written data processing agreement that
-        restricts use of the data to the service performed and prohibits
-        further disclosure.
+        The vendors below process limited categories of customer data on Chens LLC's instructions to
+        deliver specific parts of the Service. Each is bound by a written data processing agreement
+        that restricts use of the data to the service performed and prohibits further disclosure.
       </p>
 
       <div className="not-prose my-6 overflow-x-auto rounded-lg border border-ink/10">
@@ -37,8 +35,7 @@ export function SubprocessorsPage(): JSX.Element {
               <td className="px-3 py-3">Workers, R2, AI Gateway, KV</td>
               <td className="px-3 py-3">Global (edge)</td>
               <td className="px-3 py-3">
-                Application hosting, file storage, AI provider gateway,
-                rate-limit cache
+                Application hosting, file storage, AI provider gateway, rate-limit cache
               </td>
               <td className="px-3 py-3">
                 <a
@@ -90,10 +87,9 @@ export function SubprocessorsPage(): JSX.Element {
               <td className="px-3 py-3">Presentation generation API</td>
               <td className="px-3 py-3">United States</td>
               <td className="px-3 py-3">
-                Generating slide decks from teacher-authored reading materials
-                and instructions; storing the resulting deck for download.
-                Receives only the reading-material content and prompts the
-                teacher chooses to include.
+                Generating slide decks from teacher-authored reading materials and instructions;
+                storing the resulting deck for download. Receives only the reading-material content
+                and prompts the teacher chooses to include.
               </td>
               <td className="px-3 py-3">
                 <a
@@ -112,50 +108,43 @@ export function SubprocessorsPage(): JSX.Element {
 
       <h2>Notification of changes</h2>
       <p>
-        Before we add or replace a subprocessor that will process customer
-        personal information, we update this page and notify institutional
-        customers at least thirty days in advance through the contact on file.
-        Institutions that have objection rights in their agreement may object
-        in writing during the notice period, and we will work in good faith to
-        offer a commercially reasonable alternative or, failing that, to honor
-        the termination rights set out in the contract.
+        Before we add or replace a subprocessor that will process customer personal information, we
+        update this page and notify institutional customers at least thirty days in advance through
+        the contact on file. Institutions that have objection rights in their agreement may object
+        in writing during the notice period, and we will work in good faith to offer a commercially
+        reasonable alternative or, failing that, to honor the termination rights set out in the
+        contract.
       </p>
 
       <h2>Subprocessor assessment criteria</h2>
-      <p>
-        We evaluate each prospective subprocessor against, at minimum:
-      </p>
+      <p>We evaluate each prospective subprocessor against, at minimum:</p>
       <ul>
         <li>
-          A current independent security attestation (for example SOC 2 Type
-          II, ISO 27001) or an equivalent program we can review.
+          A current independent security attestation (for example SOC 2 Type II, ISO 27001) or an
+          equivalent program we can review.
         </li>
         <li>
-          A data processing agreement on terms that flow down the
-          confidentiality, security, sub-processing, and incident-notification
-          commitments we make to our customers.
+          A data processing agreement on terms that flow down the confidentiality, security,
+          sub-processing, and incident-notification commitments we make to our customers.
         </li>
         <li>
-          Hosting region and data-residency controls that match what we promise
-          customers, and that support institutional restrictions on
-          cross-border transfer.
+          Hosting region and data-residency controls that match what we promise customers, and that
+          support institutional restrictions on cross-border transfer.
         </li>
         <li>
-          A documented incident response process, including a defined
-          notification timeline back to us as the customer of the
-          subprocessor.
+          A documented incident response process, including a defined notification timeline back to
+          us as the customer of the subprocessor.
         </li>
         <li>
-          A contractual prohibition on using customer data to train the
-          vendor's own models or for any purpose beyond delivering the
-          service.
+          A contractual prohibition on using customer data to train the vendor's own models or for
+          any purpose beyond delivering the service.
         </li>
       </ul>
 
       <h2>Contact</h2>
       <p>
-        For questions about this list, to request a copy of a subprocessor's
-        DPA, or to file an objection to a planned change, please use our{' '}
+        For questions about this list, to request a copy of a subprocessor's DPA, or to file an
+        objection to a planned change, please use our{' '}
         <Link to="/legal/data-requests">Data Requests page</Link>.
       </p>
     </>

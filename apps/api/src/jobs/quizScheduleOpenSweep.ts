@@ -5,6 +5,7 @@ import type { AppBindings } from '../types';
 import { recordAudit } from '../services/audit';
 import { DEFAULT_EMAIL_FROM, sendEmailViaCloudflare } from '../services/email';
 import { renderQuizScheduleOpenEmail } from '../services/quizScheduleOpenEmail';
+import { enqueuePush } from '../services/push';
 
 /**
  * Don't notify for waves whose effective open is more than this far in the past
@@ -139,6 +140,20 @@ export async function runQuizScheduleOpenSweep(
           // Email is best-effort; the in-app alert is the durable channel.
           console.error('quizSchedule.openEmail.failed', { memberId: row.id, err });
         }
+      }
+
+      try {
+        await enqueuePush(env, {
+          userIds: [row.studentId],
+          category: 'quizzes',
+          title: row.quizTitle,
+          body: row.scheduleName
+            ? `Your wave “${row.scheduleName}” is now available.`
+            : 'Your quiz is now available.',
+          url: `https://fsuac.com/student/courses/${row.courseId}/quizzes/${row.quizId}`,
+        });
+      } catch (err) {
+        console.error('quizSchedule.push.enqueue.failed', { memberId: row.id, err });
       }
 
       await db

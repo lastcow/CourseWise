@@ -16,6 +16,9 @@ EMAIL_FROM = "CourseWise <noreply@fsuac.com>"
 # "@cf/qwen/qwen3-30b-a3b-fp8" (multilingual; the service layer already strips
 # its <think> blocks).
 AI_CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+APNS_TEAM_ID = "UT5XXQYCHK"
+APNS_KEY_ID = "PR5BCDTQJ4"
+APNS_TOPIC = "com.coursewise.app"
 
 # Required production secrets (uploaded with `wrangler secret put`):
 #   DATABASE_URL         — Neon pooled connection string
@@ -135,3 +138,18 @@ class_name = "LmsSyncWorkflow"
 [[send_email]]
 name = "SEND_EMAIL"
 # allowed_sender_addresses = ["noreply@fsuac.com"]
+
+# Reliable APNs fan-out. Provision both queues before deploying this config:
+#   npx wrangler queues create coursewise-push
+#   npx wrangler queues create coursewise-push-dlq
+# Upload the Apple .p8 file as APNS_PRIVATE_KEY with `wrangler secret put`.
+[[queues.producers]]
+binding = "PUSH_QUEUE"
+queue = "coursewise-push"
+
+[[queues.consumers]]
+queue = "coursewise-push"
+max_batch_size = 20
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "coursewise-push-dlq"

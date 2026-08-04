@@ -13,6 +13,7 @@ import {
 } from '../../db/schema';
 import { DEFAULT_EMAIL_FROM, sendEmailViaCloudflare } from '../email';
 import { renderAnnouncementEmail } from '../announcementEmail';
+import { enqueuePush } from '../push';
 
 type Recipient = { id: string; email: string | null; name: string; lang: string };
 
@@ -73,7 +74,11 @@ export async function publishAnnouncement(
     .where(eq(announcements.id, ann.id));
 
   const course = (
-    await db.select({ title: courses.title }).from(courses).where(eq(courses.id, ann.courseId)).limit(1)
+    await db
+      .select({ title: courses.title })
+      .from(courses)
+      .where(eq(courses.id, ann.courseId))
+      .limit(1)
   )[0];
   const courseTitle = course?.title ?? 'your course';
   const recipients = await resolveRecipients(db, ann);
@@ -141,6 +146,17 @@ export async function publishAnnouncement(
         console.error('announcement.email.failed', { userId: rec.id, err });
       }
     }
+  }
+  try {
+    await enqueuePush(env, {
+      userIds: recipients.map((recipient) => recipient.id),
+      category: 'announcements',
+      title: ann.title,
+      body: bodyText,
+      url: `https://fsuac.com/student/courses/${ann.courseId}/announcements`,
+    });
+  } catch (err) {
+    console.error('announcement.push.enqueue.failed', { announcementId: ann.id, err });
   }
   return { recipients: recipients.length, emailed };
 }
