@@ -1,6 +1,9 @@
 CREATE TYPE "mobile_platform" AS ENUM ('ios', 'ipados');
+--> statement-breakpoint
 CREATE TYPE "apns_environment" AS ENUM ('sandbox', 'production');
+--> statement-breakpoint
 CREATE TYPE "account_deletion_status" AS ENUM ('open', 'cancelled', 'completed', 'declined');
+--> statement-breakpoint
 
 CREATE TABLE "mobile_devices" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -17,13 +20,17 @@ CREATE TABLE "mobile_devices" (
   "created_at" timestamp with time zone DEFAULT now() NOT NULL,
   "updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
+--> statement-breakpoint
 
 CREATE UNIQUE INDEX "mobile_devices_installation_idx"
   ON "mobile_devices" ("installation_id");
+--> statement-breakpoint
 CREATE UNIQUE INDEX "mobile_devices_token_environment_idx"
   ON "mobile_devices" ("apns_token", "environment");
+--> statement-breakpoint
 CREATE INDEX "mobile_devices_user_idx"
   ON "mobile_devices" ("user_id", "last_seen_at");
+--> statement-breakpoint
 
 CREATE TABLE "notification_preferences" (
   "user_id" uuid PRIMARY KEY REFERENCES "users"("id") ON DELETE cascade,
@@ -45,6 +52,7 @@ CREATE TABLE "notification_preferences" (
     ("quiet_hours_start" IS NOT NULL AND "quiet_hours_end" IS NOT NULL)
   )
 );
+--> statement-breakpoint
 
 CREATE TABLE "account_deletion_requests" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -56,8 +64,10 @@ CREATE TABLE "account_deletion_requests" (
   "created_at" timestamp with time zone DEFAULT now() NOT NULL,
   "updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
+--> statement-breakpoint
 
 CREATE INDEX "account_deletion_requests_user_created_idx"
   ON "account_deletion_requests" ("user_id", "created_at");
+--> statement-breakpoint
 CREATE UNIQUE INDEX "account_deletion_requests_open_user_idx"
   ON "account_deletion_requests" ("user_id") WHERE "status" = 'open';
