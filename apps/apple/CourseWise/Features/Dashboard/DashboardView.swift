@@ -66,6 +66,7 @@ struct DashboardView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("dashboard.component.\(destination.rawValue)")
                     }
                 }
 
@@ -80,6 +81,7 @@ struct DashboardView: View {
         }
         .refreshable { await load() }
         .background(DashboardBackground())
+        .accessibilityIdentifier("dashboard.screen")
         .navigationTitle("dashboard.title")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -96,6 +98,13 @@ struct DashboardView: View {
 
     private func load() async {
         guard !isLoading else { return }
+#if DEBUG
+        if let fixture = UITestFixture.current {
+            courses = fixture.courses
+            errorMessage = nil
+            return
+        }
+#endif
         isLoading = true
         defer { isLoading = false }
         do {

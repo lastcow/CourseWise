@@ -45,6 +45,7 @@ targets:
     scheme:
       testTargets:
         - CourseWiseTests
+        - CourseWiseUITests
   CourseWiseTests:
     type: bundle.unit-test
     platform: iOS
@@ -55,4 +56,15 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.coursewise.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+  CourseWiseUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - CourseWiseUITests
+    dependencies:
+      - target: CourseWise
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.coursewise.app.uitests
         GENERATE_INFOPLIST_FILE: YES

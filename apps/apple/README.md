@@ -39,6 +39,23 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
 ```
 
-Run the `CourseWise` scheme on at least one current iPhone simulator and one
-current iPad simulator before opening a pull request. Push notification tokens
-must be validated on a signed physical device.
+Before any physical-device installation, run the complete unit and UI suite on
+one current iPhone simulator and one current iPad simulator:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcodebuild -project CourseWise.xcodeproj -scheme CourseWise \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' test
+
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcodebuild -project CourseWise.xcodeproj -scheme CourseWise \
+  -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=latest' test
+```
+
+Both commands are release gates. `CourseWiseUITests` verifies the administrator
+Dashboard in English and Simplified Chinese, opens every Dashboard component
+detail page, and checks portrait and landscape layouts. It uses deterministic
+fixtures enabled only in Debug UI-test processes; Release builds cannot bypass
+authentication. Only after both simulator suites pass may the app be signed and
+installed on a physical iPhone or iPad. Push notifications, Face ID/Touch ID and
+other hardware-only behavior must then be validated on the signed device.

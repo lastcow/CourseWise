@@ -50,6 +50,17 @@
                ReferencedContainer = "container:CourseWise.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "9B6FB01BF6C53BA852B51FBF"
+               BuildableName = "CourseWiseUITests.xctest"
+               BlueprintName = "CourseWiseUITests"
+               ReferencedContainer = "container:CourseWise.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>
