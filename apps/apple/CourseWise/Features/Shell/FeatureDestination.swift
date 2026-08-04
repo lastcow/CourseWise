@@ -22,7 +22,25 @@ enum FeatureDestination: String, CaseIterable, Identifiable, Hashable, Sendable 
     var id: String { rawValue }
 
     var titleKey: LocalizedStringKey {
-        LocalizedStringKey("nav.\(rawValue)")
+        switch self {
+        case .courses: "nav.courses"
+        case .assignments: "nav.assignments"
+        case .review: "nav.review"
+        case .quizzes: "nav.quizzes"
+        case .materials: "nav.materials"
+        case .modules: "nav.modules"
+        case .announcements: "nav.announcements"
+        case .messages: "nav.messages"
+        case .attendance: "nav.attendance"
+        case .grades: "nav.grades"
+        case .discussions: "nav.discussions"
+        case .students: "nav.students"
+        case .groups: "nav.groups"
+        case .alerts: "nav.alerts"
+        case .privacy: "nav.privacy"
+        case .profile: "nav.profile"
+        case .settings: "nav.settings"
+        }
     }
 
     var systemImage: String {
@@ -35,7 +53,7 @@ enum FeatureDestination: String, CaseIterable, Identifiable, Hashable, Sendable 
         case .modules: "square.grid.2x2"
         case .announcements: "megaphone"
         case .messages: "bubble.left.and.bubble.right"
-        case .attendance: "person.2.badge.checkmark"
+        case .attendance: "checkmark.circle"
         case .grades: "chart.bar.doc.horizontal"
         case .discussions: "text.bubble"
         case .students: "person.3"

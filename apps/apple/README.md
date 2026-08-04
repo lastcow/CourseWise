@@ -17,7 +17,7 @@ open CourseWise.xcodeproj
 ```
 
 The checked-in project configuration uses automatic signing with Apple team
-`UT5XXQYCHK` and bundle identifier `com.coursewise.app`.
+`KQ77E3R6PM` and bundle identifier `com.coursewise.app`.
 
 Debug builds use `COURSEWISE_API_URL` and `COURSEWISE_WEB_URL` from the scheme
 environment when present. They default to the production endpoints:

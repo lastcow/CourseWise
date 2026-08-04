@@ -16,7 +16,7 @@ EMAIL_FROM = "CourseWise <noreply@fsuac.com>"
 # "@cf/qwen/qwen3-30b-a3b-fp8" (multilingual; the service layer already strips
 # its <think> blocks).
 AI_CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-APNS_TEAM_ID = "UT5XXQYCHK"
+APNS_TEAM_ID = "KQ77E3R6PM"
 APNS_KEY_ID = "PR5BCDTQJ4"
 APNS_TOPIC = "com.coursewise.app"
 

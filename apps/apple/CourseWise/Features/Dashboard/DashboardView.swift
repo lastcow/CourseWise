@@ -6,13 +6,21 @@ struct DashboardView: View {
     private var account: Account? { authStore.account }
     private var role: UserRole { account?.role ?? .student }
 
+    private var subtitleKey: LocalizedStringKey {
+        switch role {
+        case .student: "dashboard.subtitle.student"
+        case .teacher: "dashboard.subtitle.teacher"
+        case .admin: "dashboard.subtitle.admin"
+        }
+    }
+
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(String(format: String(localized: "dashboard.greeting"), account?.name ?? "CourseWise"))
                         .font(.largeTitle.bold())
-                    Text(LocalizedStringKey("dashboard.subtitle.\(role.rawValue)"))
+                    Text(subtitleKey)
                         .font(.title3)
                         .foregroundStyle(.secondary)
                 }
