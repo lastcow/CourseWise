@@ -79,7 +79,9 @@ struct DashboardComponentDetailView: View {
                     }
                 }
 
-                NavigationLink(value: destination) {
+                NavigationLink {
+                    FeatureDestinationView(destination: destination)
+                } label: {
                     Label("dashboard.detail.open", systemImage: "arrow.up.right")
                         .font(.headline)
                         .frame(maxWidth: .infinity)

@@ -83,20 +83,6 @@ struct AppShellView: View {
 
     @ViewBuilder
     private func destinationView(_ destination: FeatureDestination) -> some View {
-        switch destination {
-        case .courses:
-            CoursesView()
-        case .assignments, .review, .quizzes, .materials, .modules, .announcements, .messages,
-             .attendance, .grades, .discussions, .students, .groups:
-            CourseFeaturePickerView(destination: destination)
-        case .alerts:
-            ResourceListView(destination: destination)
-        case .settings:
-            SettingsView()
-        case .profile:
-            ProfileView()
-        case .privacy:
-            PrivacyDataView()
-        }
+        FeatureDestinationView(destination: destination)
     }
 }
