@@ -1,5 +1,7 @@
 # Architecture
 
+> Last verified against `main` at `eb9344b` on 2026-08-04.
+
 CourseWise is a single-tenant teaching platform. The repo is a pnpm monorepo
 with three workspaces — `apps/web`, `apps/api`, `packages/shared`.
 
@@ -10,7 +12,7 @@ with three workspaces — `apps/web`, `apps/api`, `packages/shared`.
                 │   apps/web (Pages)     │
                 │   React 18 + Vite      │
                 │   TanStack Query, RHF  │
-                │   i18next (en, zh-CN)  │
+                │ i18next (en, zh-CN, fr)│
                 └──────────┬─────────────┘
                            │  HTTPS  (Bearer JWT or API token)
                            ▼
@@ -23,7 +25,7 @@ with three workspaces — `apps/web`, `apps/api`, `packages/shared`.
                 │     rate-limit (KV)    │
                 └──────┬─────────┬───────┘
                        │         │
-              Drizzle  │         │  presigned S3 v4
+              Drizzle  │         │ R2 binding + S3 v4 GET
                        ▼         ▼
             ┌─────────────────┐  ┌─────────────────┐
             │  Neon Postgres  │  │   R2 bucket     │
@@ -42,7 +44,7 @@ zod validators, scope constants, the role / scope-group enums, and the
 ```
 POST /api/auth/login   (email, password)
   → bcrypt verify against users.passwordHash
-  → jose signs access JWT (15 min) + refresh JWT (7 d)
+  → jose signs access JWT (12 h) + refresh JWT (7 d, or 30 d with remember-me)
   → audit_logs insert
   → { accessToken, refreshToken, user }
 
@@ -53,35 +55,33 @@ Subsequent requests:
   → route handler runs
 ```
 
-### File upload (R2 presigned PUT)
+### File upload and download (R2)
 
 ```
-POST /api/files/upload-url    { filename, contentType, size, relatedType }
-  → validate MIME + size against MAX_UPLOAD_BYTES
-  → file_assets insert (status='pending')
-  → sign PUT URL (R2)
-  → { fileId, uploadUrl, uploadHeaders }
-
-client PUTs bytes directly to R2 (Worker does NOT proxy)
-
-POST /api/files/complete-upload  { fileId }
-  → file_assets.status = 'ready'
+POST /api/files/upload    multipart { file, courseId, relatedType? }
+  → authenticate user and check course write/enrollment access
+  → validate filename, MIME/extension allowlist, and size (≤ 50 MiB)
+  → stream bytes to R2 through the COURSE_FILES binding
+  → insert file_assets (status='ready')
+  → { fileAssetId, r2Key, sizeBytes, contentType, originalFilename, status }
 
 GET /api/files/{fileId}/download-url
   → visibility check (admin / course teacher / enrolled student)
-  → sign GET URL with 5-min expiry
+  → sign an S3-compatible GET URL with 5-min expiry
 ```
 
 ### Final-grade recalculation
 
 ```
 POST /api/courses/{courseId}/final-grades/recalculate
-  → load grading_policies (or backfill default)
+  → load grading_policies + weighted assignment groups
   → for each enrolled student:
-      aggregate attendance / assignments / quizzes / discussion / final-project
+      aggregate posted assignments / quizzes / graded discussions by group
+      roll assignment sets and quiz sets into one score per set
+      calculate attendance as its own weighted bucket
       (only *posted* items count — published and past their start date; drafts
        and not-yet-started items are excluded, so the grade reflects released work)
-      weight × normalised score → final score
+      renormalise across usable weighted buckets → final score
       letter from policy.lettersJson (or DEFAULT_LETTER_GRADES)
       preserve teacherOverrideScore + reason from existing row
   → upsert final_grades, clear isOutdated
@@ -102,17 +102,20 @@ POST /api/courses/{courseId}/alerts/generate
 
 ## Auth model
 
-CourseWise accepts two credentials on every authenticated endpoint:
+CourseWise has two authenticated credential types. Course-resource endpoints
+generally accept both; account/session endpoints and selected administration
+surfaces are JWT-only:
 
 | Mechanism  | Token format                  | Lifetime         | Carries           |
 | ---------- | ----------------------------- | ---------------- | ----------------- |
-| JWT access | `Bearer <jose-jwt>`           | 15 min           | user id, role     |
-| JWT refresh | `Bearer <jose-jwt>` to `/refresh` | 7 d        | user id           |
+| JWT access | `Bearer <jose-jwt>`           | 12 h             | user id, role     |
+| JWT refresh | request body to `/refresh`   | 7 d; 30 d with remember-me | user id, token family |
 | API token  | `Bearer cmpt_<32B base62>`    | until revoked / `expiresAt` | scopes (array) |
 
-JWT callers automatically pass every scope check. API-token callers must hold
-at least one scope from the resource's `SCOPE_GROUPS[<group>]` list. Scope
-groups, scopes, and the role-vs-scope allowlists live in
+On routes that accept both methods, JWT callers automatically pass scope checks;
+API-token callers must hold at least one scope from the resource's
+`SCOPE_GROUPS[<group>]` list. Role and course-access checks still apply to both.
+Scope groups, scopes, and the role-vs-scope allowlists live in
 `packages/shared/src/constants.ts`.
 
 Tokens are stored as SHA-256 hashes. The plaintext value is **only** ever
@@ -122,10 +125,10 @@ returned in the create response — afterwards the API only knows the hash.
 
 |                       | Admin   | Teacher (own course) | Student (enrolled)        |
 | --------------------- | ------- | -------------------- | ------------------------- |
-| **Courses CRUD**      | full    | own only             | read PUBLISHED only       |
-| **Modules**           | full    | own course           | read                      |
-| **Enrollments**       | full    | read own course      | self via invitation code  |
-| **Invitation codes**  | full    | read                 | public validate (RL)      |
+| **Courses CRUD**      | full    | own only             | read enrolled courses     |
+| **Modules**           | full    | own course           | read PUBLISHED only       |
+| **Enrollments**       | full    | manage own course    | self via invitation code  |
+| **Invitation codes**  | full    | manage own course    | authenticated validate/redeem |
 | **Reading materials** | full    | own course           | read PUBLISHED enrolled   |
 | **Files**             | full    | own course           | download if material visible |
 | **Presentations**     | full    | own course           | read PUBLISHED enrolled   |
@@ -156,23 +159,25 @@ Middleware enforcing the rows above:
 { "success": false, "error": { "code", "message", "i18nKey", "details?" } }
 ```
 
-`code` is one of `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`,
-`CONFLICT`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `ACCOUNT_INACTIVE`,
-`INVALID_CREDENTIALS`, `INVALID_INVITATION`, `INVALID_TOKEN`, `TOKEN_REVOKED`,
-`TOKEN_EXPIRED`, `MISSING_SCOPE`, `INTERNAL_ERROR`. `i18nKey` is the
+The canonical code list lives in `apps/api/src/lib/errors.ts`. It currently
+includes validation/auth/access failures, invitation lifecycle errors,
+assignment/group/course-window errors, rate limiting, token lifecycle errors,
+`INTERNAL_ERROR`, and `UPSTREAM_UNAVAILABLE`. `i18nKey` is the corresponding
 `i18next` key (`errors.*`); web clients localize from there.
 
 ## Audit log
 
-Every write that affects user-visible state (auth events, course edits,
-grading-policy changes, manual alerts, token revokes, etc.) writes a row to
-`audit_logs` (`actor_id`, `actor_type` jwt|api_token, `action`, `entity_type`,
-`entity_id`, `metadata` jsonb). Used by the admin dashboard for the recent-
-activity widget.
+Writes and sensitive education-record reads record rows in `audit_logs`
+(`actor_type`, `actor_user_id`, `actor_token_id`, `action`, `target`, IP/UA,
+`metadata_json`, and optional `disclosed_student_id`). Disclosure reads can
+fan out to one row per affected student so students can inspect their own
+FERPA disclosure history. The admin dashboard also uses the log for recent
+activity.
 
 ## Rate limiting
 
 `apps/api/src/middleware/rateLimit.ts` keys by IP + route. In production it
 uses the Workers KV namespace bound as `RATE_LIMIT_KV`; in local dev it falls
-back to an in-memory `Map` per isolate. Applied to login, register, and
-`POST /api/invitation-codes/validate`.
+back to an in-memory `Map` per isolate. Applied to authentication, password
+reset, invitation validation, and other abuse-sensitive endpoints as configured
+by their route handlers. The in-memory fallback is for development only.

@@ -22,8 +22,7 @@ export interface AppBindings {
   R2_ACCESS_KEY_ID?: string;
   R2_SECRET_ACCESS_KEY?: string;
   R2_PUBLIC_ENDPOINT?: string;
-  // Cloudflare AI Gateway. Required once Phase 2 generators ship; Phase 1 only
-  // surfaces a "configured?" status in the admin UI.
+  // Cloudflare AI Gateway for provider-backed material generation.
   AI_GATEWAY_ACCOUNT_ID?: string;
   AI_GATEWAY_ID?: string;
   // Set only when the gateway has "Authenticated Gateway" enabled in the
@@ -53,14 +52,13 @@ export interface AppBindings {
   // Cloudflare Workflow that builds a course-export ZIP into R2 and emails the
   // requester a download link. Created via env.COURSE_EXPORT_WORKFLOW.create().
   COURSE_EXPORT_WORKFLOW?: Workflow;
-  // Cloudflare Workflow that imports an existing Canvas course as drafts
-  // (structure + roster reference; never creates student accounts). Created
+  // Cloudflare Workflow for Canvas structure import/push and read-only roster
+  // refresh. Roster data never creates accounts or mutates enrollments. Created
   // via env.LMS_SYNC_WORKFLOW.create().
   LMS_SYNC_WORKFLOW?: Workflow;
-  // Outbound email via the Cloudflare Worker `send_email` binding. Configured
-  // in wrangler.toml via [[send_email]] with an `allowed_destination_addresses`
-  // list — sends to addresses NOT on that list will throw, which we catch and
-  // treat as a best-effort failure (caller falls back to copy-link UX).
+  // Outbound email via the Cloudflare Email Service `send_email` binding.
+  // Sends are best-effort at call sites; invitation/reset flows retain a
+  // copy-link fallback when delivery is unavailable.
   SEND_EMAIL?: SendEmail;
   // Non-secret default for the From: header (e.g.
   // `CourseWise <noreply@fsuac.com>`). When unset the Worker uses a hardcoded

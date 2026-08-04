@@ -1,6 +1,8 @@
 # Deployment
 
-Single-tenant MVP. Workers + Pages + Neon Postgres + R2. CI on every PR;
+> Last verified against `main` at `eb9344b` on 2026-08-04.
+
+Single-tenant application. Workers + Pages + Neon Postgres + R2. CI on every PR;
 deploy on every push to `main`.
 
 ## Secrets
@@ -16,14 +18,14 @@ Do these once per environment, in this order:
 1. **Neon project**. Create a Neon project named `coursewise`. Copy the
    **pooled** connection string (`-pooler` host). Save it as `DATABASE_URL`.
 2. **R2 bucket + S3 credentials.** The Worker uses two R2 interfaces:
-   - the **direct binding** (`COURSE_FILES` in `wrangler.toml`) for HEAD checks
-     and deletes, and
-   - the **S3-compatible API** for presigned-PUT uploads.
+   - the **direct binding** (`COURSE_FILES` in `wrangler.toml`) for uploads,
+     HEAD checks, and deletes, and
+   - the **S3-compatible API** for 5-minute presigned GET download URLs.
 
    The S3 API needs three Worker secrets: `R2_ACCOUNT_ID`,
-   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. Until all three are set,
-   `POST /api/files/upload-url` fails with a 500 that names the specific
-   missing secret(s).
+   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. Uploads continue to use the
+   direct binding, but download-URL endpoints fail with a 500 naming the
+   missing secret(s) until all three are set.
 
    First, mint an R2 API token: Cloudflare dashboard → My Profile → API
    Tokens → Create Token → **R2 Token**, scoped to **Object Read & Write**
@@ -53,14 +55,15 @@ Do these once per environment, in this order:
    Non-sensitive vars (`JWT_ISSUER`, `JWT_AUDIENCE`, `CORS_ORIGIN`) live in
    `wrangler.toml` under `[vars]`. **Do NOT** put `DATABASE_URL` or `JWT_*`
    there.
-5. **Rate-limit KV namespace** (optional but recommended for production):
+5. **Rate-limit KV namespace** (required for production):
    ```sh
    wrangler kv namespace create RATE_LIMIT_KV
    ```
-   Paste the returned id into the commented `[[kv_namespaces]]` block of
-   `apps/api/wrangler.toml`. Without it, the rate limiter falls back to an
-   in-memory `Map` per isolate, which is **dev only** — it does not span
-   isolates and resets when the Worker scales down.
+   Paste the returned id into the `[[kv_namespaces]]` block of
+   `apps/api/wrangler.toml` (the repository currently includes production and
+   preview bindings). Without it, the rate limiter falls back to an in-memory
+   `Map` per isolate, which is **dev only** — it does not span isolates and
+   resets when the Worker scales down.
 6. **Cloudflare Pages project**. Create a Pages project named `coursewise`.
    Build command: `pnpm install --frozen-lockfile && pnpm --filter @coursewise/web build`.
    Output directory: `apps/web/dist`. Env vars on the Pages project:

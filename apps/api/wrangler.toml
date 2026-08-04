@@ -22,16 +22,16 @@ AI_CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 #   JWT_SECRET           — 32+ byte access-token signing secret
 #   JWT_REFRESH_SECRET   — 32+ byte refresh-token signing secret
 #
-# R2 file uploads (POST /api/files/upload-url). The bucket binding below is
-# necessary but NOT sufficient — presigned PUT URLs are signed using the R2
-# S3-compatible API, which needs three additional secrets:
+# R2 file storage. Uploads (`POST /api/files/upload`) stream through the
+# COURSE_FILES binding below. Downloads use short-lived presigned GET URLs via
+# the S3-compatible API, which needs three additional secrets:
 #   R2_ACCOUNT_ID        — Cloudflare account id used as the R2 S3 endpoint host
-#   R2_ACCESS_KEY_ID     — R2 S3 token access key (for presigned uploads)
-#   R2_SECRET_ACCESS_KEY — R2 S3 token secret (for presigned uploads)
+#   R2_ACCESS_KEY_ID     — R2 S3 token access key (for presigned downloads)
+#   R2_SECRET_ACCESS_KEY — R2 S3 token secret (for presigned downloads)
 # Run `apps/api/scripts/setup-r2.sh` for one-command provisioning.
 # Optional:
 #   R2_PUBLIC_ENDPOINT   — public CDN host for the R2 bucket (presign falls back to bucket URL when unset)
-# AI content generation (Phase 2+; admin UI can be wired up before these exist):
+# Provider-backed AI content generation:
 #   AI_GATEWAY_ACCOUNT_ID — Cloudflare account id that owns the AI Gateway
 #   AI_GATEWAY_ID         — AI Gateway slug (created in dashboard)
 #   AI_GATEWAY_TOKEN      — Only when the gateway has "Authenticated Gateway"
@@ -44,7 +44,8 @@ AI_CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 #                          Canvas tokens at rest (lms_connections.token_enc);
 #                          required for /api/lms/canvas/*. Generate with
 #                          `openssl rand -base64 32`.
-# Outbound email (teacher invitations + future notifications). Uses
+# Outbound transactional email (invitations, password reset, schedule notices,
+# export completion, account/course events). Uses
 # Cloudflare Email Service (beta) via the `[[send_email]]` binding block
 # below. When the binding is unset or the sender domain isn't yet verified,
 # sends fail and the response's `emailSent` flag is false — the admin UI
@@ -104,15 +105,15 @@ binding = "COURSE_EXPORT_WORKFLOW"
 name = "coursewise-course-export"
 class_name = "CourseExportWorkflow"
 
-# Cloudflare Workflow that imports an existing Canvas course into CourseWise
-# as drafts (structure + read-only roster reference snapshot; never creates
-# student accounts). Class exported from src/index.ts.
+# Cloudflare Workflow that imports Canvas course structure, pushes CourseWise
+# structure, or refreshes a read-only Canvas roster reference. Roster refresh
+# never creates student accounts or changes CourseWise enrollments.
 [[workflows]]
 binding = "LMS_SYNC_WORKFLOW"
 name = "coursewise-lms-sync"
 class_name = "LmsSyncWorkflow"
 
-# Outbound email binding (teacher invitations + future notifications). Uses
+# Outbound transactional email binding. Uses
 # Cloudflare Email Service (beta) — NOT the older Email Routing send_email
 # binding. Email Service supports ARBITRARY recipient addresses once the
 # sender domain is verified via DKIM / SPF / MX / DMARC DNS records.
