@@ -49,6 +49,47 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["dashboard.component.alerts"].exists)
     }
 
+    func testModulesDetailedList() throws {
+        continueAfterFailure = false
+        let app = launch(language: "en")
+
+        let coursesComponent = app.descendants(matching: .any)["dashboard.component.courses"]
+        XCTAssertTrue(coursesComponent.waitForExistence(timeout: 5))
+        coursesComponent.tap()
+
+        let openComponent = app.descendants(matching: .any)["dashboard.detail.open"]
+        XCTAssertTrue(openComponent.waitForExistence(timeout: 3))
+        for _ in 0..<6 where !openComponent.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(openComponent.isHittable)
+        openComponent.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["courses.list"].waitForExistence(timeout: 3))
+        let deepLearning = app.descendants(matching: .any)[
+            "courses.row.00000000-0000-4000-8000-000000000101"
+        ]
+        XCTAssertTrue(deepLearning.waitForExistence(timeout: 3))
+        deepLearning.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["course.hub"].waitForExistence(timeout: 3))
+        let modules = app.descendants(matching: .any)["course.feature.modules"]
+        XCTAssertTrue(modules.waitForExistence(timeout: 3))
+        modules.tap()
+
+        XCTAssertTrue(app.navigationBars["Modules"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["resource.list.modules"].exists)
+        XCTAssertTrue(app.staticTexts["Getting Started"].exists)
+        XCTAssertTrue(app.staticTexts["Course orientation and learning objectives"].exists)
+        XCTAssertTrue(app.staticTexts["Neural Network Foundations"].exists)
+        XCTAssertTrue(app.staticTexts["Convolutional Networks"].exists)
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "modules-detailed-list"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
     private func launch(
         language: String,
         orientation: UIDeviceOrientation = .portrait

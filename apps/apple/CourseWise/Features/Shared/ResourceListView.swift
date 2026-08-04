@@ -53,7 +53,9 @@ struct ResourceListView: View {
                     }
                 }
                 .padding(.vertical, 3)
+                .accessibilityIdentifier("resource.\(destination.rawValue).\(item.id)")
             }
+            .accessibilityIdentifier("resource.list.\(destination.rawValue)")
             .refreshable { await load(path: path) }
         }
     }
@@ -84,6 +86,13 @@ struct ResourceListView: View {
 
     private func load(path: String) async {
         guard !isLoading else { return }
+#if DEBUG
+        if let fixture = UITestFixture.current, destination == .modules {
+            resources = fixture.modules
+            errorMessage = nil
+            return
+        }
+#endif
         isLoading = true
         defer { isLoading = false }
         do {

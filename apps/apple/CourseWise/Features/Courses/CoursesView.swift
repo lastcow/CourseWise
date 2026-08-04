@@ -36,7 +36,9 @@ struct CoursesView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                    .accessibilityIdentifier("courses.row.\(course.id.uuidString)")
                 }
+                .accessibilityIdentifier("courses.list")
                 .refreshable { await load() }
             }
         }
@@ -47,6 +49,13 @@ struct CoursesView: View {
     private func reload() { Task { await load() } }
 
     private func load() async {
+#if DEBUG
+        if let fixture = UITestFixture.current {
+            courses = fixture.courses
+            errorMessage = nil
+            return
+        }
+#endif
         isLoading = true
         defer { isLoading = false }
         do {
@@ -87,10 +96,12 @@ private struct CourseHubView: View {
                     } label: {
                         Label(destination.titleKey, systemImage: destination.systemImage)
                     }
+                    .accessibilityIdentifier("course.feature.\(destination.rawValue)")
                 }
             }
         }
         .navigationTitle(course.code)
         .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("course.hub")
     }
 }

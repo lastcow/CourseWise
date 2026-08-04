@@ -16,6 +16,13 @@ struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
     let subtitle: String?
     let status: String?
 
+    init(id: String, title: String, subtitle: String?, status: String?) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.status = status
+    }
+
     private struct DynamicKey: CodingKey {
         var stringValue: String
         var intValue: Int? { nil }
