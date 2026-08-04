@@ -1,13 +1,16 @@
 # CourseWise
 
 Single-tenant teaching platform: courses, modules, reading materials, presentations,
-assignments, discussions, quizzes, attendance, grading policy, final-grade
-calculation, risk alerts, and per-role dashboards.
+assignments, discussions, quizzes, attendance, grading, risk alerts, messaging,
+announcements, AI-assisted content generation, course exports, and Canvas LMS
+integration.
 
 - **Web** — React + Vite + TypeScript + Tailwind + shadcn/ui, deployed to Cloudflare Pages.
 - **API** — Hono on Cloudflare Workers, Drizzle ORM, Neon Postgres, R2 for files.
-- **Auth** — JWT (access + refresh) **and** long-lived API tokens with per-resource scopes. Every authenticated endpoint accepts both.
-- **i18n** — `en` and `zh-CN`, complete.
+- **Auth** — JWT (access + refresh) **and** long-lived API tokens with
+  per-resource scopes. Course-resource endpoints generally accept both;
+  account/session and selected administration endpoints are JWT-only.
+- **i18n** — `en`, `zh-CN`, and `fr`.
 
 ---
 
@@ -91,11 +94,14 @@ new students can register against.
 
 1. In the Cloudflare dashboard, create an R2 bucket named `coursewise-files`.
    Leave it **private**.
-2. The Worker binds to the bucket via `apps/api/wrangler.toml` — no extra
-   access keys are needed in code. (For local `wrangler dev`, the worker uses
-   bucket emulation; the bucket name still needs to match.)
-3. Uploads go through the **presigned PUT** flow:
-   `POST /api/files/upload-url` → client `PUT`s to R2 → `POST /api/files/complete-upload`.
+2. The Worker binds to the bucket as `COURSE_FILES` via
+   `apps/api/wrangler.toml`. Uploads are single-call multipart requests to
+   `POST /api/files/upload`; the Worker streams the file to R2 through the
+   native binding.
+3. Downloads use 5-minute S3-compatible presigned GET URLs. Configure
+   `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` with
+   `apps/api/scripts/setup-r2.sh`; see `docs/deployment.md` for the complete
+   provisioning flow.
 
 ## Setting up Wrangler (Workers)
 
@@ -110,17 +116,20 @@ wrangler secret put JWT_REFRESH_SECRET
 ```
 
 Non-sensitive vars (`JWT_ISSUER`, `JWT_AUDIENCE`, `CORS_ORIGIN`) live in
-`apps/api/wrangler.toml`. Override `CORS_ORIGIN` for production by uncommenting
-the `[env.production.vars]` block.
+`apps/api/wrangler.toml`. `CORS_ORIGIN` accepts one origin or a comma-separated
+allowlist and must include every deployed Pages/custom origin that calls the
+API.
 
-For rate limiting, optionally bind a KV namespace:
+For production rate limiting, bind a KV namespace (the checked-in
+`wrangler.toml` already contains the current production and preview bindings):
 
 ```sh
 wrangler kv namespace create RATE_LIMIT_KV
 # paste the returned id into wrangler.toml under [[kv_namespaces]]
 ```
 
-In dev, the rate-limit middleware falls back to an in-memory `Map`.
+In dev, an environment without the binding falls back to an in-memory `Map`.
+Do not rely on that fallback in production because it is per-isolate and resets.
 
 ## Setting up Cloudflare Pages
 
@@ -183,12 +192,16 @@ Admins can still manage everyone's tokens from **`/api/admin/api-tokens`**
 (the existing admin-wide endpoints).
 
 OpenAPI 3.1 spec: `GET https://<api-host>/api/openapi.json` (no auth required).
-Endpoint-by-endpoint reference: [`docs/api.md`](docs/api.md).
+The spec and [`docs/api.md`](docs/api.md) describe the declared external
+integration surface. The live Hono route table remains the source of truth for
+newer in-app endpoints until route schemas and OpenAPI metadata are co-located.
 
 ### Authentication contract
 
-Every CourseWise route requires `Authorization: Bearer <token>` (either a JWT
-or an API token) **except** the public service surface:
+Every non-public CourseWise route requires `Authorization: Bearer <token>`.
+Course-resource routes generally accept either a JWT or API token; endpoints
+documented as JWT-only (notably account/session and selected administration
+routes) reject API tokens. The public service surface is:
 
 - `GET /api/health`
 - `GET /api/version`
@@ -196,6 +209,12 @@ or an API token) **except** the public service surface:
 - `POST /api/auth/login`
 - `POST /api/auth/refresh`
 - `POST /api/auth/register-student`
+- `POST /api/auth/register-teacher`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- `GET /api/auth/teacher-invitations/:token`
+- `GET /api/public/exports/:token`
+- `POST /api/public/exports/:token/download`
 
 A unit test (`apps/api/src/auth-coverage.test.ts`) walks the live Hono route
 table on every CI run and asserts the invariant: every non-whitelisted route
@@ -213,20 +232,12 @@ curl -sS "$API/api/courses" \
   -H "Content-Type: application/json" \
   -d '{"code":"ECON202","title":"Microeconomics","status":"draft"}'
 
-# 2. Request a presigned PUT URL for an R2 upload
-curl -sS "$API/api/files/upload-url" \
+# 2. Upload one multipart file; the Worker streams it directly to R2
+curl -sS "$API/api/files/upload" \
   -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"filename":"syllabus.pdf","contentType":"application/pdf","size":214312,"relatedType":"material"}'
-
-# 3. PUT the bytes (URL + headers from step 2)
-curl -sS -X PUT "<uploadUrl>" --data-binary @syllabus.pdf -H "Content-Type: application/pdf"
-
-# 4. Finalize the upload (marks file ready)
-curl -sS "$API/api/files/complete-upload" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"fileId":"<id-from-step-2>"}'
+  -F "file=@./syllabus.pdf;type=application/pdf" \
+  -F "courseId=<course-id-from-step-1>" \
+  -F "relatedType=material"
 ```
 
 ### Curl walkthrough — self-serve token (any role)
@@ -300,7 +311,7 @@ either show `message` directly or look up their own translation.
 ## More documentation
 
 - [`docs/architecture.md`](docs/architecture.md) — modules, data flow, permission matrix.
-- [`docs/api.md`](docs/api.md) — every endpoint, grouped by resource.
+- [`docs/api.md`](docs/api.md) — curated API reference, grouped by resource.
 - [`docs/deployment.md`](docs/deployment.md) — full deploy playbook + post-deploy smoke test.
 - `GET /api/openapi.json` — machine-readable OpenAPI 3.1.
 
@@ -315,8 +326,8 @@ either show `message` directly or look up their own translation.
 
 - **前端**：React + Vite + TypeScript + Tailwind + shadcn/ui，部署到 Cloudflare Pages。
 - **后端**：基于 Cloudflare Workers 的 Hono，使用 Drizzle ORM、Neon Postgres，文件存储在 R2。
-- **鉴权**：JWT（access + refresh）**以及**带作用域的长期 API Token；所有需要鉴权的接口两种方式都支持。
-- **国际化**：`en` 与 `zh-CN` 同步完整翻译。
+- **鉴权**：JWT（access + refresh）**以及**带作用域的长期 API Token；课程资源接口通常两种方式都支持，账户、会话及部分管理接口仅接受 JWT。
+- **国际化**：支持 `en`、`zh-CN` 与 `fr`。
 
 ## 准备环境
 
@@ -372,7 +383,7 @@ CI / 部署工作流位于 `.github/workflows/deploy.yml`。每次推送到 `mai
 
 1. 任意角色（管理员 / 教师 / 学生）登录。
 2. 在左侧菜单的 **设置 → API 令牌** 中（或顶部用户名旁的入口）点击「创建令牌」。
-3. 填写名称、选择有效期后提交，明文 Token 仅显示一次,请立即复制。
+3. 填写名称、选择有效期后提交，明文 Token 仅显示一次，请立即复制。
 4. 用 `Authorization: Bearer cmpt_…` 调用任意已记录的接口。
 
 生成的 Token 自动继承当前用户的角色权限，服务端会拒绝任何客户端尝试自带 `scopes` 字段
@@ -381,8 +392,9 @@ CI / 部署工作流位于 `.github/workflows/deploy.yml`。每次推送到 `mai
 
 ### 认证范围
 
-除以下公开服务接口外，所有 API 路由都必须携带 `Authorization: Bearer <token>`
-（JWT 或 API Token 二者皆可）：
+除以下公开服务接口外，所有 API 路由都必须携带
+`Authorization: Bearer <token>`。课程资源接口通常接受 JWT 或 API Token；标为
+JWT-only 的账户、会话及部分管理接口不接受 API Token：
 
 - `GET /api/health`
 - `GET /api/version`
@@ -390,8 +402,14 @@ CI / 部署工作流位于 `.github/workflows/deploy.yml`。每次推送到 `mai
 - `POST /api/auth/login`
 - `POST /api/auth/refresh`
 - `POST /api/auth/register-student`
+- `POST /api/auth/register-teacher`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- `GET /api/auth/teacher-invitations/:token`
+- `GET /api/public/exports/:token`
+- `POST /api/public/exports/:token/download`
 
-`apps/api/src/auth-coverage.test.ts` 在 CI 中遍历 Hono 路由表,确保任何不在白名单
+`apps/api/src/auth-coverage.test.ts` 在 CI 中遍历 Hono 路由表，确保任何不在白名单
 里的路由都会对未携带 Bearer Token 的请求返回 `401`。
 
 OpenAPI 3.1 规范：`GET https://<api-host>/api/openapi.json`（无需鉴权）。

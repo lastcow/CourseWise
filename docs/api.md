@@ -1,20 +1,30 @@
 # API reference
 
-This is the human-readable cross-reference for the CourseWise REST API. For
-the machine-readable spec, `GET /api/openapi.json` returns a complete
-OpenAPI 3.1 document (also rebuildable via `buildOpenApiSpec()` in
-`apps/api/src/lib/openapi.ts`).
+> Last verified against `main` at `eb9344b` on 2026-08-04.
+
+This is the curated human-readable cross-reference for the CourseWise REST API.
+For the machine-readable declared integration surface, `GET /api/openapi.json`
+returns an OpenAPI 3.1 document built by `buildOpenApiSpec()` in
+`apps/api/src/lib/openapi.ts`.
+
+The Hono route table in `apps/api/src/index.ts` is the runtime source of truth.
+Some newer in-app domains (for example announcements, messaging, compliance,
+course exports, AI administration, and Canvas) are not yet enumerated in this
+file or the manually maintained OpenAPI route catalog. Do not infer that a
+route is absent from the application only because it is missing here.
 
 ## Conventions
 
 - **Base URL** — local: `http://localhost:8787`, prod: your Workers route.
 - **Auth header** — `Authorization: Bearer <token>` on every authenticated
-  endpoint. `<token>` is either a JWT access token from
-  `POST /api/auth/login` / `/refresh`, or an API token of the form `cmpt_…`.
+  endpoint. Course-resource routes generally accept either a JWT access token
+  from `POST /api/auth/login` / `/refresh` or an API token of the form
+  `cmpt_…`. Routes marked `JWT` reject API tokens.
 - **Response envelope**
   - Success: `{ "success": true, "data": ... }`
   - Error: `{ "success": false, "error": { "code", "message", "i18nKey", "details?" } }`
-- **Pagination** — list endpoints accept `limit` and `offset` query params.
+- **Pagination** — list endpoints that advertise pagination accept `limit` and
+  `offset`; other lists return the complete authorized result set.
 - **i18n** — error `i18nKey` is the `i18next` key (`errors.*`); web clients
   localize from it.
 
@@ -47,6 +57,12 @@ The complete list of routes that accept anonymous traffic is:
 | POST   | `/api/auth/login`                 | Email + password → JWT pair          |
 | POST   | `/api/auth/refresh`               | Rotate the JWT pair                  |
 | POST   | `/api/auth/register-student`      | Register a student against an invitation code (rate-limited) |
+| POST   | `/api/auth/register-teacher`      | Register with a teacher invitation   |
+| POST   | `/api/auth/forgot-password`       | Request a password-reset link        |
+| POST   | `/api/auth/reset-password`        | Reset a password with a one-time token |
+| GET    | `/api/auth/teacher-invitations/:token` | Inspect a teacher invitation     |
+| GET    | `/api/public/exports/:token`      | Inspect a guest course-export share  |
+| POST   | `/api/public/exports/:token/download` | Redeem a guest export share       |
 
 `apps/api/src/auth-coverage.test.ts` walks the live Hono route table on every
 CI run and asserts the invariant: any route not on this list rejects a
@@ -65,8 +81,12 @@ no-auth request with `401 UNAUTHORIZED`.
 | Method | Path                              | Auth     | Description                              |
 | ------ | --------------------------------- | -------- | ---------------------------------------- |
 | POST   | `/api/auth/register-student`      | public   | Register a student against an invitation code (rate-limited) |
+| POST   | `/api/auth/register-teacher`      | public   | Register with a teacher invitation   |
+| GET    | `/api/auth/teacher-invitations/:token` | public | Inspect a teacher invitation      |
 | POST   | `/api/auth/login`                 | public   | Email + password → JWT pair              |
 | POST   | `/api/auth/refresh`               | public   | Rotate the JWT pair                      |
+| POST   | `/api/auth/forgot-password`       | public   | Request a password-reset link            |
+| POST   | `/api/auth/reset-password`        | public   | Reset a password with a one-time token   |
 | POST   | `/api/auth/logout`                | Bearer   | Revoke the supplied refresh token (caller must hold a valid JWT or API token) |
 | GET    | `/api/auth/me`                    | JWT      | Current user                             |
 
@@ -178,7 +198,11 @@ Request — `multipart/form-data`:
 | ------------- | -------- | ------------------------------------------------------------------ |
 | `file`        | yes      | The binary file. `name` and `type` are read from the form part.   |
 | `courseId`    | yes      | UUID of the course the file attaches to.                           |
-| `relatedType` | no       | `material` (default) · `assignment` · `submission`.                |
+| `relatedType` | no       | Asset purpose; see the supported values below.                       |
+
+Supported `relatedType` values: `material` (default), `assignment`,
+`submission`, `presentation`, `syllabus`, `course_banner`, `message`, and
+`announcement`.
 
 Validation (returns 400 on failure):
 
@@ -188,8 +212,9 @@ Validation (returns 400 on failure):
 - File size > 0 and ≤ `MAX_UPLOAD_BYTES` (50 MiB)
 - `courseId` must be a UUID
 
-Authorization: teachers/admins can upload `material`/`assignment` parts to
-courses they can write; enrolled students may upload `submission` parts.
+Authorization: teachers/admins can upload course-owned assets to courses they
+can write. Enrolled students may upload `submission` and `message` assets;
+staff may upload those asset types for courses they can write.
 
 Response — `201 Created`:
 
@@ -373,6 +398,14 @@ future):
 | `ACCOUNT_INACTIVE`    | 403  | User account is disabled                             | `errors.accountInactive` |
 | `NOT_FOUND`           | 404  | Resource not found / not visible to caller           | `errors.notFound`      |
 | `CONFLICT`            | 409  | Unique constraint, duplicate, or state-transition violation | `errors.conflict` |
+| `NOT_IN_GROUP`        | 409  | Group submission requires group membership             | `errors.notInGroup` |
+| `ASSIGNMENT_WINDOW_CLOSED` | 403/409 | Assignment no longer accepts the requested work | `errors.assignmentWindowClosed` |
+| `COURSE_ENDED`        | 409  | Course is configured to reject post-end submissions    | `errors.courseEnded` |
 | `RATE_LIMITED`        | 429  | Rate limit exceeded                                  | `errors.rateLimited`   |
 | `INVALID_INVITATION`  | 400  | Invitation code unknown / expired / used             | `errors.invalidInvitation` |
+| `INVITATION_EXPIRED`  | 410  | Teacher invitation has expired                       | `errors.invitationExpired` |
+| `INVITATION_REVOKED`  | 410  | Teacher invitation was revoked                       | `errors.invitationRevoked` |
+| `INVITATION_ACCEPTED` | 410  | Teacher invitation was already accepted              | `errors.invitationAccepted` |
+| `EMAIL_ALREADY_USER`  | 409  | Invitation email already belongs to a user            | `errors.emailAlreadyUser` |
 | `INTERNAL_ERROR`      | 500  | Unhandled server error                               | `errors.internal`      |
+| `UPSTREAM_UNAVAILABLE` | 503 | Database, AI, Canvas, or another upstream is unavailable | `errors.upstreamUnavailable` |

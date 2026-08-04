@@ -4,6 +4,16 @@
 
 > 状态：现状快照 + 路线提案。API 核实结论带来源链接；代码引用以本日 `main`（bfc17ae）为准。
 
+> **2026-08-04 后续更新（当前 `main`：`eb9344b`）**：本文正文保留
+> 2026-07-21 的历史快照，不再代表当前完成度。阶段 0 推送加固和 v2 P2
+> 名册/身份关联已经落地：推送侧加入读-比-写守卫、响应指纹/时间戳记账、
+> 远端删除标记与 module-item 更新；名册支持显式/夜间刷新、SIS/email/login
+> 候选匹配、四桶核对、人工确认/解绑、可见率提示与异常缩水熔断。当前仍未
+> 实现的是 P3 成绩回写，以及 v3 的通用 outbox/cursor/conflict/双向同步引擎。
+> 继续规划时应从正文“阶段 2”开始，并以实际 schema、`routes/canvas.ts`、
+> `services/lms/canvas/{pushCourse,roster,match}.ts` 和
+> `workflows/lmsSync.ts` 为准。
+
 ---
 
 ## 一、结论速览
