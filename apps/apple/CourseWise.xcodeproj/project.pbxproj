@@ -21,6 +21,7 @@
 		598C8F86F30D8B757B283526 /* Mobile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D12805D01A8D74E418F0FB6 /* Mobile.swift */; };
 		5A7B3437ED92F43D9025A9E9 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F502DD353AE08EDCE6D31323 /* Localizable.strings */; };
 		5F6D791015097D84FE61CFD1 /* Course.swift in Sources */ = {isa = PBXBuildFile; fileRef = D16975C52DF89A4E2C467AAD /* Course.swift */; };
+		687780D4F1B3484302340BC1 /* DashboardComponentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2C568357391489CD74D8AD6 /* DashboardComponentDetailView.swift */; };
 		6BB63EDE6C0A8A5A937CB2E5 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B5EFC1102FC4837FCAAED67 /* KeychainStore.swift */; };
 		77C0432066B9612C6DB4573F /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C69751032B2B841FCEE1694B /* AuthStore.swift */; };
 		7936099F31B992AA2D936DD9 /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47FEB529FED0944D0F719E75 /* APIError.swift */; };
@@ -30,6 +31,7 @@
 		9D966B4599DC0CC3869EEBAC /* Brand.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61DADE856E67E5240248DCB /* Brand.swift */; };
 		A1414B5A5169E5B32B837072 /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = B95856C1D5A6CCBC3446B930 /* DeepLink.swift */; };
 		A437CD9F4A764C24AE127AF0 /* BiometricAuthenticator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439EF2BCD7B09FA1ADA0DE24 /* BiometricAuthenticator.swift */; };
+		A97234CE77DA5F10DC225315 /* DashboardPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90342B967B750987D0638F81 /* DashboardPresentationTests.swift */; };
 		B37D1B4D0E034CE1DAE24CA2 /* CourseFeaturePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC4CD2C03D334FE50AFC094B /* CourseFeaturePickerView.swift */; };
 		BAE1AAD3763E81CC798EFAC3 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4ED891496BB871E7436AD5C /* NotificationSettingsView.swift */; };
 		BF52ED047EE927E6F97CE122 /* CourseWiseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59909C0C1C2E95B16DF7CAD0 /* CourseWiseApp.swift */; };
@@ -74,6 +76,7 @@
 		7AF3FD384743248F0B197C8A /* FeatureDestination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureDestination.swift; sourceTree = "<group>"; };
 		82FC23F0EC46D08B9A4655FD /* DeepLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkTests.swift; sourceTree = "<group>"; };
 		85E91540058FDFAEBDF2914B /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
+		90342B967B750987D0638F81 /* DashboardPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentationTests.swift; sourceTree = "<group>"; };
 		91361A7257E65C301B0D027C /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		A4ED891496BB871E7436AD5C /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
 		ACB4F3CAC70807D16253CC8D /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -85,6 +88,7 @@
 		C69751032B2B841FCEE1694B /* AuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStore.swift; sourceTree = "<group>"; };
 		C8A248901F729028910C8C5E /* CourseWise.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CourseWise.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D16975C52DF89A4E2C467AAD /* Course.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Course.swift; sourceTree = "<group>"; };
+		E2C568357391489CD74D8AD6 /* DashboardComponentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardComponentDetailView.swift; sourceTree = "<group>"; };
 		E61DADE856E67E5240248DCB /* Brand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Brand.swift; sourceTree = "<group>"; };
 		EC4CD2C03D334FE50AFC094B /* CourseFeaturePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseFeaturePickerView.swift; sourceTree = "<group>"; };
 		FE13BB663D4EAA11B12EDD9C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -94,6 +98,7 @@
 		081CC707E93FA8A58FFEC703 /* CourseWiseTests */ = {
 			isa = PBXGroup;
 			children = (
+				90342B967B750987D0638F81 /* DashboardPresentationTests.swift */,
 				82FC23F0EC46D08B9A4655FD /* DeepLinkTests.swift */,
 			);
 			path = CourseWiseTests;
@@ -222,6 +227,7 @@
 		7E782380FFDAE7BE073FEDAE /* Dashboard */ = {
 			isa = PBXGroup;
 			children = (
+				E2C568357391489CD74D8AD6 /* DashboardComponentDetailView.swift */,
 				ACB4F3CAC70807D16253CC8D /* DashboardView.swift */,
 			);
 			path = Dashboard;
@@ -389,6 +395,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A97234CE77DA5F10DC225315 /* DashboardPresentationTests.swift in Sources */,
 				1BF9EEDD96C9F49D41C19141 /* DeepLinkTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -411,6 +418,7 @@
 				B37D1B4D0E034CE1DAE24CA2 /* CourseFeaturePickerView.swift in Sources */,
 				BF52ED047EE927E6F97CE122 /* CourseWiseApp.swift in Sources */,
 				54FA7889D093013DFC260BF4 /* CoursesView.swift in Sources */,
+				687780D4F1B3484302340BC1 /* DashboardComponentDetailView.swift in Sources */,
 				9CFCE800206EDD091BF9599A /* DashboardView.swift in Sources */,
 				A1414B5A5169E5B32B837072 /* DeepLink.swift in Sources */,
 				071ECD7E56C8FCFC589A53C0 /* FeatureDestination.swift in Sources */,

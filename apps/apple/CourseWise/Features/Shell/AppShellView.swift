@@ -72,6 +72,9 @@ struct AppShellView: View {
                     DashboardView()
                 }
             }
+            .navigationDestination(for: FeatureDestination.self) { destination in
+                destinationView(destination)
+            }
         }
         .navigationSplitViewStyle(.balanced)
     }
