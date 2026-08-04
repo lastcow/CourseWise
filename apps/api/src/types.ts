@@ -1,5 +1,6 @@
 import type { Db } from './db/client';
 import type { AuthContext } from './middleware/types';
+import type { PushJob } from './services/push';
 
 export interface AppBindings {
   DATABASE_URL: string;
@@ -64,6 +65,13 @@ export interface AppBindings {
   // `CourseWise <noreply@fsuac.com>`). When unset the Worker uses a hardcoded
   // fallback so dev environments can still render emails for testing.
   EMAIL_FROM?: string;
+  // APNs fan-out. The private .p8 key is a Worker secret; identifiers are
+  // non-secret vars. PUSH_QUEUE makes event producers independent from APNs.
+  PUSH_QUEUE?: Queue<PushJob>;
+  APNS_PRIVATE_KEY?: string;
+  APNS_KEY_ID?: string;
+  APNS_TEAM_ID?: string;
+  APNS_TOPIC?: string;
 }
 
 export interface AppVariables {

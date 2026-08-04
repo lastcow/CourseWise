@@ -36,8 +36,7 @@ const REQUESTER_LABEL_KEY: Record<RequesterType, string> = {
 
 const CATEGORY_LABEL_KEY: Record<RecordCategory, string> = {
   education_records: 'public.dataRequestsForm.category.educationRecords',
-  ai_generation_history:
-    'public.dataRequestsForm.category.aiGenerationHistory',
+  ai_generation_history: 'public.dataRequestsForm.category.aiGenerationHistory',
   account: 'public.dataRequestsForm.category.account',
   discussion_posts: 'public.dataRequestsForm.category.discussionPosts',
   other: 'public.dataRequestsForm.category.other',
@@ -164,83 +163,70 @@ export function DataRequestsPage(): JSX.Element {
     <>
       <LegalPageHeader
         title="Data Requests"
-        summary="How to submit a FERPA records request, and how CourseWise LLC handles it."
+        summary="How to submit a FERPA records request, and how Chens LLC handles it."
         lastUpdated="2026-05-29"
         version="v1.0"
       />
 
       <h2>Who can submit</h2>
       <p>
-        Under the Family Educational Rights and Privacy Act, the right to
-        inspect, amend, or restrict the disclosure of a student's education
-        records rests with the institution that maintains those records. The
-        appropriate intake for most requests is the registrar or privacy
-        officer at your institution. The form below is for requests
-        directed to CourseWise LLC in its role as a school official, or
-        for requests an institution's records officer asks us to handle
-        directly because the data lives in our systems.
+        Under the Family Educational Rights and Privacy Act, the right to inspect, amend, or
+        restrict the disclosure of a student's education records rests with the institution that
+        maintains those records. The appropriate intake for most requests is the registrar or
+        privacy officer at your institution. The form below is for requests directed to Chens LLC in
+        its role as a school official, or for requests an institution's records officer asks us to
+        handle directly because the data lives in our systems.
       </p>
       <p>
-        Parents of students under eighteen, eligible students (eighteen or
-        older, or enrolled in postsecondary education), institutional records
-        officers, and other parties with a valid legal basis may use this
-        intake. If you are uncertain which channel applies, write to us
-        anyway — we will either act on the request or route it to the
-        institution and tell you what we did.
+        Parents of students under eighteen, eligible students (eighteen or older, or enrolled in
+        postsecondary education), institutional records officers, and other parties with a valid
+        legal basis may use this intake. If you are uncertain which channel applies, write to us
+        anyway — we will either act on the request or route it to the institution and tell you what
+        we did.
       </p>
 
       <h2>What you can request</h2>
       <p>
-        You may ask us to (i) confirm whether we hold records about a
-        specific student and provide a copy of those records in a portable
-        format, (ii) amend or correct records you believe are inaccurate or
-        misleading, or (iii) delete records that the institution has the
-        authority to remove. Records that may live in CourseWise include
-        coursework attempts, AI-graded responses, AI prompts and generations
-        tied to a student account, discussion posts, account profile
-        information, and activity logs used to operate and secure the
-        Service.
+        You may ask us to (i) confirm whether we hold records about a specific student and provide a
+        copy of those records in a portable format, (ii) amend or correct records you believe are
+        inaccurate or misleading, or (iii) delete records that the institution has the authority to
+        remove. Records that may live in CourseWise include coursework attempts, AI-graded
+        responses, AI prompts and generations tied to a student account, discussion posts, account
+        profile information, and activity logs used to operate and secure the Service.
       </p>
 
       <h2>How we verify</h2>
       <p>
-        Because education records are protected, we will not release them on
-        the strength of a form alone. After we receive a request we contact
-        the institution's records officer to confirm the requester's
-        identity and authority, and we ask the requester for reasonable
-        verification (institution email match, government ID where
-        appropriate, or a verification step run by the institution). For
-        deletion or amendment, we generally require written confirmation
-        from the institution before changing records, because the
-        institution — not the vendor — is the legal custodian.
+        Because education records are protected, we will not release them on the strength of a form
+        alone. After we receive a request we contact the institution's records officer to confirm
+        the requester's identity and authority, and we ask the requester for reasonable verification
+        (institution email match, government ID where appropriate, or a verification step run by the
+        institution). For deletion or amendment, we generally require written confirmation from the
+        institution before changing records, because the institution — not the vendor — is the legal
+        custodian.
       </p>
 
       <h2>Response timeline</h2>
       <p>
-        We acknowledge receipt within seven calendar days. We complete most
-        requests within thirty days of verification. If a request is unusually
-        complex or requires coordination with the institution we may extend
-        once for up to thirty additional days and will tell you the reason
-        for the extension. We do not charge a fee for a first reasonable
-        request. We may charge a reasonable cost-based fee for repeated or
-        manifestly excessive requests, and will say so before doing the
-        work. We will not retaliate against any requester for exercising
-        these rights.
+        We acknowledge receipt within seven calendar days. We complete most requests within thirty
+        days of verification. If a request is unusually complex or requires coordination with the
+        institution we may extend once for up to thirty additional days and will tell you the reason
+        for the extension. We do not charge a fee for a first reasonable request. We may charge a
+        reasonable cost-based fee for repeated or manifestly excessive requests, and will say so
+        before doing the work. We will not retaliate against any requester for exercising these
+        rights.
       </p>
 
       <h2>Submit a request</h2>
       <p>
-        Use the form below. Fields marked required must be filled in. The
-        more specific you are about the student, the time window, and the
-        records involved, the faster we can act.
+        Use the form below. Fields marked required must be filled in. The more specific you are
+        about the student, the time window, and the records involved, the faster we can act.
       </p>
 
       <div className="rounded-2xl border bg-white p-6 my-8 not-prose">
         {done ? (
           <div className="text-center py-6">
-            <h3 className="text-lg font-semibold">
-              {t('public.dataRequestsForm.doneTitle')}
-            </h3>
+            <h3 className="text-lg font-semibold">{t('public.dataRequestsForm.doneTitle')}</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               {t('public.dataRequestsForm.doneBody')}
             </p>
@@ -253,21 +239,15 @@ export function DataRequestsPage(): JSX.Element {
               </div>
               <div className="mt-3 grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label htmlFor="dr-first">
-                    {t('public.dataRequestsForm.firstNameLabel')}
-                  </Label>
+                  <Label htmlFor="dr-first">{t('public.dataRequestsForm.firstNameLabel')}</Label>
                   <Input id="dr-first" name="firstName" required maxLength={120} />
                 </div>
                 <div>
-                  <Label htmlFor="dr-last">
-                    {t('public.dataRequestsForm.lastNameLabel')}
-                  </Label>
+                  <Label htmlFor="dr-last">{t('public.dataRequestsForm.lastNameLabel')}</Label>
                   <Input id="dr-last" name="lastName" required maxLength={120} />
                 </div>
                 <div>
-                  <Label htmlFor="dr-email">
-                    {t('public.dataRequestsForm.emailLabel')}
-                  </Label>
+                  <Label htmlFor="dr-email">{t('public.dataRequestsForm.emailLabel')}</Label>
                   <Input id="dr-email" name="email" type="email" required maxLength={200} />
                 </div>
                 <div>
@@ -307,9 +287,7 @@ export function DataRequestsPage(): JSX.Element {
               <Input
                 id="dr-relationship"
                 name="relationship"
-                placeholder={t(
-                  'public.dataRequestsForm.relationshipPlaceholder',
-                )}
+                placeholder={t('public.dataRequestsForm.relationshipPlaceholder')}
                 maxLength={300}
               />
             </div>
@@ -365,9 +343,7 @@ export function DataRequestsPage(): JSX.Element {
                 rows={6}
                 minLength={10}
                 maxLength={4000}
-                placeholder={t(
-                  'public.dataRequestsForm.descriptionPlaceholder',
-                )}
+                placeholder={t('public.dataRequestsForm.descriptionPlaceholder')}
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 {t('public.dataRequestsForm.descriptionHint')}
@@ -388,11 +364,9 @@ export function DataRequestsPage(): JSX.Element {
 
       <h2>Contact</h2>
       <p>
-        For questions that are not FERPA records requests — sales, partner
-        inquiries, press — use the general <Link to="/contact">contact form</Link>.
-        Security researchers should follow the{' '}
-        <Link to="/legal/responsible-disclosure">responsible-disclosure policy</Link>
-        .
+        For questions that are not FERPA records requests — sales, partner inquiries, press — use
+        the general <Link to="/contact">contact form</Link>. Security researchers should follow the{' '}
+        <Link to="/legal/responsible-disclosure">responsible-disclosure policy</Link>.
       </p>
     </>
   );

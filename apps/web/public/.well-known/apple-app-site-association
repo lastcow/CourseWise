@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["UT5XXQYCHK.com.coursewise.app"],
+        "components": [
+          { "/": "/invite/*", "comment": "Student course invitations" },
+          { "/": "/teacher/accept-invite", "comment": "Teacher invitations" },
+          { "/": "/reset-password", "comment": "Password reset" },
+          { "/": "/share/export/*", "comment": "Guest course exports" },
+          { "/": "/p/*", "comment": "Public presentations" },
+          { "/": "/student/courses/*", "comment": "Student course content" },
+          { "/": "/teacher/courses/*", "comment": "Teacher course content" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["UT5XXQYCHK.com.coursewise.app"]
+  }
+}

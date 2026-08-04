@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -145,6 +146,14 @@ export const aiArtifactStatusEnum = pgEnum('ai_artifact_status', [
   'failed',
 ]);
 export const aiEventLevelEnum = pgEnum('ai_event_level', ['info', 'warn', 'error']);
+export const mobilePlatformEnum = pgEnum('mobile_platform', ['ios', 'ipados']);
+export const apnsEnvironmentEnum = pgEnum('apns_environment', ['sandbox', 'production']);
+export const accountDeletionStatusEnum = pgEnum('account_deletion_status', [
+  'open',
+  'cancelled',
+  'completed',
+  'declined',
+]);
 
 // FERPA §99.20 — record-correction requests.
 export const recordCorrectionTargetEnum = pgEnum('record_correction_target', [
@@ -258,6 +267,90 @@ export const refreshTokens = pgTable(
   (t) => ({
     tokenHashIdx: uniqueIndex('refresh_tokens_token_hash_idx').on(t.tokenHash),
     familyIdx: index('refresh_tokens_family_idx').on(t.userId, t.familyId),
+  }),
+);
+
+// One APNs installation per signed-in user/device. The token is intentionally
+// server-side only and is never returned by list endpoints.
+export const mobileDevices = pgTable(
+  'mobile_devices',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    installationId: uuid('installation_id').notNull(),
+    platform: mobilePlatformEnum('platform').notNull(),
+    environment: apnsEnvironmentEnum('environment').notNull(),
+    apnsToken: text('apns_token').notNull(),
+    appVersion: text('app_version').notNull(),
+    osVersion: text('os_version').notNull(),
+    locale: text('locale').notNull(),
+    timezone: text('timezone').notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+    ...timestamps,
+  },
+  (t) => ({
+    installationUnique: uniqueIndex('mobile_devices_installation_idx').on(t.installationId),
+    tokenEnvironmentUnique: uniqueIndex('mobile_devices_token_environment_idx').on(
+      t.apnsToken,
+      t.environment,
+    ),
+    userIdx: index('mobile_devices_user_idx').on(t.userId, t.lastSeenAt),
+  }),
+);
+
+export const notificationPreferences = pgTable(
+  'notification_preferences',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    announcements: boolean('announcements').notNull().default(true),
+    messages: boolean('messages').notNull().default(true),
+    assignments: boolean('assignments').notNull().default(true),
+    quizzes: boolean('quizzes').notNull().default(true),
+    grades: boolean('grades').notNull().default(true),
+    attendance: boolean('attendance').notNull().default(true),
+    riskAlerts: boolean('risk_alerts').notNull().default(true),
+    sensitivePreviews: boolean('sensitive_previews').notNull().default(false),
+    quietHoursStart: text('quiet_hours_start'),
+    quietHoursEnd: text('quiet_hours_end'),
+    timezone: text('timezone').notNull().default('UTC'),
+    ...timestamps,
+  },
+  (t) => ({
+    quietHoursPair: check(
+      'notification_preferences_quiet_hours_pair',
+      sql`(${t.quietHoursStart} IS NULL AND ${t.quietHoursEnd} IS NULL) OR (${t.quietHoursStart} IS NOT NULL AND ${t.quietHoursEnd} IS NOT NULL)`,
+    ),
+  }),
+);
+
+// App Store account-deletion initiation. Education-record deletion is reviewed
+// against the institution's retention obligations rather than executed inline.
+export const accountDeletionRequests = pgTable(
+  'account_deletion_requests',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: accountDeletionStatusEnum('status').notNull().default('open'),
+    requestedAt: timestamp('requested_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true, mode: 'string' }),
+    resolutionNote: text('resolution_note'),
+    ...timestamps,
+  },
+  (t) => ({
+    userCreatedIdx: index('account_deletion_requests_user_created_idx').on(t.userId, t.createdAt),
+    oneOpenPerUser: uniqueIndex('account_deletion_requests_open_user_idx')
+      .on(t.userId)
+      .where(sql`${t.status} = 'open'`),
   }),
 );
 

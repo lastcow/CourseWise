@@ -29,7 +29,11 @@ import type {
   UserRole,
   UserStatus,
 } from './constants';
-import type { GradingPolicy } from './validators';
+import type {
+  GradingPolicy,
+  RegisterMobileDeviceInput,
+  UpdateNotificationPreferencesInput,
+} from './validators';
 
 export interface HealthResponse {
   status: 'ok';
@@ -89,6 +93,46 @@ export interface LoginResponse extends AuthTokens {
 export interface SendResetLinkResponse {
   resetUrl: string;
   emailSent: boolean;
+}
+
+export type MobilePlatform = RegisterMobileDeviceInput['platform'];
+export type ApnsEnvironment = RegisterMobileDeviceInput['environment'];
+
+export interface MobileDeviceSummary {
+  id: string;
+  installationId: string;
+  platform: MobilePlatform;
+  environment: ApnsEnvironment;
+  appVersion: string;
+  osVersion: string;
+  locale: 'en' | 'zh-CN';
+  timezone: string;
+  lastSeenAt: string;
+  createdAt: string;
+}
+
+export interface NotificationPreferences {
+  announcements: boolean;
+  messages: boolean;
+  assignments: boolean;
+  quizzes: boolean;
+  grades: boolean;
+  attendance: boolean;
+  riskAlerts: boolean;
+  sensitivePreviews: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+  timezone: string;
+}
+
+export type NotificationPreferencesPatch = UpdateNotificationPreferencesInput;
+
+export interface AccountDeletionRequestSummary {
+  id: string;
+  status: 'open' | 'cancelled' | 'completed' | 'declined';
+  requestedAt: string;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
 }
 
 export interface ApiTokenSummary {
