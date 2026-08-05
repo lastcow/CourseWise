@@ -186,7 +186,9 @@ struct UITestFixture: Sendable {
                     dueDate: "2026-06-05T23:59:00.000Z",
                     maxScore: 10,
                     allowLateSubmission: true,
-                    submissionMode: "individual"
+                    submissionMode: "individual",
+                    submissionCount: 28,
+                    ungradedSubmissionCount: 6
                 ),
             ],
             quizzes: [
@@ -204,7 +206,9 @@ struct UITestFixture: Sendable {
                     maxAttempts: 2,
                     maxScore: 10,
                     passingScore: 7,
-                    lockdown: false
+                    lockdown: false,
+                    attemptCount: 30,
+                    pendingReviewCount: 4
                 ),
             ],
             discussions: [

@@ -244,6 +244,18 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["module.detail.hero"].exists)
         XCTAssertTrue(app.staticTexts["Getting Started"].exists)
         XCTAssertTrue(app.staticTexts["Course Guide"].waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            app.descendants(matching: .any)[
+                "module.statistics.detail.00000000-0000-4000-8000-000000000201.materials"
+            ].value as? String,
+            "3"
+        )
+        XCTAssertEqual(
+            app.descendants(matching: .any)[
+                "module.statistics.detail.00000000-0000-4000-8000-000000000201.assignments"
+            ].value as? String,
+            "1"
+        )
         XCTAssertTrue(app.staticTexts["Learning Objectives"].exists)
         XCTAssertTrue(app.staticTexts["Orientation Deck"].exists)
         XCTAssertTrue(
@@ -297,21 +309,31 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Learning Goals Reflection"].exists)
         XCTAssertTrue(app.staticTexts["Orientation Check"].exists)
         XCTAssertTrue(app.staticTexts["Introduce Yourself"].exists)
-        XCTAssertTrue(
-            app.descendants(matching: .any)[
-                "module.detail.assignment.00000000-0000-4000-8000-000000000321"
-            ].exists
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any)[
-                "module.detail.quiz.00000000-0000-4000-8000-000000000331"
-            ].exists
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any)[
-                "module.detail.discussion.00000000-0000-4000-8000-000000000341"
-            ].exists
-        )
+        let assignmentCard = app.descendants(matching: .any)[
+            "module.detail.assignment.00000000-0000-4000-8000-000000000321"
+        ]
+        let quizCard = app.descendants(matching: .any)[
+            "module.detail.quiz.00000000-0000-4000-8000-000000000331"
+        ]
+        let discussionCard = app.descendants(matching: .any)[
+            "module.detail.discussion.00000000-0000-4000-8000-000000000341"
+        ]
+        XCTAssertTrue(assignmentCard.exists)
+        XCTAssertTrue(quizCard.exists)
+        XCTAssertTrue(discussionCard.exists)
+        let assignmentValue = assignmentCard.value as? String ?? ""
+        XCTAssertTrue(assignmentValue.contains("Submissions: 28"))
+        XCTAssertTrue(assignmentValue.contains("Graded: 22"))
+        XCTAssertTrue(assignmentValue.contains("Needs grading: 6"))
+        let quizValue = quizCard.value as? String ?? ""
+        XCTAssertTrue(quizValue.contains("Attempts: 30"))
+        XCTAssertTrue(quizValue.contains("Needs review: 4"))
+        XCTAssertTrue((discussionCard.value as? String ?? "").contains("Posts: 24"))
+
+        let assessmentCardsScreenshot = XCTAttachment(screenshot: app.screenshot())
+        assessmentCardsScreenshot.name = "module-assessment-cards"
+        assessmentCardsScreenshot.lifetime = .keepAlways
+        add(assessmentCardsScreenshot)
 
         let orientationQuiz = app.descendants(matching: .any)[
             "module.detail.quiz.00000000-0000-4000-8000-000000000331"

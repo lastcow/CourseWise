@@ -71,6 +71,16 @@ struct ModuleContentCounts: Decodable, Hashable, Sendable {
     let discussions: Int
 }
 
+struct AssignmentSubmissionSnapshot: Decodable, Hashable, Sendable {
+    let id: String
+    let status: String
+    let submittedAt: String?
+    let score: Double?
+    let rawScore: Double?
+    let latePenaltyPercent: Double?
+    let latePenaltyWaived: Bool
+}
+
 struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
     let id: String
     let moduleID: String?
@@ -105,6 +115,11 @@ struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
     let isGraded: Bool?
     let isPinned: Bool?
     let shareEnabled: Bool?
+    let submissionCount: Int?
+    let ungradedSubmissionCount: Int?
+    let attemptCount: Int?
+    let pendingReviewCount: Int?
+    let mySubmission: AssignmentSubmissionSnapshot?
 
     init(
         id: String,
@@ -139,7 +154,12 @@ struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
         lockdown: Bool? = nil,
         isGraded: Bool? = nil,
         isPinned: Bool? = nil,
-        shareEnabled: Bool? = nil
+        shareEnabled: Bool? = nil,
+        submissionCount: Int? = nil,
+        ungradedSubmissionCount: Int? = nil,
+        attemptCount: Int? = nil,
+        pendingReviewCount: Int? = nil,
+        mySubmission: AssignmentSubmissionSnapshot? = nil
     ) {
         self.id = id
         self.moduleID = moduleID
@@ -174,6 +194,11 @@ struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
         self.isGraded = isGraded
         self.isPinned = isPinned
         self.shareEnabled = shareEnabled
+        self.submissionCount = submissionCount
+        self.ungradedSubmissionCount = ungradedSubmissionCount
+        self.attemptCount = attemptCount
+        self.pendingReviewCount = pendingReviewCount
+        self.mySubmission = mySubmission
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -210,6 +235,11 @@ struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
         case isGraded
         case isPinned
         case shareEnabled
+        case submissionCount
+        case ungradedSubmissionCount
+        case attemptCount
+        case pendingReviewCount
+        case mySubmission
     }
 }
 
