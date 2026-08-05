@@ -8,11 +8,20 @@ import {
   type CreateModuleInput,
   type MeetingSlot,
   type ModuleCadence,
+  type ModuleContentCounts,
   type ModuleSummary,
   type ReorderModulesInput,
   type UpdateModuleInput,
 } from '@coursewise/shared';
-import { courses, modules } from '../db/schema';
+import {
+  assignments,
+  courses,
+  discussionTopics,
+  modules,
+  presentations,
+  quizzes,
+  readingMaterials,
+} from '../db/schema';
 import { ApiException, ERROR_CODES } from '../lib/errors';
 import { success } from '../lib/response';
 import { requireParam } from '../lib/params';
@@ -30,7 +39,10 @@ import type { AppEnv } from '../types';
 const r = new Hono<AppEnv>();
 r.use('*', requireAuth);
 
-function toSummary(row: typeof modules.$inferSelect): ModuleSummary {
+function toSummary(
+  row: typeof modules.$inferSelect,
+  counts?: ModuleContentCounts,
+): ModuleSummary {
   return {
     id: row.id,
     courseId: row.courseId,
@@ -42,6 +54,7 @@ function toSummary(row: typeof modules.$inferSelect): ModuleSummary {
     startAt: row.startAt ?? null,
     endAt: row.endAt ?? null,
     closedAt: row.closedAt ?? null,
+    counts,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -155,12 +168,55 @@ r.get(
       auth.user.role === 'student'
         ? and(eq(modules.courseId, courseId), eq(modules.status, 'published'))
         : eq(modules.courseId, courseId);
+    const student = auth.user.role === 'student';
+    const materialVisibility = student ? sql`AND rm.status = 'published'` : sql``;
+    const presentationVisibility = student ? sql`AND p.status = 'published'` : sql``;
+    const assignmentVisibility = student
+      ? sql`AND a.status IN ('published', 'closed', 'archived')`
+      : sql``;
+    const quizVisibility = student
+      ? sql`AND q.status IN ('published', 'closed', 'archived')`
+      : sql``;
+    const discussionVisibility = student ? sql`AND d.status = 'published'` : sql``;
     const rows = await db
-      .select()
+      .select({
+        module: modules,
+        materialsCount: sql<number>`(
+          SELECT count(*)::int FROM ${readingMaterials} rm
+          WHERE rm.module_id = ${modules.id} ${materialVisibility}
+        )`,
+        presentationsCount: sql<number>`(
+          SELECT count(*)::int FROM ${presentations} p
+          WHERE p.module_id = ${modules.id} ${presentationVisibility}
+        )`,
+        assignmentsCount: sql<number>`(
+          SELECT count(*)::int FROM ${assignments} a
+          WHERE a.module_id = ${modules.id} ${assignmentVisibility}
+        )`,
+        quizzesCount: sql<number>`(
+          SELECT count(*)::int FROM ${quizzes} q
+          WHERE q.module_id = ${modules.id} ${quizVisibility}
+        )`,
+        discussionsCount: sql<number>`(
+          SELECT count(*)::int FROM ${discussionTopics} d
+          WHERE d.module_id = ${modules.id} ${discussionVisibility}
+        )`,
+      })
       .from(modules)
       .where(where)
       .orderBy(asc(modules.position), asc(modules.createdAt));
-    return success(c, rows.map(toSummary));
+    return success(
+      c,
+      rows.map((row) =>
+        toSummary(row.module, {
+          materials: Number(row.materialsCount ?? 0),
+          presentations: Number(row.presentationsCount ?? 0),
+          assignments: Number(row.assignmentsCount ?? 0),
+          quizzes: Number(row.quizzesCount ?? 0),
+          discussions: Number(row.discussionsCount ?? 0),
+        }),
+      ),
+    );
   },
 );
 
@@ -273,7 +329,7 @@ r.post(
       .from(modules)
       .where(eq(modules.courseId, courseId))
       .orderBy(asc(modules.position));
-    return success(c, rows.map(toSummary));
+    return success(c, rows.map((row) => toSummary(row)));
   },
 );
 
@@ -325,7 +381,7 @@ r.post(
       .from(modules)
       .where(eq(modules.courseId, courseId))
       .orderBy(asc(modules.position), asc(modules.createdAt));
-    return success(c, updated.map(toSummary));
+    return success(c, updated.map((row) => toSummary(row)));
   },
 );
 

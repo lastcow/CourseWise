@@ -145,6 +145,10 @@
 "modules.schedule.session" = "Session";
 "modules.schedule.starts" = "Starts";
 "modules.schedule.ends" = "Ends";
+"modules.content.materials" = "Materials";
+"modules.content.assignments" = "Assignments";
+"modules.content.quizzes" = "Quizzes";
+"modules.content.discussions" = "Discussions";
 "modules.status.published" = "Published";
 "modules.status.draft" = "Draft";
 "modules.status.closed" = "Closed";

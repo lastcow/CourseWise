@@ -145,6 +145,10 @@
 "modules.schedule.session" = "学习周期";
 "modules.schedule.starts" = "开始";
 "modules.schedule.ends" = "结束";
+"modules.content.materials" = "教学资料";
+"modules.content.assignments" = "作业";
+"modules.content.quizzes" = "测验";
+"modules.content.discussions" = "讨论";
 "modules.status.published" = "已发布";
 "modules.status.draft" = "草稿";
 "modules.status.closed" = "已结束";

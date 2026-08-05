@@ -196,6 +196,14 @@ export interface CourseDetail extends CourseSummary {
   enrollmentCount: number;
 }
 
+export interface ModuleContentCounts {
+  materials: number;
+  presentations: number;
+  assignments: number;
+  quizzes: number;
+  discussions: number;
+}
+
 export interface ModuleSummary {
   id: string;
   courseId: string;
@@ -210,6 +218,9 @@ export interface ModuleSummary {
   startAt: string | null;
   endAt: string | null;
   closedAt: string | null;
+  /** Course content assigned to this module. Present only on module-list
+   *  responses, where all counts are loaded in one aggregate query. */
+  counts?: ModuleContentCounts;
   createdAt: string;
   updatedAt: string;
 }

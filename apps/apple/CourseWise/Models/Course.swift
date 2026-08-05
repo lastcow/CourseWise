@@ -63,6 +63,14 @@ struct CourseSummary: Codable, Hashable, Identifiable, Sendable {
     }
 }
 
+struct ModuleContentCounts: Decodable, Hashable, Sendable {
+    let materials: Int
+    let presentations: Int
+    let assignments: Int
+    let quizzes: Int
+    let discussions: Int
+}
+
 struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
     let id: String
     let title: String
@@ -73,6 +81,7 @@ struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
     let startAt: String?
     let endAt: String?
     let closedAt: String?
+    let counts: ModuleContentCounts?
 
     init(
         id: String,
@@ -83,7 +92,8 @@ struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
         publishedAt: String? = nil,
         startAt: String? = nil,
         endAt: String? = nil,
-        closedAt: String? = nil
+        closedAt: String? = nil,
+        counts: ModuleContentCounts? = nil
     ) {
         self.id = id
         self.title = title
@@ -94,6 +104,7 @@ struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
         self.startAt = startAt
         self.endAt = endAt
         self.closedAt = closedAt
+        self.counts = counts
     }
 
     private struct DynamicKey: CodingKey {
@@ -136,6 +147,11 @@ struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
         startAt = string(["startAt"])
         endAt = string(["endAt"])
         closedAt = string(["closedAt"])
+        if let key = DynamicKey(stringValue: "counts") {
+            counts = try? container.decode(ModuleContentCounts.self, forKey: key)
+        } else {
+            counts = nil
+        }
     }
 }
 

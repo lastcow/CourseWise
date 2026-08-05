@@ -151,12 +151,31 @@ describe.skipIf(!hasDb)('M2 — course core (integration)', () => {
           title: 'Draft material',
           sourceType: 'manual_text',
           content: '# Heading',
+          moduleId: m1.body.data!.id,
         }),
       },
       teacherToken,
     );
     expect(draft.status).toBe(201);
     const draftId = draft.body.data!.id;
+
+    const teacherModules = await call<
+      Array<{ id: string; counts?: { materials: number } }>
+    >(`/api/courses/${courseId}/modules`, {}, teacherToken);
+    expect(teacherModules.status).toBe(200);
+    expect(
+      teacherModules.body.data?.find((module) => module.id === m1.body.data!.id)?.counts
+        ?.materials,
+    ).toBe(1);
+
+    // Make the module visible to the enrolled student. Its draft content must
+    // still stay out of the student's aggregate counts.
+    const publishModule = await call(
+      `/api/modules/${m1.body.data!.id}/publish`,
+      { method: 'POST' },
+      teacherToken,
+    );
+    expect(publishModule.status).toBe(200);
 
     // Student must not see the draft.
     const studentListBefore = await call<Array<{ id: string }>>(
@@ -188,6 +207,15 @@ describe.skipIf(!hasDb)('M2 — course core (integration)', () => {
     expect(stillDraft.status).toBe(200);
     expect((stillDraft.body.data ?? []).some((m) => m.id === draftId)).toBe(false);
 
+    const studentModulesBefore = await call<
+      Array<{ id: string; counts?: { materials: number } }>
+    >(`/api/courses/${courseId}/modules`, {}, studentToken);
+    expect(studentModulesBefore.status).toBe(200);
+    expect(
+      studentModulesBefore.body.data?.find((module) => module.id === m1.body.data!.id)?.counts
+        ?.materials,
+    ).toBe(0);
+
     // Publish it.
     const publish = await call(
       `/api/materials/${draftId}/publish`,
@@ -203,6 +231,15 @@ describe.skipIf(!hasDb)('M2 — course core (integration)', () => {
     );
     expect(seen.status).toBe(200);
     expect(seen.body.data?.find((m) => m.id === draftId)?.status).toBe('published');
+
+    const studentModulesAfter = await call<
+      Array<{ id: string; counts?: { materials: number } }>
+    >(`/api/courses/${courseId}/modules`, {}, studentToken);
+    expect(studentModulesAfter.status).toBe(200);
+    expect(
+      studentModulesAfter.body.data?.find((module) => module.id === m1.body.data!.id)?.counts
+        ?.materials,
+    ).toBe(1);
 
     // Cleanup.
     await call(`/api/materials/${draftId}`, { method: 'DELETE' }, teacherToken);

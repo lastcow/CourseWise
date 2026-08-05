@@ -353,6 +353,10 @@ private struct ModuleTimelineRow: View {
                         .accessibilityLabel(Text(statusKey))
                 }
 
+                if let counts = module.counts {
+                    ModuleContentStatistics(moduleID: module.id, counts: counts)
+                }
+
                 if startDateText != nil || endDateText != nil {
                     ModuleSessionSchedule(
                         moduleID: module.id,
@@ -388,6 +392,81 @@ private struct ModuleTimelineRow: View {
         let date = (try? Date(value, strategy: Date.ISO8601FormatStyle(includingFractionalSeconds: true)))
             ?? (try? Date(value, strategy: .iso8601))
         return date?.formatted(date: .abbreviated, time: .omitted)
+    }
+}
+
+private struct ModuleContentStatistics: View {
+    let moduleID: String
+    let counts: ModuleContentCounts
+
+    private var teachingMaterials: Int {
+        counts.materials + counts.presentations
+    }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            ModuleContentMetric(
+                systemImage: "books.vertical.fill",
+                value: teachingMaterials,
+                labelKey: "modules.content.materials",
+                identifier: "module.statistics.\(moduleID).materials"
+            )
+            ModuleContentMetric(
+                systemImage: "checklist",
+                value: counts.assignments,
+                labelKey: "modules.content.assignments",
+                identifier: "module.statistics.\(moduleID).assignments"
+            )
+            ModuleContentMetric(
+                systemImage: "questionmark.circle.fill",
+                value: counts.quizzes,
+                labelKey: "modules.content.quizzes",
+                identifier: "module.statistics.\(moduleID).quizzes"
+            )
+            ModuleContentMetric(
+                systemImage: "bubble.left.and.bubble.right.fill",
+                value: counts.discussions,
+                labelKey: "modules.content.discussions",
+                identifier: "module.statistics.\(moduleID).discussions"
+            )
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("module.statistics.\(moduleID)")
+    }
+}
+
+private struct ModuleContentMetric: View {
+    let systemImage: String
+    let value: Int
+    let labelKey: LocalizedStringKey
+    let identifier: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: systemImage)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Brand.evergreen)
+                Text(value, format: .number)
+                    .font(.subheadline.bold())
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.ink)
+            }
+
+            Text(labelKey)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.70)
+        }
+        .padding(.horizontal, 3)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(Brand.evergreen.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(labelKey))
+        .accessibilityValue(Text(value, format: .number))
+        .accessibilityIdentifier(identifier)
     }
 }
 

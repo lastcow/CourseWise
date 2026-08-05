@@ -52,7 +52,14 @@ struct CourseModelTests {
               "publishedAt": "2026-05-20T14:00:00.000Z",
               "startAt": "2026-06-01T00:00:00.000Z",
               "endAt": "2026-06-07T23:59:59.000Z",
-              "closedAt": null
+              "closedAt": null,
+              "counts": {
+                "materials": 2,
+                "presentations": 1,
+                "assignments": 3,
+                "quizzes": 1,
+                "discussions": 2
+              }
             }
             """.utf8
         )
@@ -67,5 +74,10 @@ struct CourseModelTests {
         #expect(module.startAt == "2026-06-01T00:00:00.000Z")
         #expect(module.endAt == "2026-06-07T23:59:59.000Z")
         #expect(module.closedAt == nil)
+        #expect(module.counts?.materials == 2)
+        #expect(module.counts?.presentations == 1)
+        #expect(module.counts?.assignments == 3)
+        #expect(module.counts?.quizzes == 1)
+        #expect(module.counts?.discussions == 2)
     }
 }
