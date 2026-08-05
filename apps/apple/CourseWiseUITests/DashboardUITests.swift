@@ -255,6 +255,40 @@ final class DashboardUITests: XCTestCase {
         overviewScreenshot.lifetime = .keepAlways
         add(overviewScreenshot)
 
+        let courseGuide = app.descendants(matching: .any)[
+            "module.detail.material.00000000-0000-4000-8000-000000000301"
+        ]
+        XCTAssertTrue(courseGuide.waitForExistence(timeout: 3))
+        courseGuide.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["module.resource.detail"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["module.resource.content"].exists)
+        XCTAssertTrue(
+            app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS %@", "This guide explains how each week is organized")
+            ).firstMatch.exists
+        )
+
+        let materialScreenshot = XCTAttachment(screenshot: app.screenshot())
+        materialScreenshot.name = "module-material-full-content"
+        materialScreenshot.lifetime = .keepAlways
+        add(materialScreenshot)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let orientationDeck = app.descendants(matching: .any)[
+            "module.detail.presentation.00000000-0000-4000-8000-000000000311"
+        ]
+        for _ in 0..<4 where !orientationDeck.exists { app.swipeUp() }
+        XCTAssertTrue(orientationDeck.waitForExistence(timeout: 3))
+        orientationDeck.tap()
+        XCTAssertTrue(app.staticTexts["Welcome to Deep Learning"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.staticTexts["How each week works"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.resource.slide.00000000-0000-4000-8000-000000000411"
+            ].exists
+        )
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
         let discussionSection = app.descendants(matching: .any)["module.detail.section.discussions"]
         for _ in 0..<10 where !discussionSection.exists {
             app.swipeUp()
@@ -279,8 +313,48 @@ final class DashboardUITests: XCTestCase {
             ].exists
         )
 
+        let orientationQuiz = app.descendants(matching: .any)[
+            "module.detail.quiz.00000000-0000-4000-8000-000000000331"
+        ]
+        orientationQuiz.tap()
+        XCTAssertTrue(
+            app.staticTexts["Where can you find the required learning materials for each week?"]
+                .waitForExistence(timeout: 4)
+        )
+        XCTAssertTrue(app.staticTexts["Inside the corresponding module"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.resource.question.00000000-0000-4000-8000-000000000421"
+            ].exists
+        )
+
+        let quizScreenshot = XCTAttachment(screenshot: app.screenshot())
+        quizScreenshot.name = "module-quiz-question-content"
+        quizScreenshot.lifetime = .keepAlways
+        add(quizScreenshot)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let introduction = app.descendants(matching: .any)[
+            "module.detail.discussion.00000000-0000-4000-8000-000000000341"
+        ]
+        for _ in 0..<4 where !introduction.exists { app.swipeUp() }
+        XCTAssertTrue(introduction.waitForExistence(timeout: 3))
+        introduction.tap()
+        XCTAssertTrue(app.staticTexts["Alex Morgan"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.staticTexts["Dr. Chen"].exists)
+        XCTAssertTrue(
+            app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS %@", "building reliable computer-vision tools")
+            ).firstMatch.exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.resource.post.00000000-0000-4000-8000-000000000431"
+            ].exists
+        )
+
         let assessmentScreenshot = XCTAttachment(screenshot: app.screenshot())
-        assessmentScreenshot.name = "module-detail-professional-assessments"
+        assessmentScreenshot.name = "module-discussion-content"
         assessmentScreenshot.lifetime = .keepAlways
         add(assessmentScreenshot)
     }
