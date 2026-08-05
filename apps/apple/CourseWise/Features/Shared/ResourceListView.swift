@@ -556,14 +556,14 @@ private struct ModuleSessionSchedule: View {
     let endDate: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 8) {
             Label("modules.schedule.session", systemImage: "calendar.badge.clock")
                 .font(.caption2.weight(.semibold))
                 .textCase(.uppercase)
                 .tracking(0.7)
                 .foregroundStyle(Brand.evergreen)
 
-            HStack(alignment: .bottom, spacing: 8) {
+            VStack(spacing: 0) {
                 if let startDate {
                     ModuleSessionDate(
                         labelKey: "modules.schedule.starts",
@@ -573,11 +573,7 @@ private struct ModuleSessionSchedule: View {
                 }
 
                 if startDate != nil, endDate != nil {
-                    Image(systemName: "arrow.right")
-                        .font(.caption2.bold())
-                        .foregroundStyle(.tertiary)
-                        .padding(.bottom, 4)
-                        .accessibilityHidden(true)
+                    Divider()
                 }
 
                 if let endDate {
@@ -588,6 +584,8 @@ private struct ModuleSessionSchedule: View {
                     )
                 }
             }
+            .padding(.horizontal, 10)
+            .background(.background.opacity(0.72), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -603,17 +601,23 @@ private struct ModuleSessionDate: View {
     let identifier: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(labelKey)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .frame(minWidth: 42, alignment: .leading)
+
+            Spacer(minLength: 8)
+
             Text(value)
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.ink)
-                .lineLimit(1)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
                 .minimumScaleFactor(0.82)
         }
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(identifier)
@@ -1086,13 +1090,13 @@ private struct ModuleDetailResourceCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 13) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: entry.kind.systemImage)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Brand.evergreen)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.evergreen.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+                    .frame(width: 34, height: 34)
+                    .background(Brand.evergreen.opacity(0.09), in: RoundedRectangle(cornerRadius: 10))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(entry.kind.labelKey)
@@ -1118,32 +1122,11 @@ private struct ModuleDetailResourceCard: View {
                 }
             }
 
-            if let preview = entry.kind == .material
-                ? (entry.item.content ?? entry.item.description)
-                : entry.item.description,
-               !preview.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(entry.kind == .material ? "modules.content.preview" : "modules.detail.summary")
-                        .font(.caption2.weight(.semibold))
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-                        .foregroundStyle(.secondary)
-                    Text(preview)
-                        .font(.subheadline)
-                        .foregroundStyle(Brand.ink)
-                        .lineLimit(4)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 13))
-            }
-
             if !facts.isEmpty {
                 LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 132), spacing: 8)],
+                    columns: [GridItem(.adaptive(minimum: 92), spacing: 6)],
                     alignment: .leading,
-                    spacing: 8
+                    spacing: 6
                 ) {
                     ForEach(Array(facts.prefix(6))) { fact in
                         ModuleDetailFactTile(fact: fact, itemID: entry.item.id)
@@ -1166,7 +1149,7 @@ private struct ModuleDetailResourceCard: View {
             .foregroundStyle(.secondary)
 
         }
-        .padding(16)
+        .padding(14)
         .background(.background, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -1216,18 +1199,19 @@ private struct ModuleDetailFactTile: View {
     let itemID: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 9) {
+        HStack(alignment: .top, spacing: 7) {
             Image(systemName: fact.systemImage)
-                .font(.caption.weight(.semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(Brand.evergreen)
-                .frame(width: 24, height: 24)
-                .background(Brand.evergreen.opacity(0.09), in: RoundedRectangle(cornerRadius: 7))
+                .frame(width: 20, height: 20)
+                .background(Brand.evergreen.opacity(0.09), in: RoundedRectangle(cornerRadius: 6))
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(LocalizedStringKey(fact.labelKey))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
                 Text(fact.value)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Brand.ink)
@@ -1235,9 +1219,9 @@ private struct ModuleDetailFactTile: View {
                     .minimumScaleFactor(0.78)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
-        .padding(10)
-        .background(Brand.evergreen.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
+        .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+        .padding(7)
+        .background(Brand.evergreen.opacity(0.055), in: RoundedRectangle(cornerRadius: 10))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("module.detail.fact.\(itemID).\(fact.labelKey)")
     }

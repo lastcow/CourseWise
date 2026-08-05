@@ -210,6 +210,13 @@ final class DashboardUITests: XCTestCase {
                 "module.schedule.end.00000000-0000-4000-8000-000000000201"
             ].exists
         )
+        let listStart = app.descendants(matching: .any)[
+            "module.schedule.start.00000000-0000-4000-8000-000000000201"
+        ]
+        let listEnd = app.descendants(matching: .any)[
+            "module.schedule.end.00000000-0000-4000-8000-000000000201"
+        ]
+        XCTAssertLessThan(listStart.frame.midY, listEnd.frame.midY)
         XCTAssertTrue(
             app.descendants(matching: .any)[
                 "module.statistics.00000000-0000-4000-8000-000000000201"
@@ -256,6 +263,15 @@ final class DashboardUITests: XCTestCase {
             ].value as? String,
             "1"
         )
+        let detailStart = app.descendants(matching: .any)[
+            "module.schedule.start.detail.00000000-0000-4000-8000-000000000201"
+        ]
+        let detailEnd = app.descendants(matching: .any)[
+            "module.schedule.end.detail.00000000-0000-4000-8000-000000000201"
+        ]
+        XCTAssertLessThan(detailStart.frame.midY, detailEnd.frame.midY)
+        XCTAssertFalse(app.staticTexts["CONTENT PREVIEW"].exists)
+        XCTAssertFalse(app.staticTexts["OVERVIEW"].exists)
         XCTAssertTrue(app.staticTexts["Learning Objectives"].exists)
         XCTAssertTrue(app.staticTexts["Orientation Deck"].exists)
         XCTAssertTrue(
