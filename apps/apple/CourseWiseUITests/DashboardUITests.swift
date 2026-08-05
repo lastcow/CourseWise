@@ -16,15 +16,33 @@ final class DashboardUITests: XCTestCase {
         courses.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["courses.list"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["courses.summary"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["courses.filter"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["dashboard.detail.courses"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["dashboard.detail.open"].exists)
-        for title in [
-            "Deep Learning",
-            "Software Engineering Economics",
-            "Introduction to Management",
-            "Product Design Systems",
+        XCTAssertTrue(app.staticTexts["Build modern AI systems from neural network foundations to production workflows."].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "courses.metric.00000000-0000-4000-8000-000000000101.modules"
+            ].exists
+        )
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "courses-professional-catalog"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        for (id, title) in [
+            ("00000000-0000-4000-8000-000000000101", "Deep Learning"),
+            ("00000000-0000-4000-8000-000000000102", "Software Engineering Economics"),
+            ("00000000-0000-4000-8000-000000000103", "Introduction to Management"),
+            ("00000000-0000-4000-8000-000000000104", "Product Design Systems"),
         ] {
-            XCTAssertTrue(app.staticTexts[title].exists, "Missing eligible course: \(title)")
+            let row = app.descendants(matching: .any)["courses.row.\(id)"]
+            for _ in 0..<5 where !row.exists {
+                app.swipeUp()
+            }
+            XCTAssertTrue(row.exists, "Missing eligible course: \(title)")
         }
 
         app.navigationBars.buttons.firstMatch.tap()
@@ -42,6 +60,24 @@ final class DashboardUITests: XCTestCase {
             app.navigationBars.buttons.firstMatch.tap()
             XCTAssertTrue(dashboard.waitForExistence(timeout: 3))
         }
+    }
+
+    func testCoursesSearchFiltersTheCatalog() throws {
+        continueAfterFailure = false
+        let app = launch(language: "en")
+
+        let courses = app.descendants(matching: .any)["dashboard.component.courses"]
+        XCTAssertTrue(courses.waitForExistence(timeout: 5))
+        courses.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["courses.list"].waitForExistence(timeout: 3))
+        let search = app.searchFields["Search courses"]
+        XCTAssertTrue(search.waitForExistence(timeout: 3))
+        search.tap()
+        search.typeText("Economics")
+
+        XCTAssertTrue(app.staticTexts["Software Engineering Economics"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["Deep Learning"].exists)
     }
 
     func testSimplifiedChineseDashboard() throws {

@@ -1,13 +1,66 @@
 import Foundation
 
+struct CourseCounts: Codable, Hashable, Sendable {
+    let modules: Int
+    let assignments: Int
+    let presentations: Int
+    let students: Int
+
+    static let zero = CourseCounts(modules: 0, assignments: 0, presentations: 0, students: 0)
+}
+
 struct CourseSummary: Codable, Hashable, Identifiable, Sendable {
     let id: UUID
     let code: String
     let title: String
+    let description: String?
     let status: String
     let term: String?
     let startDate: String?
     let endDate: String?
+    let bannerURLString: String?
+    let lmsProvider: String?
+    let counts: CourseCounts
+
+    init(
+        id: UUID,
+        code: String,
+        title: String,
+        status: String,
+        term: String?,
+        startDate: String?,
+        endDate: String?,
+        description: String? = nil,
+        bannerURLString: String? = nil,
+        lmsProvider: String? = nil,
+        counts: CourseCounts = .zero
+    ) {
+        self.id = id
+        self.code = code
+        self.title = title
+        self.description = description
+        self.status = status
+        self.term = term
+        self.startDate = startDate
+        self.endDate = endDate
+        self.bannerURLString = bannerURLString
+        self.lmsProvider = lmsProvider
+        self.counts = counts
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case code
+        case title
+        case description
+        case status
+        case term = "termLabel"
+        case startDate
+        case endDate
+        case bannerURLString = "bannerUrl"
+        case lmsProvider
+        case counts
+    }
 }
 
 struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
