@@ -426,6 +426,51 @@ struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
     }
 }
 
+enum ModuleCountReconciler {
+    static func reconcile(
+        modules: [ResourceSummary],
+        materials: [ModuleContentSummary],
+        presentations: [ModuleContentSummary],
+        assignments: [ModuleContentSummary],
+        quizzes: [ModuleContentSummary],
+        discussions: [ModuleContentSummary]
+    ) -> [ResourceSummary] {
+        let materialCounts = countsByModule(materials)
+        let presentationCounts = countsByModule(presentations)
+        let assignmentCounts = countsByModule(assignments)
+        let quizCounts = countsByModule(quizzes)
+        let discussionCounts = countsByModule(discussions)
+
+        return modules.map { module in
+            ResourceSummary(
+                id: module.id,
+                title: module.title,
+                subtitle: module.subtitle,
+                status: module.status,
+                position: module.position,
+                publishedAt: module.publishedAt,
+                startAt: module.startAt,
+                endAt: module.endAt,
+                closedAt: module.closedAt,
+                counts: ModuleContentCounts(
+                    materials: materialCounts[module.id, default: 0],
+                    presentations: presentationCounts[module.id, default: 0],
+                    assignments: assignmentCounts[module.id, default: 0],
+                    quizzes: quizCounts[module.id, default: 0],
+                    discussions: discussionCounts[module.id, default: 0]
+                )
+            )
+        }
+    }
+
+    private static func countsByModule(_ items: [ModuleContentSummary]) -> [String: Int] {
+        items.reduce(into: [:]) { counts, item in
+            guard let moduleID = item.moduleID else { return }
+            counts[moduleID, default: 0] += 1
+        }
+    }
+}
+
 struct ResourceCollection: Decodable, Sendable {
     let items: [ResourceSummary]
 

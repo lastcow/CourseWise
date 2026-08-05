@@ -81,6 +81,70 @@ struct CourseModelTests {
         #expect(module.counts?.discussions == 2)
     }
 
+    @Test func moduleCountsRebuildFromCurrentContentAndIgnoreUnassignedItems() throws {
+        let decoder = JSONDecoder()
+        let modules = try decoder.decode(
+            ResourceCollection.self,
+            from: Data(
+                """
+                {"items":[
+                  {"id":"module-1","title":"One","counts":{"materials":0,"presentations":0,"assignments":0,"quizzes":0,"discussions":0}},
+                  {"id":"module-2","title":"Two","counts":{"materials":0,"presentations":0,"assignments":0,"quizzes":0,"discussions":0}}
+                ]}
+                """.utf8
+            )
+        ).items
+        let materials = try decoder.decode(
+            [ModuleContentSummary].self,
+            from: Data(
+                """
+                [
+                  {"id":"material-1","moduleId":"module-1","title":"Guide"},
+                  {"id":"material-2","moduleId":"module-1","title":"Reading"},
+                  {"id":"material-3","moduleId":"module-2","title":"Notes"},
+                  {"id":"material-unassigned","moduleId":null,"title":"Unassigned"}
+                ]
+                """.utf8
+            )
+        )
+        let presentations = try decoder.decode(
+            [ModuleContentSummary].self,
+            from: Data("[{\"id\":\"presentation-1\",\"moduleId\":\"module-1\",\"title\":\"Lecture\"}]".utf8)
+        )
+        let assignments = try decoder.decode(
+            [ModuleContentSummary].self,
+            from: Data("[{\"id\":\"assignment-1\",\"moduleId\":\"module-1\",\"title\":\"Lab\"}]".utf8)
+        )
+        let quizzes = try decoder.decode(
+            [ModuleContentSummary].self,
+            from: Data("[{\"id\":\"quiz-1\",\"moduleId\":\"module-2\",\"title\":\"Check\"}]".utf8)
+        )
+        let discussions = try decoder.decode(
+            [ModuleContentSummary].self,
+            from: Data("[{\"id\":\"discussion-1\",\"moduleId\":\"module-1\",\"title\":\"Prompt\"}]".utf8)
+        )
+
+        let reconciled = ModuleCountReconciler.reconcile(
+            modules: modules,
+            materials: materials,
+            presentations: presentations,
+            assignments: assignments,
+            quizzes: quizzes,
+            discussions: discussions
+        )
+
+        #expect(reconciled[0].counts?.materials == 2)
+        #expect(reconciled[0].counts?.presentations == 1)
+        #expect(reconciled[0].counts?.assignments == 1)
+        #expect(reconciled[0].counts?.quizzes == 0)
+        #expect(reconciled[0].counts?.discussions == 1)
+        #expect(reconciled[1].counts?.materials == 1)
+        #expect(reconciled[1].counts?.presentations == 0)
+        #expect(reconciled[1].counts?.assignments == 0)
+        #expect(reconciled[1].counts?.quizzes == 1)
+        #expect(reconciled[1].counts?.discussions == 0)
+    }
+
     @Test func moduleContentSummaryDecodesAssessmentDetails() throws {
         let data = Data(
             """
