@@ -282,38 +282,43 @@ private struct CourseCatalogCard: View {
             ZStack(alignment: .topLeading) {
                 CourseBanner(course: course)
                 LinearGradient(
-                    colors: [.black.opacity(0.08), .black.opacity(0.52)],
+                    colors: [.black.opacity(0.22), .clear, .black.opacity(0.10)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
 
-                VStack(alignment: .leading) {
-                    HStack(spacing: 7) {
-                        CourseStatusBadge(titleKey: statusKey, color: statusColor)
-                        if course.lmsProvider == "canvas" {
-                            CourseStatusBadge(titleKey: "courses.canvas", color: .blue)
-                        }
-                        Spacer()
-                        Text(course.code)
-                            .font(.caption.bold().monospaced())
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 6)
-                            .background(.black.opacity(0.34), in: Capsule())
+                HStack(spacing: 7) {
+                    CourseStatusBadge(titleKey: statusKey, color: statusColor)
+                    if course.lmsProvider == "canvas" {
+                        CourseStatusBadge(titleKey: "courses.canvas", color: .blue)
                     }
                     Spacer()
-                    Text(course.title)
-                        .font(.title3.bold())
+                    Text(course.code)
+                        .font(.caption.bold().monospaced())
                         .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
+                        .background(.black.opacity(0.34), in: Capsule())
                 }
                 .padding(14)
             }
-            .frame(height: 146)
+            .frame(height: 136)
             .clipped()
 
             VStack(alignment: .leading, spacing: 11) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(course.title)
+                        .font(.headline)
+                        .foregroundStyle(Brand.ink)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.bold())
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(minHeight: 42, alignment: .top)
+
                 HStack(spacing: 7) {
                     if let term = course.term {
                         Label(term, systemImage: "calendar")
@@ -413,21 +418,49 @@ private struct CourseBanner: View {
                     image.resizable().scaledToFill()
                 case .empty:
                     ZStack {
-                        CourseBannerFallback(code: course.code)
+                        CourseBannerFallback(course: course)
                         ProgressView().tint(.white)
                     }
                 default:
-                    CourseBannerFallback(code: course.code)
+                    CourseBannerFallback(course: course)
                 }
             }
         } else {
-            CourseBannerFallback(code: course.code)
+            CourseBannerFallback(course: course)
         }
     }
 }
 
 private struct CourseBannerFallback: View {
-    let code: String
+    let course: CourseSummary
+
+    private var acronym: String {
+        let letters = course.title
+            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            .prefix(3)
+            .compactMap(\.first)
+        let value = String(letters).uppercased()
+        return value.isEmpty ? String(course.code.prefix(3)).uppercased() : value
+    }
+
+    private var subjectSymbol: String {
+        let title = course.title.lowercased()
+        if title.contains("learning") || title.contains("intelligence") || title.contains("neural") {
+            return "brain.head.profile"
+        }
+        if title.contains("software") || title.contains("engineering") || title.contains("economics") {
+            return "chart.line.uptrend.xyaxis"
+        }
+        if title.contains("management") || title.contains("business") || title.contains("leadership") {
+            return "person.3.fill"
+        }
+        if title.contains("design") || title.contains("product") || title.contains("art") {
+            return "square.3.layers.3d"
+        }
+        let symbols = ["book.closed.fill", "graduationcap.fill", "lightbulb.max.fill", "globe.americas.fill"]
+        let index = course.code.unicodeScalars.reduce(0) { $0 + Int($1.value) } % symbols.count
+        return symbols[index]
+    }
 
     private var palette: [Color] {
         let palettes: [[Color]] = [
@@ -436,22 +469,54 @@ private struct CourseBannerFallback: View {
             [Color(red: 0.48, green: 0.29, blue: 0.22), Color(red: 0.27, green: 0.16, blue: 0.13)],
             [Color(red: 0.34, green: 0.24, blue: 0.48), Color(red: 0.18, green: 0.12, blue: 0.27)],
         ]
-        let index = code.unicodeScalars.reduce(0) { $0 + Int($1.value) } % palettes.count
+        let index = course.code.unicodeScalars.reduce(0) { $0 + Int($1.value) } % palettes.count
         return palettes[index]
     }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             LinearGradient(colors: palette, startPoint: .topLeading, endPoint: .bottomTrailing)
+
+            HStack(spacing: 18) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("CourseWise")
+                        .font(.caption2.bold())
+                        .textCase(.uppercase)
+                        .tracking(1.8)
+                        .foregroundStyle(.white.opacity(0.58))
+                    Text(acronym)
+                        .font(.system(size: 38, weight: .black, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.88))
+                }
+
+                Spacer()
+
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.white.opacity(0.12))
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(.white.opacity(0.18))
+                    Image(systemName: subjectSymbol)
+                        .font(.system(size: 30, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.white.opacity(0.90))
+                }
+                .frame(width: 68, height: 68)
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, 34)
+            .padding(.bottom, 12)
+
             Circle()
                 .fill(.white.opacity(0.08))
-                .frame(width: 180, height: 180)
-                .offset(x: 45, y: 75)
+                .frame(width: 170, height: 170)
+                .offset(x: 48, y: 88)
             Circle()
                 .stroke(.white.opacity(0.10), lineWidth: 18)
-                .frame(width: 105, height: 105)
-                .offset(x: 8, y: 34)
+                .frame(width: 98, height: 98)
+                .offset(x: 10, y: 44)
         }
+        .accessibilityHidden(true)
     }
 }
 
