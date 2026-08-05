@@ -769,10 +769,6 @@ private struct ModuleDetailHero: View {
                     .accessibilityLabel(Text(statusKey))
             }
 
-            if let counts = module.counts {
-                ModuleContentStatistics(moduleID: "detail.\(module.id)", counts: counts)
-            }
-
             let start = formattedModuleDate(module.startAt)
             let end = formattedModuleDate(module.endAt)
             if start != nil || end != nil {
@@ -851,14 +847,6 @@ private struct ModuleDetailSection: View {
                 }
 
                 Spacer(minLength: 8)
-
-                Text(entries.count, format: .number)
-                    .font(.subheadline.bold())
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.evergreen)
-                    .frame(minWidth: 30, minHeight: 30)
-                    .background(Brand.evergreen.opacity(0.10), in: Capsule())
-                    .accessibilityLabel(Text("modules.detail.itemCount"))
             }
 
             if entries.isEmpty {
@@ -874,7 +862,12 @@ private struct ModuleDetailSection: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(entries) { entry in
-                        ModuleDetailResourceCard(entry: entry)
+                        NavigationLink {
+                            ModuleResourceDetailView(entry: entry)
+                        } label: {
+                            ModuleDetailResourceCard(entry: entry)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -885,18 +878,7 @@ private struct ModuleDetailSection: View {
 }
 
 private struct ModuleDetailResourceCard: View {
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let entry: ModuleDetailEntry
-
-    private var factColumns: [GridItem] {
-        if horizontalSizeClass == .compact {
-            return [
-                GridItem(.flexible(), spacing: 8),
-                GridItem(.flexible(), spacing: 8),
-            ]
-        }
-        return [GridItem(.adaptive(minimum: 180), spacing: 8)]
-    }
 
     private var facts: [ModuleDetailFact] {
         var values: [ModuleDetailFact] = []
@@ -978,56 +960,43 @@ private struct ModuleDetailResourceCard: View {
                 }
             }
 
-            if let description = entry.item.description, !description.isEmpty {
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            if let preview = entry.kind == .material
+                ? (entry.item.content ?? entry.item.description)
+                : entry.item.description,
+               !preview.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("modules.content.preview")
+                        .font(.caption2.weight(.semibold))
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                        .foregroundStyle(.secondary)
+                    Text(preview)
+                        .font(.subheadline)
+                        .foregroundStyle(Brand.ink)
+                        .lineLimit(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 13))
             }
 
-            if !facts.isEmpty {
-                LazyVGrid(
-                    columns: factColumns,
-                    alignment: .leading,
-                    spacing: 8
-                ) {
-                    ForEach(facts) { fact in
-                        HStack(spacing: 8) {
-                            Image(systemName: fact.systemImage)
-                                .font(.caption)
-                                .foregroundStyle(Brand.evergreen)
-                                .frame(width: 18)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(fact.value)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(Brand.ink)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.75)
-                                Text(LocalizedStringKey(fact.labelKey))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 11))
-                    }
+            HStack {
+                if let firstFact = facts.first {
+                    Label(firstFact.value, systemImage: firstFact.systemImage)
+                        .lineLimit(1)
                 }
+                Spacer()
+                Text("modules.content.read")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Brand.evergreen)
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tertiary)
             }
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
-            if let urlString = entry.item.externalURLString,
-               let url = URL(string: urlString),
-               ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
-                Link(destination: url) {
-                    Label("modules.detail.open", systemImage: "arrow.up.right.square")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(Brand.evergreen)
-            }
         }
         .padding(16)
         .background(.background, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -1059,6 +1028,406 @@ private struct ModuleDetailResourceCard: View {
         case "archived": String(localized: "modules.status.archived")
         default: humanized(value)
         }
+    }
+}
+
+private struct ModuleResourceDetailView: View {
+    @Environment(AuthStore.self) private var authStore
+    let entry: ModuleDetailEntry
+
+    @State private var slides: [PresentationSlideSummary] = []
+    @State private var questions: [QuizQuestionSummary] = []
+    @State private var discussionPage: DiscussionPostsPage?
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 20) {
+                resourceHero
+                contentSection
+
+                if let urlString = entry.item.externalURLString,
+                   let url = URL(string: urlString),
+                   ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+                    Link(destination: url) {
+                        Label("modules.detail.open", systemImage: "arrow.up.right.square")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Brand.evergreen)
+                }
+
+                supportingDetails
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 34)
+            .frame(maxWidth: 820, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .background(ModulesBackground())
+        .navigationTitle(entry.kind.labelKey)
+        .navigationBarTitleDisplayMode(.inline)
+        .task(id: entry.id) { await loadContent() }
+        .refreshable { await loadContent() }
+        .accessibilityIdentifier("module.resource.detail")
+    }
+
+    private var resourceHero: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: entry.kind.systemImage)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 52, height: 52)
+                .background(Brand.evergreen, in: RoundedRectangle(cornerRadius: 16))
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(entry.kind.labelKey)
+                    .font(.caption.weight(.semibold))
+                    .textCase(.uppercase)
+                    .tracking(0.6)
+                    .foregroundStyle(Brand.evergreen)
+                Text(entry.item.title)
+                    .font(.title2.bold())
+                    .foregroundStyle(Brand.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let description = entry.item.description, !description.isEmpty {
+                    Text(description)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(.background, in: RoundedRectangle(cornerRadius: 22))
+        .overlay { RoundedRectangle(cornerRadius: 22).stroke(Brand.ink.opacity(0.07)) }
+    }
+
+    @ViewBuilder
+    private var contentSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label(contentTitle, systemImage: contentSymbol)
+                .font(.title3.bold())
+                .foregroundStyle(Brand.ink)
+
+            if isLoading {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("modules.content.loading")
+                }
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 28)
+            } else if let errorMessage {
+                ModuleDetailError(message: errorMessage) {
+                    Task { await loadContent() }
+                }
+            } else {
+                switch entry.kind {
+                case .material:
+                    ContentTextPanel(text: entry.item.content ?? entry.item.description)
+                case .assignment:
+                    ContentTextPanel(text: entry.item.description)
+                case .presentation:
+                    if slides.isEmpty {
+                        EmptyContentPanel()
+                    } else {
+                        ForEach(slides.sorted { $0.position < $1.position }) { slide in
+                            PresentationSlideCard(slide: slide)
+                        }
+                    }
+                case .quiz:
+                    if questions.isEmpty {
+                        EmptyContentPanel()
+                    } else {
+                        ForEach(questions.sorted { $0.position < $1.position }) { question in
+                            QuizQuestionCard(question: question)
+                        }
+                    }
+                case .discussion:
+                    ContentTextPanel(text: entry.item.description)
+                    if let posts = discussionPage?.posts, !posts.isEmpty {
+                        ForEach(posts) { post in
+                            DiscussionPostCard(post: post)
+                        }
+                    } else {
+                        EmptyContentPanel()
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("module.resource.content")
+    }
+
+    private var contentTitle: LocalizedStringKey {
+        switch entry.kind {
+        case .material: "modules.content.reading"
+        case .presentation: "modules.content.slides"
+        case .assignment: "modules.content.instructions"
+        case .quiz: "modules.content.questions"
+        case .discussion: "modules.content.conversation"
+        }
+    }
+
+    private var contentSymbol: String {
+        switch entry.kind {
+        case .material: "text.alignleft"
+        case .presentation: "rectangle.stack"
+        case .assignment: "list.bullet.clipboard"
+        case .quiz: "list.number"
+        case .discussion: "bubble.left.and.text.bubble.right"
+        }
+    }
+
+    private var supportingDetails: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("modules.content.details", systemImage: "info.circle")
+                .font(.headline)
+                .foregroundStyle(Brand.ink)
+
+            if compactFacts.isEmpty {
+                Text("modules.content.noDetails")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(compactFacts) { fact in
+                    HStack(spacing: 10) {
+                        Image(systemName: fact.systemImage)
+                            .foregroundStyle(Brand.evergreen)
+                            .frame(width: 22)
+                        Text(LocalizedStringKey(fact.labelKey))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(fact.value)
+                            .fontWeight(.semibold)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .font(.subheadline)
+                }
+            }
+        }
+        .padding(16)
+        .background(.background, in: RoundedRectangle(cornerRadius: 18))
+        .overlay { RoundedRectangle(cornerRadius: 18).stroke(Brand.ink.opacity(0.07)) }
+    }
+
+    private var compactFacts: [ModuleDetailFact] {
+        var facts: [ModuleDetailFact] = []
+        let item = entry.item
+        if let due = formattedModuleDate(item.dueDate, includeTime: true) {
+            facts.append(.init("calendar", "modules.detail.due", due))
+        }
+        if let points = item.maxScore {
+            facts.append(.init("star", "modules.detail.points", points.formatted()))
+        }
+        if let minutes = item.timeLimitMinutes {
+            facts.append(.init("timer", "modules.detail.minutes", minutes.formatted()))
+        }
+        if let attempts = item.maxAttempts {
+            facts.append(.init("arrow.counterclockwise", "modules.detail.attempts", attempts.formatted()))
+        }
+        if let published = formattedModuleDate(item.publishedAt) {
+            facts.append(.init("calendar.badge.checkmark", "modules.detail.published", published))
+        }
+        return facts
+    }
+
+    private func loadContent() async {
+        guard !isLoading else { return }
+        guard [.presentation, .quiz, .discussion].contains(entry.kind) else { return }
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+#if DEBUG
+            if let fixture = UITestFixture.current {
+                try await Task.sleep(for: .milliseconds(250))
+                slides = fixture.presentationSlides[entry.item.id] ?? []
+                questions = fixture.quizQuestions[entry.item.id] ?? []
+                discussionPage = fixture.discussionPosts[entry.item.id]
+                errorMessage = nil
+                return
+            }
+#endif
+            let api = authStore.authenticatedAPI()
+            switch entry.kind {
+            case .presentation:
+                slides = try await api.get("/api/presentations/\(entry.item.id)/slides")
+            case .quiz:
+                questions = try await api.get("/api/quizzes/\(entry.item.id)/questions")
+            case .discussion:
+                discussionPage = try await api.get(
+                    "/api/discussion-topics/\(entry.item.id)/posts?rootLimit=20"
+                )
+            case .material, .assignment:
+                break
+            }
+            errorMessage = nil
+        } catch is CancellationError {
+            return
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct ContentTextPanel: View {
+    let text: String?
+
+    var body: some View {
+        if let text, !text.isEmpty {
+            Text(text)
+                .font(.body)
+                .foregroundStyle(Brand.ink)
+                .lineSpacing(5)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+                .background(.background, in: RoundedRectangle(cornerRadius: 18))
+                .overlay { RoundedRectangle(cornerRadius: 18).stroke(Brand.ink.opacity(0.07)) }
+        } else {
+            EmptyContentPanel()
+        }
+    }
+}
+
+private struct EmptyContentPanel: View {
+    var body: some View {
+        Label("modules.content.empty", systemImage: "doc.text.magnifyingglass")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+            .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct PresentationSlideCard: View {
+    let slide: PresentationSlideSummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(String(format: String(localized: "modules.content.slideNumberFormat"), slide.position + 1))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Brand.evergreen)
+                Spacer()
+                if let layout = slide.layout {
+                    Text(layout.replacingOccurrences(of: "_", with: " ").capitalized)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if let title = slide.title, !title.isEmpty {
+                Text(title).font(.headline).foregroundStyle(Brand.ink)
+            }
+            if let content = slide.content, !content.isEmpty {
+                Text(content).font(.body).lineSpacing(4).foregroundStyle(Brand.ink)
+            }
+            if let notes = slide.speakerNotes, !notes.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("modules.content.speakerNotes", systemImage: "person.wave.2")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Brand.evergreen)
+                    Text(notes).font(.subheadline).foregroundStyle(.secondary)
+                }
+                .padding(10)
+                .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 11))
+            }
+        }
+        .padding(16)
+        .background(.background, in: RoundedRectangle(cornerRadius: 18))
+        .overlay { RoundedRectangle(cornerRadius: 18).stroke(Brand.ink.opacity(0.07)) }
+        .accessibilityIdentifier("module.resource.slide.\(slide.id)")
+    }
+}
+
+private struct QuizQuestionCard: View {
+    let question: QuizQuestionSummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(String(format: String(localized: "modules.content.questionNumberFormat"), question.position + 1))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Brand.evergreen)
+                Spacer()
+                Text(String(format: String(localized: "modules.content.pointCountFormat"), question.points.formatted()))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(question.prompt)
+                .font(.headline)
+                .foregroundStyle(Brand.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            if let options = question.options {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                        HStack(alignment: .top, spacing: 9) {
+                            Text("\(index + 1)")
+                                .font(.caption.bold())
+                                .frame(width: 24, height: 24)
+                                .background(Brand.evergreen.opacity(0.10), in: Circle())
+                            Text(option).font(.subheadline).padding(.top, 2)
+                        }
+                    }
+                }
+            }
+            if let explanation = question.explanation, !explanation.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("modules.content.explanation", systemImage: "lightbulb")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Brand.evergreen)
+                    Text(explanation).font(.subheadline).foregroundStyle(.secondary)
+                }
+                .padding(10)
+                .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 11))
+            }
+        }
+        .padding(16)
+        .background(.background, in: RoundedRectangle(cornerRadius: 18))
+        .overlay { RoundedRectangle(cornerRadius: 18).stroke(Brand.ink.opacity(0.07)) }
+        .accessibilityIdentifier("module.resource.question.\(question.id)")
+    }
+}
+
+private struct DiscussionPostCard: View {
+    let post: DiscussionPostSummary
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 11) {
+            Image(systemName: post.parentID == nil ? "person.crop.circle.fill" : "arrow.turn.down.right")
+                .font(.title3)
+                .foregroundStyle(Brand.evergreen)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(post.author.name).font(.subheadline.weight(.semibold))
+                    Text(post.author.role.capitalized)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Brand.evergreen)
+                    Spacer()
+                    if let date = formattedModuleDate(post.createdAt, includeTime: true) {
+                        Text(date).font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+                Text(post.content ?? String(localized: "modules.content.deletedPost"))
+                    .font(.body)
+                    .foregroundStyle(post.isDeleted ? .secondary : Brand.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(16)
+        .padding(.leading, post.parentID == nil ? 0 : 18)
+        .background(.background, in: RoundedRectangle(cornerRadius: 18))
+        .overlay { RoundedRectangle(cornerRadius: 18).stroke(Brand.ink.opacity(0.07)) }
+        .accessibilityIdentifier("module.resource.post.\(post.id)")
     }
 }
 

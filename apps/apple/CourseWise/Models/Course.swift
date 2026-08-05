@@ -76,6 +76,7 @@ struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
     let moduleID: String?
     let title: String
     let description: String?
+    let content: String?
     let status: String?
     let type: String?
     let sourceType: String?
@@ -110,6 +111,7 @@ struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
         moduleID: String?,
         title: String,
         description: String? = nil,
+        content: String? = nil,
         status: String? = nil,
         type: String? = nil,
         sourceType: String? = nil,
@@ -143,6 +145,7 @@ struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
         self.moduleID = moduleID
         self.title = title
         self.description = description
+        self.content = content
         self.status = status
         self.type = type
         self.sourceType = sourceType
@@ -178,6 +181,7 @@ struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
         case moduleID = "moduleId"
         case title
         case description
+        case content
         case status
         case type
         case sourceType
@@ -207,6 +211,135 @@ struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
         case isPinned
         case shareEnabled
     }
+}
+
+struct PresentationSlideSummary: Decodable, Hashable, Identifiable, Sendable {
+    let id: String
+    let presentationID: String
+    let position: Int
+    let title: String?
+    let content: String?
+    let speakerNotes: String?
+    let layout: String?
+
+    init(
+        id: String,
+        presentationID: String,
+        position: Int,
+        title: String? = nil,
+        content: String? = nil,
+        speakerNotes: String? = nil,
+        layout: String? = nil
+    ) {
+        self.id = id
+        self.presentationID = presentationID
+        self.position = position
+        self.title = title
+        self.content = content
+        self.speakerNotes = speakerNotes
+        self.layout = layout
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case presentationID = "presentationId"
+        case position
+        case title
+        case content
+        case speakerNotes
+        case layout
+    }
+}
+
+struct QuizQuestionSummary: Decodable, Hashable, Identifiable, Sendable {
+    let id: String
+    let quizID: String
+    let position: Int
+    let prompt: String
+    let type: String
+    let options: [String]?
+    let explanation: String?
+    let points: Double
+
+    init(
+        id: String,
+        quizID: String,
+        position: Int,
+        prompt: String,
+        type: String,
+        options: [String]? = nil,
+        explanation: String? = nil,
+        points: Double
+    ) {
+        self.id = id
+        self.quizID = quizID
+        self.position = position
+        self.prompt = prompt
+        self.type = type
+        self.options = options
+        self.explanation = explanation
+        self.points = points
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case quizID = "quizId"
+        case position
+        case prompt
+        case type
+        case options
+        case explanation
+        case points
+    }
+}
+
+struct DiscussionAuthorSummary: Decodable, Hashable, Sendable {
+    let id: String
+    let name: String
+    let role: String
+}
+
+struct DiscussionPostSummary: Decodable, Hashable, Identifiable, Sendable {
+    let id: String
+    let topicID: String
+    let parentID: String?
+    let content: String?
+    let isDeleted: Bool
+    let author: DiscussionAuthorSummary
+    let createdAt: String
+
+    init(
+        id: String,
+        topicID: String,
+        parentID: String? = nil,
+        content: String?,
+        isDeleted: Bool = false,
+        author: DiscussionAuthorSummary,
+        createdAt: String
+    ) {
+        self.id = id
+        self.topicID = topicID
+        self.parentID = parentID
+        self.content = content
+        self.isDeleted = isDeleted
+        self.author = author
+        self.createdAt = createdAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case topicID = "topicId"
+        case parentID = "parentId"
+        case content
+        case isDeleted
+        case author
+        case createdAt
+    }
+}
+
+struct DiscussionPostsPage: Decodable, Hashable, Sendable {
+    let posts: [DiscussionPostSummary]
+    let total: Int
 }
 
 struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {

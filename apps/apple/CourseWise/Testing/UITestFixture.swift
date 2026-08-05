@@ -10,6 +10,9 @@ struct UITestFixture: Sendable {
     let assignments: [ModuleContentSummary]
     let quizzes: [ModuleContentSummary]
     let discussions: [ModuleContentSummary]
+    let presentationSlides: [String: [PresentationSlideSummary]]
+    let quizQuestions: [String: [QuizQuestionSummary]]
+    let discussionPosts: [String: DiscussionPostsPage]
 
     static var current: UITestFixture? {
         let environment = ProcessInfo.processInfo.environment
@@ -137,6 +140,7 @@ struct UITestFixture: Sendable {
                     moduleID: "00000000-0000-4000-8000-000000000201",
                     title: "Course Guide",
                     description: "Essential policies, learning outcomes, and weekly expectations.",
+                    content: "Welcome to Deep Learning. This guide explains how each week is organized, where to find learning materials, and how your work will be assessed. Complete the readings before class, participate in the weekly discussion, and submit assignments before the listed deadline. If you need support, contact the teaching team through the course discussion space.",
                     status: "published",
                     type: "document",
                     sourceType: "file_upload",
@@ -148,6 +152,7 @@ struct UITestFixture: Sendable {
                     moduleID: "00000000-0000-4000-8000-000000000201",
                     title: "Learning Objectives",
                     description: "What you should understand and be able to demonstrate after orientation.",
+                    content: "By the end of orientation, you can describe the course learning path, locate weekly resources, explain the assessment policy, and identify the right support channel for academic or technical questions.",
                     status: "published",
                     type: "document",
                     sourceType: "manual_text",
@@ -213,6 +218,89 @@ struct UITestFixture: Sendable {
                     postCount: 24,
                     isGraded: false,
                     isPinned: true
+                ),
+            ],
+            presentationSlides: [
+                "00000000-0000-4000-8000-000000000311": [
+                    PresentationSlideSummary(
+                        id: "00000000-0000-4000-8000-000000000411",
+                        presentationID: "00000000-0000-4000-8000-000000000311",
+                        position: 0,
+                        title: "Welcome to Deep Learning",
+                        content: "Meet the teaching team and see how the course moves from foundations to production-ready AI systems.",
+                        speakerNotes: "Invite learners to connect the course outcomes to a project they care about.",
+                        layout: "title"
+                    ),
+                    PresentationSlideSummary(
+                        id: "00000000-0000-4000-8000-000000000412",
+                        presentationID: "00000000-0000-4000-8000-000000000311",
+                        position: 1,
+                        title: "How each week works",
+                        content: "Read the core material, join the live session, complete the practice activity, and use the discussion to reflect with peers.",
+                        layout: "content"
+                    ),
+                    PresentationSlideSummary(
+                        id: "00000000-0000-4000-8000-000000000413",
+                        presentationID: "00000000-0000-4000-8000-000000000311",
+                        position: 2,
+                        title: "Support and resources",
+                        content: "Use course discussions for learning questions and email the teaching team for private concerns. Accessibility support is available throughout the term.",
+                        layout: "content"
+                    ),
+                ],
+            ],
+            quizQuestions: [
+                "00000000-0000-4000-8000-000000000331": [
+                    QuizQuestionSummary(
+                        id: "00000000-0000-4000-8000-000000000421",
+                        quizID: "00000000-0000-4000-8000-000000000331",
+                        position: 0,
+                        prompt: "Where can you find the required learning materials for each week?",
+                        type: "single_choice",
+                        options: ["Inside the corresponding module", "Only in email", "Only during live class"],
+                        explanation: "Every module collects its required materials and activities in learning order.",
+                        points: 1
+                    ),
+                    QuizQuestionSummary(
+                        id: "00000000-0000-4000-8000-000000000422",
+                        quizID: "00000000-0000-4000-8000-000000000331",
+                        position: 1,
+                        prompt: "Which channel should you use for a question that may help the whole class?",
+                        type: "single_choice",
+                        options: ["Course discussion", "Private email", "External social media"],
+                        explanation: "Shared learning questions belong in the course discussion so everyone can benefit.",
+                        points: 1
+                    ),
+                ],
+            ],
+            discussionPosts: [
+                "00000000-0000-4000-8000-000000000341": DiscussionPostsPage(
+                    posts: [
+                        DiscussionPostSummary(
+                            id: "00000000-0000-4000-8000-000000000431",
+                            topicID: "00000000-0000-4000-8000-000000000341",
+                            content: "I am interested in building reliable computer-vision tools for healthcare. I would love to learn how teams evaluate models after deployment.",
+                            author: DiscussionAuthorSummary(
+                                id: "00000000-0000-4000-8000-000000000001",
+                                name: "Alex Morgan",
+                                role: "student"
+                            ),
+                            createdAt: "2026-06-01T10:30:00.000Z"
+                        ),
+                        DiscussionPostSummary(
+                            id: "00000000-0000-4000-8000-000000000432",
+                            topicID: "00000000-0000-4000-8000-000000000341",
+                            parentID: "00000000-0000-4000-8000-000000000431",
+                            content: "That is a strong goal. The monitoring and evaluation module will connect directly to this question.",
+                            author: DiscussionAuthorSummary(
+                                id: "00000000-0000-4000-8000-000000000002",
+                                name: "Dr. Chen",
+                                role: "teacher"
+                            ),
+                            createdAt: "2026-06-01T11:05:00.000Z"
+                        ),
+                    ],
+                    total: 1
                 ),
             ]
         )

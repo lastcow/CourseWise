@@ -113,4 +113,74 @@ struct CourseModelTests {
         #expect(item.passingScore == 7)
         #expect(item.lockdown == false)
     }
+
+    @Test func moduleMaterialAndNestedContentDecodeRoleSafePayloads() throws {
+        let materialData = Data(
+            """
+            {
+              "id": "material-1",
+              "moduleId": "module-1",
+              "title": "Course Guide",
+              "description": "Essential policies.",
+              "content": "Read this complete guide before class."
+            }
+            """.utf8
+        )
+        let material = try JSONDecoder().decode(ModuleContentSummary.self, from: materialData)
+        #expect(material.content == "Read this complete guide before class.")
+
+        let slideData = Data(
+            """
+            {
+              "id": "slide-1",
+              "presentationId": "presentation-1",
+              "position": 0,
+              "title": "Welcome",
+              "content": "Course learning path",
+              "speakerNotes": null,
+              "layout": "title"
+            }
+            """.utf8
+        )
+        let slide = try JSONDecoder().decode(PresentationSlideSummary.self, from: slideData)
+        #expect(slide.content == "Course learning path")
+        #expect(slide.speakerNotes == nil)
+
+        let questionData = Data(
+            """
+            {
+              "id": "question-1",
+              "quizId": "quiz-1",
+              "position": 0,
+              "prompt": "Where are weekly materials?",
+              "type": "single_choice",
+              "options": ["Inside the module", "Email"],
+              "points": 1
+            }
+            """.utf8
+        )
+        let question = try JSONDecoder().decode(QuizQuestionSummary.self, from: questionData)
+        #expect(question.options == ["Inside the module", "Email"])
+        #expect(question.explanation == nil)
+
+        let postsData = Data(
+            """
+            {
+              "posts": [{
+                "id": "post-1",
+                "topicId": "topic-1",
+                "parentId": null,
+                "content": "My learning goal",
+                "isDeleted": false,
+                "author": {"id": "user-1", "name": "Alex", "role": "student"},
+                "createdAt": "2026-06-01T10:30:00.000Z"
+              }],
+              "total": 1
+            }
+            """.utf8
+        )
+        let page = try JSONDecoder().decode(DiscussionPostsPage.self, from: postsData)
+        #expect(page.posts.first?.content == "My learning goal")
+        #expect(page.posts.first?.author.role == "student")
+    }
 }
