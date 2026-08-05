@@ -79,19 +79,30 @@ struct UITestFixture: Sendable {
                     id: "00000000-0000-4000-8000-000000000201",
                     title: "Getting Started",
                     subtitle: "Course orientation and learning objectives",
-                    status: "published"
+                    status: "published",
+                    position: 0,
+                    publishedAt: "2026-05-20T14:00:00.000Z",
+                    startAt: "2026-06-01T00:00:00.000Z",
+                    endAt: "2026-06-07T23:59:59.000Z"
                 ),
                 ResourceSummary(
                     id: "00000000-0000-4000-8000-000000000202",
                     title: "Neural Network Foundations",
                     subtitle: "Core architectures, activation functions, and optimization",
-                    status: "published"
+                    status: "published",
+                    position: 1,
+                    publishedAt: "2026-05-27T14:00:00.000Z",
+                    startAt: "2026-06-08T00:00:00.000Z",
+                    endAt: "2026-06-21T23:59:59.000Z"
                 ),
                 ResourceSummary(
                     id: "00000000-0000-4000-8000-000000000203",
                     title: "Convolutional Networks",
                     subtitle: "Image classification, feature maps, and practical labs",
-                    status: "draft"
+                    status: "draft",
+                    position: 2,
+                    startAt: "2026-06-22T00:00:00.000Z",
+                    endAt: "2026-07-05T23:59:59.000Z"
                 ),
             ]
         )

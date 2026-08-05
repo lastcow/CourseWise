@@ -749,7 +749,7 @@ private struct CourseHubHero: View {
             .clipped()
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("course.dashboard.workspace")
+                Text("course.dashboard.overview")
                     .font(.caption.bold())
                     .textCase(.uppercase)
                     .tracking(1.2)
@@ -797,32 +797,41 @@ private struct CourseHubMetrics: View {
     let course: CourseSummary
 
     var body: some View {
-        HStack(spacing: 0) {
-            CourseHubMetric(
-                icon: "square.grid.2x2",
-                value: course.counts.modules,
-                labelKey: "courses.metric.modules"
+        VStack(alignment: .leading, spacing: 18) {
+            CourseHubSectionHeader(
+                titleKey: "course.dashboard.statistics",
+                subtitleKey: "course.dashboard.statisticsHelp"
             )
-            CourseHubMetricDivider()
-            CourseHubMetric(
-                icon: "checklist",
-                value: course.counts.assignments,
-                labelKey: "courses.metric.assignments"
-            )
-            CourseHubMetricDivider()
-            CourseHubMetric(
-                icon: "rectangle.on.rectangle.angled",
-                value: course.counts.presentations,
-                labelKey: "courses.metric.presentations"
-            )
-            CourseHubMetricDivider()
-            CourseHubMetric(
-                icon: "person.2",
-                value: course.counts.students,
-                labelKey: "courses.metric.students"
-            )
+
+            HStack(spacing: 0) {
+                CourseHubMetric(
+                    icon: "square.grid.2x2",
+                    value: course.counts.modules,
+                    labelKey: "courses.metric.modules"
+                )
+                CourseHubMetricDivider()
+                CourseHubMetric(
+                    icon: "checklist",
+                    value: course.counts.assignments,
+                    labelKey: "courses.metric.assignments"
+                )
+                CourseHubMetricDivider()
+                CourseHubMetric(
+                    icon: "rectangle.on.rectangle.angled",
+                    value: course.counts.presentations,
+                    labelKey: "courses.metric.presentations"
+                )
+                CourseHubMetricDivider()
+                CourseHubMetric(
+                    icon: "person.2",
+                    value: course.counts.students,
+                    labelKey: "courses.metric.students"
+                )
+            }
+            .padding(.vertical, 14)
+            .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .padding(.vertical, 16)
+        .padding(18)
         .background(.background, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -922,37 +931,28 @@ private struct CourseHubFeatureCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 13) {
-            HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center) {
                 Image(systemName: destination.systemImage)
-                    .font(.title3.weight(.semibold))
+                    .font(.headline.weight(.semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Brand.evergreen)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 40, height: 40)
                     .background(
                         Brand.evergreen.opacity(0.11),
-                        in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                     )
 
                 Spacer()
 
-                Image(systemName: "arrow.up.right")
+                Image(systemName: "chevron.right")
                     .font(.caption.bold())
                     .foregroundStyle(.tertiary)
             }
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(destination.titleKey)
-                    .font(.headline)
-                    .foregroundStyle(Brand.ink)
-                Text(destination.dashboardDescriptionKey)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-            }
-
-            Spacer(minLength: 0)
+            Text(destination.titleKey)
+                .font(.headline)
+                .foregroundStyle(Brand.ink)
 
             if let metric {
                 HStack(spacing: 5) {
@@ -964,13 +964,15 @@ private struct CourseHubFeatureCard: View {
                 .font(.caption)
                 .foregroundStyle(Brand.evergreen)
             } else {
-                Label("course.dashboard.open", systemImage: "arrow.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Brand.evergreen)
+                Text(destination.dashboardDescriptionKey)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
             }
         }
         .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 188, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 142, alignment: .leading)
         .background(.background, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)

@@ -68,12 +68,32 @@ struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
     let title: String
     let subtitle: String?
     let status: String?
+    let position: Int?
+    let publishedAt: String?
+    let startAt: String?
+    let endAt: String?
+    let closedAt: String?
 
-    init(id: String, title: String, subtitle: String?, status: String?) {
+    init(
+        id: String,
+        title: String,
+        subtitle: String?,
+        status: String?,
+        position: Int? = nil,
+        publishedAt: String? = nil,
+        startAt: String? = nil,
+        endAt: String? = nil,
+        closedAt: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.subtitle = subtitle
         self.status = status
+        self.position = position
+        self.publishedAt = publishedAt
+        self.startAt = startAt
+        self.endAt = endAt
+        self.closedAt = closedAt
     }
 
     private struct DynamicKey: CodingKey {
@@ -95,12 +115,27 @@ struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
             return nil
         }
 
+        func int(_ names: [String]) -> Int? {
+            for name in names {
+                guard let key = DynamicKey(stringValue: name) else { continue }
+                if let value = try? container.decode(Int.self, forKey: key) {
+                    return value
+                }
+            }
+            return nil
+        }
+
         id = string(["id", "threadId", "assignmentId", "quizId", "materialId", "moduleId"])
             ?? UUID().uuidString
         title = string(["title", "name", "subject", "studentName", "quizTitle", "code"])
             ?? String(localized: "common.empty")
         subtitle = string(["description", "body", "code", "status", "studentEmail", "email"])
         status = string(["status"])
+        position = int(["position"])
+        publishedAt = string(["publishedAt"])
+        startAt = string(["startAt"])
+        endAt = string(["endAt"])
+        closedAt = string(["closedAt"])
     }
 }
 
