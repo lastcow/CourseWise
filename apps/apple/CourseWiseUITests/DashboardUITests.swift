@@ -210,6 +210,23 @@ final class DashboardUITests: XCTestCase {
                 "module.schedule.end.00000000-0000-4000-8000-000000000201"
             ].exists
         )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.statistics.00000000-0000-4000-8000-000000000201"
+            ].exists
+        )
+        XCTAssertEqual(
+            app.descendants(matching: .any)[
+                "module.statistics.00000000-0000-4000-8000-000000000201.materials"
+            ].value as? String,
+            "3"
+        )
+        XCTAssertEqual(
+            app.descendants(matching: .any)[
+                "module.statistics.00000000-0000-4000-8000-000000000201.assignments"
+            ].value as? String,
+            "1"
+        )
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "modules-detailed-list"

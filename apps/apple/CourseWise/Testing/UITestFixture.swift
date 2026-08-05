@@ -83,7 +83,14 @@ struct UITestFixture: Sendable {
                     position: 0,
                     publishedAt: "2026-05-20T14:00:00.000Z",
                     startAt: "2026-06-01T00:00:00.000Z",
-                    endAt: "2026-06-07T23:59:59.000Z"
+                    endAt: "2026-06-07T23:59:59.000Z",
+                    counts: ModuleContentCounts(
+                        materials: 2,
+                        presentations: 1,
+                        assignments: 1,
+                        quizzes: 1,
+                        discussions: 1
+                    )
                 ),
                 ResourceSummary(
                     id: "00000000-0000-4000-8000-000000000202",
@@ -93,7 +100,14 @@ struct UITestFixture: Sendable {
                     position: 1,
                     publishedAt: "2026-05-27T14:00:00.000Z",
                     startAt: "2026-06-08T00:00:00.000Z",
-                    endAt: "2026-06-21T23:59:59.000Z"
+                    endAt: "2026-06-21T23:59:59.000Z",
+                    counts: ModuleContentCounts(
+                        materials: 4,
+                        presentations: 2,
+                        assignments: 2,
+                        quizzes: 1,
+                        discussions: 2
+                    )
                 ),
                 ResourceSummary(
                     id: "00000000-0000-4000-8000-000000000203",
@@ -102,7 +116,14 @@ struct UITestFixture: Sendable {
                     status: "draft",
                     position: 2,
                     startAt: "2026-06-22T00:00:00.000Z",
-                    endAt: "2026-07-05T23:59:59.000Z"
+                    endAt: "2026-07-05T23:59:59.000Z",
+                    counts: ModuleContentCounts(
+                        materials: 1,
+                        presentations: 1,
+                        assignments: 2,
+                        quizzes: 2,
+                        discussions: 0
+                    )
                 ),
             ]
         )
