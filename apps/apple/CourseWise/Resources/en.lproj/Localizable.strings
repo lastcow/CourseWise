@@ -25,6 +25,7 @@
 "dashboard.courseScope" = "Available in %d courses";
 "dashboard.accountScope" = "Account level";
 "dashboard.viewDetails" = "View component details";
+"dashboard.viewCourses" = "View all courses";
 "dashboard.dataUnavailable" = "Live data is temporarily unavailable";
 "dashboard.dataUnavailableHelp" = "Your workspace is still available. Try refreshing course data.";
 "dashboard.detail.overview" = "Overview";
