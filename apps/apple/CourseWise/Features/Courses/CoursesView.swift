@@ -288,14 +288,16 @@ private struct CourseCatalogCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .topLeading) {
+            ZStack {
                 CourseBanner(course: course)
                 LinearGradient(
                     colors: [.black.opacity(0.22), .clear, .black.opacity(0.10)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
-
+            }
+            .frame(height: 136)
+            .overlay(alignment: .top) {
                 HStack(alignment: .center, spacing: 8) {
                     Text(course.code)
                         .font(.caption2.bold().monospaced())
@@ -306,7 +308,7 @@ private struct CourseCatalogCard: View {
 
                     Spacer()
 
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         CourseHeroIndicator(
                             systemImage: statusSymbol,
                             titleKey: statusKey,
@@ -323,10 +325,9 @@ private struct CourseCatalogCard: View {
                         }
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 14)
+                .padding(.horizontal, 18)
+                .padding(.top, 18)
             }
-            .frame(height: 136)
             .clipped()
 
             VStack(alignment: .leading, spacing: 11) {
