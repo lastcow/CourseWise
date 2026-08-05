@@ -21,6 +21,10 @@ final class DashboardUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["dashboard.detail.courses"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["dashboard.detail.open"].exists)
         XCTAssertTrue(app.staticTexts["Build modern AI systems from neural network foundations to production workflows."].exists)
+        let deepLearningID = "00000000-0000-4000-8000-000000000101"
+        let statusIndicator = app.descendants(matching: .any)["courses.card.\(deepLearningID).status"]
+        XCTAssertTrue(statusIndicator.exists)
+        XCTAssertEqual(statusIndicator.label, "Active")
         XCTAssertTrue(
             app.descendants(matching: .any)[
                 "courses.metric.00000000-0000-4000-8000-000000000101.modules"
@@ -43,6 +47,11 @@ final class DashboardUITests: XCTestCase {
                 app.swipeUp()
             }
             XCTAssertTrue(row.exists, "Missing eligible course: \(title)")
+            if id == "00000000-0000-4000-8000-000000000102" {
+                let canvasIndicator = app.descendants(matching: .any)["courses.card.\(id).canvas"]
+                XCTAssertTrue(canvasIndicator.exists)
+                XCTAssertEqual(canvasIndicator.label, "Canvas")
+            }
         }
 
         app.navigationBars.buttons.firstMatch.tap()

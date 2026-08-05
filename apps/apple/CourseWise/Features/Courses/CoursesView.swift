@@ -266,6 +266,15 @@ private struct CourseCatalogCard: View {
         }
     }
 
+    private var statusSymbol: String {
+        switch course.status {
+        case "active": "checkmark"
+        case "draft": "pencil"
+        case "archived": "archivebox.fill"
+        default: "questionmark"
+        }
+    }
+
     private var scheduleText: String? {
         let start = formattedDate(course.startDate)
         let end = formattedDate(course.endDate)
@@ -287,20 +296,35 @@ private struct CourseCatalogCard: View {
                     endPoint: .bottom
                 )
 
-                HStack(spacing: 7) {
-                    CourseStatusBadge(titleKey: statusKey, color: statusColor)
-                    if course.lmsProvider == "canvas" {
-                        CourseStatusBadge(titleKey: "courses.canvas", color: .blue)
-                    }
-                    Spacer()
+                HStack(alignment: .center, spacing: 8) {
                     Text(course.code)
-                        .font(.caption.bold().monospaced())
+                        .font(.caption2.bold().monospaced())
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 10)
+                        .frame(height: 30)
                         .background(.black.opacity(0.34), in: Capsule())
+
+                    Spacer()
+
+                    HStack(spacing: 6) {
+                        CourseHeroIndicator(
+                            systemImage: statusSymbol,
+                            titleKey: statusKey,
+                            color: statusColor,
+                            identifier: "courses.card.\(course.id.uuidString).status"
+                        )
+                        if course.lmsProvider == "canvas" {
+                            CourseHeroIndicator(
+                                systemImage: "circle.grid.3x3.fill",
+                                titleKey: "courses.canvas",
+                                color: .blue,
+                                identifier: "courses.card.\(course.id.uuidString).canvas"
+                            )
+                        }
+                    }
                 }
-                .padding(14)
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
             }
             .frame(height: 136)
             .clipped()
@@ -393,17 +417,27 @@ private struct CourseCatalogCard: View {
     }
 }
 
-private struct CourseStatusBadge: View {
+private struct CourseHeroIndicator: View {
+    let systemImage: String
     let titleKey: LocalizedStringKey
     let color: Color
+    let identifier: String
 
     var body: some View {
-        Label(titleKey, systemImage: "circle.fill")
-            .font(.caption2.bold())
+        Image(systemName: systemImage)
+            .font(.system(size: 13, weight: .bold))
+            .symbolRenderingMode(.hierarchical)
             .foregroundStyle(color)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: Capsule())
+            .frame(width: 30, height: 30)
+            .background(.ultraThinMaterial, in: Circle())
+            .overlay {
+                Circle()
+                    .stroke(.white.opacity(0.20), lineWidth: 0.5)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(titleKey))
+            .accessibilityIdentifier(identifier)
+            .help(Text(titleKey))
     }
 }
 
