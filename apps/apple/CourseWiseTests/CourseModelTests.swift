@@ -38,4 +38,34 @@ struct CourseModelTests {
         #expect(course.counts.presentations == 6)
         #expect(course.counts.students == 32)
     }
+
+    @Test func moduleSummaryDecodesLearningPathMetadata() throws {
+        let data = Data(
+            """
+            {
+              "id": "00000000-0000-4000-8000-000000000201",
+              "courseId": "00000000-0000-4000-8000-000000000101",
+              "title": "Getting Started",
+              "description": "Course orientation and learning objectives",
+              "position": 0,
+              "status": "published",
+              "publishedAt": "2026-05-20T14:00:00.000Z",
+              "startAt": "2026-06-01T00:00:00.000Z",
+              "endAt": "2026-06-07T23:59:59.000Z",
+              "closedAt": null
+            }
+            """.utf8
+        )
+
+        let module = try JSONDecoder().decode(ResourceSummary.self, from: data)
+
+        #expect(module.title == "Getting Started")
+        #expect(module.subtitle == "Course orientation and learning objectives")
+        #expect(module.position == 0)
+        #expect(module.status == "published")
+        #expect(module.publishedAt == "2026-05-20T14:00:00.000Z")
+        #expect(module.startAt == "2026-06-01T00:00:00.000Z")
+        #expect(module.endAt == "2026-06-07T23:59:59.000Z")
+        #expect(module.closedAt == nil)
+    }
 }

@@ -60,7 +60,7 @@ struct CourseDestinationView: View {
         if destination == .grades, authStore.account?.role == .student {
             StudentGradesView(course: course)
         } else {
-            ResourceListView(destination: destination, courseID: course.id)
+            ResourceListView(destination: destination, courseID: course.id, course: course)
         }
     }
 }

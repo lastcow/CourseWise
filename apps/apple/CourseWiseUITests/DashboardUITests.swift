@@ -129,7 +129,8 @@ final class DashboardUITests: XCTestCase {
         deepLearning.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["course.hub"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["课程工作区"].exists)
+        XCTAssertTrue(app.staticTexts["课程概览"].exists)
+        XCTAssertTrue(app.staticTexts["课程统计"].exists)
         XCTAssertTrue(app.staticTexts["学习与测评"].exists)
 
         let information = app.descendants(matching: .any)["course.hub.information"]
@@ -164,7 +165,8 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["course.hub"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["course.hub.hero"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["course.hub.metrics"].exists)
-        XCTAssertTrue(app.staticTexts["COURSE WORKSPACE"].exists)
+        XCTAssertTrue(app.staticTexts["COURSE OVERVIEW"].exists)
+        XCTAssertTrue(app.staticTexts["Course statistics"].exists)
         XCTAssertTrue(app.staticTexts["Deep Learning"].exists)
         XCTAssertTrue(app.staticTexts["Summer 2026"].exists)
         XCTAssertTrue(app.staticTexts["Learn & assess"].exists)
@@ -185,10 +187,19 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["resource.list.modules"].waitForExistence(timeout: 3)
         )
+        XCTAssertTrue(app.descendants(matching: .any)["modules.dashboard"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["modules.summary"].exists)
+        XCTAssertTrue(app.staticTexts["Module roadmap"].exists)
+        XCTAssertTrue(app.staticTexts["Learning sequence"].exists)
         XCTAssertTrue(app.staticTexts["Getting Started"].exists)
         XCTAssertTrue(app.staticTexts["Course orientation and learning objectives"].exists)
         XCTAssertTrue(app.staticTexts["Neural Network Foundations"].exists)
         XCTAssertTrue(app.staticTexts["Convolutional Networks"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.schedule.00000000-0000-4000-8000-000000000201"
+            ].exists
+        )
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "modules-detailed-list"
