@@ -113,6 +113,39 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["dashboard.component.alerts"].exists)
     }
 
+    func testSimplifiedChineseCourseDashboardShowsAllSections() throws {
+        continueAfterFailure = false
+        let app = launch(language: "zh-Hans")
+
+        let courses = app.descendants(matching: .any)["dashboard.component.courses"]
+        XCTAssertTrue(courses.waitForExistence(timeout: 5))
+        courses.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["courses.list"].waitForExistence(timeout: 3))
+        let deepLearning = app.descendants(matching: .any)[
+            "courses.row.00000000-0000-4000-8000-000000000101"
+        ]
+        XCTAssertTrue(deepLearning.waitForExistence(timeout: 3))
+        deepLearning.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["course.hub"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["课程工作区"].exists)
+        XCTAssertTrue(app.staticTexts["学习与测评"].exists)
+
+        let information = app.descendants(matching: .any)["course.hub.information"]
+        for _ in 0..<12 where !information.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(app.staticTexts["沟通与管理"].exists)
+        XCTAssertTrue(information.exists)
+        XCTAssertTrue(app.staticTexts["课程信息"].exists)
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "course-dashboard-zh-Hans-information"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
     func testModulesDetailedList() throws {
         continueAfterFailure = false
         let app = launch(language: "en")
@@ -129,7 +162,22 @@ final class DashboardUITests: XCTestCase {
         deepLearning.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["course.hub"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["course.hub.hero"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["course.hub.metrics"].exists)
+        XCTAssertTrue(app.staticTexts["COURSE WORKSPACE"].exists)
+        XCTAssertTrue(app.staticTexts["Deep Learning"].exists)
+        XCTAssertTrue(app.staticTexts["Summer 2026"].exists)
+        XCTAssertTrue(app.staticTexts["Learn & assess"].exists)
+
+        let courseDashboardScreenshot = XCTAttachment(screenshot: app.screenshot())
+        courseDashboardScreenshot.name = "course-dashboard-professional"
+        courseDashboardScreenshot.lifetime = .keepAlways
+        add(courseDashboardScreenshot)
+
         let modules = app.descendants(matching: .any)["course.feature.modules"]
+        for _ in 0..<5 where !modules.exists {
+            app.swipeUp()
+        }
         XCTAssertTrue(modules.waitForExistence(timeout: 3))
         modules.tap()
 

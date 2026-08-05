@@ -579,40 +579,528 @@ private struct CourseCardMetric: View {
 }
 
 private struct CourseHubView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    let course: CourseSummary
+
+    private let learningDestinations: [FeatureDestination] = [
+        .modules,
+        .materials,
+        .assignments,
+        .quizzes,
+    ]
+
+    private let engagementDestinations: [FeatureDestination] = [
+        .announcements,
+        .discussions,
+        .attendance,
+        .grades,
+        .messages,
+    ]
+
+    private var toolColumns: [GridItem] {
+        [
+            GridItem(
+                .adaptive(
+                    minimum: horizontalSizeClass == .regular ? 220 : 150,
+                    maximum: 350
+                ),
+                spacing: 16,
+                alignment: .top
+            ),
+        ]
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 24) {
+                CourseHubHero(course: course, isRegularWidth: horizontalSizeClass == .regular)
+
+                CourseHubMetrics(course: course)
+
+                CourseHubToolSection(
+                    titleKey: "course.dashboard.learning",
+                    subtitleKey: "course.dashboard.learningHelp",
+                    destinations: learningDestinations,
+                    course: course,
+                    columns: toolColumns
+                )
+
+                CourseHubToolSection(
+                    titleKey: "course.dashboard.engagement",
+                    subtitleKey: "course.dashboard.engagementHelp",
+                    destinations: engagementDestinations,
+                    course: course,
+                    columns: toolColumns
+                )
+
+                CourseHubInformation(course: course)
+            }
+            .padding(.horizontal, horizontalSizeClass == .regular ? 28 : 16)
+            .padding(.top, 8)
+            .padding(.bottom, 32)
+            .frame(maxWidth: 1100, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .background(CourseHubBackground())
+        .navigationTitle(course.code)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Brand.paper, for: .navigationBar)
+        .accessibilityIdentifier("course.hub")
+    }
+}
+
+private struct CourseHubBackground: View {
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Brand.paper
+            RadialGradient(
+                colors: [Brand.evergreen.opacity(0.09), .clear],
+                center: .topTrailing,
+                startRadius: 20,
+                endRadius: 480
+            )
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct CourseHubHero: View {
+    let course: CourseSummary
+    let isRegularWidth: Bool
+
+    private var statusKey: LocalizedStringKey {
+        switch course.status {
+        case "active": "courses.status.active"
+        case "draft": "courses.status.draft"
+        case "archived": "courses.status.archived"
+        default: "courses.status.unknown"
+        }
+    }
+
+    private var statusColor: Color {
+        switch course.status {
+        case "active": Brand.evergreen
+        case "draft": .orange
+        default: .secondary
+        }
+    }
+
+    private var statusSymbol: String {
+        switch course.status {
+        case "active": "checkmark"
+        case "draft": "pencil"
+        case "archived": "archivebox.fill"
+        default: "questionmark"
+        }
+    }
+
+    private var scheduleText: String? {
+        let start = formattedDate(course.startDate)
+        let end = formattedDate(course.endDate)
+        return switch (start, end) {
+        case let (start?, end?): "\(start) – \(end)"
+        case let (start?, nil): start
+        case let (nil, end?): end
+        default: nil
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack {
+                CourseBanner(course: course)
+                LinearGradient(
+                    colors: [.black.opacity(0.20), .clear, .black.opacity(0.12)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .frame(height: isRegularWidth ? 190 : 162)
+            .overlay(alignment: .top) {
+                HStack(spacing: 8) {
+                    Text(course.code)
+                        .font(.caption.bold().monospaced())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 11)
+                        .frame(height: 32)
+                        .background(.black.opacity(0.34), in: Capsule())
+
+                    Spacer()
+
+                    HStack(spacing: 8) {
+                        CourseHeroIndicator(
+                            systemImage: statusSymbol,
+                            titleKey: statusKey,
+                            color: statusColor,
+                            identifier: "course.hub.status"
+                        )
+                        if course.lmsProvider == "canvas" {
+                            CourseHeroIndicator(
+                                systemImage: "circle.grid.3x3.fill",
+                                titleKey: "courses.canvas",
+                                color: .blue,
+                                identifier: "course.hub.canvas"
+                            )
+                        }
+                    }
+                }
+                .padding(18)
+            }
+            .clipped()
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("course.dashboard.workspace")
+                    .font(.caption.bold())
+                    .textCase(.uppercase)
+                    .tracking(1.2)
+                    .foregroundStyle(Brand.evergreen)
+
+                Text(course.title)
+                    .font(isRegularWidth ? .largeTitle.bold() : .title2.bold())
+                    .foregroundStyle(Brand.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 12) {
+                    if let term = course.term {
+                        Label(term, systemImage: "calendar")
+                    }
+                    if let scheduleText {
+                        Label(scheduleText, systemImage: "calendar.badge.clock")
+                    }
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+            }
+            .padding(20)
+        }
+        .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(Brand.ink.opacity(0.08))
+        }
+        .shadow(color: Brand.ink.opacity(0.08), radius: 18, y: 9)
+        .accessibilityIdentifier("course.hub.hero")
+    }
+
+    private func formattedDate(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let date = (try? Date(value, strategy: Date.ISO8601FormatStyle(includingFractionalSeconds: true)))
+            ?? (try? Date(value, strategy: .iso8601))
+        return date?.formatted(date: .abbreviated, time: .omitted)
+    }
+}
+
+private struct CourseHubMetrics: View {
     let course: CourseSummary
 
     var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(course.title).font(.title2.bold())
-                    Text(course.code).foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 8)
-            }
-            Section {
-                ForEach([
-                    FeatureDestination.modules,
-                    .materials,
-                    .assignments,
-                    .quizzes,
-                    .announcements,
-                    .discussions,
-                    .attendance,
-                    .grades,
-                    .messages,
-                ]) { destination in
+        HStack(spacing: 0) {
+            CourseHubMetric(
+                icon: "square.grid.2x2",
+                value: course.counts.modules,
+                labelKey: "courses.metric.modules"
+            )
+            CourseHubMetricDivider()
+            CourseHubMetric(
+                icon: "checklist",
+                value: course.counts.assignments,
+                labelKey: "courses.metric.assignments"
+            )
+            CourseHubMetricDivider()
+            CourseHubMetric(
+                icon: "rectangle.on.rectangle.angled",
+                value: course.counts.presentations,
+                labelKey: "courses.metric.presentations"
+            )
+            CourseHubMetricDivider()
+            CourseHubMetric(
+                icon: "person.2",
+                value: course.counts.students,
+                labelKey: "courses.metric.students"
+            )
+        }
+        .padding(.vertical, 16)
+        .background(.background, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Brand.ink.opacity(0.07))
+        }
+        .accessibilityIdentifier("course.hub.metrics")
+    }
+}
+
+private struct CourseHubMetricDivider: View {
+    var body: some View {
+        Divider()
+            .frame(height: 54)
+    }
+}
+
+private struct CourseHubMetric: View {
+    let icon: String
+    let value: Int
+    let labelKey: LocalizedStringKey
+
+    var body: some View {
+        VStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Brand.evergreen)
+            Text(value, format: .number)
+                .font(.headline)
+                .monospacedDigit()
+            Text(labelKey)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(labelKey))
+        .accessibilityValue(Text(value, format: .number))
+    }
+}
+
+private struct CourseHubToolSection: View {
+    let titleKey: LocalizedStringKey
+    let subtitleKey: LocalizedStringKey
+    let destinations: [FeatureDestination]
+    let course: CourseSummary
+    let columns: [GridItem]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            CourseHubSectionHeader(titleKey: titleKey, subtitleKey: subtitleKey)
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                ForEach(destinations) { destination in
                     NavigationLink {
                         CourseDestinationView(destination: destination, course: course)
                     } label: {
-                        Label(destination.titleKey, systemImage: destination.systemImage)
+                        CourseHubFeatureCard(destination: destination, course: course)
                     }
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("course.feature.\(destination.rawValue)")
                 }
             }
         }
-        .navigationTitle(course.code)
-        .navigationBarTitleDisplayMode(.inline)
-        .accessibilityIdentifier("course.hub")
+        .accessibilityIdentifier("course.hub.section.\(destinations.first?.rawValue ?? "tools")")
+    }
+}
+
+private struct CourseHubSectionHeader: View {
+    let titleKey: LocalizedStringKey
+    let subtitleKey: LocalizedStringKey
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(titleKey)
+                .font(.title2.bold())
+                .foregroundStyle(Brand.ink)
+            Text(subtitleKey)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct CourseHubFeatureCard: View {
+    let destination: FeatureDestination
+    let course: CourseSummary
+
+    private var metric: (value: Int, labelKey: LocalizedStringKey)? {
+        switch destination {
+        case .modules: (course.counts.modules, "courses.metric.modules")
+        case .materials: (course.counts.presentations, "courses.metric.presentations")
+        case .assignments: (course.counts.assignments, "courses.metric.assignments")
+        default: nil
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .top) {
+                Image(systemName: destination.systemImage)
+                    .font(.title3.weight(.semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Brand.evergreen)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Brand.evergreen.opacity(0.11),
+                        in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    )
+
+                Spacer()
+
+                Image(systemName: "arrow.up.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tertiary)
+            }
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(destination.titleKey)
+                    .font(.headline)
+                    .foregroundStyle(Brand.ink)
+                Text(destination.dashboardDescriptionKey)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+            }
+
+            Spacer(minLength: 0)
+
+            if let metric {
+                HStack(spacing: 5) {
+                    Text(metric.value, format: .number)
+                        .fontWeight(.bold)
+                        .monospacedDigit()
+                    Text(metric.labelKey)
+                }
+                .font(.caption)
+                .foregroundStyle(Brand.evergreen)
+            } else {
+                Label("course.dashboard.open", systemImage: "arrow.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Brand.evergreen)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 188, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Brand.ink.opacity(0.07))
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+}
+
+private struct CourseHubInformation: View {
+    let course: CourseSummary
+
+    private var descriptionText: String {
+        guard let description = course.description, !description.isEmpty else {
+            return String(localized: "courses.description.unavailable")
+        }
+        return description
+    }
+
+    private var statusKey: LocalizedStringKey {
+        switch course.status {
+        case "active": "courses.status.active"
+        case "draft": "courses.status.draft"
+        case "archived": "courses.status.archived"
+        default: "courses.status.unknown"
+        }
+    }
+
+    private var scheduleText: String? {
+        let start = formattedDate(course.startDate)
+        let end = formattedDate(course.endDate)
+        return switch (start, end) {
+        case let (start?, end?): "\(start) – \(end)"
+        case let (start?, nil): start
+        case let (nil, end?): end
+        default: nil
+        }
+    }
+
+    private var informationColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 180), spacing: 12)]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            CourseHubSectionHeader(
+                titleKey: "course.dashboard.information",
+                subtitleKey: "course.dashboard.informationHelp"
+            )
+
+            Text(descriptionText)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            LazyVGrid(columns: informationColumns, alignment: .leading, spacing: 12) {
+                CourseHubInfoItem(
+                    icon: "calendar",
+                    titleKey: "course.dashboard.term",
+                    value: course.term.map { Text($0) } ?? Text("course.dashboard.notProvided")
+                )
+                CourseHubInfoItem(
+                    icon: "calendar.badge.clock",
+                    titleKey: "course.dashboard.schedule",
+                    value: scheduleText.map { Text($0) } ?? Text("course.dashboard.notProvided")
+                )
+                CourseHubInfoItem(
+                    icon: "checkmark.seal",
+                    titleKey: "course.dashboard.status",
+                    value: Text(statusKey)
+                )
+                CourseHubInfoItem(
+                    icon: "circle.grid.3x3.fill",
+                    titleKey: "course.dashboard.integration",
+                    value: course.lmsProvider == "canvas"
+                        ? Text("courses.canvas")
+                        : Text("course.dashboard.notConnected")
+                )
+            }
+        }
+        .padding(20)
+        .background(.background, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Brand.ink.opacity(0.07))
+        }
+        .accessibilityIdentifier("course.hub.information")
+    }
+
+    private func formattedDate(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let date = (try? Date(value, strategy: Date.ISO8601FormatStyle(includingFractionalSeconds: true)))
+            ?? (try? Date(value, strategy: .iso8601))
+        return date?.formatted(date: .abbreviated, time: .omitted)
+    }
+}
+
+private struct CourseHubInfoItem: View {
+    let icon: String
+    let titleKey: LocalizedStringKey
+    let value: Text
+
+    var body: some View {
+        HStack(spacing: 11) {
+            Image(systemName: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Brand.evergreen)
+                .frame(width: 36, height: 36)
+                .background(
+                    Brand.evergreen.opacity(0.10),
+                    in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(titleKey)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                value
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Brand.ink)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
+        .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 }
