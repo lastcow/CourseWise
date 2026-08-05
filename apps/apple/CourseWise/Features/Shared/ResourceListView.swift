@@ -22,13 +22,17 @@ struct ResourceListView: View {
             }
         }
         .navigationTitle(destination.titleKey)
+        .task(id: endpoint) {
+            guard let path = endpoint else { return }
+            await load(path: path)
+        }
     }
 
     @ViewBuilder
     private func resourceContent(path: String) -> some View {
         if isLoading && resources.isEmpty {
             ProgressView("common.loading")
-                .task { await load(path: path) }
+                .accessibilityIdentifier("resource.loading.\(destination.rawValue)")
         } else if let errorMessage, resources.isEmpty {
             ContentUnavailableView {
                 Label("common.error", systemImage: "wifi.exclamationmark")
@@ -37,10 +41,8 @@ struct ResourceListView: View {
             } actions: {
                 Button("common.retry") { Task { await load(path: path) } }
             }
-            .task { await load(path: path) }
         } else if resources.isEmpty {
             ContentUnavailableView("common.empty", systemImage: destination.systemImage)
-                .task { await load(path: path) }
         } else {
             List(resources) { item in
                 VStack(alignment: .leading, spacing: 5) {
@@ -86,19 +88,23 @@ struct ResourceListView: View {
 
     private func load(path: String) async {
         guard !isLoading else { return }
-#if DEBUG
-        if let fixture = UITestFixture.current, destination == .modules {
-            resources = fixture.modules
-            errorMessage = nil
-            return
-        }
-#endif
         isLoading = true
         defer { isLoading = false }
         do {
+#if DEBUG
+            if let fixture = UITestFixture.current, destination == .modules {
+                // Exercise the same asynchronous state transition as a real request.
+                try await Task.sleep(for: .milliseconds(500))
+                resources = fixture.modules
+                errorMessage = nil
+                return
+            }
+#endif
             let collection: ResourceCollection = try await authStore.authenticatedAPI().get(path)
             resources = collection.items
             errorMessage = nil
+        } catch is CancellationError {
+            return
         } catch {
             errorMessage = error.localizedDescription
         }

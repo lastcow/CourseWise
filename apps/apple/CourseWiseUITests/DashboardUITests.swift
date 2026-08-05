@@ -78,7 +78,9 @@ final class DashboardUITests: XCTestCase {
         modules.tap()
 
         XCTAssertTrue(app.navigationBars["Modules"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["resource.list.modules"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["resource.list.modules"].waitForExistence(timeout: 3)
+        )
         XCTAssertTrue(app.staticTexts["Getting Started"].exists)
         XCTAssertTrue(app.staticTexts["Course orientation and learning objectives"].exists)
         XCTAssertTrue(app.staticTexts["Neural Network Foundations"].exists)
