@@ -157,6 +157,8 @@ struct CourseModelTests {
               "startTime": "2026-06-01T08:00:00.000Z",
               "endTime": "2026-06-07T23:59:00.000Z",
               "questionCount": 8,
+              "attemptCount": 30,
+              "pendingReviewCount": 4,
               "timeLimitMinutes": 10,
               "maxAttempts": 2,
               "maxScore": 10,
@@ -171,11 +173,46 @@ struct CourseModelTests {
         #expect(item.moduleID == "00000000-0000-4000-8000-000000000201")
         #expect(item.title == "Orientation Check")
         #expect(item.questionCount == 8)
+        #expect(item.attemptCount == 30)
+        #expect(item.pendingReviewCount == 4)
         #expect(item.timeLimitMinutes == 10)
         #expect(item.maxAttempts == 2)
         #expect(item.maxScore == 10)
         #expect(item.passingScore == 7)
         #expect(item.lockdown == false)
+    }
+
+    @Test func assignmentSummaryDecodesSubmissionAndGradingProgress() throws {
+        let data = Data(
+            """
+            {
+              "id": "assignment-1",
+              "moduleId": "module-1",
+              "title": "Learning Goals Reflection",
+              "submissionCount": 28,
+              "ungradedSubmissionCount": 6,
+              "mySubmission": {
+                "id": "submission-1",
+                "status": "graded",
+                "submittedAt": "2026-06-05T18:30:00.000Z",
+                "score": 9,
+                "rawScore": 10,
+                "latePenaltyPercent": 10,
+                "latePenaltyWaived": false
+              }
+            }
+            """.utf8
+        )
+
+        let item = try JSONDecoder().decode(ModuleContentSummary.self, from: data)
+
+        #expect(item.submissionCount == 28)
+        #expect(item.ungradedSubmissionCount == 6)
+        #expect(item.mySubmission?.status == "graded")
+        #expect(item.mySubmission?.score == 9)
+        #expect(item.mySubmission?.rawScore == 10)
+        #expect(item.mySubmission?.latePenaltyPercent == 10)
+        #expect(item.mySubmission?.latePenaltyWaived == false)
     }
 
     @Test func moduleMaterialAndNestedContentDecodeRoleSafePayloads() throws {

@@ -633,6 +633,7 @@ private struct ModuleDetailView: View {
     @State private var quizzes: [ModuleContentSummary] = []
     @State private var discussions: [ModuleContentSummary] = []
     @State private var isLoading = false
+    @State private var hasLoadedContent = false
     @State private var errorMessage: String?
 
     private var teachingMaterials: [ModuleDetailEntry] {
@@ -640,10 +641,34 @@ private struct ModuleDetailView: View {
             + presentations.map { ModuleDetailEntry(kind: .presentation, item: $0) }
     }
 
+    private var heroCounts: ModuleContentCounts {
+        if !hasLoadedContent {
+            return module.counts ?? ModuleContentCounts(
+                materials: 0,
+                presentations: 0,
+                assignments: 0,
+                quizzes: 0,
+                discussions: 0
+            )
+        }
+        return ModuleContentCounts(
+            materials: materials.count,
+            presentations: presentations.count,
+            assignments: assignments.count,
+            quizzes: quizzes.count,
+            discussions: discussions.count
+        )
+    }
+
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
-                ModuleDetailHero(course: course, module: module, sequence: sequence)
+                ModuleDetailHero(
+                    course: course,
+                    module: module,
+                    sequence: sequence,
+                    counts: heroCounts
+                )
 
                 if isLoading && teachingMaterials.isEmpty && assignments.isEmpty {
                     HStack(spacing: 10) {
@@ -721,6 +746,7 @@ private struct ModuleDetailView: View {
                 assignments = filtered(fixture.assignments)
                 quizzes = filtered(fixture.quizzes)
                 discussions = filtered(fixture.discussions)
+                hasLoadedContent = true
                 errorMessage = nil
                 return
             }
@@ -754,6 +780,7 @@ private struct ModuleDetailView: View {
             assignments = filtered(values.2)
             quizzes = filtered(values.3)
             discussions = filtered(values.4)
+            hasLoadedContent = true
             errorMessage = nil
         } catch is CancellationError {
             return
@@ -779,6 +806,7 @@ private struct ModuleDetailHero: View {
     let course: CourseSummary?
     let module: ResourceSummary
     let sequence: Int
+    let counts: ModuleContentCounts
 
     private var isClosed: Bool { module.closedAt != nil }
 
@@ -793,63 +821,83 @@ private struct ModuleDetailHero: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(spacing: 2) {
-                    Text("modules.dashboard.moduleNumber")
-                        .font(.caption2.weight(.semibold))
-                        .textCase(.uppercase)
-                    Text(sequence, format: .number)
-                        .font(.title2.bold())
-                        .monospacedDigit()
-                }
-                .foregroundStyle(.white)
-                .frame(width: 64, height: 64)
-                .background(Brand.evergreen, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 10) {
                     if let course {
                         Text("\(course.code) · \(course.title)")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Brand.evergreen)
+                            .foregroundStyle(.white.opacity(0.82))
                             .lineLimit(1)
                     }
-                    Text(module.title)
-                        .font(.title2.bold())
-                        .foregroundStyle(Brand.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let subtitle = module.subtitle, !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    Spacer(minLength: 8)
+                    Label(statusKey, systemImage: statusSymbol)
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(.white.opacity(0.14), in: Capsule())
                 }
 
-                Spacer(minLength: 0)
-
-                Label(statusKey, systemImage: statusSymbol)
-                    .labelStyle(.iconOnly)
-                    .font(.subheadline.bold())
+                HStack(alignment: .top, spacing: 15) {
+                    VStack(spacing: 0) {
+                        Text("modules.dashboard.moduleNumber")
+                            .font(.caption2.weight(.semibold))
+                            .textCase(.uppercase)
+                        Text(sequence, format: .number)
+                            .font(.title.bold())
+                            .monospacedDigit()
+                    }
                     .foregroundStyle(Brand.evergreen)
-                    .frame(width: 34, height: 34)
-                    .background(Brand.evergreen.opacity(0.11), in: Circle())
-                    .accessibilityLabel(Text(statusKey))
+                    .frame(width: 68, height: 68)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text(module.title)
+                            .font(.title2.bold())
+                            .foregroundStyle(.white)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let subtitle = module.subtitle, !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.78))
+                                .lineSpacing(3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+            .padding(20)
+            .background {
+                LinearGradient(
+                    colors: [Brand.evergreen, Brand.evergreen.opacity(0.82)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             }
 
-            let start = formattedModuleDate(module.startAt)
-            let end = formattedModuleDate(module.endAt)
-            if start != nil || end != nil {
-                ModuleSessionSchedule(moduleID: "detail.\(module.id)", startDate: start, endDate: end)
+            VStack(alignment: .leading, spacing: 14) {
+                ModuleContentStatistics(moduleID: "detail.\(module.id)", counts: counts)
+
+                let start = formattedModuleDate(module.startAt)
+                let end = formattedModuleDate(module.endAt)
+                if start != nil || end != nil {
+                    ModuleSessionSchedule(
+                        moduleID: "detail.\(module.id)",
+                        startDate: start,
+                        endDate: end
+                    )
+                }
             }
+            .padding(16)
+            .background(.background)
         }
-        .padding(20)
-        .background(.background, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .stroke(Brand.ink.opacity(0.07))
         }
-        .shadow(color: Brand.ink.opacity(0.06), radius: 14, y: 7)
+        .shadow(color: Brand.ink.opacity(0.10), radius: 18, y: 9)
         .accessibilityIdentifier("module.detail.hero")
     }
 }
@@ -948,6 +996,14 @@ private struct ModuleDetailSection: View {
 private struct ModuleDetailResourceCard: View {
     let entry: ModuleDetailEntry
 
+    private var accessibilitySummary: String {
+        facts.prefix(6).map { fact in
+            let label = String(localized: String.LocalizationValue(fact.labelKey))
+            return "\(label): \(fact.value)"
+        }
+        .joined(separator: ", ")
+    }
+
     private var facts: [ModuleDetailFact] {
         var values: [ModuleDetailFact] = []
         let item = entry.item
@@ -961,6 +1017,38 @@ private struct ModuleDetailResourceCard: View {
             if let provider = item.provider { values.append(.init("sparkles", "modules.detail.provider", humanized(provider))) }
             if let shared = item.shareEnabled { values.append(.init("person.2", "modules.detail.sharing", yesNo(shared))) }
         case .assignment:
+            if let submissions = item.submissionCount {
+                values.append(.init("paperplane.fill", "modules.detail.submissions", submissions.formatted()))
+            }
+            if let submissions = item.submissionCount,
+               let ungraded = item.ungradedSubmissionCount {
+                values.append(
+                    .init(
+                        "checkmark.seal.fill",
+                        "modules.detail.graded",
+                        max(submissions - ungraded, 0).formatted()
+                    )
+                )
+            }
+            if let ungraded = item.ungradedSubmissionCount {
+                values.append(.init("clock.badge.exclamationmark", "modules.detail.needsGrading", ungraded.formatted()))
+            }
+            if let submission = item.mySubmission {
+                values.append(
+                    .init(
+                        "person.crop.circle.badge.checkmark",
+                        "modules.detail.mySubmission",
+                        localizedSubmissionStatus(submission.status)
+                    )
+                )
+                if let submitted = formattedModuleDate(submission.submittedAt, includeTime: true) {
+                    values.append(.init("paperplane", "modules.detail.submittedAt", submitted))
+                }
+                if let earned = submission.score {
+                    let result = item.maxScore.map { "\(score(earned)) / \(score($0))" } ?? score(earned)
+                    values.append(.init("star.fill", "modules.detail.score", result))
+                }
+            }
             if let opens = formattedModuleDate(item.startDate, includeTime: true) { values.append(.init("door.left.hand.open", "modules.detail.opens", opens)) }
             if let due = formattedModuleDate(item.dueDate, includeTime: true) { values.append(.init("calendar", "modules.detail.due", due)) }
             if let closes = formattedModuleDate(item.untilDate ?? item.endDate, includeTime: true) { values.append(.init("door.left.hand.closed", "modules.detail.closes", closes)) }
@@ -968,11 +1056,13 @@ private struct ModuleDetailResourceCard: View {
             if let mode = item.submissionMode { values.append(.init("person", "modules.detail.submission", humanized(mode))) }
             if let late = item.allowLateSubmission { values.append(.init("clock.arrow.circlepath", "modules.detail.late", yesNo(late))) }
         case .quiz:
+            if let attempts = item.attemptCount { values.append(.init("person.2.fill", "modules.detail.quizAttempts", attempts.formatted())) }
+            if let pending = item.pendingReviewCount { values.append(.init("clock.badge.questionmark", "modules.detail.needsReview", pending.formatted())) }
             if let opens = formattedModuleDate(item.startTime, includeTime: true) { values.append(.init("door.left.hand.open", "modules.detail.opens", opens)) }
             if let closes = formattedModuleDate(item.untilDate ?? item.endTime, includeTime: true) { values.append(.init("door.left.hand.closed", "modules.detail.closes", closes)) }
             if let questions = item.questionCount { values.append(.init("questionmark.circle", "modules.detail.questions", questions.formatted())) }
             if let minutes = item.timeLimitMinutes { values.append(.init("timer", "modules.detail.minutes", minutes.formatted())) }
-            if let attempts = item.maxAttempts { values.append(.init("arrow.counterclockwise", "modules.detail.attempts", attempts.formatted())) }
+            if let attempts = item.maxAttempts { values.append(.init("arrow.counterclockwise", "modules.detail.allowedAttempts", attempts.formatted())) }
             if let points = item.maxScore { values.append(.init("star", "modules.detail.points", score(points))) }
             if let passing = item.passingScore { values.append(.init("checkmark.seal", "modules.detail.passing", score(passing))) }
             if let lockdown = item.lockdown { values.append(.init("lock.shield", "modules.detail.lockdown", yesNo(lockdown))) }
@@ -1033,7 +1123,7 @@ private struct ModuleDetailResourceCard: View {
                 : entry.item.description,
                !preview.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("modules.content.preview")
+                    Text(entry.kind == .material ? "modules.content.preview" : "modules.detail.summary")
                         .font(.caption2.weight(.semibold))
                         .textCase(.uppercase)
                         .tracking(0.5)
@@ -1049,13 +1139,23 @@ private struct ModuleDetailResourceCard: View {
                 .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 13))
             }
 
-            HStack {
-                if let firstFact = facts.first {
-                    Label(firstFact.value, systemImage: firstFact.systemImage)
-                        .lineLimit(1)
+            if !facts.isEmpty {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 132), spacing: 8)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    ForEach(Array(facts.prefix(6))) { fact in
+                        ModuleDetailFactTile(fact: fact, itemID: entry.item.id)
+                    }
                 }
+            }
+
+            HStack {
+                Label(entry.kind.labelKey, systemImage: entry.kind.systemImage)
+                    .foregroundStyle(.secondary)
                 Spacer()
-                Text("modules.content.read")
+                Text("modules.detail.open")
                     .fontWeight(.semibold)
                     .foregroundStyle(Brand.evergreen)
                 Image(systemName: "chevron.right")
@@ -1073,6 +1173,7 @@ private struct ModuleDetailResourceCard: View {
                 .stroke(Brand.ink.opacity(0.07))
         }
         .accessibilityElement(children: .contain)
+        .accessibilityValue(accessibilitySummary)
         .accessibilityIdentifier("module.detail.\(entry.kind.rawValue).\(entry.item.id)")
     }
 
@@ -1096,6 +1197,49 @@ private struct ModuleDetailResourceCard: View {
         case "archived": String(localized: "modules.status.archived")
         default: humanized(value)
         }
+    }
+
+    private func localizedSubmissionStatus(_ value: String) -> String {
+        switch value {
+        case "draft": String(localized: "submission.status.draft")
+        case "submitted": String(localized: "submission.status.submitted")
+        case "late": String(localized: "submission.status.late")
+        case "graded": String(localized: "submission.status.graded")
+        case "returned": String(localized: "submission.status.returned")
+        default: humanized(value)
+        }
+    }
+}
+
+private struct ModuleDetailFactTile: View {
+    let fact: ModuleDetailFact
+    let itemID: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: fact.systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Brand.evergreen)
+                .frame(width: 24, height: 24)
+                .background(Brand.evergreen.opacity(0.09), in: RoundedRectangle(cornerRadius: 7))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(LocalizedStringKey(fact.labelKey))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Text(fact.value)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Brand.ink)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+        .padding(10)
+        .background(Brand.evergreen.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("module.detail.fact.\(itemID).\(fact.labelKey)")
     }
 }
 
