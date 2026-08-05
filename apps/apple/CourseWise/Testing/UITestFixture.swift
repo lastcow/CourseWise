@@ -5,6 +5,11 @@ struct UITestFixture: Sendable {
     let account: Account
     let courses: [CourseSummary]
     let modules: [ResourceSummary]
+    let materials: [ModuleContentSummary]
+    let presentations: [ModuleContentSummary]
+    let assignments: [ModuleContentSummary]
+    let quizzes: [ModuleContentSummary]
+    let discussions: [ModuleContentSummary]
 
     static var current: UITestFixture? {
         let environment = ProcessInfo.processInfo.environment
@@ -124,6 +129,90 @@ struct UITestFixture: Sendable {
                         quizzes: 2,
                         discussions: 0
                     )
+                ),
+            ],
+            materials: [
+                ModuleContentSummary(
+                    id: "00000000-0000-4000-8000-000000000301",
+                    moduleID: "00000000-0000-4000-8000-000000000201",
+                    title: "Course Guide",
+                    description: "Essential policies, learning outcomes, and weekly expectations.",
+                    status: "published",
+                    type: "document",
+                    sourceType: "file_upload",
+                    position: 0,
+                    publishedAt: "2026-05-21T14:00:00.000Z"
+                ),
+                ModuleContentSummary(
+                    id: "00000000-0000-4000-8000-000000000302",
+                    moduleID: "00000000-0000-4000-8000-000000000201",
+                    title: "Learning Objectives",
+                    description: "What you should understand and be able to demonstrate after orientation.",
+                    status: "published",
+                    type: "document",
+                    sourceType: "manual_text",
+                    position: 1,
+                    publishedAt: "2026-05-21T15:00:00.000Z"
+                ),
+            ],
+            presentations: [
+                ModuleContentSummary(
+                    id: "00000000-0000-4000-8000-000000000311",
+                    moduleID: "00000000-0000-4000-8000-000000000201",
+                    title: "Orientation Deck",
+                    description: "A visual walkthrough of the course, learning path, and support resources.",
+                    status: "published",
+                    provider: "gamma",
+                    position: 0,
+                    publishedAt: "2026-05-22T14:00:00.000Z",
+                    slideCount: 12,
+                    shareEnabled: true
+                ),
+            ],
+            assignments: [
+                ModuleContentSummary(
+                    id: "00000000-0000-4000-8000-000000000321",
+                    moduleID: "00000000-0000-4000-8000-000000000201",
+                    title: "Learning Goals Reflection",
+                    description: "Describe your goals and identify one practical application for this course.",
+                    status: "published",
+                    position: 0,
+                    publishedAt: "2026-05-23T14:00:00.000Z",
+                    dueDate: "2026-06-05T23:59:00.000Z",
+                    maxScore: 10,
+                    allowLateSubmission: true,
+                    submissionMode: "individual"
+                ),
+            ],
+            quizzes: [
+                ModuleContentSummary(
+                    id: "00000000-0000-4000-8000-000000000331",
+                    moduleID: "00000000-0000-4000-8000-000000000201",
+                    title: "Orientation Check",
+                    description: "Confirm that you understand the course structure and participation expectations.",
+                    status: "published",
+                    publishedAt: "2026-05-24T14:00:00.000Z",
+                    startTime: "2026-06-01T08:00:00.000Z",
+                    endTime: "2026-06-07T23:59:00.000Z",
+                    questionCount: 8,
+                    timeLimitMinutes: 10,
+                    maxAttempts: 2,
+                    maxScore: 10,
+                    passingScore: 7,
+                    lockdown: false
+                ),
+            ],
+            discussions: [
+                ModuleContentSummary(
+                    id: "00000000-0000-4000-8000-000000000341",
+                    moduleID: "00000000-0000-4000-8000-000000000201",
+                    title: "Introduce Yourself",
+                    description: "Share your background, interests, and one question you hope to explore.",
+                    status: "published",
+                    publishedAt: "2026-05-24T16:00:00.000Z",
+                    postCount: 24,
+                    isGraded: false,
+                    isPinned: true
                 ),
             ]
         )

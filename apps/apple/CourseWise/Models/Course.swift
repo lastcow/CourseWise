@@ -71,6 +71,144 @@ struct ModuleContentCounts: Decodable, Hashable, Sendable {
     let discussions: Int
 }
 
+struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
+    let id: String
+    let moduleID: String?
+    let title: String
+    let description: String?
+    let status: String?
+    let type: String?
+    let sourceType: String?
+    let provider: String?
+    let externalURLString: String?
+    let position: Int?
+    let publishedAt: String?
+    let archivedAt: String?
+    let closedAt: String?
+    let dueDate: String?
+    let startDate: String?
+    let endDate: String?
+    let untilDate: String?
+    let startTime: String?
+    let endTime: String?
+    let slideCount: Int?
+    let questionCount: Int?
+    let postCount: Int?
+    let timeLimitMinutes: Int?
+    let maxAttempts: Int?
+    let maxScore: Double?
+    let passingScore: Double?
+    let allowLateSubmission: Bool?
+    let submissionMode: String?
+    let lockdown: Bool?
+    let isGraded: Bool?
+    let isPinned: Bool?
+    let shareEnabled: Bool?
+
+    init(
+        id: String,
+        moduleID: String?,
+        title: String,
+        description: String? = nil,
+        status: String? = nil,
+        type: String? = nil,
+        sourceType: String? = nil,
+        provider: String? = nil,
+        externalURLString: String? = nil,
+        position: Int? = nil,
+        publishedAt: String? = nil,
+        archivedAt: String? = nil,
+        closedAt: String? = nil,
+        dueDate: String? = nil,
+        startDate: String? = nil,
+        endDate: String? = nil,
+        untilDate: String? = nil,
+        startTime: String? = nil,
+        endTime: String? = nil,
+        slideCount: Int? = nil,
+        questionCount: Int? = nil,
+        postCount: Int? = nil,
+        timeLimitMinutes: Int? = nil,
+        maxAttempts: Int? = nil,
+        maxScore: Double? = nil,
+        passingScore: Double? = nil,
+        allowLateSubmission: Bool? = nil,
+        submissionMode: String? = nil,
+        lockdown: Bool? = nil,
+        isGraded: Bool? = nil,
+        isPinned: Bool? = nil,
+        shareEnabled: Bool? = nil
+    ) {
+        self.id = id
+        self.moduleID = moduleID
+        self.title = title
+        self.description = description
+        self.status = status
+        self.type = type
+        self.sourceType = sourceType
+        self.provider = provider
+        self.externalURLString = externalURLString
+        self.position = position
+        self.publishedAt = publishedAt
+        self.archivedAt = archivedAt
+        self.closedAt = closedAt
+        self.dueDate = dueDate
+        self.startDate = startDate
+        self.endDate = endDate
+        self.untilDate = untilDate
+        self.startTime = startTime
+        self.endTime = endTime
+        self.slideCount = slideCount
+        self.questionCount = questionCount
+        self.postCount = postCount
+        self.timeLimitMinutes = timeLimitMinutes
+        self.maxAttempts = maxAttempts
+        self.maxScore = maxScore
+        self.passingScore = passingScore
+        self.allowLateSubmission = allowLateSubmission
+        self.submissionMode = submissionMode
+        self.lockdown = lockdown
+        self.isGraded = isGraded
+        self.isPinned = isPinned
+        self.shareEnabled = shareEnabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case moduleID = "moduleId"
+        case title
+        case description
+        case status
+        case type
+        case sourceType
+        case provider
+        case externalURLString = "externalUrl"
+        case position
+        case publishedAt
+        case archivedAt
+        case closedAt
+        case dueDate
+        case startDate
+        case endDate
+        case untilDate
+        case startTime
+        case endTime
+        case slideCount
+        case questionCount
+        case postCount
+        case timeLimitMinutes
+        case maxAttempts
+        case maxScore
+        case passingScore
+        case allowLateSubmission
+        case submissionMode
+        case lockdown
+        case isGraded
+        case isPinned
+        case shareEnabled
+    }
+}
+
 struct ResourceSummary: Decodable, Hashable, Identifiable, Sendable {
     let id: String
     let title: String

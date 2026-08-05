@@ -232,6 +232,57 @@ final class DashboardUITests: XCTestCase {
         screenshot.name = "modules-detailed-list"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+
+        let firstModule = app.descendants(matching: .any)[
+            "module.link.00000000-0000-4000-8000-000000000201"
+        ]
+        XCTAssertTrue(firstModule.waitForExistence(timeout: 3))
+        firstModule.tap()
+
+        XCTAssertTrue(app.navigationBars["Module details"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["module.detail"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["module.detail.hero"].exists)
+        XCTAssertTrue(app.staticTexts["Getting Started"].exists)
+        XCTAssertTrue(app.staticTexts["Course Guide"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Learning Objectives"].exists)
+        XCTAssertTrue(app.staticTexts["Orientation Deck"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["module.detail.section.materials"].exists
+        )
+
+        let overviewScreenshot = XCTAttachment(screenshot: app.screenshot())
+        overviewScreenshot.name = "module-detail-professional-overview"
+        overviewScreenshot.lifetime = .keepAlways
+        add(overviewScreenshot)
+
+        let discussionSection = app.descendants(matching: .any)["module.detail.section.discussions"]
+        for _ in 0..<10 where !discussionSection.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(discussionSection.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Learning Goals Reflection"].exists)
+        XCTAssertTrue(app.staticTexts["Orientation Check"].exists)
+        XCTAssertTrue(app.staticTexts["Introduce Yourself"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.detail.assignment.00000000-0000-4000-8000-000000000321"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.detail.quiz.00000000-0000-4000-8000-000000000331"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.detail.discussion.00000000-0000-4000-8000-000000000341"
+            ].exists
+        )
+
+        let assessmentScreenshot = XCTAttachment(screenshot: app.screenshot())
+        assessmentScreenshot.name = "module-detail-professional-assessments"
+        assessmentScreenshot.lifetime = .keepAlways
+        add(assessmentScreenshot)
     }
 
     private func launch(
