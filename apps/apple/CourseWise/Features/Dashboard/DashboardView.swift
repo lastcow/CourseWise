@@ -54,11 +54,15 @@ struct DashboardView: View {
                 LazyVGrid(columns: cardColumns, spacing: 16) {
                     ForEach(FeatureDestination.dashboardItems(for: role)) { destination in
                         NavigationLink {
-                            DashboardComponentDetailView(
-                                destination: destination,
-                                courses: courses,
-                                role: role
-                            )
+                            if destination == .courses {
+                                CoursesView()
+                            } else {
+                                DashboardComponentDetailView(
+                                    destination: destination,
+                                    courses: courses,
+                                    role: role
+                                )
+                            }
                         } label: {
                             DashboardFeatureCard(
                                 destination: destination,
@@ -253,6 +257,10 @@ private struct DashboardFeatureCard: View {
     let destination: FeatureDestination
     let courseCount: Int
 
+    private var accessibilityHintKey: LocalizedStringKey {
+        destination == .courses ? "dashboard.viewCourses" : "dashboard.viewDetails"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
@@ -303,7 +311,7 @@ private struct DashboardFeatureCard: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .accessibilityElement(children: .combine)
-        .accessibilityHint(Text("dashboard.viewDetails"))
+        .accessibilityHint(Text(accessibilityHintKey))
     }
 }
 

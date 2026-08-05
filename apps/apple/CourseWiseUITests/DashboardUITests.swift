@@ -2,7 +2,7 @@ import XCTest
 
 @MainActor
 final class DashboardUITests: XCTestCase {
-    func testEveryAdminComponentOpensItsDetailPage() throws {
+    func testAdminDashboardRoutesCoursesDirectlyAndOtherComponentsToDetails() throws {
         continueAfterFailure = false
         let app = launch(language: "en")
 
@@ -11,7 +11,26 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Hello, Admin"].exists)
         XCTAssertTrue(app.staticTexts["4"].exists)
 
-        for component in ["courses", "alerts", "students", "messages", "privacy", "settings"] {
+        let courses = app.descendants(matching: .any)["dashboard.component.courses"]
+        XCTAssertTrue(courses.waitForExistence(timeout: 3))
+        courses.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["courses.list"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.descendants(matching: .any)["dashboard.detail.courses"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["dashboard.detail.open"].exists)
+        for title in [
+            "Deep Learning",
+            "Software Engineering Economics",
+            "Introduction to Management",
+            "Product Design Systems",
+        ] {
+            XCTAssertTrue(app.staticTexts[title].exists, "Missing eligible course: \(title)")
+        }
+
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(dashboard.waitForExistence(timeout: 3))
+
+        for component in ["alerts", "students", "messages", "privacy", "settings"] {
             let link = app.descendants(matching: .any)["dashboard.component.\(component)"]
             XCTAssertTrue(link.waitForExistence(timeout: 3), "Missing dashboard component: \(component)")
             link.tap()
@@ -56,14 +75,6 @@ final class DashboardUITests: XCTestCase {
         let coursesComponent = app.descendants(matching: .any)["dashboard.component.courses"]
         XCTAssertTrue(coursesComponent.waitForExistence(timeout: 5))
         coursesComponent.tap()
-
-        let openComponent = app.descendants(matching: .any)["dashboard.detail.open"]
-        XCTAssertTrue(openComponent.waitForExistence(timeout: 3))
-        for _ in 0..<6 where !openComponent.isHittable {
-            app.swipeUp()
-        }
-        XCTAssertTrue(openComponent.isHittable)
-        openComponent.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["courses.list"].waitForExistence(timeout: 3))
         let deepLearning = app.descendants(matching: .any)[

@@ -25,6 +25,7 @@
 "dashboard.courseScope" = "适用于 %d 门课程";
 "dashboard.accountScope" = "账号级";
 "dashboard.viewDetails" = "查看组件详情";
+"dashboard.viewCourses" = "查看所有课程";
 "dashboard.dataUnavailable" = "实时数据暂时不可用";
 "dashboard.dataUnavailableHelp" = "工作区仍可使用，请尝试刷新课程数据。";
 "dashboard.detail.overview" = "概览";
