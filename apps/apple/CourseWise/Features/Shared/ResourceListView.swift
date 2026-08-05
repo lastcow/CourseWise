@@ -104,13 +104,81 @@ struct ResourceListView: View {
                 return
             }
 #endif
-            let collection: ResourceCollection = try await authStore.authenticatedAPI().get(path)
-            resources = collection.items
+            let api = authStore.authenticatedAPI()
+            if destination == .modules, let courseID {
+                resources = try await loadModules(api: api, path: path, courseID: courseID)
+            } else {
+                let collection: ResourceCollection = try await api.get(path)
+                resources = collection.items
+            }
             errorMessage = nil
         } catch is CancellationError {
             return
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func loadModules(api: APIClient, path: String, courseID: UUID) async throws -> [ResourceSummary] {
+        async let collection: ResourceCollection = api.get(path)
+        async let materials = loadModuleContent(
+            api: api,
+            path: "/api/courses/\(courseID)/materials"
+        )
+        async let presentations = loadModuleContent(
+            api: api,
+            path: "/api/courses/\(courseID)/presentations"
+        )
+        async let assignments = loadModuleContent(
+            api: api,
+            path: "/api/courses/\(courseID)/assignments"
+        )
+        async let quizzes = loadModuleContent(
+            api: api,
+            path: "/api/courses/\(courseID)/quizzes"
+        )
+        async let discussions = loadModuleContent(
+            api: api,
+            path: "/api/courses/\(courseID)/discussion-topics"
+        )
+
+        let loaded = try await (
+            collection,
+            materials,
+            presentations,
+            assignments,
+            quizzes,
+            discussions
+        )
+        guard
+            let loadedMaterials = loaded.1,
+            let loadedPresentations = loaded.2,
+            let loadedAssignments = loaded.3,
+            let loadedQuizzes = loaded.4,
+            let loadedDiscussions = loaded.5
+        else {
+            // Preserve the module endpoint's counts if a supplemental content
+            // endpoint is temporarily unavailable.
+            return loaded.0.items
+        }
+
+        return ModuleCountReconciler.reconcile(
+            modules: loaded.0.items,
+            materials: loadedMaterials,
+            presentations: loadedPresentations,
+            assignments: loadedAssignments,
+            quizzes: loadedQuizzes,
+            discussions: loadedDiscussions
+        )
+    }
+
+    private func loadModuleContent(api: APIClient, path: String) async -> [ModuleContentSummary]? {
+        do {
+            return try await api.get(path)
+        } catch is CancellationError {
+            return nil
+        } catch {
+            return nil
         }
     }
 }
