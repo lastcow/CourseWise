@@ -80,4 +80,37 @@ struct CourseModelTests {
         #expect(module.counts?.quizzes == 1)
         #expect(module.counts?.discussions == 2)
     }
+
+    @Test func moduleContentSummaryDecodesAssessmentDetails() throws {
+        let data = Data(
+            """
+            {
+              "id": "00000000-0000-4000-8000-000000000331",
+              "moduleId": "00000000-0000-4000-8000-000000000201",
+              "title": "Orientation Check",
+              "description": "Confirm the course structure.",
+              "status": "published",
+              "startTime": "2026-06-01T08:00:00.000Z",
+              "endTime": "2026-06-07T23:59:00.000Z",
+              "questionCount": 8,
+              "timeLimitMinutes": 10,
+              "maxAttempts": 2,
+              "maxScore": 10,
+              "passingScore": 7,
+              "lockdown": false
+            }
+            """.utf8
+        )
+
+        let item = try JSONDecoder().decode(ModuleContentSummary.self, from: data)
+
+        #expect(item.moduleID == "00000000-0000-4000-8000-000000000201")
+        #expect(item.title == "Orientation Check")
+        #expect(item.questionCount == 8)
+        #expect(item.timeLimitMinutes == 10)
+        #expect(item.maxAttempts == 2)
+        #expect(item.maxScore == 10)
+        #expect(item.passingScore == 7)
+        #expect(item.lockdown == false)
+    }
 }

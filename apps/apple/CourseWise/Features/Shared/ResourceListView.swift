@@ -44,8 +44,8 @@ struct ResourceListView: View {
             }
         } else if resources.isEmpty {
             ContentUnavailableView("common.empty", systemImage: destination.systemImage)
-        } else if destination == .modules {
-            ModulesDashboardView(modules: resources, course: course)
+        } else if destination == .modules, let courseID {
+            ModulesDashboardView(modules: resources, courseID: courseID, course: course)
                 .refreshable { await load(path: path) }
         } else {
             List(resources) { item in
@@ -117,6 +117,7 @@ struct ResourceListView: View {
 
 private struct ModulesDashboardView: View {
     let modules: [ResourceSummary]
+    let courseID: UUID
     let course: CourseSummary?
 
     private var publishedCount: Int {
@@ -163,7 +164,18 @@ private struct ModulesDashboardView: View {
 
                 VStack(spacing: 14) {
                     ForEach(Array(orderedModules.enumerated()), id: \.element.id) { index, module in
-                        ModuleTimelineRow(module: module, sequence: index + 1)
+                        NavigationLink {
+                            ModuleDetailView(
+                                courseID: courseID,
+                                course: course,
+                                module: module,
+                                sequence: index + 1
+                            )
+                        } label: {
+                            ModuleTimelineRow(module: module, sequence: index + 1)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("module.link.\(module.id)")
                     }
                 }
                 .background(alignment: .leading) {
@@ -538,4 +550,562 @@ private struct ModuleSessionDate: View {
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(identifier)
     }
+}
+
+private struct ModuleDetailView: View {
+    @Environment(AuthStore.self) private var authStore
+    let courseID: UUID
+    let course: CourseSummary?
+    let module: ResourceSummary
+    let sequence: Int
+
+    @State private var materials: [ModuleContentSummary] = []
+    @State private var presentations: [ModuleContentSummary] = []
+    @State private var assignments: [ModuleContentSummary] = []
+    @State private var quizzes: [ModuleContentSummary] = []
+    @State private var discussions: [ModuleContentSummary] = []
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+
+    private var teachingMaterials: [ModuleDetailEntry] {
+        materials.map { ModuleDetailEntry(kind: .material, item: $0) }
+            + presentations.map { ModuleDetailEntry(kind: .presentation, item: $0) }
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 22) {
+                ModuleDetailHero(course: course, module: module, sequence: sequence)
+
+                if isLoading && teachingMaterials.isEmpty && assignments.isEmpty {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("modules.detail.loading")
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                    .accessibilityIdentifier("module.detail.loading")
+                } else if let errorMessage,
+                          teachingMaterials.isEmpty,
+                          assignments.isEmpty,
+                          quizzes.isEmpty,
+                          discussions.isEmpty {
+                    ModuleDetailError(message: errorMessage) {
+                        Task { await load() }
+                    }
+                } else {
+                    ModuleDetailSection(
+                        titleKey: "modules.detail.materials",
+                        helpKey: "modules.detail.materialsHelp",
+                        systemImage: "books.vertical.fill",
+                        entries: teachingMaterials,
+                        identifier: "module.detail.section.materials"
+                    )
+                    ModuleDetailSection(
+                        titleKey: "modules.detail.assignments",
+                        helpKey: "modules.detail.assignmentsHelp",
+                        systemImage: "checklist",
+                        entries: assignments.map { ModuleDetailEntry(kind: .assignment, item: $0) },
+                        identifier: "module.detail.section.assignments"
+                    )
+                    ModuleDetailSection(
+                        titleKey: "modules.detail.quizzes",
+                        helpKey: "modules.detail.quizzesHelp",
+                        systemImage: "questionmark.circle.fill",
+                        entries: quizzes.map { ModuleDetailEntry(kind: .quiz, item: $0) },
+                        identifier: "module.detail.section.quizzes"
+                    )
+                    ModuleDetailSection(
+                        titleKey: "modules.detail.discussions",
+                        helpKey: "modules.detail.discussionsHelp",
+                        systemImage: "bubble.left.and.bubble.right.fill",
+                        entries: discussions.map { ModuleDetailEntry(kind: .discussion, item: $0) },
+                        identifier: "module.detail.section.discussions"
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 34)
+            .frame(maxWidth: 900, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .background(ModulesBackground())
+        .navigationTitle("modules.detail.navigation")
+        .navigationBarTitleDisplayMode(.inline)
+        .refreshable { await load() }
+        .task(id: module.id) { await load() }
+        .accessibilityIdentifier("module.detail")
+    }
+
+    private func load() async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+#if DEBUG
+            if let fixture = UITestFixture.current {
+                try await Task.sleep(for: .milliseconds(350))
+                materials = filtered(fixture.materials)
+                presentations = filtered(fixture.presentations)
+                assignments = filtered(fixture.assignments)
+                quizzes = filtered(fixture.quizzes)
+                discussions = filtered(fixture.discussions)
+                errorMessage = nil
+                return
+            }
+#endif
+            let api = authStore.authenticatedAPI()
+            async let loadedMaterials: [ModuleContentSummary] = api.get(
+                "/api/courses/\(courseID)/materials"
+            )
+            async let loadedPresentations: [ModuleContentSummary] = api.get(
+                "/api/courses/\(courseID)/presentations"
+            )
+            async let loadedAssignments: [ModuleContentSummary] = api.get(
+                "/api/courses/\(courseID)/assignments"
+            )
+            async let loadedQuizzes: [ModuleContentSummary] = api.get(
+                "/api/courses/\(courseID)/quizzes"
+            )
+            async let loadedDiscussions: [ModuleContentSummary] = api.get(
+                "/api/courses/\(courseID)/discussion-topics"
+            )
+
+            let values = try await (
+                loadedMaterials,
+                loadedPresentations,
+                loadedAssignments,
+                loadedQuizzes,
+                loadedDiscussions
+            )
+            materials = filtered(values.0)
+            presentations = filtered(values.1)
+            assignments = filtered(values.2)
+            quizzes = filtered(values.3)
+            discussions = filtered(values.4)
+            errorMessage = nil
+        } catch is CancellationError {
+            return
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func filtered(_ values: [ModuleContentSummary]) -> [ModuleContentSummary] {
+        values
+            .filter { $0.moduleID == module.id }
+            .sorted { lhs, rhs in
+                let lhsPosition = lhs.position ?? .max
+                let rhsPosition = rhs.position ?? .max
+                return lhsPosition == rhsPosition
+                    ? lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+                    : lhsPosition < rhsPosition
+            }
+    }
+}
+
+private struct ModuleDetailHero: View {
+    let course: CourseSummary?
+    let module: ResourceSummary
+    let sequence: Int
+
+    private var isClosed: Bool { module.closedAt != nil }
+
+    private var statusKey: LocalizedStringKey {
+        if isClosed { return "modules.status.closed" }
+        return module.status == "published" ? "modules.status.published" : "modules.status.draft"
+    }
+
+    private var statusSymbol: String {
+        if isClosed { return "lock.fill" }
+        return module.status == "published" ? "checkmark.circle.fill" : "pencil.circle.fill"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(spacing: 2) {
+                    Text("modules.dashboard.moduleNumber")
+                        .font(.caption2.weight(.semibold))
+                        .textCase(.uppercase)
+                    Text(sequence, format: .number)
+                        .font(.title2.bold())
+                        .monospacedDigit()
+                }
+                .foregroundStyle(.white)
+                .frame(width: 64, height: 64)
+                .background(Brand.evergreen, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    if let course {
+                        Text("\(course.code) · \(course.title)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Brand.evergreen)
+                            .lineLimit(1)
+                    }
+                    Text(module.title)
+                        .font(.title2.bold())
+                        .foregroundStyle(Brand.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let subtitle = module.subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                Label(statusKey, systemImage: statusSymbol)
+                    .labelStyle(.iconOnly)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(Brand.evergreen)
+                    .frame(width: 34, height: 34)
+                    .background(Brand.evergreen.opacity(0.11), in: Circle())
+                    .accessibilityLabel(Text(statusKey))
+            }
+
+            if let counts = module.counts {
+                ModuleContentStatistics(moduleID: "detail.\(module.id)", counts: counts)
+            }
+
+            let start = formattedModuleDate(module.startAt)
+            let end = formattedModuleDate(module.endAt)
+            if start != nil || end != nil {
+                ModuleSessionSchedule(moduleID: "detail.\(module.id)", startDate: start, endDate: end)
+            }
+        }
+        .padding(20)
+        .background(.background, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Brand.ink.opacity(0.07))
+        }
+        .shadow(color: Brand.ink.opacity(0.06), radius: 14, y: 7)
+        .accessibilityIdentifier("module.detail.hero")
+    }
+}
+
+private enum ModuleDetailKind: String {
+    case material
+    case presentation
+    case assignment
+    case quiz
+    case discussion
+
+    var systemImage: String {
+        switch self {
+        case .material: "doc.text.fill"
+        case .presentation: "rectangle.on.rectangle.angled"
+        case .assignment: "checklist"
+        case .quiz: "questionmark.circle.fill"
+        case .discussion: "bubble.left.and.bubble.right.fill"
+        }
+    }
+
+    var labelKey: LocalizedStringKey {
+        switch self {
+        case .material: "modules.detail.material"
+        case .presentation: "modules.detail.presentation"
+        case .assignment: "modules.detail.assignment"
+        case .quiz: "modules.detail.quiz"
+        case .discussion: "modules.detail.discussion"
+        }
+    }
+}
+
+private struct ModuleDetailEntry: Identifiable {
+    let kind: ModuleDetailKind
+    let item: ModuleContentSummary
+
+    var id: String { "\(kind.rawValue).\(item.id)" }
+}
+
+private struct ModuleDetailSection: View {
+    let titleKey: LocalizedStringKey
+    let helpKey: LocalizedStringKey
+    let systemImage: String
+    let entries: [ModuleDetailEntry]
+    let identifier: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .center, spacing: 11) {
+                Image(systemName: systemImage)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Brand.evergreen)
+                    .frame(width: 38, height: 38)
+                    .background(Brand.evergreen.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(titleKey)
+                        .font(.title3.bold())
+                        .foregroundStyle(Brand.ink)
+                    Text(helpKey)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(entries.count, format: .number)
+                    .font(.subheadline.bold())
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.evergreen)
+                    .frame(minWidth: 30, minHeight: 30)
+                    .background(Brand.evergreen.opacity(0.10), in: Capsule())
+                    .accessibilityLabel(Text("modules.detail.itemCount"))
+            }
+
+            if entries.isEmpty {
+                HStack(spacing: 9) {
+                    Image(systemName: "tray")
+                    Text("modules.detail.empty")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 16))
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(entries) { entry in
+                        ModuleDetailResourceCard(entry: entry)
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(identifier)
+    }
+}
+
+private struct ModuleDetailResourceCard: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    let entry: ModuleDetailEntry
+
+    private var factColumns: [GridItem] {
+        if horizontalSizeClass == .compact {
+            return [
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8),
+            ]
+        }
+        return [GridItem(.adaptive(minimum: 180), spacing: 8)]
+    }
+
+    private var facts: [ModuleDetailFact] {
+        var values: [ModuleDetailFact] = []
+        let item = entry.item
+
+        switch entry.kind {
+        case .material:
+            if let type = item.type { values.append(.init("doc", "modules.detail.type", humanized(type))) }
+            if let source = item.sourceType { values.append(.init("square.and.arrow.down", "modules.detail.source", humanized(source))) }
+        case .presentation:
+            if let slides = item.slideCount { values.append(.init("rectangle.stack", "modules.detail.slides", slides.formatted())) }
+            if let provider = item.provider { values.append(.init("sparkles", "modules.detail.provider", humanized(provider))) }
+            if let shared = item.shareEnabled { values.append(.init("person.2", "modules.detail.sharing", yesNo(shared))) }
+        case .assignment:
+            if let opens = formattedModuleDate(item.startDate, includeTime: true) { values.append(.init("door.left.hand.open", "modules.detail.opens", opens)) }
+            if let due = formattedModuleDate(item.dueDate, includeTime: true) { values.append(.init("calendar", "modules.detail.due", due)) }
+            if let closes = formattedModuleDate(item.untilDate ?? item.endDate, includeTime: true) { values.append(.init("door.left.hand.closed", "modules.detail.closes", closes)) }
+            if let points = item.maxScore { values.append(.init("star", "modules.detail.points", score(points))) }
+            if let mode = item.submissionMode { values.append(.init("person", "modules.detail.submission", humanized(mode))) }
+            if let late = item.allowLateSubmission { values.append(.init("clock.arrow.circlepath", "modules.detail.late", yesNo(late))) }
+        case .quiz:
+            if let opens = formattedModuleDate(item.startTime, includeTime: true) { values.append(.init("door.left.hand.open", "modules.detail.opens", opens)) }
+            if let closes = formattedModuleDate(item.untilDate ?? item.endTime, includeTime: true) { values.append(.init("door.left.hand.closed", "modules.detail.closes", closes)) }
+            if let questions = item.questionCount { values.append(.init("questionmark.circle", "modules.detail.questions", questions.formatted())) }
+            if let minutes = item.timeLimitMinutes { values.append(.init("timer", "modules.detail.minutes", minutes.formatted())) }
+            if let attempts = item.maxAttempts { values.append(.init("arrow.counterclockwise", "modules.detail.attempts", attempts.formatted())) }
+            if let points = item.maxScore { values.append(.init("star", "modules.detail.points", score(points))) }
+            if let passing = item.passingScore { values.append(.init("checkmark.seal", "modules.detail.passing", score(passing))) }
+            if let lockdown = item.lockdown { values.append(.init("lock.shield", "modules.detail.lockdown", yesNo(lockdown))) }
+        case .discussion:
+            if let posts = item.postCount { values.append(.init("bubble.left", "modules.detail.posts", posts.formatted())) }
+            if let pinned = item.isPinned { values.append(.init("pin", "modules.detail.pinned", yesNo(pinned))) }
+            if let graded = item.isGraded { values.append(.init("checkmark.seal", "modules.detail.graded", yesNo(graded))) }
+            if let points = item.maxScore { values.append(.init("star", "modules.detail.points", score(points))) }
+        }
+
+        if let published = formattedModuleDate(item.publishedAt) {
+            values.append(.init("calendar.badge.checkmark", "modules.detail.published", published))
+        }
+        if let closed = formattedModuleDate(item.closedAt, includeTime: true) {
+            values.append(.init("lock", "modules.detail.closed", closed))
+        }
+        if let archived = formattedModuleDate(item.archivedAt) {
+            values.append(.init("archivebox", "modules.detail.archived", archived))
+        }
+        return values
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: entry.kind.systemImage)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Brand.evergreen)
+                    .frame(width: 38, height: 38)
+                    .background(Brand.evergreen.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(entry.kind.labelKey)
+                        .font(.caption2.weight(.semibold))
+                        .textCase(.uppercase)
+                        .tracking(0.6)
+                        .foregroundStyle(Brand.evergreen)
+                    Text(entry.item.title)
+                        .font(.headline)
+                        .foregroundStyle(Brand.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 6)
+
+                if let status = entry.item.status {
+                    Text(localizedStatus(status))
+                        .font(.caption2.bold())
+                        .foregroundStyle(Brand.evergreen)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
+                        .background(Brand.evergreen.opacity(0.09), in: Capsule())
+                }
+            }
+
+            if let description = entry.item.description, !description.isEmpty {
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if !facts.isEmpty {
+                LazyVGrid(
+                    columns: factColumns,
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    ForEach(facts) { fact in
+                        HStack(spacing: 8) {
+                            Image(systemName: fact.systemImage)
+                                .font(.caption)
+                                .foregroundStyle(Brand.evergreen)
+                                .frame(width: 18)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(fact.value)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Brand.ink)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                                Text(LocalizedStringKey(fact.labelKey))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 11))
+                    }
+                }
+            }
+
+            if let urlString = entry.item.externalURLString,
+               let url = URL(string: urlString),
+               ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+                Link(destination: url) {
+                    Label("modules.detail.open", systemImage: "arrow.up.right.square")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(Brand.evergreen)
+            }
+        }
+        .padding(16)
+        .background(.background, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Brand.ink.opacity(0.07))
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("module.detail.\(entry.kind.rawValue).\(entry.item.id)")
+    }
+
+    private func humanized(_ value: String) -> String {
+        value.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    private func yesNo(_ value: Bool) -> String {
+        String(localized: value ? "common.yes" : "common.no")
+    }
+
+    private func score(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0 ... 2)))
+    }
+
+    private func localizedStatus(_ value: String) -> String {
+        switch value {
+        case "published": String(localized: "modules.status.published")
+        case "draft": String(localized: "modules.status.draft")
+        case "closed": String(localized: "modules.status.closed")
+        case "archived": String(localized: "modules.status.archived")
+        default: humanized(value)
+        }
+    }
+}
+
+private struct ModuleDetailFact: Identifiable {
+    let systemImage: String
+    let labelKey: String
+    let value: String
+
+    var id: String { "\(labelKey).\(value)" }
+
+    init(_ systemImage: String, _ labelKey: String, _ value: String) {
+        self.systemImage = systemImage
+        self.labelKey = labelKey
+        self.value = value
+    }
+}
+
+private struct ModuleDetailError: View {
+    let message: String
+    let retry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.title2)
+                .foregroundStyle(Brand.evergreen)
+            Text("common.error")
+                .font(.headline)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("common.retry", action: retry)
+                .buttonStyle(.borderedProminent)
+                .tint(Brand.evergreen)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+        .background(.background, in: RoundedRectangle(cornerRadius: 20))
+        .accessibilityIdentifier("module.detail.error")
+    }
+}
+
+private func formattedModuleDate(_ value: String?, includeTime: Bool = false) -> String? {
+    guard let value else { return nil }
+    let date = (try? Date(value, strategy: Date.ISO8601FormatStyle(includingFractionalSeconds: true)))
+        ?? (try? Date(value, strategy: .iso8601))
+    guard let date else { return nil }
+    return date.formatted(date: .abbreviated, time: includeTime ? .shortened : .omitted)
 }
