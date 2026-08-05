@@ -142,6 +142,9 @@
 "modules.dashboard.sequence" = "Learning sequence";
 "modules.dashboard.sequenceHelp" = "Modules are shown in their intended teaching order.";
 "modules.dashboard.moduleNumber" = "Module";
+"modules.schedule.session" = "Session";
+"modules.schedule.starts" = "Starts";
+"modules.schedule.ends" = "Ends";
 "modules.status.published" = "Published";
 "modules.status.draft" = "Draft";
 "modules.status.closed" = "Closed";
