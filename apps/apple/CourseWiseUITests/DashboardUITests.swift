@@ -200,6 +200,16 @@ final class DashboardUITests: XCTestCase {
                 "module.schedule.00000000-0000-4000-8000-000000000201"
             ].exists
         )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.schedule.start.00000000-0000-4000-8000-000000000201"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.schedule.end.00000000-0000-4000-8000-000000000201"
+            ].exists
+        )
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "modules-detailed-list"

@@ -142,6 +142,9 @@
 "modules.dashboard.sequence" = "学习顺序";
 "modules.dashboard.sequenceHelp" = "模块按照预定的教学顺序排列。";
 "modules.dashboard.moduleNumber" = "模块";
+"modules.schedule.session" = "学习周期";
+"modules.schedule.starts" = "开始";
+"modules.schedule.ends" = "结束";
 "modules.status.published" = "已发布";
 "modules.status.draft" = "草稿";
 "modules.status.closed" = "已结束";

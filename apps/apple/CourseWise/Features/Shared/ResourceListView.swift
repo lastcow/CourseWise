@@ -312,16 +312,8 @@ private struct ModuleTimelineRow: View {
         return module.status == "published" ? "checkmark.circle.fill" : "pencil.circle.fill"
     }
 
-    private var scheduleText: String? {
-        let start = formattedDate(module.startAt)
-        let end = formattedDate(module.endAt)
-        return switch (start, end) {
-        case let (start?, end?): "\(start) – \(end)"
-        case let (start?, nil): start
-        case let (nil, end?): end
-        default: nil
-        }
-    }
+    private var startDateText: String? { formattedDate(module.startAt) }
+    private var endDateText: String? { formattedDate(module.endAt) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -361,11 +353,12 @@ private struct ModuleTimelineRow: View {
                         .accessibilityLabel(Text(statusKey))
                 }
 
-                if let scheduleText {
-                    Label(scheduleText, systemImage: "calendar.badge.clock")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("module.schedule.\(module.id)")
+                if startDateText != nil || endDateText != nil {
+                    ModuleSessionSchedule(
+                        moduleID: module.id,
+                        startDate: startDateText,
+                        endDate: endDateText
+                    )
                 }
 
                 HStack(spacing: 8) {
@@ -395,5 +388,75 @@ private struct ModuleTimelineRow: View {
         let date = (try? Date(value, strategy: Date.ISO8601FormatStyle(includingFractionalSeconds: true)))
             ?? (try? Date(value, strategy: .iso8601))
         return date?.formatted(date: .abbreviated, time: .omitted)
+    }
+}
+
+private struct ModuleSessionSchedule: View {
+    let moduleID: String
+    let startDate: String?
+    let endDate: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Label("modules.schedule.session", systemImage: "calendar.badge.clock")
+                .font(.caption2.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(0.7)
+                .foregroundStyle(Brand.evergreen)
+
+            HStack(alignment: .bottom, spacing: 8) {
+                if let startDate {
+                    ModuleSessionDate(
+                        labelKey: "modules.schedule.starts",
+                        value: startDate,
+                        identifier: "module.schedule.start.\(moduleID)"
+                    )
+                }
+
+                if startDate != nil, endDate != nil {
+                    Image(systemName: "arrow.right")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.tertiary)
+                        .padding(.bottom, 4)
+                        .accessibilityHidden(true)
+                }
+
+                if let endDate {
+                    ModuleSessionDate(
+                        labelKey: "modules.schedule.ends",
+                        value: endDate,
+                        identifier: "module.schedule.end.\(moduleID)"
+                    )
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("module.schedule.\(moduleID)")
+    }
+}
+
+private struct ModuleSessionDate: View {
+    let labelKey: LocalizedStringKey
+    let value: String
+    let identifier: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(labelKey)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
     }
 }
