@@ -295,6 +295,8 @@ final class DashboardUITests: XCTestCase {
                 NSPredicate(format: "label CONTAINS %@", "This guide explains how each week is organized")
             ).firstMatch.exists
         )
+        XCTAssertTrue(app.staticTexts["Your weekly learning path"].exists)
+        XCTAssertTrue(app.staticTexts["Getting support"].exists)
 
         let materialScreenshot = XCTAttachment(screenshot: app.screenshot())
         materialScreenshot.name = "module-material-full-content"
@@ -315,6 +317,18 @@ final class DashboardUITests: XCTestCase {
                 "module.resource.slide.00000000-0000-4000-8000-000000000411"
             ].exists
         )
+        XCTAssertTrue(app.descendants(matching: .any)["module.presentation.deck"].exists)
+        app.buttons["Next"].tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "module.resource.slide.00000000-0000-4000-8000-000000000412"
+            ].waitForExistence(timeout: 2)
+        )
+
+        let presentationScreenshot = XCTAttachment(screenshot: app.screenshot())
+        presentationScreenshot.name = "module-presentation-deck"
+        presentationScreenshot.lifetime = .keepAlways
+        add(presentationScreenshot)
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
         let discussionSection = app.descendants(matching: .any)["module.detail.section.discussions"]
@@ -350,6 +364,45 @@ final class DashboardUITests: XCTestCase {
         assessmentCardsScreenshot.name = "module-assessment-cards"
         assessmentCardsScreenshot.lifetime = .keepAlways
         add(assessmentCardsScreenshot)
+
+        assignmentCard.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["module.assignment.content"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.staticTexts["Your response must include"].exists)
+
+        let requirementsScreenshot = XCTAttachment(screenshot: app.screenshot())
+        requirementsScreenshot.name = "module-assignment-requirements"
+        requirementsScreenshot.lifetime = .keepAlways
+        add(requirementsScreenshot)
+
+        app.segmentedControls.buttons["Submissions"].tap()
+        XCTAssertTrue(app.staticTexts["Student submissions"].waitForExistence(timeout: 2))
+        XCTAssertEqual(app.staticTexts["module.assignment.submission.count"].label, "3")
+        let alexSubmission = app.descendants(matching: .any)[
+            "module.assignment.submission.00000000-0000-4000-8000-000000000441"
+        ]
+        XCTAssertTrue(alexSubmission.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Maya Patel"].exists)
+
+        let submissionsScreenshot = XCTAttachment(screenshot: app.screenshot())
+        submissionsScreenshot.name = "module-assignment-submissions"
+        submissionsScreenshot.lifetime = .keepAlways
+        add(submissionsScreenshot)
+
+        alexSubmission.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["module.assignment.submission.detail"]
+                .waitForExistence(timeout: 3)
+        )
+        XCTAssertTrue(app.staticTexts["My learning goals"].exists)
+        XCTAssertTrue(app.staticTexts["Practical application"].exists)
+        XCTAssertFalse(app.buttons["Grade"].exists)
+
+        let submissionDetailScreenshot = XCTAttachment(screenshot: app.screenshot())
+        submissionDetailScreenshot.name = "module-assignment-submission-detail"
+        submissionDetailScreenshot.lifetime = .keepAlways
+        add(submissionDetailScreenshot)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
 
         let orientationQuiz = app.descendants(matching: .any)[
             "module.detail.quiz.00000000-0000-4000-8000-000000000331"

@@ -11,6 +11,7 @@ struct UITestFixture: Sendable {
     let quizzes: [ModuleContentSummary]
     let discussions: [ModuleContentSummary]
     let presentationSlides: [String: [PresentationSlideSummary]]
+    let assignmentSubmissions: [String: [AssignmentSubmissionSummary]]
     let quizQuestions: [String: [QuizQuestionSummary]]
     let discussionPosts: [String: DiscussionPostsPage]
 
@@ -140,7 +141,28 @@ struct UITestFixture: Sendable {
                     moduleID: "00000000-0000-4000-8000-000000000201",
                     title: "Course Guide",
                     description: "Essential policies, learning outcomes, and weekly expectations.",
-                    content: "Welcome to Deep Learning. This guide explains how each week is organized, where to find learning materials, and how your work will be assessed. Complete the readings before class, participate in the weekly discussion, and submit assignments before the listed deadline. If you need support, contact the teaching team through the course discussion space.",
+                    content: """
+                    # Welcome to Deep Learning
+
+                    This guide explains how each week is organized, where to find **learning materials**, and how your work will be assessed.
+
+                    ## Your weekly learning path
+
+                    1. Read the core material before class.
+                    2. Join the live teaching session.
+                    3. Complete the practice activity.
+                    4. Reflect with peers in the weekly discussion.
+
+                    > Consistent preparation matters more than prior machine-learning experience.
+
+                    ## Getting support
+
+                    - Use the course discussion for questions that can help the whole class.
+                    - Email the teaching team for private academic concerns.
+                    - Contact accessibility services whenever an accommodation would help.
+
+                    `Tip:` Keep this guide bookmarked throughout the term.
+                    """,
                     status: "published",
                     type: "document",
                     sourceType: "file_upload",
@@ -179,7 +201,23 @@ struct UITestFixture: Sendable {
                     id: "00000000-0000-4000-8000-000000000321",
                     moduleID: "00000000-0000-4000-8000-000000000201",
                     title: "Learning Goals Reflection",
-                    description: "Describe your goals and identify one practical application for this course.",
+                    description: """
+                    # Learning Goals Reflection
+
+                    Describe your goals for this course and identify **one practical application** where deep learning could create meaningful value.
+
+                    ## Your response must include
+
+                    - Two specific learning goals
+                    - One real-world problem you want to explore
+                    - A short explanation of how you will measure progress
+
+                    ## Submission format
+
+                    Write **300–500 words** in Markdown or attach a PDF. Cite any external sources using links.
+
+                    > Focus on a concrete outcome you can demonstrate by the end of the course.
+                    """,
                     status: "published",
                     position: 0,
                     publishedAt: "2026-05-23T14:00:00.000Z",
@@ -250,6 +288,82 @@ struct UITestFixture: Sendable {
                         title: "Support and resources",
                         content: "Use course discussions for learning questions and email the teaching team for private concerns. Accessibility support is available throughout the term.",
                         layout: "content"
+                    ),
+                ],
+            ],
+            assignmentSubmissions: [
+                "00000000-0000-4000-8000-000000000321": [
+                    AssignmentSubmissionSummary(
+                        id: "00000000-0000-4000-8000-000000000441",
+                        assignmentID: "00000000-0000-4000-8000-000000000321",
+                        studentID: "00000000-0000-4000-8000-000000000501",
+                        status: "submitted",
+                        textAnswer: """
+                        # My learning goals
+
+                        I want to understand how to move from a research notebook to a **reliable production model**.
+
+                        ## Practical application
+
+                        I will prototype an image-quality review tool for a community health program and measure progress through:
+
+                        - Reproducible evaluation results
+                        - Clear model limitations
+                        - A documented monitoring plan
+                        """,
+                        attachments: [],
+                        submittedAt: "2026-06-04T15:20:00.000Z",
+                        createdAt: "2026-06-04T15:10:00.000Z",
+                        updatedAt: "2026-06-04T15:20:00.000Z",
+                        student: SubmissionStudentSummary(
+                            id: "00000000-0000-4000-8000-000000000501",
+                            name: "Alex Morgan",
+                            email: "alex.morgan@example.edu"
+                        )
+                    ),
+                    AssignmentSubmissionSummary(
+                        id: "00000000-0000-4000-8000-000000000442",
+                        assignmentID: "00000000-0000-4000-8000-000000000321",
+                        studentID: "00000000-0000-4000-8000-000000000502",
+                        status: "late",
+                        textAnswer: "My primary goal is to design trustworthy evaluation workflows for multimodal systems.",
+                        attachments: [
+                            SubmissionAttachmentSummary(
+                                fileAssetID: "00000000-0000-4000-8000-000000000601",
+                                filename: "learning-goals.pdf",
+                                sizeBytes: 248_120,
+                                contentType: "application/pdf"
+                            ),
+                        ],
+                        submittedAt: "2026-06-06T09:12:00.000Z",
+                        createdAt: "2026-06-05T21:40:00.000Z",
+                        updatedAt: "2026-06-06T09:12:00.000Z",
+                        student: SubmissionStudentSummary(
+                            id: "00000000-0000-4000-8000-000000000502",
+                            name: "Maya Patel",
+                            email: "maya.patel@example.edu"
+                        )
+                    ),
+                    AssignmentSubmissionSummary(
+                        id: "00000000-0000-4000-8000-000000000443",
+                        assignmentID: "00000000-0000-4000-8000-000000000321",
+                        studentID: "00000000-0000-4000-8000-000000000503",
+                        status: "graded",
+                        textAnswer: "I plan to build a transparent forecasting workflow and document every modeling decision.",
+                        attachments: [],
+                        submittedAt: "2026-06-03T18:05:00.000Z",
+                        score: 9,
+                        rawScore: 9,
+                        feedback: "Clear, measurable goals. Add a specific monitoring metric in your next reflection.",
+                        gradedAt: "2026-06-05T11:30:00.000Z",
+                        gradedByID: "00000000-0000-4000-8000-000000000001",
+                        createdAt: "2026-06-03T17:40:00.000Z",
+                        updatedAt: "2026-06-05T11:30:00.000Z",
+                        student: SubmissionStudentSummary(
+                            id: "00000000-0000-4000-8000-000000000503",
+                            name: "Jordan Lee",
+                            email: "jordan.lee@example.edu"
+                        )
                     ),
                 ],
             ],

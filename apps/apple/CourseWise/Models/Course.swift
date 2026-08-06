@@ -81,6 +81,110 @@ struct AssignmentSubmissionSnapshot: Decodable, Hashable, Sendable {
     let latePenaltyWaived: Bool
 }
 
+struct SubmissionAttachmentSummary: Decodable, Hashable, Identifiable, Sendable {
+    let fileAssetID: String
+    let filename: String?
+    let sizeBytes: Int?
+    let contentType: String?
+
+    var id: String { fileAssetID }
+
+    private enum CodingKeys: String, CodingKey {
+        case fileAssetID = "fileAssetId"
+        case filename
+        case sizeBytes
+        case contentType
+    }
+}
+
+struct SubmissionStudentSummary: Decodable, Hashable, Sendable {
+    let id: String
+    let name: String
+    let email: String
+}
+
+struct AssignmentSubmissionSummary: Decodable, Hashable, Identifiable, Sendable {
+    let id: String
+    let assignmentID: String
+    let studentID: String
+    let status: String
+    let textAnswer: String?
+    let attachments: [SubmissionAttachmentSummary]
+    let submittedAt: String?
+    let score: Double?
+    let rawScore: Double?
+    let latePenaltyPercent: Double?
+    let latePenaltyWaived: Bool
+    let feedback: String?
+    let gradedAt: String?
+    let gradedByID: String?
+    let groupSubmissionID: String?
+    let createdAt: String
+    let updatedAt: String
+    let student: SubmissionStudentSummary
+
+    init(
+        id: String,
+        assignmentID: String,
+        studentID: String,
+        status: String,
+        textAnswer: String? = nil,
+        attachments: [SubmissionAttachmentSummary] = [],
+        submittedAt: String? = nil,
+        score: Double? = nil,
+        rawScore: Double? = nil,
+        latePenaltyPercent: Double? = nil,
+        latePenaltyWaived: Bool = false,
+        feedback: String? = nil,
+        gradedAt: String? = nil,
+        gradedByID: String? = nil,
+        groupSubmissionID: String? = nil,
+        createdAt: String,
+        updatedAt: String,
+        student: SubmissionStudentSummary
+    ) {
+        self.id = id
+        self.assignmentID = assignmentID
+        self.studentID = studentID
+        self.status = status
+        self.textAnswer = textAnswer
+        self.attachments = attachments
+        self.submittedAt = submittedAt
+        self.score = score
+        self.rawScore = rawScore
+        self.latePenaltyPercent = latePenaltyPercent
+        self.latePenaltyWaived = latePenaltyWaived
+        self.feedback = feedback
+        self.gradedAt = gradedAt
+        self.gradedByID = gradedByID
+        self.groupSubmissionID = groupSubmissionID
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.student = student
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case assignmentID = "assignmentId"
+        case studentID = "studentId"
+        case status
+        case textAnswer
+        case attachments
+        case submittedAt
+        case score
+        case rawScore
+        case latePenaltyPercent
+        case latePenaltyWaived
+        case feedback
+        case gradedAt
+        case gradedByID = "gradedById"
+        case groupSubmissionID = "groupSubmissionId"
+        case createdAt
+        case updatedAt
+        case student
+    }
+}
+
 struct ModuleContentSummary: Decodable, Hashable, Identifiable, Sendable {
     let id: String
     let moduleID: String?

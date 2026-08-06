@@ -215,6 +215,51 @@ struct CourseModelTests {
         #expect(item.mySubmission?.latePenaltyWaived == false)
     }
 
+    @Test func assignmentSubmissionDecodesReadOnlyStudentDetail() throws {
+        let data = Data(
+            """
+            {
+              "id": "submission-1",
+              "assignmentId": "assignment-1",
+              "studentId": "student-1",
+              "status": "graded",
+              "textAnswer": "# Learning goals\\n\\nBuild a reliable evaluation workflow.",
+              "attachments": [{
+                "fileAssetId": "file-1",
+                "filename": "goals.pdf",
+                "sizeBytes": 2048,
+                "contentType": "application/pdf"
+              }],
+              "submittedAt": "2026-06-05T18:30:00.000Z",
+              "score": 9,
+              "rawScore": 10,
+              "latePenaltyPercent": 10,
+              "latePenaltyWaived": false,
+              "feedback": "Clear and measurable.",
+              "gradedAt": "2026-06-06T12:00:00.000Z",
+              "gradedById": "teacher-1",
+              "groupSubmissionId": null,
+              "createdAt": "2026-06-05T18:00:00.000Z",
+              "updatedAt": "2026-06-06T12:00:00.000Z",
+              "student": {
+                "id": "student-1",
+                "name": "Alex Morgan",
+                "email": "alex@example.edu"
+              }
+            }
+            """.utf8
+        )
+
+        let submission = try JSONDecoder().decode(AssignmentSubmissionSummary.self, from: data)
+
+        #expect(submission.student.name == "Alex Morgan")
+        #expect(submission.textAnswer?.contains("Learning goals") == true)
+        #expect(submission.attachments.first?.filename == "goals.pdf")
+        #expect(submission.attachments.first?.sizeBytes == 2048)
+        #expect(submission.score == 9)
+        #expect(submission.feedback == "Clear and measurable.")
+    }
+
     @Test func moduleMaterialAndNestedContentDecodeRoleSafePayloads() throws {
         let materialData = Data(
             """
