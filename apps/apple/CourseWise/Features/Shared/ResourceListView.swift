@@ -1255,6 +1255,7 @@ private struct ModuleResourceDetailView: View {
     let entry: ModuleDetailEntry
 
     @State private var slides: [PresentationSlideSummary] = []
+    @State private var assignmentSubmissions: [AssignmentSubmissionSummary] = []
     @State private var questions: [QuizQuestionSummary] = []
     @State private var discussionPage: DiscussionPostsPage?
     @State private var isLoading = false
@@ -1296,35 +1297,74 @@ private struct ModuleResourceDetailView: View {
     }
 
     private var resourceHero: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: entry.kind.systemImage)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(width: 52, height: 52)
-                .background(Brand.evergreen, in: RoundedRectangle(cornerRadius: 16))
+        ZStack(alignment: .topLeading) {
+            LinearGradient(
+                colors: [entry.kind.accentColor.opacity(0.96), entry.kind.accentColor.opacity(0.72)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Circle()
+                .fill(.white.opacity(0.09))
+                .frame(width: 170, height: 170)
+                .offset(x: 245, y: -95)
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(entry.kind.labelKey)
-                    .font(.caption.weight(.semibold))
-                    .textCase(.uppercase)
-                    .tracking(0.6)
-                    .foregroundStyle(Brand.evergreen)
-                Text(entry.item.title)
-                    .font(.title2.bold())
-                    .foregroundStyle(Brand.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let description = entry.item.description, !description.isEmpty {
-                    Text(description)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: entry.kind.systemImage)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(entry.kind.accentColor)
+                    .frame(width: 52, height: 52)
+                    .background(.white.opacity(0.94), in: RoundedRectangle(cornerRadius: 16))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(entry.kind.labelKey)
+                            .font(.caption.weight(.semibold))
+                            .textCase(.uppercase)
+                            .tracking(0.6)
+                        Spacer()
+                        if let status = entry.item.status {
+                            Label(localizedModuleStatus(status), systemImage: "checkmark.circle.fill")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(.white.opacity(0.16), in: Capsule())
+                        }
+                    }
+                    .foregroundStyle(.white.opacity(0.88))
+
+                    Text(entry.item.title)
+                        .font(.title2.bold())
+                        .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
+                    if let description = heroDescription {
+                        Text(description)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.82))
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
+            .padding(18)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(.background, in: RoundedRectangle(cornerRadius: 22))
-        .overlay { RoundedRectangle(cornerRadius: 22).stroke(Brand.ink.opacity(0.07)) }
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .shadow(color: entry.kind.accentColor.opacity(0.16), radius: 18, y: 8)
+    }
+
+    private var heroDescription: String? {
+        guard let description = entry.item.description,
+              !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        guard entry.kind == .assignment else { return description }
+
+        for block in MarkdownBlockParser.parse(description) {
+            if case let .paragraph(text) = block.kind {
+                return String(inlineMarkdown(text).characters)
+            }
+        }
+        return String(inlineMarkdown(description).characters)
     }
 
     @ViewBuilder
@@ -1349,16 +1389,21 @@ private struct ModuleResourceDetailView: View {
             } else {
                 switch entry.kind {
                 case .material:
-                    ContentTextPanel(text: entry.item.content ?? entry.item.description)
+                    MarkdownContentPanel(
+                        text: entry.item.content ?? entry.item.description,
+                        accentColor: entry.kind.accentColor
+                    )
                 case .assignment:
-                    ContentTextPanel(text: entry.item.description)
+                    AssignmentResourceContent(
+                        assignment: entry.item,
+                        submissions: assignmentSubmissions,
+                        canViewAllSubmissions: authStore.account?.role != .student
+                    )
                 case .presentation:
                     if slides.isEmpty {
                         EmptyContentPanel()
                     } else {
-                        ForEach(slides.sorted { $0.position < $1.position }) { slide in
-                            PresentationSlideCard(slide: slide)
-                        }
+                        PresentationDeckView(slides: slides)
                     }
                 case .quiz:
                     if questions.isEmpty {
@@ -1369,7 +1414,10 @@ private struct ModuleResourceDetailView: View {
                         }
                     }
                 case .discussion:
-                    ContentTextPanel(text: entry.item.description)
+                    MarkdownContentPanel(
+                        text: entry.item.description,
+                        accentColor: entry.kind.accentColor
+                    )
                     if let posts = discussionPage?.posts, !posts.isEmpty {
                         ForEach(posts) { post in
                             DiscussionPostCard(post: post)
@@ -1459,7 +1507,7 @@ private struct ModuleResourceDetailView: View {
 
     private func loadContent() async {
         guard !isLoading else { return }
-        guard [.presentation, .quiz, .discussion].contains(entry.kind) else { return }
+        guard [.presentation, .assignment, .quiz, .discussion].contains(entry.kind) else { return }
         isLoading = true
         defer { isLoading = false }
 
@@ -1468,6 +1516,7 @@ private struct ModuleResourceDetailView: View {
             if let fixture = UITestFixture.current {
                 try await Task.sleep(for: .milliseconds(250))
                 slides = fixture.presentationSlides[entry.item.id] ?? []
+                assignmentSubmissions = fixture.assignmentSubmissions[entry.item.id] ?? []
                 questions = fixture.quizQuestions[entry.item.id] ?? []
                 discussionPage = fixture.discussionPosts[entry.item.id]
                 errorMessage = nil
@@ -1478,13 +1527,19 @@ private struct ModuleResourceDetailView: View {
             switch entry.kind {
             case .presentation:
                 slides = try await api.get("/api/presentations/\(entry.item.id)/slides")
+            case .assignment:
+                if authStore.account?.role != .student {
+                    assignmentSubmissions = try await api.get(
+                        "/api/assignments/\(entry.item.id)/submissions"
+                    )
+                }
             case .quiz:
                 questions = try await api.get("/api/quizzes/\(entry.item.id)/questions")
             case .discussion:
                 discussionPage = try await api.get(
                     "/api/discussion-topics/\(entry.item.id)/posts?rootLimit=20"
                 )
-            case .material, .assignment:
+            case .material:
                 break
             }
             errorMessage = nil
@@ -1496,24 +1551,269 @@ private struct ModuleResourceDetailView: View {
     }
 }
 
-private struct ContentTextPanel: View {
+private struct MarkdownContentPanel: View {
     let text: String?
+    let accentColor: Color
 
     var body: some View {
-        if let text, !text.isEmpty {
-            Text(text)
-                .font(.body)
-                .foregroundStyle(Brand.ink)
-                .lineSpacing(5)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        if let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            RichMarkdownView(text: text, accentColor: accentColor)
                 .padding(18)
-                .background(.background, in: RoundedRectangle(cornerRadius: 18))
-                .overlay { RoundedRectangle(cornerRadius: 18).stroke(Brand.ink.opacity(0.07)) }
+                .background(.background, in: RoundedRectangle(cornerRadius: 20))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(accentColor.opacity(0.14))
+                }
         } else {
             EmptyContentPanel()
         }
     }
+}
+
+private struct MarkdownBlock: Identifiable {
+    enum Kind {
+        case heading(level: Int, text: String)
+        case paragraph(String)
+        case unordered([String])
+        case ordered([String])
+        case quote(String)
+        case code(String, language: String?)
+        case divider
+    }
+
+    let id: Int
+    let kind: Kind
+}
+
+private enum MarkdownBlockParser {
+    static func parse(_ source: String) -> [MarkdownBlock] {
+        let lines = source.components(separatedBy: .newlines)
+        var blocks: [MarkdownBlock] = []
+        var paragraph: [String] = []
+        var unordered: [String] = []
+        var ordered: [String] = []
+        var code: [String] = []
+        var codeLanguage: String?
+        var inCode = false
+
+        func append(_ kind: MarkdownBlock.Kind) {
+            blocks.append(MarkdownBlock(id: blocks.count, kind: kind))
+        }
+        func flushParagraph() {
+            guard !paragraph.isEmpty else { return }
+            append(.paragraph(paragraph.joined(separator: " ")))
+            paragraph.removeAll()
+        }
+        func flushLists() {
+            if !unordered.isEmpty {
+                append(.unordered(unordered))
+                unordered.removeAll()
+            }
+            if !ordered.isEmpty {
+                append(.ordered(ordered))
+                ordered.removeAll()
+            }
+        }
+
+        for rawLine in lines {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+
+            if line.hasPrefix("```") {
+                flushParagraph()
+                flushLists()
+                if inCode {
+                    append(.code(code.joined(separator: "\n"), language: codeLanguage))
+                    code.removeAll()
+                    codeLanguage = nil
+                } else {
+                    let language = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                    codeLanguage = language.isEmpty ? nil : language
+                }
+                inCode.toggle()
+                continue
+            }
+            if inCode {
+                code.append(rawLine)
+                continue
+            }
+            if line.isEmpty {
+                flushParagraph()
+                flushLists()
+                continue
+            }
+            if ["---", "***", "___"].contains(line) {
+                flushParagraph()
+                flushLists()
+                append(.divider)
+                continue
+            }
+
+            let headingMarks = line.prefix { $0 == "#" }.count
+            if (1 ... 4).contains(headingMarks),
+               line.dropFirst(headingMarks).hasPrefix(" ") {
+                flushParagraph()
+                flushLists()
+                append(.heading(
+                    level: headingMarks,
+                    text: String(line.dropFirst(headingMarks + 1))
+                ))
+                continue
+            }
+            if let item = unorderedItem(in: line) {
+                flushParagraph()
+                if !ordered.isEmpty { flushLists() }
+                unordered.append(item)
+                continue
+            }
+            if let item = orderedItem(in: line) {
+                flushParagraph()
+                if !unordered.isEmpty { flushLists() }
+                ordered.append(item)
+                continue
+            }
+            if line.hasPrefix("> ") {
+                flushParagraph()
+                flushLists()
+                append(.quote(String(line.dropFirst(2))))
+                continue
+            }
+            paragraph.append(line)
+        }
+
+        if inCode, !code.isEmpty {
+            append(.code(code.joined(separator: "\n"), language: codeLanguage))
+        }
+        flushParagraph()
+        flushLists()
+        return blocks
+    }
+
+    private static func unorderedItem(in line: String) -> String? {
+        for prefix in ["- ", "* ", "+ "] where line.hasPrefix(prefix) {
+            return String(line.dropFirst(2))
+        }
+        return nil
+    }
+
+    private static func orderedItem(in line: String) -> String? {
+        guard let space = line.firstIndex(of: " ") else { return nil }
+        let marker = line[..<space]
+        guard marker.hasSuffix(".") || marker.hasSuffix(")") else { return nil }
+        guard Int(marker.dropLast()) != nil else { return nil }
+        return String(line[line.index(after: space)...])
+    }
+}
+
+private struct RichMarkdownView: View {
+    let text: String
+    let accentColor: Color
+
+    private var blocks: [MarkdownBlock] { MarkdownBlockParser.parse(text) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(blocks) { block in
+                blockView(block)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .textSelection(.enabled)
+    }
+
+    @ViewBuilder
+    private func blockView(_ block: MarkdownBlock) -> some View {
+        switch block.kind {
+        case let .heading(level, text):
+            Text(inlineMarkdown(text))
+                .font(headingFont(level))
+                .foregroundStyle(Brand.ink)
+                .padding(.top, level == 1 ? 2 : 5)
+                .accessibilityAddTraits(.isHeader)
+        case let .paragraph(text):
+            Text(inlineMarkdown(text))
+                .font(.body)
+                .foregroundStyle(Brand.ink)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+        case let .unordered(items):
+            VStack(alignment: .leading, spacing: 9) {
+                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Circle()
+                            .fill(accentColor)
+                            .frame(width: 6, height: 6)
+                        Text(inlineMarkdown(item))
+                            .font(.body)
+                            .foregroundStyle(Brand.ink)
+                    }
+                }
+            }
+            .padding(.leading, 3)
+        case let .ordered(items):
+            VStack(alignment: .leading, spacing: 9) {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text("\(index + 1)")
+                            .font(.caption.bold())
+                            .foregroundStyle(accentColor)
+                            .frame(width: 24, height: 24)
+                            .background(accentColor.opacity(0.12), in: Circle())
+                        Text(inlineMarkdown(item))
+                            .font(.body)
+                            .foregroundStyle(Brand.ink)
+                    }
+                }
+            }
+        case let .quote(text):
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(accentColor)
+                    .frame(width: 4)
+                Text(inlineMarkdown(text))
+                    .font(.body.italic())
+                    .foregroundStyle(Brand.ink.opacity(0.82))
+                    .lineSpacing(4)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .background(accentColor.opacity(0.075), in: RoundedRectangle(cornerRadius: 12))
+        case let .code(text, language):
+            VStack(alignment: .leading, spacing: 8) {
+                if let language {
+                    Text(language.uppercased())
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    Text(text)
+                        .font(.system(.subheadline, design: .monospaced))
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+            }
+            .padding(13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.ink.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+        case .divider:
+            Divider().overlay(accentColor.opacity(0.3))
+        }
+    }
+
+    private func headingFont(_ level: Int) -> Font {
+        switch level {
+        case 1: .title2.bold()
+        case 2: .title3.bold()
+        case 3: .headline
+        default: .subheadline.weight(.semibold)
+        }
+    }
+}
+
+private func inlineMarkdown(_ source: String) -> AttributedString {
+    let options = AttributedString.MarkdownParsingOptions(
+        interpretedSyntax: .inlineOnlyPreservingWhitespace
+    )
+    return (try? AttributedString(markdown: source, options: options)) ?? AttributedString(source)
 }
 
 private struct EmptyContentPanel: View {
@@ -1527,44 +1827,659 @@ private struct EmptyContentPanel: View {
     }
 }
 
-private struct PresentationSlideCard: View {
+private struct PresentationDeckView: View {
+    let slides: [PresentationSlideSummary]
+    @State private var selection = 0
+
+    private var orderedSlides: [PresentationSlideSummary] {
+        slides.sorted { $0.position < $1.position }
+    }
+
+    private var selectedIndex: Int {
+        min(max(selection, 0), max(orderedSlides.count - 1, 0))
+    }
+
+    private var selectedSlide: PresentationSlideSummary {
+        orderedSlides[selectedIndex]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Label("modules.presentation.deck", systemImage: "rectangle.stack.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.blue)
+                Spacer()
+                Text(String(
+                    format: String(localized: "modules.presentation.progressFormat"),
+                    selectedIndex + 1,
+                    orderedSlides.count
+                ))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+            }
+
+            ProgressView(value: Double(selectedIndex + 1), total: Double(orderedSlides.count))
+                .tint(.blue)
+
+            PresentationSlideCanvas(slide: selectedSlide)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(Array(orderedSlides.enumerated()), id: \.element.id) { index, slide in
+                        Button {
+                            withAnimation(.snappy) { selection = index }
+                        } label: {
+                            PresentationSlideThumbnail(
+                                slide: slide,
+                                number: index + 1,
+                                isSelected: index == selectedIndex
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(
+                            format: String(localized: "modules.presentation.thumbnailFormat"),
+                            index + 1,
+                            slide.title ?? ""
+                        ))
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    withAnimation(.snappy) { selection = max(selectedIndex - 1, 0) }
+                } label: {
+                    Label("modules.presentation.previous", systemImage: "chevron.left")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(selectedIndex == 0)
+
+                Button {
+                    withAnimation(.snappy) {
+                        selection = min(selectedIndex + 1, orderedSlides.count - 1)
+                    }
+                } label: {
+                    Label("modules.presentation.next", systemImage: "chevron.right")
+                        .labelStyle(.titleAndIcon)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.blue)
+                .disabled(selectedIndex == orderedSlides.count - 1)
+            }
+
+            if let notes = selectedSlide.speakerNotes, !notes.isEmpty {
+                VStack(alignment: .leading, spacing: 7) {
+                    Label("modules.content.speakerNotes", systemImage: "person.wave.2.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.blue)
+                    Text(inlineMarkdown(notes))
+                        .font(.subheadline)
+                        .foregroundStyle(Brand.ink.opacity(0.82))
+                        .lineSpacing(3)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.blue.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+            }
+        }
+        .padding(16)
+        .background(.background, in: RoundedRectangle(cornerRadius: 20))
+        .overlay { RoundedRectangle(cornerRadius: 20).stroke(.blue.opacity(0.16)) }
+        .accessibilityIdentifier("module.presentation.deck")
+    }
+}
+
+private struct PresentationSlideCanvas: View {
     let slide: PresentationSlideSummary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(String(format: String(localized: "modules.content.slideNumberFormat"), slide.position + 1))
+        ZStack {
+            LinearGradient(
+                colors: [.blue.opacity(0.94), .indigo.opacity(0.88)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Circle()
+                .fill(.white.opacity(0.08))
+                .frame(width: 210, height: 210)
+                .offset(x: 150, y: -100)
+            Circle()
+                .fill(.cyan.opacity(0.12))
+                .frame(width: 150, height: 150)
+                .offset(x: -170, y: 105)
+
+            VStack(alignment: .leading, spacing: 11) {
+                HStack {
+                    Text(String(
+                        format: String(localized: "modules.content.slideNumberFormat"),
+                        slide.position + 1
+                    ))
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Brand.evergreen)
+                    if let layout = slide.layout {
+                        Text("•")
+                        Text(layout.replacingOccurrences(of: "_", with: " ").capitalized)
+                    }
+                    Spacer()
+                    Image(systemName: "play.rectangle.fill")
+                }
+                .foregroundStyle(.white.opacity(0.72))
+
+                Spacer(minLength: 0)
+                if let title = slide.title, !title.isEmpty {
+                    Text(inlineMarkdown(title))
+                        .font(.title2.bold())
+                        .foregroundStyle(.white)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.72)
+                        .accessibilityIdentifier("module.resource.slide.\(slide.id)")
+                }
+                if let content = slide.content, !content.isEmpty {
+                    Text(inlineMarkdown(content))
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.88))
+                        .lineSpacing(3)
+                        .lineLimit(6)
+                        .minimumScaleFactor(0.72)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(20)
+        }
+        .aspectRatio(16 / 9, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay { RoundedRectangle(cornerRadius: 18).stroke(.white.opacity(0.18)) }
+        .shadow(color: .blue.opacity(0.16), radius: 16, y: 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("module.resource.slide.\(slide.id)")
+    }
+}
+
+private struct PresentationSlideThumbnail: View {
+    let slide: PresentationSlideSummary
+    let number: Int
+    let isSelected: Bool
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            LinearGradient(
+                colors: [.blue.opacity(isSelected ? 0.95 : 0.66), .indigo.opacity(0.76)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            VStack(alignment: .leading, spacing: 3) {
+                Text(number.formatted())
+                    .font(.caption2.bold())
+                    .foregroundStyle(.white.opacity(0.72))
+                Text(slide.title ?? String(localized: "modules.presentation.untitled"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+            }
+            .padding(8)
+        }
+        .frame(width: 112, height: 68)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 3)
+                .padding(-2)
+        }
+    }
+}
+
+private struct AssignmentResourceContent: View {
+    let assignment: ModuleContentSummary
+    let submissions: [AssignmentSubmissionSummary]
+    let canViewAllSubmissions: Bool
+    @State private var selectedTab: AssignmentContentTab = .requirements
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Picker("modules.assignment.contentPicker", selection: $selectedTab) {
+                ForEach(AssignmentContentTab.allCases) { tab in
+                    Label(tab.labelKey, systemImage: tab.systemImage)
+                        .tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if selectedTab == .requirements {
+                MarkdownContentPanel(text: assignment.description, accentColor: .orange)
+            } else {
+                submissionsSection
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("module.assignment.content")
+    }
+
+    private var submissionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "tray.full.fill")
+                    .font(.headline)
+                    .foregroundStyle(.orange)
+                    .frame(width: 38, height: 38)
+                    .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(LocalizedStringKey(
+                        canViewAllSubmissions
+                            ? "modules.assignment.submissions"
+                            : "modules.assignment.mySubmission"
+                    ))
+                    .font(.title3.bold())
+                    .foregroundStyle(Brand.ink)
+                    Text(LocalizedStringKey(
+                        canViewAllSubmissions
+                            ? "modules.assignment.submissionsHelp"
+                            : "modules.assignment.studentHelp"
+                    ))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                }
                 Spacer()
-                if let layout = slide.layout {
-                    Text(layout.replacingOccurrences(of: "_", with: " ").capitalized)
-                        .font(.caption2)
+                if canViewAllSubmissions {
+                    Text(submissions.count.formatted())
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .background(.orange.opacity(0.11), in: Capsule())
+                        .accessibilityIdentifier("module.assignment.submission.count")
+                }
+            }
+
+            Label("modules.assignment.readOnly", systemImage: "eye.fill")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            if canViewAllSubmissions {
+                if submissions.isEmpty {
+                    EmptyContentPanel()
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(submissions) { submission in
+                            NavigationLink {
+                                AssignmentSubmissionDetailView(
+                                    submission: submission,
+                                    maxScore: assignment.maxScore
+                                )
+                            } label: {
+                                AssignmentSubmissionRow(submission: submission)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            } else if let mine = assignment.mySubmission {
+                StudentSubmissionSnapshotCard(snapshot: mine, maxScore: assignment.maxScore)
+            } else {
+                Text("modules.assignment.notSubmitted")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 14))
+            }
+        }
+    }
+}
+
+private enum AssignmentContentTab: String, CaseIterable, Identifiable {
+    case requirements
+    case submissions
+
+    var id: String { rawValue }
+
+    var labelKey: LocalizedStringKey {
+        switch self {
+        case .requirements: "modules.assignment.requirementsTab"
+        case .submissions: "modules.assignment.submissionsTab"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .requirements: "list.bullet.clipboard"
+        case .submissions: "tray.full"
+        }
+    }
+}
+
+private struct AssignmentSubmissionRow: View {
+    let submission: AssignmentSubmissionSummary
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(initials(submission.student.name))
+                .font(.subheadline.bold())
+                .foregroundStyle(.orange)
+                .frame(width: 42, height: 42)
+                .background(.orange.opacity(0.12), in: Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(submission.student.name)
+                    .font(.headline)
+                    .foregroundStyle(Brand.ink)
+                Text(submission.student.email)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    if let submitted = formattedModuleDate(submission.submittedAt, includeTime: true) {
+                        Label(submitted, systemImage: "clock")
+                    }
+                    if !submission.attachments.isEmpty {
+                        Label(submission.attachments.count.formatted(), systemImage: "paperclip")
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 6)
+            VStack(alignment: .trailing, spacing: 8) {
+                SubmissionStatusPill(status: submission.status)
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(14)
+        .background(.background, in: RoundedRectangle(cornerRadius: 15))
+        .overlay { RoundedRectangle(cornerRadius: 15).stroke(.orange.opacity(0.13)) }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("module.assignment.submission.\(submission.id)")
+    }
+}
+
+private struct AssignmentSubmissionDetailView: View {
+    let submission: AssignmentSubmissionSummary
+    let maxScore: Double?
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 18) {
+                submissionHero
+                submissionTimeline
+
+                DetailSectionHeader(
+                    title: "modules.submission.response",
+                    subtitle: "modules.submission.responseHelp",
+                    systemImage: "doc.text.fill"
+                )
+                MarkdownContentPanel(text: submission.textAnswer, accentColor: .orange)
+
+                if !submission.attachments.isEmpty {
+                    DetailSectionHeader(
+                        title: "modules.submission.attachments",
+                        subtitle: "modules.submission.attachmentsHelp",
+                        systemImage: "paperclip"
+                    )
+                    VStack(spacing: 10) {
+                        ForEach(submission.attachments) { attachment in
+                            SubmissionAttachmentRow(attachment: attachment)
+                        }
+                    }
+                }
+
+                if submission.score != nil || submission.feedback != nil {
+                    submissionOutcome
+                }
+
+                Label("modules.assignment.readOnlyDetail", systemImage: "lock.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 14))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 34)
+            .frame(maxWidth: 820)
+            .frame(maxWidth: .infinity)
+        }
+        .background(ModulesBackground())
+        .navigationTitle("modules.submission.navigation")
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("module.assignment.submission.detail")
+    }
+
+    private var submissionHero: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Text(initials(submission.student.name))
+                .font(.title3.bold())
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(.orange, in: RoundedRectangle(cornerRadius: 17))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(submission.student.name)
+                    .font(.title2.bold())
+                    .foregroundStyle(Brand.ink)
+                Text(submission.student.email)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                SubmissionStatusPill(status: submission.status)
+            }
+            Spacer()
+        }
+        .padding(18)
+        .background(.background, in: RoundedRectangle(cornerRadius: 22))
+        .overlay { RoundedRectangle(cornerRadius: 22).stroke(.orange.opacity(0.16)) }
+    }
+
+    private var submissionTimeline: some View {
+        HStack(spacing: 10) {
+            SubmissionDetailMetric(
+                title: "modules.detail.submittedAt",
+                value: formattedModuleDate(submission.submittedAt, includeTime: true)
+                    ?? String(localized: "modules.submission.draft"),
+                systemImage: "paperplane.fill"
+            )
+            SubmissionDetailMetric(
+                title: "modules.submission.files",
+                value: submission.attachments.count.formatted(),
+                systemImage: "paperclip"
+            )
+        }
+    }
+
+    private var submissionOutcome: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            DetailSectionHeader(
+                title: "modules.submission.outcome",
+                subtitle: "modules.submission.outcomeHelp",
+                systemImage: "checkmark.seal.fill"
+            )
+            if let score = submission.score {
+                HStack {
+                    Label("modules.detail.score", systemImage: "star.fill")
                         .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(scoreText(score))
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(Brand.ink)
                 }
             }
-            if let title = slide.title, !title.isEmpty {
-                Text(title).font(.headline).foregroundStyle(Brand.ink)
-            }
-            if let content = slide.content, !content.isEmpty {
-                Text(content).font(.body).lineSpacing(4).foregroundStyle(Brand.ink)
-            }
-            if let notes = slide.speakerNotes, !notes.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("modules.content.speakerNotes", systemImage: "person.wave.2")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Brand.evergreen)
-                    Text(notes).font(.subheadline).foregroundStyle(.secondary)
-                }
-                .padding(10)
-                .background(Brand.warmSurface, in: RoundedRectangle(cornerRadius: 11))
+            if let feedback = submission.feedback, !feedback.isEmpty {
+                MarkdownContentPanel(text: feedback, accentColor: .orange)
             }
         }
         .padding(16)
         .background(.background, in: RoundedRectangle(cornerRadius: 18))
-        .overlay { RoundedRectangle(cornerRadius: 18).stroke(Brand.ink.opacity(0.07)) }
-        .accessibilityIdentifier("module.resource.slide.\(slide.id)")
+        .overlay { RoundedRectangle(cornerRadius: 18).stroke(.orange.opacity(0.14)) }
     }
+
+    private func scoreText(_ score: Double) -> String {
+        guard let maxScore else { return score.formatted() }
+        return "\(score.formatted()) / \(maxScore.formatted())"
+    }
+}
+
+private struct DetailSectionHeader: View {
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
+    let systemImage: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 11) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.orange)
+                .frame(width: 34, height: 34)
+                .background(.orange.opacity(0.11), in: RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.headline).foregroundStyle(Brand.ink)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct SubmissionDetailMetric: View {
+    let title: LocalizedStringKey
+    let value: String
+    let systemImage: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: systemImage)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Brand.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .padding(13)
+        .background(.orange.opacity(0.075), in: RoundedRectangle(cornerRadius: 14))
+        .overlay { RoundedRectangle(cornerRadius: 14).stroke(.orange.opacity(0.13)) }
+    }
+}
+
+private struct SubmissionAttachmentRow: View {
+    let attachment: SubmissionAttachmentSummary
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: attachmentSymbol)
+                .font(.headline)
+                .foregroundStyle(.orange)
+                .frame(width: 40, height: 40)
+                .background(.orange.opacity(0.11), in: RoundedRectangle(cornerRadius: 11))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(attachment.filename ?? String(localized: "modules.submission.attachment"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Brand.ink)
+                    .lineLimit(2)
+                Text(attachmentMetadata)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(13)
+        .background(.background, in: RoundedRectangle(cornerRadius: 14))
+        .overlay { RoundedRectangle(cornerRadius: 14).stroke(Brand.ink.opacity(0.07)) }
+    }
+
+    private var attachmentSymbol: String {
+        if attachment.contentType == "application/pdf" { return "doc.richtext.fill" }
+        if attachment.contentType?.hasPrefix("image/") == true { return "photo.fill" }
+        return "doc.fill"
+    }
+
+    private var attachmentMetadata: String {
+        guard let size = attachment.sizeBytes else {
+            return attachment.contentType ?? String(localized: "modules.submission.file")
+        }
+        return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+    }
+}
+
+private struct SubmissionStatusPill: View {
+    let status: String
+
+    var body: some View {
+        Text(localizedSubmissionStatus(status))
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(statusColor)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(statusColor.opacity(0.11), in: Capsule())
+    }
+
+    private var statusColor: Color {
+        switch status.lowercased() {
+        case "graded": .green
+        case "late": .orange
+        case "submitted": .blue
+        case "returned": .purple
+        default: .secondary
+        }
+    }
+}
+
+private struct StudentSubmissionSnapshotCard: View {
+    let snapshot: AssignmentSubmissionSnapshot
+    let maxScore: Double?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "paperplane.fill")
+                .foregroundStyle(.orange)
+                .frame(width: 38, height: 38)
+                .background(.orange.opacity(0.11), in: RoundedRectangle(cornerRadius: 11))
+            VStack(alignment: .leading, spacing: 4) {
+                SubmissionStatusPill(status: snapshot.status)
+                if let submitted = formattedModuleDate(snapshot.submittedAt, includeTime: true) {
+                    Text(submitted).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if let score = snapshot.score {
+                Text(maxScore.map { "\(score.formatted()) / \($0.formatted())" } ?? score.formatted())
+                    .font(.headline.monospacedDigit())
+            }
+        }
+        .padding(14)
+        .background(.orange.opacity(0.06), in: RoundedRectangle(cornerRadius: 15))
+    }
+}
+
+private func localizedSubmissionStatus(_ status: String) -> String {
+    switch status.lowercased() {
+    case "draft": String(localized: "submission.status.draft")
+    case "submitted": String(localized: "submission.status.submitted")
+    case "late": String(localized: "submission.status.late")
+    case "graded": String(localized: "submission.status.graded")
+    case "returned": String(localized: "submission.status.returned")
+    default: status.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+}
+
+private func localizedModuleStatus(_ status: String) -> String {
+    switch status.lowercased() {
+    case "published": String(localized: "modules.status.published")
+    case "draft": String(localized: "modules.status.draft")
+    case "closed": String(localized: "modules.status.closed")
+    case "archived": String(localized: "modules.status.archived")
+    default: status.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+}
+
+private func initials(_ name: String) -> String {
+    name.split(separator: " ")
+        .prefix(2)
+        .compactMap(\.first)
+        .map(String.init)
+        .joined()
+        .uppercased()
 }
 
 private struct QuizQuestionCard: View {
