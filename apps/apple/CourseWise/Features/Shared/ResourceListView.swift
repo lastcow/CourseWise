@@ -696,6 +696,7 @@ private struct ModuleDetailView: View {
                         titleKey: "modules.detail.materials",
                         helpKey: "modules.detail.materialsHelp",
                         systemImage: "books.vertical.fill",
+                        accentColor: .teal,
                         entries: teachingMaterials,
                         identifier: "module.detail.section.materials"
                     )
@@ -703,6 +704,7 @@ private struct ModuleDetailView: View {
                         titleKey: "modules.detail.assignments",
                         helpKey: "modules.detail.assignmentsHelp",
                         systemImage: "checklist",
+                        accentColor: .orange,
                         entries: assignments.map { ModuleDetailEntry(kind: .assignment, item: $0) },
                         identifier: "module.detail.section.assignments"
                     )
@@ -710,6 +712,7 @@ private struct ModuleDetailView: View {
                         titleKey: "modules.detail.quizzes",
                         helpKey: "modules.detail.quizzesHelp",
                         systemImage: "questionmark.circle.fill",
+                        accentColor: .blue,
                         entries: quizzes.map { ModuleDetailEntry(kind: .quiz, item: $0) },
                         identifier: "module.detail.section.quizzes"
                     )
@@ -717,6 +720,7 @@ private struct ModuleDetailView: View {
                         titleKey: "modules.detail.discussions",
                         helpKey: "modules.detail.discussionsHelp",
                         systemImage: "bubble.left.and.bubble.right.fill",
+                        accentColor: .purple,
                         entries: discussions.map { ModuleDetailEntry(kind: .discussion, item: $0) },
                         identifier: "module.detail.section.discussions"
                     )
@@ -932,6 +936,15 @@ private enum ModuleDetailKind: String {
         case .discussion: "modules.detail.discussion"
         }
     }
+
+    var accentColor: Color {
+        switch self {
+        case .material, .presentation: .teal
+        case .assignment: .orange
+        case .quiz: .blue
+        case .discussion: .purple
+        }
+    }
 }
 
 private struct ModuleDetailEntry: Identifiable {
@@ -945,6 +958,7 @@ private struct ModuleDetailSection: View {
     let titleKey: LocalizedStringKey
     let helpKey: LocalizedStringKey
     let systemImage: String
+    let accentColor: Color
     let entries: [ModuleDetailEntry]
     let identifier: String
 
@@ -953,9 +967,9 @@ private struct ModuleDetailSection: View {
             HStack(alignment: .center, spacing: 11) {
                 Image(systemName: systemImage)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Brand.evergreen)
+                    .foregroundStyle(accentColor)
                     .frame(width: 38, height: 38)
-                    .background(Brand.evergreen.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
+                    .background(accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(titleKey)
@@ -1094,9 +1108,9 @@ private struct ModuleDetailResourceCard: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: entry.kind.systemImage)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Brand.evergreen)
+                    .foregroundStyle(entry.kind.accentColor)
                     .frame(width: 34, height: 34)
-                    .background(Brand.evergreen.opacity(0.09), in: RoundedRectangle(cornerRadius: 10))
+                    .background(entry.kind.accentColor.opacity(0.11), in: RoundedRectangle(cornerRadius: 10))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(entry.kind.labelKey)
@@ -1129,7 +1143,11 @@ private struct ModuleDetailResourceCard: View {
                     spacing: 6
                 ) {
                     ForEach(Array(facts.prefix(6))) { fact in
-                        ModuleDetailFactTile(fact: fact, itemID: entry.item.id)
+                        ModuleDetailFactTile(
+                            fact: fact,
+                            itemID: entry.item.id,
+                            accentColor: entry.kind.accentColor
+                        )
                     }
                 }
             }
@@ -1197,14 +1215,15 @@ private struct ModuleDetailResourceCard: View {
 private struct ModuleDetailFactTile: View {
     let fact: ModuleDetailFact
     let itemID: String
+    let accentColor: Color
 
     var body: some View {
         HStack(alignment: .top, spacing: 7) {
             Image(systemName: fact.systemImage)
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Brand.evergreen)
+                .foregroundStyle(accentColor)
                 .frame(width: 20, height: 20)
-                .background(Brand.evergreen.opacity(0.09), in: RoundedRectangle(cornerRadius: 6))
+                .background(accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(LocalizedStringKey(fact.labelKey))
@@ -1221,7 +1240,11 @@ private struct ModuleDetailFactTile: View {
         }
         .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
         .padding(7)
-        .background(Brand.evergreen.opacity(0.055), in: RoundedRectangle(cornerRadius: 10))
+        .background(accentColor.opacity(0.075), in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(accentColor.opacity(0.12))
+        }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("module.detail.fact.\(itemID).\(fact.labelKey)")
     }
